@@ -10,41 +10,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    // Obtener el cuerpo de la solicitud
-    const body = await request.json()
-    const { query, variables } = body
-
-    // Verificar que tenemos las variables de entorno necesarias
-    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
-      console.error("Faltan variables de entorno para Shopify")
+    // Verificar variables de entorno
+    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN) {
+      console.error("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está configurado")
       return NextResponse.json(
-        { error: "Configuración de Shopify incompleta. Contacte al administrador." },
+        { error: "Configuración de Shopify incompleta: falta el dominio de la tienda" },
         { status: 500 },
       )
     }
 
+    if (!process.env.SHOPIFY_ACCESS_TOKEN) {
+      console.error("SHOPIFY_ACCESS_TOKEN no está configurado")
+      return NextResponse.json(
+        { error: "Configuración de Shopify incompleta: falta el token de acceso" },
+        { status: 500 },
+      )
+    }
+
+    // Obtener el cuerpo de la solicitud
+    const body = await request.json()
+    const { query, variables } = body
+
+    // Construir la URL completa de la API de Shopify
+    const shopifyUrl = `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-10/graphql.json`
+
+    console.log(`Enviando solicitud a Shopify: ${shopifyUrl}`)
+
     // Hacer la solicitud a la API de Shopify
-    const response = await fetch(
-      `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-10/graphql.json`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
-        },
-        body: JSON.stringify({
-          query,
-          variables,
-        }),
+    const response = await fetch(shopifyUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
       },
-    )
+      body: JSON.stringify({
+        query,
+        variables,
+      }),
+    })
 
     // Verificar si la respuesta es exitosa
     if (!response.ok) {
       const errorText = await response.text()
-      console.error("Error en la respuesta de Shopify:", errorText)
+      console.error(`Error en la respuesta de Shopify (${response.status}): ${errorText}`)
       return NextResponse.json(
-        { error: "Error en la respuesta de Shopify", details: errorText },
+        {
+          error: `Error en la respuesta de Shopify: ${response.status} ${response.statusText}`,
+          details: errorText,
+        },
         { status: response.status },
       )
     }
@@ -55,14 +68,23 @@ export async function POST(request: NextRequest) {
     // Verificar si hay errores en la respuesta GraphQL
     if (data.errors) {
       console.error("Errores GraphQL:", data.errors)
-      return NextResponse.json({ error: "Error en la consulta GraphQL", details: data.errors }, { status: 400 })
+      return NextResponse.json(
+        {
+          error: "Error en la consulta GraphQL",
+          details: data.errors,
+        },
+        { status: 400 },
+      )
     }
 
     return NextResponse.json(data)
   } catch (error) {
     console.error("Error en el proxy de Shopify:", error)
     return NextResponse.json(
-      { error: "Error interno del servidor", details: (error as Error).message },
+      {
+        error: "Error interno del servidor",
+        details: (error as Error).message,
+      },
       { status: 500 },
     )
   }

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { fetchRecentOrders } from "@/lib/api/orders"
 import { formatDate, formatCurrency } from "@/lib/utils"
+import { ErrorHandler } from "@/components/error-handler"
 
 interface Order {
   id: string
@@ -25,20 +26,24 @@ interface Order {
 export function RecentOrders() {
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
+
+  const fetchOrders = async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const data = await fetchRecentOrders(5)
+      setOrders(data)
+    } catch (err) {
+      console.error("Error fetching orders:", err)
+      setError(err instanceof Error ? err : new Error("Error desconocido al cargar pedidos"))
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const getOrders = async () => {
-      try {
-        const data = await fetchRecentOrders(5)
-        setOrders(data)
-      } catch (error) {
-        console.error("Error fetching orders:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    getOrders()
+    fetchOrders()
   }, [])
 
   const getStatusColor = (status: string) => {
@@ -58,6 +63,10 @@ export function RecentOrders() {
       default:
         return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100"
     }
+  }
+
+  if (error) {
+    return <ErrorHandler error={error} resetError={fetchOrders} message="Error al cargar los pedidos recientes" />
   }
 
   if (isLoading) {

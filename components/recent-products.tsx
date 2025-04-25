@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { fetchRecentProducts } from "@/lib/api/products"
 import { Package } from "lucide-react"
+import { ErrorHandler } from "@/components/error-handler"
 
 interface Product {
   id: string
@@ -24,21 +25,29 @@ interface Product {
 export function RecentProducts() {
   const [products, setProducts] = useState<Product[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
+
+  const fetchProducts = async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const data = await fetchRecentProducts(5)
+      setProducts(data)
+    } catch (err) {
+      console.error("Error fetching products:", err)
+      setError(err instanceof Error ? err : new Error("Error desconocido al cargar productos"))
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const getProducts = async () => {
-      try {
-        const data = await fetchRecentProducts(5)
-        setProducts(data)
-      } catch (error) {
-        console.error("Error fetching products:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    getProducts()
+    fetchProducts()
   }, [])
+
+  if (error) {
+    return <ErrorHandler error={error} resetError={fetchProducts} message="Error al cargar los productos recientes" />
+  }
 
   if (isLoading) {
     return (
