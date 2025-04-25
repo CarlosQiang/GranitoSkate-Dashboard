@@ -1,26 +1,30 @@
-import { redirect } from "next/navigation"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { getShopifyStats } from "@/lib/shopify"
-import { DashboardCards } from "@/components/dashboard/dashboard-cards"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { DashboardStats } from "@/components/dashboard-stats"
+import { RecentOrders } from "@/components/recent-orders"
+import { RecentProducts } from "@/components/recent-products"
 
-export default async function DashboardPage() {
-  const session = await getServerSession(authOptions)
-
-  if (!session) {
-    redirect("/login")
-  }
-
-  const stats = await getShopifyStats()
-
+export default function DashboardPage() {
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground">Bienvenido al panel de administración de GranitoSkate</p>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <DashboardCards stats={stats} />
-      </div>
+
+      <DashboardStats />
+
+      <Tabs defaultValue="orders">
+        <TabsList>
+          <TabsTrigger value="orders">Pedidos recientes</TabsTrigger>
+          <TabsTrigger value="products">Productos recientes</TabsTrigger>
+        </TabsList>
+        <TabsContent value="orders" className="space-y-4">
+          <RecentOrders />
+        </TabsContent>
+        <TabsContent value="products" className="space-y-4">
+          <RecentProducts />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

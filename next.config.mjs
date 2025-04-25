@@ -1,13 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   images: {
     domains: ['cdn.shopify.com'],
     remotePatterns: [
@@ -18,15 +11,19 @@ const nextConfig = {
     ],
     unoptimized: true,
   },
-  async redirects() {
-    return [
-      {
-        source: '/',
-        destination: '/dashboard',
-        permanent: true,
-      },
-    ]
+  // Optimizaciones para producción
+  swcMinify: true,
+  poweredByHeader: false,
+  // Configuración para Vercel
+  env: {
+    NEXT_PUBLIC_VERCEL_URL: process.env.VERCEL_URL,
   },
-}
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+};
 
-export default nextConfig
+export default nextConfig;

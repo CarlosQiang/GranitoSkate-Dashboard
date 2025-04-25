@@ -1,69 +1,49 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { format, formatDistanceToNow } from "date-fns"
-import { es } from "date-fns/locale"
 
-// Función para combinar clases de Tailwind
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Función para formatear fechas
-export function formatDate(date: string | Date) {
-  if (!date) return "N/A"
-
-  try {
-    const dateObj = typeof date === "string" ? new Date(date) : date
-    return format(dateObj, "dd/MM/yyyy HH:mm", { locale: es })
-  } catch (error) {
-    console.error("Error al formatear fecha:", error)
-    return "Fecha inválida"
-  }
+export function formatDate(dateString: string) {
+  const date = new Date(dateString)
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date)
 }
 
-// Función para formatear fechas relativas
-export function formatRelativeDate(date: string | Date) {
-  if (!date) return "N/A"
-
-  try {
-    const dateObj = typeof date === "string" ? new Date(date) : date
-    return formatDistanceToNow(dateObj, { addSuffix: true, locale: es })
-  } catch (error) {
-    console.error("Error al formatear fecha relativa:", error)
-    return "Fecha inválida"
-  }
+export function formatCurrency(amount: string, currency = "EUR") {
+  const value = Number.parseFloat(amount)
+  return new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency,
+  }).format(value)
 }
 
-// Función para formatear moneda
-export function formatCurrency(amount: string | number, currencyCode = "USD") {
-  if (amount === undefined || amount === null) return "N/A"
-
-  try {
-    const numAmount = typeof amount === "string" ? Number.parseFloat(amount) : amount
-    return new Intl.NumberFormat("es-ES", {
-      style: "currency",
-      currency: currencyCode,
-    }).format(numAmount)
-  } catch (error) {
-    console.error("Error al formatear moneda:", error)
-    return "Valor inválido"
-  }
+export function truncate(str: string, length: number) {
+  if (!str) return ""
+  return str.length > length ? `${str.substring(0, length)}...` : str
 }
 
-// Función para truncar texto
-export function truncateText(text: string, maxLength = 50) {
-  if (!text) return ""
-  if (text.length <= maxLength) return text
-  return `${text.substring(0, maxLength)}...`
-}
-
-// Función para generar un slug
-export function generateSlug(text: string) {
-  if (!text) return ""
+export function slugify(text: string) {
   return text
+    .toString()
     .toLowerCase()
-    .replace(/[^\w\s-]/g, "")
     .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .trim()
+    .replace(/[^\w-]+/g, "")
+    .replace(/--+/g, "-")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "")
+}
+
+export function generateMetaDescription(text: string, maxLength = 160) {
+  if (!text) return ""
+
+  // Eliminar etiquetas HTML
+  const plainText = text.replace(/<[^>]*>/g, "")
+
+  // Truncar a la longitud máxima
+  return truncate(plainText, maxLength)
 }
