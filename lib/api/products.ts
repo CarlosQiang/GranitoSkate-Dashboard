@@ -117,8 +117,9 @@ export async function fetchProductById(id: string) {
 }
 
 export async function createProduct(productData: any) {
+  // Versión simplificada de la mutación para crear productos
   const mutation = gql`
-    mutation ProductCreate($input: ProductInput!) {
+    mutation productCreate($input: ProductInput!) {
       productCreate(input: $input) {
         product {
           id
@@ -134,10 +135,41 @@ export async function createProduct(productData: any) {
   `
 
   try {
-    const data = await shopifyClient.request(mutation, { input: productData })
+    // Asegurarse de que los datos tienen el formato correcto
+    const input = {
+      title: productData.title,
+      descriptionHtml: productData.descriptionHtml || "",
+      status: productData.status || "ACTIVE",
+      vendor: productData.vendor || "GranitoSkate",
+      productType: productData.productType || "SKATEBOARD",
+    }
 
-    if (data.productCreate.userErrors.length > 0) {
-      throw new Error(data.productCreate.userErrors[0].message)
+    // Si hay variantes, añadirlas
+    if (productData.variants && productData.variants.length > 0) {
+      input.variants = productData.variants.map((variant: any) => ({
+        price: variant.price,
+        compareAtPrice: variant.compareAtPrice || null,
+        inventoryQuantities: {
+          availableQuantity: Number.parseInt(variant.inventoryQuantity || "1", 10),
+          locationId: "gid://shopify/Location/1", // Usar el ID de ubicación predeterminado
+        },
+        sku: variant.sku || "",
+        options: [variant.title || "Default Title"],
+      }))
+    }
+
+    // Si hay metafields, añadirlos
+    if (productData.metafields && productData.metafields.length > 0) {
+      input.metafields = productData.metafields
+    }
+
+    console.log("Enviando datos para crear producto:", JSON.stringify(input, null, 2))
+
+    const data = await shopifyClient.request(mutation, { input })
+
+    if (data.productCreate.userErrors && data.productCreate.userErrors.length > 0) {
+      console.error("Errores al crear producto:", data.productCreate.userErrors)
+      throw new Error(`Error al crear producto: ${data.productCreate.userErrors[0].message}`)
     }
 
     return data.productCreate.product

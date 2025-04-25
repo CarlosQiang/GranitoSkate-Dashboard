@@ -7,6 +7,7 @@ export async function POST(request: NextRequest) {
     // Verificar autenticación
     const session = await getServerSession(authOptions)
     if (!session) {
+      console.log("Error de autenticación: No hay sesión activa")
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
@@ -35,6 +36,8 @@ export async function POST(request: NextRequest) {
     const shopifyUrl = `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-10/graphql.json`
 
     console.log(`Enviando solicitud a Shopify: ${shopifyUrl}`)
+    console.log("Variables:", JSON.stringify(variables, null, 2))
+    console.log("Query:", query.substring(0, 100) + "...")
 
     // Hacer la solicitud a la API de Shopify
     const response = await fetch(shopifyUrl, {

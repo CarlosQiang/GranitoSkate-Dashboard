@@ -4,7 +4,7 @@ import { redirect } from "next/navigation"
 import { authOptions } from "@/lib/auth"
 import { DashboardNav } from "@/components/dashboard-nav"
 import { DashboardHeader } from "@/components/dashboard-header"
-import { ShopifyConnectionChecker } from "@/components/shopify-connection-checker"
+import { ShopifyConnectionStatus } from "@/components/shopify-connection-status"
 
 export default async function DashboardLayout({
   children,
@@ -23,7 +23,8 @@ export default async function DashboardLayout({
       <div className="flex flex-1">
         <DashboardNav />
         <main className="flex-1 p-6 overflow-auto">
-          <ShopifyConnectionChecker>{children}</ShopifyConnectionChecker>
+          <ShopifyConnectionStatus />
+          {children}
         </main>
       </div>
     </div>

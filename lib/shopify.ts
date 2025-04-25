@@ -2,7 +2,7 @@ import { GraphQLClient } from "graphql-request"
 
 // Función para obtener la URL base de la aplicación
 const getBaseUrl = () => {
-  // En el navegador, usamos la URL actual
+  // En el navegador, usamos window.location.origin
   if (typeof window !== "undefined") {
     return window.location.origin
   }

@@ -23,6 +23,8 @@ export default function NewProductPage() {
     title: "",
     description: "",
     status: "ACTIVE",
+    vendor: "GranitoSkate",
+    productType: "SKATEBOARD",
     variants: [
       {
         price: "",
@@ -81,17 +83,20 @@ export default function NewProductPage() {
     setIsSaving(true)
 
     try {
+      // Preparar los datos para la API de Shopify
       const productData = {
         title: formData.title,
         descriptionHtml: formData.description,
         status: formData.status,
+        vendor: formData.vendor,
+        productType: formData.productType,
         variants: [
           {
-            price: formData.variants[0].price,
+            price: formData.variants[0].price || "0.00",
             compareAtPrice: formData.variants[0].compareAtPrice || null,
-            inventoryQuantity: Number.parseInt(formData.variants[0].inventoryQuantity.toString()),
-            sku: formData.variants[0].sku,
-            title: formData.variants[0].title,
+            inventoryQuantity: Number.parseInt(formData.variants[0].inventoryQuantity.toString()) || 1,
+            sku: formData.variants[0].sku || "",
+            title: formData.variants[0].title || "Default Title",
           },
         ],
         metafields: [
@@ -104,13 +109,15 @@ export default function NewProductPage() {
           {
             namespace: "seo",
             key: "description",
-            value: formData.seo.description,
+            value: formData.seo.description || "",
             type: "multi_line_text_field",
           },
         ],
       }
 
+      console.log("Enviando datos para crear producto:", productData)
       const product = await createProduct(productData)
+      console.log("Producto creado:", product)
 
       toast({
         title: "Producto creado",
@@ -122,7 +129,7 @@ export default function NewProductPage() {
       console.error("Error creating product:", error)
       toast({
         title: "Error",
-        description: "No se pudo crear el producto. Por favor, inténtalo de nuevo.",
+        description: `No se pudo crear el producto: ${(error as Error).message}`,
         variant: "destructive",
       })
     } finally {
@@ -182,6 +189,29 @@ export default function NewProductPage() {
                   placeholder="Descripción del producto"
                   rows={8}
                 />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="vendor">Fabricante</Label>
+                  <Input
+                    id="vendor"
+                    name="vendor"
+                    value={formData.vendor}
+                    onChange={handleInputChange}
+                    placeholder="Fabricante"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="productType">Tipo de producto</Label>
+                  <Input
+                    id="productType"
+                    name="productType"
+                    value={formData.productType}
+                    onChange={handleInputChange}
+                    placeholder="Tipo de producto"
+                  />
+                </div>
               </div>
 
               <div className="flex items-center space-x-2">

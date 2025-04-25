@@ -11,15 +11,32 @@ export async function POST() {
     }
 
     // Verificar variables de entorno
-    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
+    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN) {
+      console.error("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está configurado")
       return NextResponse.json(
         {
           success: false,
-          error: "Configuración de Shopify incompleta. Verifica las variables de entorno.",
+          error: "Configuración de Shopify incompleta: falta el dominio de la tienda",
         },
         { status: 200 },
       )
     }
+
+    if (!process.env.SHOPIFY_ACCESS_TOKEN) {
+      console.error("SHOPIFY_ACCESS_TOKEN no está configurado")
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Configuración de Shopify incompleta: falta el token de acceso",
+        },
+        { status: 200 },
+      )
+    }
+
+    console.log("Verificando conexión con Shopify:", {
+      domain: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN,
+      hasToken: !!process.env.SHOPIFY_ACCESS_TOKEN,
+    })
 
     // Consulta GraphQL simple para verificar la conexión
     const query = `
@@ -45,6 +62,7 @@ export async function POST() {
 
     if (!response.ok) {
       const errorText = await response.text()
+      console.error(`Error en la respuesta de Shopify (${response.status}): ${errorText}`)
       return NextResponse.json(
         {
           success: false,
@@ -59,6 +77,7 @@ export async function POST() {
 
     // Verificar si hay errores en la respuesta GraphQL
     if (data.errors) {
+      console.error("Errores GraphQL:", data.errors)
       return NextResponse.json(
         {
           success: false,
@@ -71,6 +90,7 @@ export async function POST() {
 
     // Verificar que la respuesta contiene los datos esperados
     if (!data.data || !data.data.shop) {
+      console.error("Respuesta de Shopify incompleta:", data)
       return NextResponse.json(
         {
           success: false,
@@ -80,6 +100,7 @@ export async function POST() {
       )
     }
 
+    console.log("Conexión con Shopify exitosa:", data.data.shop.name)
     return NextResponse.json({
       success: true,
       shopName: data.data.shop.name,
