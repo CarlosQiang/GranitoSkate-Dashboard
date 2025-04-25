@@ -7,10 +7,9 @@ import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
-import Image from "next/image"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -55,13 +54,8 @@ export default function LoginPage() {
     <div className="flex h-screen items-center justify-center bg-gray-50">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <div className="flex justify-center mb-4">
-            <Image src="/logo.svg" alt="SkateShop Logo" width={180} height={60} priority />
-          </div>
           <CardTitle className="text-2xl font-bold text-center">SkateShop Admin</CardTitle>
-          <CardDescription className="text-center">
-            Ingresa tus credenciales para acceder al dashboard de tu tienda de skate
-          </CardDescription>
+          <CardDescription className="text-center">Ingresa tus credenciales para acceder al dashboard</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -86,14 +80,11 @@ export default function LoginPage() {
                 required
               />
             </div>
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Iniciando sesión..." : "Iniciar sesión"}
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex justify-center">
-          <p className="text-sm text-muted-foreground">Dashboard de administración para tu tienda Shopify</p>
-        </CardFooter>
       </Card>
     </div>
   )

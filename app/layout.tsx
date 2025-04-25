@@ -8,10 +8,9 @@ import { AuthProvider } from "@/lib/auth-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
-// Actualizar el título y descripción del sitio
 export const metadata: Metadata = {
-  title: "SkateShop Admin - Dashboard Shopify",
-  description: "Dashboard para gestionar tu tienda de skate de forma sencilla y eficiente",
+  title: "SkateShop Admin",
+  description: "Dashboard para gestionar tu tienda de skate",
     generator: 'v0.dev'
 }
 
