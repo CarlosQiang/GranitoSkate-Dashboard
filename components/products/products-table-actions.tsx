@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { MoreHorizontal, Pencil, Copy, Trash2, ExternalLink } from "lucide-react"
+import { MoreHorizontal, Pencil, Copy, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -24,7 +24,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/components/ui/use-toast"
-import { deleteProduct } from "@/lib/actions"
 
 interface ProductsTableActionsProps {
   product: {
@@ -44,7 +43,8 @@ export function ProductsTableActions({ product }: ProductsTableActionsProps) {
     setIsDeleting(true)
 
     try {
-      await deleteProduct(product.id)
+      // Simulación de eliminación
+      await new Promise((resolve) => setTimeout(resolve, 1000))
 
       toast({
         title: "Producto eliminado",
@@ -80,16 +80,6 @@ export function ProductsTableActions({ product }: ProductsTableActionsProps) {
               <Pencil className="mr-2 h-4 w-4" />
               Editar
             </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <a
-              href={`https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/products/${product.handle}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <ExternalLink className="mr-2 h-4 w-4" />
-              Ver en tienda
-            </a>
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {

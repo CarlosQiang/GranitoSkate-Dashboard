@@ -15,8 +15,8 @@ export const authOptions: NextAuthOptions = {
         }
 
         // Usar variables de entorno para las credenciales
-        const validEmail = process.env.ADMIN_EMAIL || "granitoskate@gmail.com"
-        const validPassword = process.env.ADMIN_PASSWORD || "GranitoSkate"
+        const validEmail = process.env.ADMIN_EMAIL || "admin@example.com"
+        const validPassword = process.env.ADMIN_PASSWORD || "password"
 
         if (credentials.email === validEmail && credentials.password === validPassword) {
           return {

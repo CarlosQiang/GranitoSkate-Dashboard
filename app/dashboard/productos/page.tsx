@@ -1,7 +1,7 @@
 import { Suspense } from "react"
+import { ProductsHeader } from "@/components/products/products-header"
 import { ProductsTable } from "@/components/products/products-table"
 import { ProductsTableSkeleton } from "@/components/products/products-table-skeleton"
-import { ProductsHeader } from "@/components/products/products-header"
 
 export default function ProductsPage() {
   return (

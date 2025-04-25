@@ -12,7 +12,6 @@ export function ProductsTableSkeleton() {
             <TableHead className="hidden md:table-cell">Estado</TableHead>
             <TableHead className="hidden md:table-cell">Inventario</TableHead>
             <TableHead className="hidden md:table-cell">Precio</TableHead>
-            <TableHead className="hidden md:table-cell">Actualizado</TableHead>
             <TableHead className="text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
@@ -35,9 +34,6 @@ export function ProductsTableSkeleton() {
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
                   <Skeleton className="h-4 w-[80px]" />
-                </TableCell>
-                <TableCell className="hidden md:table-cell">
-                  <Skeleton className="h-4 w-[100px]" />
                 </TableCell>
                 <TableCell className="text-right">
                   <Skeleton className="ml-auto h-8 w-8" />

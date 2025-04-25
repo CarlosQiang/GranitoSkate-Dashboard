@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth"
 import { redirect } from "next/navigation"
 import { authOptions } from "@/lib/auth"
+import { DashboardCards } from "@/components/dashboard/dashboard-cards"
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions)
@@ -10,9 +11,12 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold">Dashboard</h1>
-      <p className="mt-2">Bienvenido al panel de administración de SkateShop</p>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground">Bienvenido al panel de administración</p>
+      </div>
+      <DashboardCards />
     </div>
   )
 }

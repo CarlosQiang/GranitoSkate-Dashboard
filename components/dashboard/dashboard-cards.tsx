@@ -1,16 +1,14 @@
 import Link from "next/link"
-import { Package, ShoppingCart, Users, Tag, MapPin, ArrowRight } from "lucide-react"
+import { Package, ShoppingCart, Users, Tag, ArrowRight } from "lucide-react"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { getShopifyStats } from "@/lib/shopify"
 
-export async function DashboardCards() {
-  const stats = await getShopifyStats()
-
+export function DashboardCards() {
+  // Datos de ejemplo para el dashboard
   const cards = [
     {
       title: "Productos",
-      value: stats.productsCount,
+      value: "0",
       description: "Total de productos",
       icon: Package,
       href: "/dashboard/productos",
@@ -18,7 +16,7 @@ export async function DashboardCards() {
     },
     {
       title: "Pedidos",
-      value: stats.ordersCount,
+      value: "0",
       description: "Total de pedidos",
       icon: ShoppingCart,
       href: "/dashboard/pedidos",
@@ -26,7 +24,7 @@ export async function DashboardCards() {
     },
     {
       title: "Clientes",
-      value: stats.customersCount,
+      value: "0",
       description: "Total de clientes",
       icon: Users,
       href: "/dashboard/clientes",
@@ -34,24 +32,16 @@ export async function DashboardCards() {
     },
     {
       title: "Colecciones",
-      value: stats.collectionsCount,
+      value: "0",
       description: "Total de colecciones",
       icon: Tag,
       href: "/dashboard/colecciones",
       color: "bg-amber-500",
     },
-    {
-      title: "Skate Spots",
-      value: "6",
-      description: "Spots recomendados",
-      icon: MapPin,
-      href: "/dashboard/skate-spots",
-      color: "bg-red-500",
-    },
   ]
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       {cards.map((card) => (
         <Card key={card.title}>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">

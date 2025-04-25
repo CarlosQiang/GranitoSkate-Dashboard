@@ -2,12 +2,11 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Package, Users, ShoppingCart, Tag, Settings, LogOut, MapPin } from "lucide-react"
+import { LayoutDashboard, Package, Users, ShoppingCart, Tag, Settings, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { signOut } from "next-auth/react"
 
-// Actualizar los enlaces de la barra lateral para incluir categorías específicas de skate
 const sidebarLinks = [
   {
     title: "Dashboard",
@@ -23,11 +22,6 @@ const sidebarLinks = [
     title: "Colecciones",
     href: "/dashboard/colecciones",
     icon: Tag,
-  },
-  {
-    title: "Skate Spots",
-    href: "/dashboard/skate-spots",
-    icon: MapPin,
   },
   {
     title: "Clientes",
@@ -52,7 +46,6 @@ export function Sidebar() {
   return (
     <div className="hidden border-r bg-background lg:block lg:w-64">
       <div className="flex h-full flex-col">
-        {/* Actualizar el logo y nombre en la barra lateral */}
         <div className="flex h-14 items-center border-b px-4">
           <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
             <span className="text-xl font-bold text-primary">SkateShop Admin</span>

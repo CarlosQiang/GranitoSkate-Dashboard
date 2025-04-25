@@ -1,13 +1,47 @@
 import Link from "next/link"
 import Image from "next/image"
-import { formatCurrency, formatDate } from "@/lib/utils"
-import { getProducts } from "@/lib/shopify"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ProductsTableActions } from "@/components/products/products-table-actions"
 
-export async function ProductsTable() {
-  const products = await getProducts()
+export function ProductsTable() {
+  // Datos de ejemplo para la tabla de productos
+  const products = [
+    {
+      id: "1",
+      title: "Skateboard Completo",
+      status: "ACTIVE",
+      totalInventory: 15,
+      featuredImage: {
+        url: "/placeholder.svg?key=414vy",
+      },
+      priceRange: {
+        minVariantPrice: {
+          amount: "89.99",
+          currencyCode: "USD",
+        },
+      },
+      updatedAt: "2023-05-15T10:00:00Z",
+      handle: "skateboard-completo",
+    },
+    {
+      id: "2",
+      title: "Ruedas Pro",
+      status: "ACTIVE",
+      totalInventory: 50,
+      featuredImage: {
+        url: "/placeholder.svg?key=qprv5",
+      },
+      priceRange: {
+        minVariantPrice: {
+          amount: "29.99",
+          currencyCode: "USD",
+        },
+      },
+      updatedAt: "2023-05-10T14:30:00Z",
+      handle: "ruedas-pro",
+    },
+  ]
 
   return (
     <div className="rounded-md border">
@@ -19,14 +53,13 @@ export async function ProductsTable() {
             <TableHead className="hidden md:table-cell">Estado</TableHead>
             <TableHead className="hidden md:table-cell">Inventario</TableHead>
             <TableHead className="hidden md:table-cell">Precio</TableHead>
-            <TableHead className="hidden md:table-cell">Actualizado</TableHead>
             <TableHead className="text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {products.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="h-24 text-center">
+              <TableCell colSpan={6} className="h-24 text-center">
                 No hay productos
               </TableCell>
             </TableRow>
@@ -61,13 +94,12 @@ export async function ProductsTable() {
                 <TableCell className="hidden md:table-cell">{product.totalInventory} unidades</TableCell>
                 <TableCell className="hidden md:table-cell">
                   {product.priceRange
-                    ? formatCurrency(
-                        product.priceRange.minVariantPrice.amount,
-                        product.priceRange.minVariantPrice.currencyCode,
-                      )
+                    ? new Intl.NumberFormat("es-ES", {
+                        style: "currency",
+                        currency: product.priceRange.minVariantPrice.currencyCode,
+                      }).format(Number(product.priceRange.minVariantPrice.amount))
                     : "N/A"}
                 </TableCell>
-                <TableCell className="hidden md:table-cell">{formatDate(product.updatedAt)}</TableCell>
                 <TableCell className="text-right">
                   <ProductsTableActions product={product} />
                 </TableCell>
