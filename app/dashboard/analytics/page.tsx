@@ -5,17 +5,38 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BarChart, LineChart, PieChart } from "@/components/charts"
 import { Skeleton } from "@/components/ui/skeleton"
+import { fetchShopStats } from "@/lib/api/dashboard"
 
 export default function AnalyticsPage() {
   const [isLoading, setIsLoading] = useState(true)
+  const [stats, setStats] = useState({
+    totalSales: "€0.00",
+    totalOrders: 0,
+    averageOrderValue: "€0.00",
+    conversionRate: "0%",
+  })
 
   useEffect(() => {
-    // Simulación de carga de datos
-    const timer = setTimeout(() => {
-      setIsLoading(false)
-    }, 1500)
+    const getStats = async () => {
+      try {
+        const data = await fetchShopStats()
+        setStats({
+          totalSales: data.totalRevenue || "€0.00",
+          totalOrders: data.totalOrders || 0,
+          averageOrderValue:
+            data.totalOrders > 0
+              ? `€${(Number.parseFloat(data.totalRevenue.replace(/[^0-9.-]+/g, "")) / data.totalOrders).toFixed(2)}`
+              : "€0.00",
+          conversionRate: "0%", // Esto requeriría datos adicionales de Shopify Analytics
+        })
+      } catch (error) {
+        console.error("Error fetching stats:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
-    return () => clearTimeout(timer)
+    getStats()
   }, [])
 
   return (
@@ -39,7 +60,11 @@ export default function AnalyticsPage() {
                 <CardTitle className="text-sm font-medium">Ventas totales</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoading ? <Skeleton className="h-7 w-20" /> : <div className="text-2xl font-bold">€12,345.67</div>}
+                {isLoading ? (
+                  <Skeleton className="h-7 w-20" />
+                ) : (
+                  <div className="text-2xl font-bold">{stats.totalSales}</div>
+                )}
               </CardContent>
             </Card>
             <Card>
@@ -47,7 +72,11 @@ export default function AnalyticsPage() {
                 <CardTitle className="text-sm font-medium">Pedidos</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoading ? <Skeleton className="h-7 w-20" /> : <div className="text-2xl font-bold">145</div>}
+                {isLoading ? (
+                  <Skeleton className="h-7 w-20" />
+                ) : (
+                  <div className="text-2xl font-bold">{stats.totalOrders}</div>
+                )}
               </CardContent>
             </Card>
             <Card>
@@ -55,7 +84,11 @@ export default function AnalyticsPage() {
                 <CardTitle className="text-sm font-medium">Valor medio</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoading ? <Skeleton className="h-7 w-20" /> : <div className="text-2xl font-bold">€85.14</div>}
+                {isLoading ? (
+                  <Skeleton className="h-7 w-20" />
+                ) : (
+                  <div className="text-2xl font-bold">{stats.averageOrderValue}</div>
+                )}
               </CardContent>
             </Card>
             <Card>
@@ -63,7 +96,11 @@ export default function AnalyticsPage() {
                 <CardTitle className="text-sm font-medium">Tasa de conversión</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoading ? <Skeleton className="h-7 w-20" /> : <div className="text-2xl font-bold">3.2%</div>}
+                {isLoading ? (
+                  <Skeleton className="h-7 w-20" />
+                ) : (
+                  <div className="text-2xl font-bold">{stats.conversionRate}</div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -115,19 +152,8 @@ export default function AnalyticsPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {[
-                      { page: "Página de inicio", visits: 1245 },
-                      { page: "Tablas de skate", visits: 876 },
-                      { page: "Ruedas", visits: 654 },
-                      { page: "Ejes", visits: 432 },
-                      { page: "Ropa", visits: 321 },
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-center justify-between">
-                        <div className="font-medium">{item.page}</div>
-                        <div>{item.visits} visitas</div>
-                      </div>
-                    ))}
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <p>Los datos de tráfico estarán disponibles próximamente</p>
                   </div>
                 )}
               </CardContent>
@@ -149,19 +175,8 @@ export default function AnalyticsPage() {
                   ))}
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {[
-                    { product: "Tabla completa GranitoSkate Pro", sales: 42 },
-                    { product: "Ruedas Spitfire Formula Four", sales: 38 },
-                    { product: "Ejes Thunder Titanium", sales: 27 },
-                    { product: "Camiseta GranitoSkate Logo", sales: 24 },
-                    { product: "Zapatillas Vans Old Skool", sales: 19 },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center justify-between">
-                      <div className="font-medium">{item.product}</div>
-                      <div>{item.sales} ventas</div>
-                    </div>
-                  ))}
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  <p>Los datos de productos más vendidos estarán disponibles próximamente</p>
                 </div>
               )}
             </CardContent>

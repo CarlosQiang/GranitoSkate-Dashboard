@@ -58,19 +58,19 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="store-name">Nombre de la tienda</Label>
-                <Input id="store-name" defaultValue="GranitoSkate" />
+                <Input id="store-name" placeholder="Nombre de tu tienda" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="store-email">Email de contacto</Label>
-                <Input id="store-email" type="email" defaultValue="info@granitoskate.com" />
+                <Input id="store-email" type="email" placeholder="email@tutienda.com" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="store-phone">Teléfono</Label>
-                <Input id="store-phone" type="tel" defaultValue="+34 123 456 789" />
+                <Input id="store-phone" type="tel" placeholder="+34 XXX XXX XXX" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="store-address">Dirección</Label>
-                <Textarea id="store-address" defaultValue="Calle Ejemplo, 123\n28001 Madrid\nEspaña" />
+                <Textarea id="store-address" placeholder="Dirección de tu tienda" />
               </div>
             </CardContent>
           </Card>
@@ -120,8 +120,8 @@ export default function SettingsPage() {
                   <p className="text-sm text-muted-foreground">3-5 días laborables</p>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Input id="shipping-standard-price" className="w-20" defaultValue="4.99" />
-                  <Switch id="shipping-standard" defaultChecked />
+                  <Input id="shipping-standard-price" className="w-20" placeholder="0.00" />
+                  <Switch id="shipping-standard" />
                 </div>
               </div>
               <div className="flex items-center justify-between space-x-2">
@@ -130,8 +130,8 @@ export default function SettingsPage() {
                   <p className="text-sm text-muted-foreground">1-2 días laborables</p>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Input id="shipping-express-price" className="w-20" defaultValue="9.99" />
-                  <Switch id="shipping-express" defaultChecked />
+                  <Input id="shipping-express-price" className="w-20" placeholder="0.00" />
+                  <Switch id="shipping-express" />
                 </div>
               </div>
               <div className="flex items-center justify-between space-x-2">
@@ -140,8 +140,8 @@ export default function SettingsPage() {
                   <p className="text-sm text-muted-foreground">Para pedidos superiores a</p>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Input id="shipping-free-threshold" className="w-20" defaultValue="50.00" />
-                  <Switch id="shipping-free" defaultChecked />
+                  <Input id="shipping-free-threshold" className="w-20" placeholder="0.00" />
+                  <Switch id="shipping-free" />
                 </div>
               </div>
             </CardContent>
@@ -155,11 +155,11 @@ export default function SettingsPage() {
             <CardContent>
               <div className="space-y-2">
                 <div className="flex items-center space-x-2">
-                  <Switch id="ship-spain" defaultChecked />
+                  <Switch id="ship-spain" />
                   <Label htmlFor="ship-spain">España</Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Switch id="ship-eu" defaultChecked />
+                  <Switch id="ship-eu" />
                   <Label htmlFor="ship-eu">Unión Europea</Label>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -179,11 +179,11 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center space-x-2">
-                <Switch id="payment-card" defaultChecked />
+                <Switch id="payment-card" />
                 <Label htmlFor="payment-card">Tarjeta de crédito/débito</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <Switch id="payment-paypal" defaultChecked />
+                <Switch id="payment-paypal" />
                 <Label htmlFor="payment-paypal">PayPal</Label>
               </div>
               <div className="flex items-center space-x-2">
@@ -205,10 +205,10 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="tax-rate">IVA (%)</Label>
-                <Input id="tax-rate" defaultValue="21" />
+                <Input id="tax-rate" placeholder="21" />
               </div>
               <div className="flex items-center space-x-2">
-                <Switch id="tax-included" defaultChecked />
+                <Switch id="tax-included" />
                 <Label htmlFor="tax-included">Precios con impuestos incluidos</Label>
               </div>
             </CardContent>
@@ -223,15 +223,15 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center space-x-2">
-                <Switch id="notify-orders" defaultChecked />
+                <Switch id="notify-orders" />
                 <Label htmlFor="notify-orders">Nuevos pedidos</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <Switch id="notify-stock" defaultChecked />
+                <Switch id="notify-stock" />
                 <Label htmlFor="notify-stock">Alertas de stock bajo</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <Switch id="notify-returns" defaultChecked />
+                <Switch id="notify-returns" />
                 <Label htmlFor="notify-returns">Solicitudes de devolución</Label>
               </div>
               <div className="flex items-center space-x-2">
@@ -248,15 +248,15 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center space-x-2">
-                <Switch id="customer-order" defaultChecked />
+                <Switch id="customer-order" />
                 <Label htmlFor="customer-order">Confirmación de pedido</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <Switch id="customer-shipping" defaultChecked />
+                <Switch id="customer-shipping" />
                 <Label htmlFor="customer-shipping">Información de envío</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <Switch id="customer-delivery" defaultChecked />
+                <Switch id="customer-delivery" />
                 <Label htmlFor="customer-delivery">Confirmación de entrega</Label>
               </div>
               <div className="flex items-center space-x-2">

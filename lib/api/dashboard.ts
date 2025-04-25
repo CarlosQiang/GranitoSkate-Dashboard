@@ -16,15 +16,14 @@ export async function fetchShopStats() {
   try {
     const data = await shopifyClient.request(query)
 
-    // Calcular ingresos totales (esto es un ejemplo, en una implementación real
-    // se obtendría de la API de Shopify)
-    const totalRevenue = "€12,345.67"
-
+    // En una implementación real, deberíamos obtener los ingresos totales
+    // de la API de Shopify, pero esto requiere consultas adicionales
+    // Por ahora, dejamos un valor vacío que se actualizará con datos reales
     return {
       totalOrders: data.shop.ordersCount,
       totalCustomers: data.shop.customersCount,
       totalProducts: data.shop.productsCount,
-      totalRevenue,
+      totalRevenue: "€0.00", // Este valor se actualizará con datos reales
     }
   } catch (error) {
     console.error("Error fetching shop stats:", error)
