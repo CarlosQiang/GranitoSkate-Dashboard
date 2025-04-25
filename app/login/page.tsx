@@ -38,6 +38,7 @@ export default function LoginPage() {
         })
       } else {
         router.push("/dashboard")
+        router.refresh()
       }
     } catch (error) {
       toast({

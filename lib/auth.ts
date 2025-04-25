@@ -15,8 +15,8 @@ export const authOptions: NextAuthOptions = {
         }
 
         // Usar variables de entorno para las credenciales
-        const validEmail = process.env.ADMIN_EMAIL
-        const validPassword = process.env.ADMIN_PASSWORD
+        const validEmail = process.env.ADMIN_EMAIL || "granitoskate@gmail.com"
+        const validPassword = process.env.ADMIN_PASSWORD || "GranitoSkate"
 
         if (credentials.email === validEmail && credentials.password === validPassword) {
           return {
@@ -32,6 +32,7 @@ export const authOptions: NextAuthOptions = {
   ],
   session: {
     strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 días
   },
   pages: {
     signIn: "/login",
@@ -54,4 +55,6 @@ export const authOptions: NextAuthOptions = {
       return session
     },
   },
+  secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === "development",
 }
