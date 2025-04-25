@@ -3,8 +3,9 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Check } from "lucide-react"
 import { CollectionProductManager } from "@/components/collection-product-manager"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function CollectionProductsPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -12,6 +13,7 @@ export default function CollectionProductsPage({ params }: { params: { id: strin
 
   const handleComplete = () => {
     setIsCompleted(true)
+    // Esperar un momento antes de redirigir
     setTimeout(() => {
       router.back()
     }, 2000)
@@ -28,9 +30,11 @@ export default function CollectionProductsPage({ params }: { params: { id: strin
       </div>
 
       {isCompleted ? (
-        <div className="bg-green-50 p-4 rounded-md border border-green-200">
-          <p className="text-green-800">Operación completada correctamente. Redirigiendo...</p>
-        </div>
+        <Alert className="border-green-500 bg-green-50 text-green-800">
+          <Check className="h-4 w-4" />
+          <AlertTitle>Operación completada</AlertTitle>
+          <AlertDescription>La operación se ha completado correctamente. Redirigiendo...</AlertDescription>
+        </Alert>
       ) : (
         <CollectionProductManager collectionId={params.id} onComplete={handleComplete} />
       )}

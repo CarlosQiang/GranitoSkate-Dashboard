@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { fetchRecentOrders } from "@/lib/api/orders"
 import { formatDate, formatCurrency } from "@/lib/utils"
-import { AlertCircle, RefreshCw } from "lucide-react"
+import { AlertCircle, RefreshCw, Eye, ShoppingCart } from "lucide-react"
 
 interface Order {
   id: string
@@ -66,20 +66,29 @@ export function RecentOrders() {
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+    <Card className="border-granito/20 shadow-sm hover:shadow-md transition-shadow">
+      <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-granito to-granito-light text-white">
         <div>
-          <CardTitle>Pedidos recientes</CardTitle>
-          <CardDescription>Los últimos 5 pedidos realizados en tu tienda</CardDescription>
+          <CardTitle className="flex items-center">
+            <ShoppingCart className="mr-2 h-5 w-5" />
+            Pedidos recientes
+          </CardTitle>
+          <CardDescription className="text-white/80">Los últimos 5 pedidos realizados en tu tienda</CardDescription>
         </div>
         {!isLoading && (
-          <Button variant="ghost" size="sm" onClick={fetchOrders} disabled={isLoading}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={fetchOrders}
+            disabled={isLoading}
+            className="bg-white text-granito hover:bg-gray-100"
+          >
             <RefreshCw className="h-4 w-4 mr-1" />
             Actualizar
           </Button>
         )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-6">
         {isLoading ? (
           <div className="space-y-4">
             {[...Array(5)].map((_, i) => (
@@ -106,11 +115,20 @@ export function RecentOrders() {
             </Button>
           </div>
         ) : orders.length === 0 ? (
-          <p className="text-center text-muted-foreground py-6">No hay pedidos recientes</p>
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <ShoppingCart className="h-12 w-12 text-muted-foreground mb-2 opacity-20" />
+            <p className="text-muted-foreground">No hay pedidos recientes</p>
+            <Button variant="outline" size="sm" onClick={fetchOrders} className="mt-4">
+              Actualizar datos
+            </Button>
+          </div>
         ) : (
           <div className="space-y-4">
             {orders.map((order) => (
-              <div key={order.id} className="flex items-center justify-between">
+              <div
+                key={order.id}
+                className="flex items-center justify-between p-3 rounded-lg border hover:bg-gray-50 transition-colors"
+              >
                 <div className="space-y-1">
                   <p className="font-medium">{order.name}</p>
                   <div className="flex items-center gap-2">
@@ -122,8 +140,10 @@ export function RecentOrders() {
                   <Badge className={getStatusColor(order.fulfillmentStatus)}>
                     {order.fulfillmentStatus.replace("_", " ")}
                   </Badge>
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link href={`/dashboard/orders/${order.id}`}>Ver</Link>
+                  <Button variant="ghost" size="sm" asChild className="hover:bg-granito/10 hover:text-granito">
+                    <Link href={`/dashboard/orders/${order.id}`}>
+                      <Eye className="h-4 w-4" />
+                    </Link>
                   </Button>
                 </div>
               </div>

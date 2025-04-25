@@ -11,7 +11,8 @@ import { useToast } from "@/components/ui/use-toast"
 import { fetchCollections } from "@/lib/api/collections"
 import { fetchRecentProducts } from "@/lib/api/products"
 import { addProductsToCollection, removeProductsFromCollection } from "@/lib/api/products"
-import { Search, Plus, Trash, Check } from "lucide-react"
+import { Search, Plus, Trash, Check, AlertCircle } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 interface Product {
   id: string
@@ -50,10 +51,13 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [mode, setMode] = useState<"add" | "remove">("add")
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true)
+      setError(null)
       try {
         const [collectionsData, productsData] = await Promise.all([
           fetchCollections(),
@@ -63,18 +67,14 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
         setProducts(productsData)
       } catch (error) {
         console.error("Error fetching data:", error)
-        toast({
-          title: "Error",
-          description: "No se pudieron cargar los datos",
-          variant: "destructive",
-        })
+        setError("No se pudieron cargar los datos. Por favor, inténtalo de nuevo.")
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchData()
-  }, [toast])
+  }, [])
 
   const filteredProducts = products.filter((product) => product.title.toLowerCase().includes(searchQuery.toLowerCase()))
 
@@ -89,27 +89,35 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
     }
 
     setIsSubmitting(true)
+    setError(null)
+    setSuccess(null)
 
     try {
       if (mode === "add") {
         await addProductsToCollection(selectedCollection, selectedProducts)
+        setSuccess("Los productos han sido añadidos a la colección correctamente")
         toast({
           title: "Productos añadidos",
           description: "Los productos han sido añadidos a la colección correctamente",
         })
       } else {
         await removeProductsFromCollection(selectedCollection, selectedProducts)
+        setSuccess("Los productos han sido eliminados de la colección correctamente")
         toast({
           title: "Productos eliminados",
           description: "Los productos han sido eliminados de la colección correctamente",
         })
       }
 
-      if (onComplete) {
-        onComplete()
-      }
+      // Esperar un momento antes de llamar a onComplete para que el usuario vea el mensaje de éxito
+      setTimeout(() => {
+        if (onComplete) {
+          onComplete()
+        }
+      }, 1500)
     } catch (error) {
       console.error("Error:", error)
+      setError(`No se pudo completar la operación: ${(error as Error).message}`)
       toast({
         title: "Error",
         description: `No se pudo completar la operación: ${(error as Error).message}`,
@@ -142,23 +150,43 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="border-granito/20 shadow-md">
+      <CardHeader className="bg-gradient-to-r from-granito to-granito-light text-white">
         <CardTitle>Gestionar productos en colecciones</CardTitle>
-        <CardDescription>
+        <CardDescription className="text-white/80">
           {mode === "add" ? "Añade productos a una colección" : "Elimina productos de una colección"}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-6">
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {success && (
+          <Alert className="mb-4 border-green-500 bg-green-50 text-green-800">
+            <Check className="h-4 w-4" />
+            <AlertTitle>Operación completada</AlertTitle>
+            <AlertDescription>{success}</AlertDescription>
+          </Alert>
+        )}
+
         <div className="flex items-center gap-4">
-          <Button variant={mode === "add" ? "default" : "outline"} onClick={() => setMode("add")} className="flex-1">
+          <Button
+            variant={mode === "add" ? "default" : "outline"}
+            onClick={() => setMode("add")}
+            className="flex-1 bg-granito hover:bg-granito-dark"
+          >
             <Plus className="mr-2 h-4 w-4" />
             Añadir productos
           </Button>
           <Button
             variant={mode === "remove" ? "default" : "outline"}
             onClick={() => setMode("remove")}
-            className="flex-1"
+            className={`flex-1 ${mode === "remove" ? "bg-granito hover:bg-granito-dark" : ""}`}
           >
             <Trash className="mr-2 h-4 w-4" />
             Eliminar productos
@@ -166,10 +194,12 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="collection">Colección</Label>
+          <Label htmlFor="collection" className="text-sm font-medium">
+            Colección
+          </Label>
           <select
             id="collection"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-granito focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             value={selectedCollection || ""}
             onChange={(e) => setSelectedCollection(e.target.value)}
           >
@@ -183,21 +213,23 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="search">Buscar productos</Label>
+          <Label htmlFor="search" className="text-sm font-medium">
+            Buscar productos
+          </Label>
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               id="search"
               type="search"
               placeholder="Buscar productos..."
-              className="pl-8"
+              className="pl-8 border-granito/20 focus-visible:ring-granito"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
         </div>
 
-        <div className="border rounded-md">
+        <div className="border rounded-md shadow-sm">
           <div className="p-4 border-b bg-muted/50">
             <div className="flex items-center justify-between">
               <span className="font-medium">Productos</span>
@@ -210,7 +242,12 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
             ) : (
               <div className="space-y-2">
                 {filteredProducts.map((product) => (
-                  <div key={product.id} className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted">
+                  <div
+                    key={product.id}
+                    className={`flex items-center space-x-2 p-2 rounded-md hover:bg-muted transition-colors ${
+                      selectedProducts.includes(product.id) ? "bg-granito/10 border border-granito/20" : ""
+                    }`}
+                  >
                     <Checkbox
                       id={`product-${product.id}`}
                       checked={selectedProducts.includes(product.id)}
@@ -221,13 +258,18 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
                           setSelectedProducts(selectedProducts.filter((id) => id !== product.id))
                         }
                       }}
+                      className="border-granito data-[state=checked]:bg-granito data-[state=checked]:text-primary-foreground"
                     />
                     <label
                       htmlFor={`product-${product.id}`}
                       className="flex-1 text-sm cursor-pointer flex items-center justify-between"
                     >
                       <span>{product.title}</span>
-                      <span className="text-xs text-muted-foreground">
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full ${
+                          product.status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
                         {product.status === "ACTIVE" ? "Activo" : "Borrador"}
                       </span>
                     </label>
@@ -238,8 +280,12 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
           </div>
         </div>
       </CardContent>
-      <CardFooter className="flex justify-end">
-        <Button onClick={handleSubmit} disabled={isSubmitting || !selectedCollection || selectedProducts.length === 0}>
+      <CardFooter className="flex justify-end bg-gray-50 border-t p-4">
+        <Button
+          onClick={handleSubmit}
+          disabled={isSubmitting || !selectedCollection || selectedProducts.length === 0}
+          className="bg-granito hover:bg-granito-dark"
+        >
           {isSubmitting ? (
             "Procesando..."
           ) : mode === "add" ? (
