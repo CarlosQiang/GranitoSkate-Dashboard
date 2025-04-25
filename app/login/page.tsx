@@ -2,22 +2,40 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Package2 } from "lucide-react"
+import { Package2, AlertCircle } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+
+  // Capturar errores de autenticación de la URL
+  useEffect(() => {
+    const errorParam = searchParams.get("error")
+    if (errorParam) {
+      switch (errorParam) {
+        case "CredentialsSignin":
+          setError("Credenciales inválidas. Por favor, inténtalo de nuevo.")
+          break
+        case "Configuration":
+          setError("Error de configuración del servidor. Contacte al administrador.")
+          break
+        default:
+          setError("Ocurrió un error al iniciar sesión. Por favor, inténtalo de nuevo.")
+      }
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,7 +53,9 @@ export default function LoginPage() {
         setError("Credenciales inválidas. Por favor, inténtalo de nuevo.")
         setIsLoading(false)
       } else {
-        router.push("/dashboard")
+        // Obtener la URL de retorno o redirigir al dashboard
+        const callbackUrl = searchParams.get("callbackUrl") || "/dashboard"
+        router.push(callbackUrl)
       }
     } catch (error) {
       setError("Ocurrió un error al iniciar sesión. Por favor, inténtalo de nuevo.")
@@ -61,6 +81,7 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}

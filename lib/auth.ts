@@ -14,6 +14,12 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
+        // Verificar que las variables de entorno estén configuradas
+        if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
+          console.error("Faltan variables de entorno para la autenticación")
+          throw new Error("Configuración de autenticación incompleta. Contacte al administrador.")
+        }
+
         // Verificar las credenciales contra las variables de entorno
         if (credentials.email === process.env.ADMIN_EMAIL && credentials.password === process.env.ADMIN_PASSWORD) {
           return {
@@ -29,6 +35,7 @@ export const authOptions: NextAuthOptions = {
   ],
   pages: {
     signIn: "/login",
+    error: "/login",
   },
   session: {
     strategy: "jwt",

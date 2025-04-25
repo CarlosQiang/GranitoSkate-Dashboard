@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ShoppingCart, Users, Package, DollarSign } from "lucide-react"
 import { fetchShopStats } from "@/lib/api/dashboard"
+import { ErrorHandler } from "@/components/error-handler"
 
 interface StatsData {
   totalOrders: number
@@ -16,21 +17,29 @@ interface StatsData {
 export function DashboardStats() {
   const [stats, setStats] = useState<StatsData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
+
+  const fetchStats = async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const data = await fetchShopStats()
+      setStats(data)
+    } catch (err) {
+      console.error("Error fetching stats:", err)
+      setError(err instanceof Error ? err : new Error("Error desconocido al cargar estadísticas"))
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const getStats = async () => {
-      try {
-        const data = await fetchShopStats()
-        setStats(data)
-      } catch (error) {
-        console.error("Error fetching stats:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    getStats()
+    fetchStats()
   }, [])
+
+  if (error) {
+    return <ErrorHandler error={error} resetError={fetchStats} message="Error al cargar las estadísticas" />
+  }
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

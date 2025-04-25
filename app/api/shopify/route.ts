@@ -1,0 +1,69 @@
+import { type NextRequest, NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+
+export async function POST(request: NextRequest) {
+  try {
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
+    // Obtener el cuerpo de la solicitud
+    const body = await request.json()
+    const { query, variables } = body
+
+    // Verificar que tenemos las variables de entorno necesarias
+    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
+      console.error("Faltan variables de entorno para Shopify")
+      return NextResponse.json(
+        { error: "Configuración de Shopify incompleta. Contacte al administrador." },
+        { status: 500 },
+      )
+    }
+
+    // Hacer la solicitud a la API de Shopify
+    const response = await fetch(
+      `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-10/graphql.json`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
+        },
+        body: JSON.stringify({
+          query,
+          variables,
+        }),
+      },
+    )
+
+    // Verificar si la respuesta es exitosa
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error("Error en la respuesta de Shopify:", errorText)
+      return NextResponse.json(
+        { error: "Error en la respuesta de Shopify", details: errorText },
+        { status: response.status },
+      )
+    }
+
+    // Devolver la respuesta
+    const data = await response.json()
+
+    // Verificar si hay errores en la respuesta GraphQL
+    if (data.errors) {
+      console.error("Errores GraphQL:", data.errors)
+      return NextResponse.json({ error: "Error en la consulta GraphQL", details: data.errors }, { status: 400 })
+    }
+
+    return NextResponse.json(data)
+  } catch (error) {
+    console.error("Error en el proxy de Shopify:", error)
+    return NextResponse.json(
+      { error: "Error interno del servidor", details: (error as Error).message },
+      { status: 500 },
+    )
+  }
+}

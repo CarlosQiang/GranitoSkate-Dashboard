@@ -18,6 +18,7 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_VERCEL_URL: process.env.VERCEL_URL,
   },
+  // Ignorar errores de ESLint y TypeScript durante la compilación para evitar fallos en el despliegue
   eslint: {
     ignoreDuringBuilds: true,
   },

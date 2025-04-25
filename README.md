@@ -48,21 +48,26 @@ npm run dev
 ## Despliegue en Vercel
 
 1. Conecta tu repositorio a Vercel
-2. Configura las variables de entorno en el panel de Vercel
+2. Configura las variables de entorno en el panel de Vercel:
+   - `NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN`: Dominio de tu tienda Shopify
+   - `SHOPIFY_ACCESS_TOKEN`: Token de acceso a la API de Shopify
+   - `NEXTAUTH_SECRET`: Clave secreta para NextAuth
+   - `ADMIN_EMAIL`: Email del administrador
+   - `ADMIN_PASSWORD`: Contraseña del administrador
 3. Despliega la aplicación
 
-## Variables de entorno
+## Solución de problemas
 
-- `NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN`: Dominio de tu tienda Shopify
-- `SHOPIFY_ACCESS_TOKEN`: Token de acceso a la API de Shopify
-- `NEXTAUTH_SECRET`: Clave secreta para NextAuth
-- `NEXTAUTH_URL`: URL de tu aplicación (en producción, Vercel la configura automáticamente)
-- `ADMIN_EMAIL`: Email del administrador
-- `ADMIN_PASSWORD`: Contraseña del administrador
-\`\`\`
+Si encuentras problemas con la aplicación, puedes verificar el estado de la misma visitando la ruta `/api/health`. Esta ruta te mostrará si todas las variables de entorno están configuradas correctamente.
 
-Vamos a crear un archivo `robots.txt` para controlar el acceso de los buscadores:
+Si tienes problemas con la API de Shopify, asegúrate de que:
+1. El token de acceso es válido y tiene los permisos necesarios
+2. El dominio de la tienda es correcto
+3. Las variables de entorno están configuradas correctamente en Vercel
 
-```plaintext file="public/robots.txt"
-User-agent: *
-Disallow: /
+## Mantenimiento
+
+Para mantener la aplicación actualizada:
+1. Actualiza regularmente las dependencias
+2. Verifica periódicamente la validez del token de Shopify
+3. Mantén seguras las credenciales de administrador
