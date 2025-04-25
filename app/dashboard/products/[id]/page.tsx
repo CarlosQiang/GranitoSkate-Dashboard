@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/components/ui/use-toast"
 import { fetchProductById, updateProduct } from "@/lib/api/products"
 import { fetchCollections } from "@/lib/api/collections"
-import { Package, ArrowLeft, Save } from "lucide-react"
+import { Package, ArrowLeft, Save, AlertTriangle } from "lucide-react"
 
 export default function ProductPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -25,6 +25,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   const [collections, setCollections] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -38,22 +39,35 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setIsLoading(true)
+        setError(null)
+
         const productData = await fetchProductById(params.id)
+        if (!productData) {
+          throw new Error("No se pudo encontrar el producto")
+        }
+
         setProduct(productData)
         setFormData({
-          title: productData.title,
-          description: productData.description,
-          status: productData.status,
+          title: productData.title || "",
+          description: productData.description || "",
+          status: productData.status || "ACTIVE",
           seo: {
-            title: productData.seo?.title || productData.title,
+            title: productData.seo?.title || productData.title || "",
             description: productData.seo?.description || "",
           },
         })
 
-        const collectionsData = await fetchCollections()
-        setCollections(collectionsData)
+        try {
+          const collectionsData = await fetchCollections()
+          setCollections(collectionsData)
+        } catch (collectionError) {
+          console.error("Error fetching collections:", collectionError)
+          // No interrumpimos el flujo si falla la carga de colecciones
+        }
       } catch (error) {
         console.error("Error fetching data:", error)
+        setError(`No se pudo cargar la información del producto: ${(error as Error).message}`)
         toast({
           title: "Error",
           description: "No se pudo cargar la información del producto",
@@ -157,6 +171,41 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     )
   }
 
+  if (error || !product) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-3xl font-bold tracking-tight">Error</h1>
+        </div>
+
+        <Card className="border-destructive">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              <CardTitle className="text-destructive">Error al cargar el producto</CardTitle>
+            </div>
+            <CardDescription>
+              No se pudo cargar la información del producto. Es posible que el producto haya sido eliminado o que no
+              tengas permisos para acceder a él.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">{error}</p>
+            <div className="mt-4 flex gap-2">
+              <Button variant="outline" onClick={() => router.back()}>
+                Volver
+              </Button>
+              <Button onClick={() => window.location.reload()}>Reintentar</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -220,7 +269,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  {product.collections?.edges.length > 0 ? (
+                  {product.collections?.edges?.length > 0 ? (
                     <ul className="space-y-2">
                       {product.collections.edges.map((edge: any) => (
                         <li key={edge.node.id} className="flex items-center justify-between">
@@ -298,17 +347,21 @@ export default function ProductPage({ params }: { params: { id: string } }) {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {product.images?.edges.map((edge: any) => (
-                  <div key={edge.node.id} className="aspect-square rounded-md overflow-hidden bg-muted">
-                    <Image
-                      src={edge.node.url || "/placeholder.svg"}
-                      alt={edge.node.altText || product.title}
-                      width={200}
-                      height={200}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                ))}
+                {product.images?.edges?.length > 0 ? (
+                  product.images.edges.map((edge: any) => (
+                    <div key={edge.node.id} className="aspect-square rounded-md overflow-hidden bg-muted">
+                      <Image
+                        src={edge.node.url || "/placeholder.svg"}
+                        alt={edge.node.altText || product.title}
+                        width={200}
+                        height={200}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <p className="col-span-4 text-center py-8 text-muted-foreground">No hay imágenes disponibles</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -322,23 +375,27 @@ export default function ProductPage({ params }: { params: { id: string } }) {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {product.variants?.edges.map((edge: any) => (
-                  <div key={edge.node.id} className="flex items-center justify-between p-4 border rounded-md">
-                    <div>
-                      <p className="font-medium">{edge.node.title}</p>
-                      <p className="text-sm text-muted-foreground">SKU: {edge.node.sku || "No definido"}</p>
+                {product.variants?.edges?.length > 0 ? (
+                  product.variants.edges.map((edge: any) => (
+                    <div key={edge.node.id} className="flex items-center justify-between p-4 border rounded-md">
+                      <div>
+                        <p className="font-medium">{edge.node.title}</p>
+                        <p className="text-sm text-muted-foreground">SKU: {edge.node.sku || "No definido"}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">
+                          {new Intl.NumberFormat("es-ES", {
+                            style: "currency",
+                            currency: edge.node.price.currencyCode,
+                          }).format(Number.parseFloat(edge.node.price.amount))}
+                        </p>
+                        <p className="text-sm text-muted-foreground">Stock: {edge.node.inventoryQuantity}</p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium">
-                        {new Intl.NumberFormat("es-ES", {
-                          style: "currency",
-                          currency: edge.node.price.currencyCode,
-                        }).format(Number.parseFloat(edge.node.price.amount))}
-                      </p>
-                      <p className="text-sm text-muted-foreground">Stock: {edge.node.inventoryQuantity}</p>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-center py-8 text-muted-foreground">No hay variantes disponibles</p>
+                )}
               </div>
             </CardContent>
           </Card>

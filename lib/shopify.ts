@@ -20,6 +20,32 @@ const shopifyClient = new GraphQLClient(`${getBaseUrl()}/api/shopify`, {
   headers: {
     "Content-Type": "application/json",
   },
+  // Añadir un timeout para evitar que las solicitudes se queden colgadas
+  timeout: 30000, // 30 segundos
 })
+
+// Función para verificar la conexión con Shopify
+export async function checkShopifyConnection() {
+  try {
+    const query = `
+      {
+        shop {
+          name
+        }
+      }
+    `
+    const data = await shopifyClient.request(query)
+    return {
+      success: true,
+      shopName: data.shop.name,
+    }
+  } catch (error) {
+    console.error("Error al verificar la conexión con Shopify:", error)
+    return {
+      success: false,
+      error: (error as Error).message,
+    }
+  }
+}
 
 export default shopifyClient

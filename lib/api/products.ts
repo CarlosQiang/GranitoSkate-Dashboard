@@ -108,40 +108,19 @@ export async function fetchProductById(id: string) {
   `
 
   try {
-    const data = await shopifyClient.request(query, { id: `gid://shopify/Product/${id}` })
+    // Verificar si el ID ya tiene el formato correcto
+    const formattedId = id.includes("gid://") ? id : `gid://shopify/Product/${id}`
+
+    const data = await shopifyClient.request(query, { id: formattedId })
+
+    if (!data || !data.product) {
+      throw new Error(`Producto no encontrado: ${id}`)
+    }
+
     return data.product
   } catch (error) {
     console.error(`Error fetching product ${id}:`, error)
     throw new Error(`Failed to fetch product ${id}`)
-  }
-}
-
-// Función para obtener las ubicaciones de inventario disponibles
-export async function fetchInventoryLocations() {
-  const query = gql`
-    query GetInventoryLocations {
-      locations(first: 10) {
-        edges {
-          node {
-            id
-            name
-            isActive
-          }
-        }
-      }
-    }
-  `
-
-  try {
-    const data = await shopifyClient.request(query)
-    return data.locations.edges.map((edge: any) => ({
-      id: edge.node.id,
-      name: edge.node.name,
-      isActive: edge.node.isActive,
-    }))
-  } catch (error) {
-    console.error("Error fetching inventory locations:", error)
-    return []
   }
 }
 
@@ -222,9 +201,12 @@ export async function updateProduct(id: string, productData: any) {
   `
 
   try {
+    // Verificar si el ID ya tiene el formato correcto
+    const formattedId = id.includes("gid://") ? id : `gid://shopify/Product/${id}`
+
     const data = await shopifyClient.request(mutation, {
       input: {
-        id: `gid://shopify/Product/${id}`,
+        id: formattedId,
         ...productData,
       },
     })
@@ -254,9 +236,12 @@ export async function deleteProduct(id: string) {
   `
 
   try {
+    // Verificar si el ID ya tiene el formato correcto
+    const formattedId = id.includes("gid://") ? id : `gid://shopify/Product/${id}`
+
     const data = await shopifyClient.request(mutation, {
       input: {
-        id: `gid://shopify/Product/${id}`,
+        id: formattedId,
       },
     })
 
