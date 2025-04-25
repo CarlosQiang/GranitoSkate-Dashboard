@@ -9,11 +9,16 @@ import { useTheme } from "next-themes"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useState } from "react"
 import { navigationItems } from "@/config/navigation"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 export function DashboardHeader() {
   const { setTheme, theme } = useTheme()
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+
+  const handleSignOut = () => {
+    signOut({ callbackUrl: "/login" })
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -69,10 +74,18 @@ export function DashboardHeader() {
             <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             <span className="sr-only">Cambiar tema</span>
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => signOut({ callbackUrl: "/login" })}>
-            <LogOut className="h-5 w-5" />
-            <span className="sr-only">Cerrar sesión</span>
-          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <LogOut className="h-5 w-5" />
+                <span className="sr-only">Cerrar sesión</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleSignOut}>Cerrar sesión</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>
