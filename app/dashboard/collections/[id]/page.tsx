@@ -206,9 +206,18 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
 
         <TabsContent value="products" className="space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle>Productos en esta colección</CardTitle>
-              <CardDescription>Productos que pertenecen a esta colección</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Productos en esta colección</CardTitle>
+                <CardDescription>Productos que pertenecen a esta colección</CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push(`/dashboard/collections/${params.id}/products`)}
+              >
+                Gestionar productos
+              </Button>
             </CardHeader>
             <CardContent>
               {collection.products?.edges.length > 0 ? (

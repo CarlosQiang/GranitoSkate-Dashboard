@@ -29,7 +29,6 @@ export default function NewProductPage() {
       {
         price: "",
         compareAtPrice: "",
-        inventoryQuantity: 1,
         sku: "",
         title: "Default",
       },
@@ -94,7 +93,6 @@ export default function NewProductPage() {
           {
             price: formData.variants[0].price || "0.00",
             compareAtPrice: formData.variants[0].compareAtPrice || null,
-            inventoryQuantity: Number.parseInt(formData.variants[0].inventoryQuantity.toString()) || 1,
             sku: formData.variants[0].sku || "",
             title: formData.variants[0].title || "Default Title",
           },
@@ -256,18 +254,6 @@ export default function NewProductPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="inventoryQuantity">Cantidad en inventario</Label>
-                  <Input
-                    id="inventoryQuantity"
-                    name="variants[0].inventoryQuantity"
-                    type="number"
-                    value={formData.variants[0].inventoryQuantity}
-                    onChange={handleInputChange}
-                    placeholder="1"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="sku">SKU (opcional)</Label>
                   <Input
                     id="sku"
@@ -277,6 +263,12 @@ export default function NewProductPage() {
                     placeholder="SKU"
                   />
                 </div>
+              </div>
+              <div className="bg-yellow-50 p-4 rounded-md border border-yellow-200">
+                <p className="text-sm text-yellow-800">
+                  Nota: El inventario se configurará automáticamente después de crear el producto para evitar errores
+                  con las ubicaciones.
+                </p>
               </div>
             </CardContent>
           </Card>

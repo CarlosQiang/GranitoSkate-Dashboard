@@ -206,9 +206,18 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               </div>
 
               <Card>
-                <CardHeader>
-                  <CardTitle>Colecciones</CardTitle>
-                  <CardDescription>Colecciones a las que pertenece este producto</CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Colecciones</CardTitle>
+                    <CardDescription>Colecciones a las que pertenece este producto</CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push(`/dashboard/products/${params.id}/collections`)}
+                  >
+                    Gestionar colecciones
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   {product.collections?.edges.length > 0 ? (
