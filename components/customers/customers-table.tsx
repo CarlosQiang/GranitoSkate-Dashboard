@@ -1,34 +1,70 @@
-import Link from "next/link"
-import { formatDate } from "@/lib/utils"
-import { getCustomers } from "@/lib/shopify"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { CustomersTableActions } from "@/components/customers/customers-table-actions"
+"use client"
 
-export async function CustomersTable() {
-  const customers = await getCustomers()
+import { useState } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { formatDistanceToNow } from "date-fns"
+import { es } from "date-fns/locale"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { CustomersTableActions } from "./customers-table-actions"
+
+export function CustomersTable({ customers = [] }) {
+  const router = useRouter()
+  const [sortConfig, setSortConfig] = useState({
+    key: "updatedAt",
+    direction: "desc",
+  })
+
+  // Función para ordenar los clientes
+  const sortedCustomers = [...customers].sort((a, b) => {
+    if (a[sortConfig.key] < b[sortConfig.key]) {
+      return sortConfig.direction === "asc" ? -1 : 1
+    }
+    if (a[sortConfig.key] > b[sortConfig.key]) {
+      return sortConfig.direction === "asc" ? 1 : -1
+    }
+    return 0
+  })
+
+  // Función para cambiar el orden
+  const requestSort = (key) => {
+    let direction = "asc"
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc"
+    }
+    setSortConfig({ key, direction })
+  }
 
   return (
     <div className="rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Nombre</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead className="hidden md:table-cell">Teléfono</TableHead>
-            <TableHead className="hidden md:table-cell">Pedidos</TableHead>
-            <TableHead className="hidden md:table-cell">Registrado</TableHead>
+            <TableHead className="cursor-pointer" onClick={() => requestSort("firstName")}>
+              Nombre
+              {sortConfig.key === "firstName" && <span>{sortConfig.direction === "asc" ? " ↑" : " ↓"}</span>}
+            </TableHead>
+            <TableHead className="cursor-pointer" onClick={() => requestSort("email")}>
+              Email
+              {sortConfig.key === "email" && <span>{sortConfig.direction === "asc" ? " ↑" : " ↓"}</span>}
+            </TableHead>
+            <TableHead>Teléfono</TableHead>
+            <TableHead className="cursor-pointer" onClick={() => requestSort("updatedAt")}>
+              Actualizado
+              {sortConfig.key === "updatedAt" && <span>{sortConfig.direction === "asc" ? " ↑" : " ↓"}</span>}
+            </TableHead>
             <TableHead className="text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {customers.length === 0 ? (
+          {sortedCustomers.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="h-24 text-center">
-                No hay clientes
+              <TableCell colSpan={5} className="h-24 text-center">
+                No se encontraron clientes.
               </TableCell>
             </TableRow>
           ) : (
-            customers.map((customer) => (
+            sortedCustomers.map((customer) => (
               <TableRow key={customer.id}>
                 <TableCell className="font-medium">
                   <Link href={`/dashboard/clientes/${customer.id}`} className="hover:underline">
@@ -36,9 +72,15 @@ export async function CustomersTable() {
                   </Link>
                 </TableCell>
                 <TableCell>{customer.email}</TableCell>
-                <TableCell className="hidden md:table-cell">{customer.phone || "N/A"}</TableCell>
-                <TableCell className="hidden md:table-cell">{customer.ordersCount}</TableCell>
-                <TableCell className="hidden md:table-cell">{formatDate(customer.createdAt)}</TableCell>
+                <TableCell>{customer.phone || "N/A"}</TableCell>
+                <TableCell>
+                  {customer.updatedAt
+                    ? formatDistanceToNow(new Date(customer.updatedAt), {
+                        addSuffix: true,
+                        locale: es,
+                      })
+                    : "N/A"}
+                </TableCell>
                 <TableCell className="text-right">
                   <CustomersTableActions customer={customer} />
                 </TableCell>

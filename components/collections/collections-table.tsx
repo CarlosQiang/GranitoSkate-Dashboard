@@ -1,12 +1,38 @@
+"use client"
+
+import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { formatDate } from "@/lib/utils"
-import { getCollections } from "@/lib/shopify"
+import { formatDistanceToNow } from "date-fns"
+import { es } from "date-fns/locale"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { CollectionsTableActions } from "@/components/collections/collections-table-actions"
+import { CollectionsTableActions } from "./collections-table-actions"
 
-export async function CollectionsTable() {
-  const collections = await getCollections()
+export function CollectionsTable({ collections = [] }) {
+  const [sortConfig, setSortConfig] = useState({
+    key: "updatedAt",
+    direction: "desc",
+  })
+
+  // Función para ordenar las colecciones
+  const sortedCollections = [...collections].sort((a, b) => {
+    if (a[sortConfig.key] < b[sortConfig.key]) {
+      return sortConfig.direction === "asc" ? -1 : 1
+    }
+    if (a[sortConfig.key] > b[sortConfig.key]) {
+      return sortConfig.direction === "asc" ? 1 : -1
+    }
+    return 0
+  })
+
+  // Función para cambiar el orden
+  const requestSort = (key) => {
+    let direction = "asc"
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc"
+    }
+    setSortConfig({ key, direction })
+  }
 
   return (
     <div className="rounded-md border">
@@ -14,34 +40,44 @@ export async function CollectionsTable() {
         <TableHeader>
           <TableRow>
             <TableHead className="w-[80px]">Imagen</TableHead>
-            <TableHead>Nombre</TableHead>
-            <TableHead className="hidden md:table-cell">Productos</TableHead>
-            <TableHead className="hidden md:table-cell">Actualizado</TableHead>
+            <TableHead className="cursor-pointer" onClick={() => requestSort("title")}>
+              Título
+              {sortConfig.key === "title" && <span>{sortConfig.direction === "asc" ? " ↑" : " ↓"}</span>}
+            </TableHead>
+            <TableHead className="cursor-pointer" onClick={() => requestSort("productsCount")}>
+              Productos
+              {sortConfig.key === "productsCount" && <span>{sortConfig.direction === "asc" ? " ↑" : " ↓"}</span>}
+            </TableHead>
+            <TableHead className="cursor-pointer" onClick={() => requestSort("updatedAt")}>
+              Actualizada
+              {sortConfig.key === "updatedAt" && <span>{sortConfig.direction === "asc" ? " ↑" : " ↓"}</span>}
+            </TableHead>
             <TableHead className="text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {collections.length === 0 ? (
+          {sortedCollections.length === 0 ? (
             <TableRow>
               <TableCell colSpan={5} className="h-24 text-center">
-                No hay colecciones
+                No se encontraron colecciones.
               </TableCell>
             </TableRow>
           ) : (
-            collections.map((collection) => (
+            sortedCollections.map((collection) => (
               <TableRow key={collection.id}>
                 <TableCell>
                   {collection.image ? (
-                    <Image
-                      src={collection.image.url || "/placeholder.svg"}
-                      alt={collection.title}
-                      width={40}
-                      height={40}
-                      className="aspect-square rounded-md object-cover"
-                    />
+                    <div className="relative h-10 w-10 overflow-hidden rounded-md">
+                      <Image
+                        src={collection.image.url || "/placeholder.svg"}
+                        alt={collection.image.altText || collection.title}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
                   ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
-                      <span className="text-xs text-muted-foreground">N/A</span>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-gray-100">
+                      <span className="text-xs text-gray-500">N/A</span>
                     </div>
                   )}
                 </TableCell>
@@ -50,8 +86,15 @@ export async function CollectionsTable() {
                     {collection.title}
                   </Link>
                 </TableCell>
-                <TableCell className="hidden md:table-cell">{collection.productsCount} productos</TableCell>
-                <TableCell className="hidden md:table-cell">{formatDate(collection.updatedAt)}</TableCell>
+                <TableCell>{collection.productsCount}</TableCell>
+                <TableCell>
+                  {collection.updatedAt
+                    ? formatDistanceToNow(new Date(collection.updatedAt), {
+                        addSuffix: true,
+                        locale: es,
+                      })
+                    : "N/A"}
+                </TableCell>
                 <TableCell className="text-right">
                   <CollectionsTableActions collection={collection} />
                 </TableCell>

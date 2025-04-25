@@ -1,12 +1,10 @@
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Menu, Bell } from "lucide-react"
+import { signOut } from "next-auth/react"
+import { Menu, LogOut, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,8 +13,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Sidebar } from "@/components/sidebar"
-import { signOut } from "next-auth/react"
 
 interface HeaderProps {
   user?: {
@@ -27,76 +25,55 @@ interface HeaderProps {
 }
 
 export function Header({ user }: HeaderProps) {
-  const [open, setOpen] = useState(false)
   const pathname = usePathname()
+  const isLoginPage = pathname === "/login"
 
-  // Get the current page title based on the pathname
-  const getPageTitle = () => {
-    const path = pathname.split("/").filter(Boolean)
-
-    if (path.length === 1) return "Dashboard"
-
-    const page = path[1]
-
-    const titles: Record<string, string> = {
-      productos: "Productos",
-      colecciones: "Colecciones",
-      clientes: "Clientes",
-      pedidos: "Pedidos",
-      configuracion: "Configuración",
-    }
-
-    return titles[page] || "Dashboard"
-  }
-
-  const initials = user?.name
-    ? user.name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-    : "U"
+  if (isLoginPage) return null
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:px-6">
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild>
-          <Button variant="outline" size="icon" className="lg:hidden">
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Toggle Menu</span>
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="w-64 p-0">
-          <Sidebar />
-        </SheetContent>
-      </Sheet>
-      <div className="w-full flex-1">
-        <h1 className="text-lg font-semibold">{getPageTitle()}</h1>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
-          <span className="absolute top-1 right-1 flex h-2 w-2 rounded-full bg-primary"></span>
-          <span className="sr-only">Notifications</span>
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={user?.image || ""} alt={user?.name || "User"} />
-                <AvatarFallback>{initials}</AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Mi cuenta</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/dashboard/configuracion">Configuración</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/login" })}>Cerrar sesión</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+    <header className="sticky top-0 z-40 border-b bg-background">
+      <div className="container flex h-16 items-center justify-between py-4">
+        <div className="flex items-center gap-2 md:gap-4">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" className="md:hidden">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle Menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="pr-0">
+              <div className="px-7">
+                <Link href="/" className="flex items-center">
+                  <span className="font-bold">GestionGranito</span>
+                </Link>
+              </div>
+              <Sidebar className="px-2" />
+            </SheetContent>
+          </Sheet>
+          <Link href="/" className="hidden items-center space-x-2 md:flex">
+            <span className="hidden font-bold sm:inline-block">GestionGranito</span>
+          </Link>
+        </div>
+        <nav className="flex items-center gap-2">
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative h-8 w-8 rounded-full">
+                  <User className="h-5 w-5" />
+                  <span className="sr-only">Abrir menú de usuario</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Mi cuenta</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="cursor-pointer" onClick={() => signOut({ callbackUrl: "/login" })}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Cerrar sesión</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+        </nav>
       </div>
     </header>
   )

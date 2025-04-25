@@ -10,30 +10,18 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null
-        }
-
-        // Usar variables de entorno para las credenciales
-        const validEmail = process.env.ADMIN_EMAIL || "admin@example.com"
-        const validPassword = process.env.ADMIN_PASSWORD || "password"
-
-        if (credentials.email === validEmail && credentials.password === validPassword) {
+        // Verificar las credenciales con las variables de entorno
+        if (credentials?.email === process.env.ADMIN_EMAIL && credentials?.password === process.env.ADMIN_PASSWORD) {
           return {
             id: "1",
             name: "Admin",
-            email: validEmail,
+            email: process.env.ADMIN_EMAIL,
           }
         }
-
         return null
       },
     }),
   ],
-  session: {
-    strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 días
-  },
   pages: {
     signIn: "/login",
   },
@@ -42,18 +30,19 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id
         token.name = user.name
-        token.email = user.email
       }
       return token
     },
     async session({ session, token }) {
-      if (token && session.user) {
+      if (token) {
         session.user.id = token.id as string
-        session.user.name = token.name
-        session.user.email = token.email
       }
       return session
     },
   },
-  secret: process.env.NEXTAUTH_SECRET || "tu_clave_secreta_muy_segura_para_nextauth",
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 días
+  },
+  secret: process.env.NEXTAUTH_SECRET,
 }

@@ -114,7 +114,9 @@ export async function getCollections() {
               id
               title
               handle
-              productsCount
+              productsCount {
+                count
+              }
               updatedAt
               image {
                 url
@@ -138,7 +140,7 @@ export async function getCollections() {
         id: collection.id.split("/").pop(),
         title: collection.title,
         handle: collection.handle,
-        productsCount: collection.productsCount,
+        productsCount: collection.productsCount?.count || 0,
         updatedAt: collection.updatedAt,
         image: collection.image,
       }
@@ -161,11 +163,6 @@ export async function getCustomers() {
               lastName
               email
               phone
-              ordersCount
-              totalSpent {
-                amount
-                currencyCode
-              }
               createdAt
               updatedAt
             }
@@ -188,8 +185,6 @@ export async function getCustomers() {
         lastName: customer.lastName,
         email: customer.email,
         phone: customer.phone,
-        ordersCount: customer.ordersCount,
-        totalSpent: customer.totalSpent,
         createdAt: customer.createdAt,
         updatedAt: customer.updatedAt,
       }
@@ -215,13 +210,15 @@ export async function getOrders() {
                 lastName
                 email
               }
-              totalPrice {
-                amount
-                currencyCode
+              totalPriceSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
               }
               processedAt
-              fulfillmentStatus
-              financialStatus
+              displayFulfillmentStatus
+              displayFinancialStatus
             }
           }
         }
@@ -240,10 +237,10 @@ export async function getOrders() {
         id: order.id.split("/").pop(),
         name: order.name,
         customer: order.customer,
-        totalPrice: order.totalPrice,
+        totalPrice: order.totalPriceSet?.shopMoney || { amount: "0", currencyCode: "USD" },
         processedAt: order.processedAt,
-        fulfillmentStatus: order.fulfillmentStatus,
-        financialStatus: order.financialStatus,
+        fulfillmentStatus: order.displayFulfillmentStatus || "UNFULFILLED",
+        financialStatus: order.displayFinancialStatus || "PENDING",
       }
     })
   } catch (error) {

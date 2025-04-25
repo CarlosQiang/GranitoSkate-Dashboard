@@ -1,74 +1,67 @@
 import Link from "next/link"
-import { Package, ShoppingCart, Users, Tag, ArrowRight } from "lucide-react"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { Package, Users, ShoppingCart, FolderKanban } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-export function DashboardCards() {
-  // Datos de ejemplo para el dashboard
-  const cards = [
-    {
-      title: "Productos",
-      value: "0",
-      description: "Total de productos",
-      icon: Package,
-      href: "/dashboard/productos",
-      color: "bg-blue-500",
-    },
-    {
-      title: "Pedidos",
-      value: "0",
-      description: "Total de pedidos",
-      icon: ShoppingCart,
-      href: "/dashboard/pedidos",
-      color: "bg-green-500",
-    },
-    {
-      title: "Clientes",
-      value: "0",
-      description: "Total de clientes",
-      icon: Users,
-      href: "/dashboard/clientes",
-      color: "bg-purple-500",
-    },
-    {
-      title: "Colecciones",
-      value: "0",
-      description: "Total de colecciones",
-      icon: Tag,
-      href: "/dashboard/colecciones",
-      color: "bg-amber-500",
-    },
-  ]
+interface DashboardCardsProps {
+  stats: {
+    productsCount: number
+    collectionsCount: number
+    customersCount: number
+    ordersCount: number
+  }
+}
 
+export function DashboardCards({ stats }: DashboardCardsProps) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {cards.map((card) => (
-        <Card key={card.title}>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
-            <div className={`${card.color} p-2 rounded-md text-white`}>
-              <card.icon className="w-4 h-4" />
-            </div>
+    <>
+      <Link href="/dashboard/productos">
+        <Card className="hover:bg-muted/50 transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Productos</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{card.value}</div>
-            <p className="text-xs text-muted-foreground">{card.description}</p>
+            <div className="text-2xl font-bold">{stats.productsCount}</div>
+            <p className="text-xs text-muted-foreground">Total de productos en la tienda</p>
           </CardContent>
-          <CardFooter>
-            <Button
-              variant="ghost"
-              size="sm"
-              asChild
-              className="gap-1 px-0 text-xs text-muted-foreground hover:text-foreground"
-            >
-              <Link href={card.href}>
-                Ver detalles
-                <ArrowRight className="w-3 h-3" />
-              </Link>
-            </Button>
-          </CardFooter>
         </Card>
-      ))}
-    </div>
+      </Link>
+      <Link href="/dashboard/colecciones">
+        <Card className="hover:bg-muted/50 transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Colecciones</CardTitle>
+            <FolderKanban className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.collectionsCount}</div>
+            <p className="text-xs text-muted-foreground">Total de colecciones en la tienda</p>
+          </CardContent>
+        </Card>
+      </Link>
+      <Link href="/dashboard/clientes">
+        <Card className="hover:bg-muted/50 transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Clientes</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.customersCount}</div>
+            <p className="text-xs text-muted-foreground">Total de clientes registrados</p>
+          </CardContent>
+        </Card>
+      </Link>
+      <Link href="/dashboard/pedidos">
+        <Card className="hover:bg-muted/50 transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pedidos</CardTitle>
+            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.ordersCount}</div>
+            <p className="text-xs text-muted-foreground">Total de pedidos realizados</p>
+          </CardContent>
+        </Card>
+      </Link>
+    </>
   )
 }

@@ -1,9 +1,9 @@
 import type React from "react"
-import { getServerSession } from "next-auth"
 import { redirect } from "next/navigation"
+import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
+import { Sidebar } from "@/components/sidebar"
 
 export default async function DashboardLayout({
   children,
@@ -17,11 +17,11 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <Header user={session.user} />
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-4 md:p-6">{children}</main>
+    <div className="flex min-h-screen flex-col">
+      <Header user={session.user} />
+      <div className="flex flex-1">
+        <Sidebar />
+        <main className="flex-1">{children}</main>
       </div>
     </div>
   )
