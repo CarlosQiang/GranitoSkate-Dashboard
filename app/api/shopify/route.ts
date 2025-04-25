@@ -35,19 +35,6 @@ export async function POST(request: NextRequest) {
     // Construir la URL completa de la API de Shopify
     const shopifyUrl = `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-10/graphql.json`
 
-    console.log(`Enviando solicitud a Shopify: ${shopifyUrl}`)
-
-    // Limitar el tamaño del log para evitar logs demasiado grandes
-    const queryPreview = query.length > 200 ? query.substring(0, 200) + "..." : query
-    console.log("Query:", queryPreview)
-
-    if (variables) {
-      const variablesString = JSON.stringify(variables)
-      const variablesPreview =
-        variablesString.length > 200 ? variablesString.substring(0, 200) + "..." : variablesString
-      console.log("Variables:", variablesPreview)
-    }
-
     // Hacer la solicitud a la API de Shopify
     const response = await fetch(shopifyUrl, {
       method: "POST",
@@ -79,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     // Verificar si hay errores en la respuesta GraphQL
     if (data.errors) {
-      console.error("Errores GraphQL:", data.errors)
+      console.error("Errores GraphQL:", JSON.stringify(data.errors, null, 2))
       return NextResponse.json(
         {
           error: "Error en la consulta GraphQL",

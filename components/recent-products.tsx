@@ -8,8 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { fetchRecentProducts } from "@/lib/api/products"
-import { Package } from "lucide-react"
-import { ErrorHandler } from "@/components/error-handler"
+import { Package, RefreshCw, AlertCircle } from "lucide-react"
 
 interface Product {
   id: string
@@ -25,7 +24,7 @@ interface Product {
 export function RecentProducts() {
   const [products, setProducts] = useState<Product[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const fetchProducts = async () => {
     setIsLoading(true)
@@ -35,7 +34,7 @@ export function RecentProducts() {
       setProducts(data)
     } catch (err) {
       console.error("Error fetching products:", err)
-      setError(err instanceof Error ? err : new Error("Error desconocido al cargar productos"))
+      setError((err as Error).message || "Error desconocido al cargar productos")
     } finally {
       setIsLoading(false)
     }
@@ -45,18 +44,22 @@ export function RecentProducts() {
     fetchProducts()
   }, [])
 
-  if (error) {
-    return <ErrorHandler error={error} resetError={fetchProducts} message="Error al cargar los productos recientes" />
-  }
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
           <CardTitle>Productos recientes</CardTitle>
           <CardDescription>Los últimos 5 productos añadidos a tu tienda</CardDescription>
-        </CardHeader>
-        <CardContent>
+        </div>
+        {!isLoading && (
+          <Button variant="ghost" size="sm" onClick={fetchProducts} disabled={isLoading}>
+            <RefreshCw className="h-4 w-4 mr-1" />
+            Actualizar
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
           <div className="space-y-4">
             {[...Array(5)].map((_, i) => (
               <div key={i} className="flex items-center gap-4">
@@ -69,19 +72,17 @@ export function RecentProducts() {
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Productos recientes</CardTitle>
-        <CardDescription>Los últimos 5 productos añadidos a tu tienda</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {products.length === 0 ? (
+        ) : error ? (
+          <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-md">
+            <p className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              <span>{error}</span>
+            </p>
+            <Button variant="outline" size="sm" onClick={fetchProducts} className="mt-2">
+              Reintentar
+            </Button>
+          </div>
+        ) : products.length === 0 ? (
           <p className="text-center text-muted-foreground py-6">No hay productos recientes</p>
         ) : (
           <div className="space-y-4">

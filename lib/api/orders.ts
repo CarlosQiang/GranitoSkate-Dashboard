@@ -1,10 +1,10 @@
-import shopifyClient from "@/lib/shopify"
+import shopifyClient, { formatShopifyId } from "@/lib/shopify"
 import { gql } from "graphql-request"
 
 export async function fetchRecentOrders(limit = 5) {
   const query = gql`
-    query GetRecentOrders($limit: Int!) {
-      orders(first: $limit, sortKey: PROCESSED_AT, reverse: true) {
+    query {
+      orders(first: ${limit}, sortKey: PROCESSED_AT, reverse: true) {
         edges {
           node {
             id
@@ -27,7 +27,12 @@ export async function fetchRecentOrders(limit = 5) {
   `
 
   try {
-    const data = await shopifyClient.request(query, { limit })
+    const data = await shopifyClient.request(query)
+
+    if (!data || !data.orders || !data.orders.edges) {
+      console.error("Respuesta de órdenes incompleta:", data)
+      return []
+    }
 
     return data.orders.edges.map((edge: any) => ({
       id: edge.node.id.split("/").pop(),
@@ -111,7 +116,15 @@ export async function fetchOrderById(id: string) {
   `
 
   try {
-    const data = await shopifyClient.request(query, { id: `gid://shopify/Order/${id}` })
+    // Asegurarse de que el ID tenga el formato correcto
+    const formattedId = formatShopifyId(id, "Order")
+
+    const data = await shopifyClient.request(query, { id: formattedId })
+
+    if (!data || !data.order) {
+      throw new Error(`Pedido no encontrado: ${id}`)
+    }
+
     return data.order
   } catch (error) {
     console.error(`Error fetching order ${id}:`, error)

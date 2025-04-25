@@ -24,28 +24,12 @@ const shopifyClient = new GraphQLClient(`${getBaseUrl()}/api/shopify`, {
   timeout: 30000, // 30 segundos
 })
 
-// Función para verificar la conexión con Shopify
-export async function checkShopifyConnection() {
-  try {
-    const query = `
-      {
-        shop {
-          name
-        }
-      }
-    `
-    const data = await shopifyClient.request(query)
-    return {
-      success: true,
-      shopName: data.shop.name,
-    }
-  } catch (error) {
-    console.error("Error al verificar la conexión con Shopify:", error)
-    return {
-      success: false,
-      error: (error as Error).message,
-    }
+// Función para formatear correctamente los IDs de Shopify
+export function formatShopifyId(id: string, type: "Product" | "Collection" | "Variant" = "Product") {
+  if (id.startsWith("gid://")) {
+    return id
   }
+  return `gid://shopify/${type}/${id}`
 }
 
 export default shopifyClient

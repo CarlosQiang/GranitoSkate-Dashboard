@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { fetchRecentOrders } from "@/lib/api/orders"
 import { formatDate, formatCurrency } from "@/lib/utils"
-import { ErrorHandler } from "@/components/error-handler"
+import { AlertCircle, RefreshCw } from "lucide-react"
 
 interface Order {
   id: string
@@ -26,7 +26,7 @@ interface Order {
 export function RecentOrders() {
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const fetchOrders = async () => {
     setIsLoading(true)
@@ -36,7 +36,7 @@ export function RecentOrders() {
       setOrders(data)
     } catch (err) {
       console.error("Error fetching orders:", err)
-      setError(err instanceof Error ? err : new Error("Error desconocido al cargar pedidos"))
+      setError((err as Error).message || "Error desconocido al cargar pedidos")
     } finally {
       setIsLoading(false)
     }
@@ -65,18 +65,22 @@ export function RecentOrders() {
     }
   }
 
-  if (error) {
-    return <ErrorHandler error={error} resetError={fetchOrders} message="Error al cargar los pedidos recientes" />
-  }
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
           <CardTitle>Pedidos recientes</CardTitle>
           <CardDescription>Los últimos 5 pedidos realizados en tu tienda</CardDescription>
-        </CardHeader>
-        <CardContent>
+        </div>
+        {!isLoading && (
+          <Button variant="ghost" size="sm" onClick={fetchOrders} disabled={isLoading}>
+            <RefreshCw className="h-4 w-4 mr-1" />
+            Actualizar
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
           <div className="space-y-4">
             {[...Array(5)].map((_, i) => (
               <div key={i} className="flex items-center justify-between">
@@ -91,19 +95,17 @@ export function RecentOrders() {
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Pedidos recientes</CardTitle>
-        <CardDescription>Los últimos 5 pedidos realizados en tu tienda</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {orders.length === 0 ? (
+        ) : error ? (
+          <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-md">
+            <p className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              <span>{error}</span>
+            </p>
+            <Button variant="outline" size="sm" onClick={fetchOrders} className="mt-2">
+              Reintentar
+            </Button>
+          </div>
+        ) : orders.length === 0 ? (
           <p className="text-center text-muted-foreground py-6">No hay pedidos recientes</p>
         ) : (
           <div className="space-y-4">

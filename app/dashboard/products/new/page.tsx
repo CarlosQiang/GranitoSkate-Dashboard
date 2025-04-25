@@ -122,7 +122,15 @@ export default function NewProductPage() {
         description: "El producto ha sido creado correctamente",
       })
 
-      router.push(`/dashboard/products/${product.id.split("/").pop()}`)
+      // Redirigir a la lista de productos en lugar de a la página de detalles
+      // para evitar problemas de carga inmediata
+      router.push("/dashboard/products")
+
+      // Opcional: mostrar un mensaje adicional para indicar que se está redirigiendo
+      toast({
+        title: "Redirigiendo...",
+        description: "Serás redirigido a la lista de productos",
+      })
     } catch (error) {
       console.error("Error creating product:", error)
       toast({

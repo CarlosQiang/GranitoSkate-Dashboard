@@ -1,4 +1,4 @@
-import shopifyClient from "@/lib/shopify"
+import shopifyClient, { formatShopifyId } from "@/lib/shopify"
 import { gql } from "graphql-request"
 
 export async function fetchRecentProducts(limit = 5) {
@@ -24,12 +24,17 @@ export async function fetchRecentProducts(limit = 5) {
   try {
     const data = await shopifyClient.request(query, { limit })
 
+    if (!data || !data.products || !data.products.edges) {
+      console.error("Respuesta de productos incompleta:", data)
+      return []
+    }
+
     return data.products.edges.map((edge: any) => ({
       id: edge.node.id.split("/").pop(),
       title: edge.node.title,
       handle: edge.node.handle,
       status: edge.node.status,
-      totalInventory: edge.node.totalInventory,
+      totalInventory: edge.node.totalInventory || 0,
       featuredImage: edge.node.featuredImage,
     }))
   } catch (error) {
@@ -108,19 +113,24 @@ export async function fetchProductById(id: string) {
   `
 
   try {
-    // Verificar si el ID ya tiene el formato correcto
+    // Asegurarse de que el ID tenga el formato correcto
+    // Si el ID ya tiene el formato gid://, usarlo directamente
+    // De lo contrario, formatearlo como gid://shopify/Product/ID
     const formattedId = id.includes("gid://") ? id : `gid://shopify/Product/${id}`
+
+    console.log(`Fetching product with ID: ${formattedId}`)
 
     const data = await shopifyClient.request(query, { id: formattedId })
 
     if (!data || !data.product) {
+      console.error(`Producto no encontrado: ${id}`)
       throw new Error(`Producto no encontrado: ${id}`)
     }
 
     return data.product
   } catch (error) {
     console.error(`Error fetching product ${id}:`, error)
-    throw new Error(`Failed to fetch product ${id}`)
+    throw new Error(`Error al cargar el producto: ${(error as Error).message}`)
   }
 }
 
@@ -176,7 +186,14 @@ export async function createProduct(productData: any) {
       throw new Error(`Error al crear producto: ${data.productCreate.userErrors[0].message}`)
     }
 
-    return data.productCreate.product
+    // Extraer correctamente el ID del producto
+    const productId = data.productCreate.product.id.split("/").pop()
+
+    // Devolver el producto con el ID en formato simple
+    return {
+      ...data.productCreate.product,
+      id: productId,
+    }
   } catch (error) {
     console.error("Error creating product:", error)
     throw error
@@ -201,8 +218,8 @@ export async function updateProduct(id: string, productData: any) {
   `
 
   try {
-    // Verificar si el ID ya tiene el formato correcto
-    const formattedId = id.includes("gid://") ? id : `gid://shopify/Product/${id}`
+    // Asegurarse de que el ID tenga el formato correcto
+    const formattedId = formatShopifyId(id, "Product")
 
     const data = await shopifyClient.request(mutation, {
       input: {
@@ -211,7 +228,7 @@ export async function updateProduct(id: string, productData: any) {
       },
     })
 
-    if (data.productUpdate.userErrors.length > 0) {
+    if (data.productUpdate.userErrors && data.productUpdate.userErrors.length > 0) {
       throw new Error(data.productUpdate.userErrors[0].message)
     }
 
@@ -236,8 +253,8 @@ export async function deleteProduct(id: string) {
   `
 
   try {
-    // Verificar si el ID ya tiene el formato correcto
-    const formattedId = id.includes("gid://") ? id : `gid://shopify/Product/${id}`
+    // Asegurarse de que el ID tenga el formato correcto
+    const formattedId = formatShopifyId(id, "Product")
 
     const data = await shopifyClient.request(mutation, {
       input: {
@@ -245,7 +262,7 @@ export async function deleteProduct(id: string) {
       },
     })
 
-    if (data.productDelete.userErrors.length > 0) {
+    if (data.productDelete.userErrors && data.productDelete.userErrors.length > 0) {
       throw new Error(data.productDelete.userErrors[0].message)
     }
 
@@ -275,12 +292,9 @@ export async function addProductsToCollection(collectionId: string, productIds: 
   `
 
   try {
-    // Convertir IDs a formato Shopify GID si es necesario
-    const formattedProductIds = productIds.map((id) => (id.startsWith("gid://") ? id : `gid://shopify/Product/${id}`))
-
-    const formattedCollectionId = collectionId.startsWith("gid://")
-      ? collectionId
-      : `gid://shopify/Collection/${collectionId}`
+    // Convertir IDs a formato Shopify GID
+    const formattedProductIds = productIds.map((id) => formatShopifyId(id, "Product"))
+    const formattedCollectionId = formatShopifyId(collectionId, "Collection")
 
     const data = await shopifyClient.request(mutation, {
       id: formattedCollectionId,
@@ -318,12 +332,9 @@ export async function removeProductsFromCollection(collectionId: string, product
   `
 
   try {
-    // Convertir IDs a formato Shopify GID si es necesario
-    const formattedProductIds = productIds.map((id) => (id.startsWith("gid://") ? id : `gid://shopify/Product/${id}`))
-
-    const formattedCollectionId = collectionId.startsWith("gid://")
-      ? collectionId
-      : `gid://shopify/Collection/${collectionId}`
+    // Convertir IDs a formato Shopify GID
+    const formattedProductIds = productIds.map((id) => formatShopifyId(id, "Product"))
+    const formattedCollectionId = formatShopifyId(collectionId, "Collection")
 
     const data = await shopifyClient.request(mutation, {
       id: formattedCollectionId,

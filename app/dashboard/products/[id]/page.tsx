@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/components/ui/use-toast"
 import { fetchProductById, updateProduct } from "@/lib/api/products"
 import { fetchCollections } from "@/lib/api/collections"
-import { Package, ArrowLeft, Save, AlertTriangle } from "lucide-react"
+import { Package, ArrowLeft, Save, AlertTriangle, RefreshCw } from "lucide-react"
 
 export default function ProductPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -36,49 +36,59 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     },
   })
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true)
-        setError(null)
+  const fetchProductData = async () => {
+    setIsLoading(true)
+    setError(null)
 
-        const productData = await fetchProductById(params.id)
-        if (!productData) {
-          throw new Error("No se pudo encontrar el producto")
-        }
+    try {
+      console.log(`Intentando cargar producto con ID: ${params.id}`)
+      const productData = await fetchProductById(params.id)
 
-        setProduct(productData)
-        setFormData({
-          title: productData.title || "",
-          description: productData.description || "",
-          status: productData.status || "ACTIVE",
-          seo: {
-            title: productData.seo?.title || productData.title || "",
-            description: productData.seo?.description || "",
-          },
-        })
-
-        try {
-          const collectionsData = await fetchCollections()
-          setCollections(collectionsData)
-        } catch (collectionError) {
-          console.error("Error fetching collections:", collectionError)
-          // No interrumpimos el flujo si falla la carga de colecciones
-        }
-      } catch (error) {
-        console.error("Error fetching data:", error)
-        setError(`No se pudo cargar la información del producto: ${(error as Error).message}`)
-        toast({
-          title: "Error",
-          description: "No se pudo cargar la información del producto",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoading(false)
+      if (!productData) {
+        throw new Error("No se pudo encontrar el producto")
       }
-    }
 
-    fetchData()
+      setProduct(productData)
+      setFormData({
+        title: productData.title || "",
+        description: productData.description || "",
+        status: productData.status || "ACTIVE",
+        seo: {
+          title:
+            productData.metafields?.edges?.find(
+              (edge: any) => edge.node.namespace === "seo" && edge.node.key === "title",
+            )?.node.value ||
+            productData.title ||
+            "",
+          description:
+            productData.metafields?.edges?.find(
+              (edge: any) => edge.node.namespace === "seo" && edge.node.key === "description",
+            )?.node.value || "",
+        },
+      })
+
+      try {
+        const collectionsData = await fetchCollections()
+        setCollections(collectionsData)
+      } catch (collectionError) {
+        console.error("Error fetching collections:", collectionError)
+        // No interrumpimos el flujo si falla la carga de colecciones
+      }
+    } catch (error) {
+      console.error("Error fetching product data:", error)
+      setError(`No se pudo cargar la información del producto: ${(error as Error).message}`)
+      toast({
+        title: "Error",
+        description: "No se pudo cargar la información del producto",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchProductData()
   }, [params.id, toast])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -137,11 +147,14 @@ export default function ProductPage({ params }: { params: { id: string } }) {
         title: "Producto actualizado",
         description: "El producto ha sido actualizado correctamente",
       })
+
+      // Recargar los datos del producto
+      fetchProductData()
     } catch (error) {
       console.error("Error updating product:", error)
       toast({
         title: "Error",
-        description: "No se pudo actualizar el producto",
+        description: `No se pudo actualizar el producto: ${(error as Error).message}`,
         variant: "destructive",
       })
     } finally {
@@ -195,10 +208,13 @@ export default function ProductPage({ params }: { params: { id: string } }) {
           <CardContent>
             <p className="text-sm text-muted-foreground">{error}</p>
             <div className="mt-4 flex gap-2">
-              <Button variant="outline" onClick={() => router.back()}>
-                Volver
+              <Button variant="outline" onClick={() => router.push("/dashboard/products")}>
+                Volver a productos
               </Button>
-              <Button onClick={() => window.location.reload()}>Reintentar</Button>
+              <Button onClick={fetchProductData}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Reintentar
+              </Button>
             </div>
           </CardContent>
         </Card>

@@ -1,10 +1,10 @@
-import shopifyClient from "@/lib/shopify"
+import shopifyClient, { formatShopifyId } from "@/lib/shopify"
 import { gql } from "graphql-request"
 
 export async function fetchCollections(limit = 20) {
   const query = gql`
-    query GetCollections($limit: Int!) {
-      collections(first: $limit) {
+    {
+      collections(first: ${limit}) {
         edges {
           node {
             id
@@ -21,7 +21,12 @@ export async function fetchCollections(limit = 20) {
   `
 
   try {
-    const data = await shopifyClient.request(query, { limit })
+    const data = await shopifyClient.request(query)
+
+    if (!data || !data.collections || !data.collections.edges) {
+      console.error("Respuesta de colecciones incompleta:", data)
+      return []
+    }
 
     return data.collections.edges.map((edge: any) => ({
       id: edge.node.id.split("/").pop(),
@@ -80,7 +85,15 @@ export async function fetchCollectionById(id: string) {
   `
 
   try {
-    const data = await shopifyClient.request(query, { id: `gid://shopify/Collection/${id}` })
+    // Asegurarse de que el ID tenga el formato correcto
+    const formattedId = formatShopifyId(id, "Collection")
+
+    const data = await shopifyClient.request(query, { id: formattedId })
+
+    if (!data || !data.collection) {
+      throw new Error(`Colección no encontrada: ${id}`)
+    }
+
     return data.collection
   } catch (error) {
     console.error(`Error fetching collection ${id}:`, error)
@@ -108,7 +121,7 @@ export async function createCollection(collectionData: any) {
   try {
     const data = await shopifyClient.request(mutation, { input: collectionData })
 
-    if (data.collectionCreate.userErrors.length > 0) {
+    if (data.collectionCreate.userErrors && data.collectionCreate.userErrors.length > 0) {
       throw new Error(data.collectionCreate.userErrors[0].message)
     }
 
@@ -137,14 +150,17 @@ export async function updateCollection(id: string, collectionData: any) {
   `
 
   try {
+    // Asegurarse de que el ID tenga el formato correcto
+    const formattedId = formatShopifyId(id, "Collection")
+
     const data = await shopifyClient.request(mutation, {
       input: {
-        id: `gid://shopify/Collection/${id}`,
+        id: formattedId,
         ...collectionData,
       },
     })
 
-    if (data.collectionUpdate.userErrors.length > 0) {
+    if (data.collectionUpdate.userErrors && data.collectionUpdate.userErrors.length > 0) {
       throw new Error(data.collectionUpdate.userErrors[0].message)
     }
 
@@ -169,13 +185,16 @@ export async function deleteCollection(id: string) {
   `
 
   try {
+    // Asegurarse de que el ID tenga el formato correcto
+    const formattedId = formatShopifyId(id, "Collection")
+
     const data = await shopifyClient.request(mutation, {
       input: {
-        id: `gid://shopify/Collection/${id}`,
+        id: formattedId,
       },
     })
 
-    if (data.collectionDelete.userErrors.length > 0) {
+    if (data.collectionDelete.userErrors && data.collectionDelete.userErrors.length > 0) {
       throw new Error(data.collectionDelete.userErrors[0].message)
     }
 

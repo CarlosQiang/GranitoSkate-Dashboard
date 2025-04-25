@@ -33,11 +33,6 @@ export async function POST() {
       )
     }
 
-    console.log("Verificando conexión con Shopify:", {
-      domain: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN,
-      hasToken: !!process.env.SHOPIFY_ACCESS_TOKEN,
-    })
-
     // Consulta GraphQL simple para verificar la conexión
     const query = `
       {
@@ -100,7 +95,6 @@ export async function POST() {
       )
     }
 
-    console.log("Conexión con Shopify exitosa:", data.data.shop.name)
     return NextResponse.json({
       success: true,
       shopName: data.data.shop.name,
