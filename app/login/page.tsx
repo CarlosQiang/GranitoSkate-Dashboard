@@ -55,7 +55,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex justify-center mb-4">
-            <Image src="/logo.svg" alt="GestionGranito Logo" width={180} height={60} priority />
+            <Image src="/logo.svg" alt="SkateShop Logo" width={180} height={60} priority />
           </div>
           <CardTitle className="text-2xl font-bold text-center">SkateShop Admin</CardTitle>
           <CardDescription className="text-center">

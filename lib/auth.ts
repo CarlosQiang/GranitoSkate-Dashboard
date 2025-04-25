@@ -1,17 +1,6 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 
-// En un entorno de producción, deberías usar una base de datos para almacenar usuarios
-// Este es un ejemplo simple con usuarios hardcodeados
-const users = [
-  {
-    id: "1",
-    name: "Admin",
-    email: "admin@gestiongranito.com",
-    password: "admin123", // En producción, usa contraseñas hasheadas
-  },
-]
-
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -25,13 +14,15 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        const user = users.find((user) => user.email === credentials.email)
+        // Usar variables de entorno para las credenciales
+        const validEmail = process.env.ADMIN_EMAIL
+        const validPassword = process.env.ADMIN_PASSWORD
 
-        if (user && user.password === credentials.password) {
+        if (credentials.email === validEmail && credentials.password === validPassword) {
           return {
-            id: user.id,
-            name: user.name,
-            email: user.email,
+            id: "1",
+            name: "Admin",
+            email: validEmail,
           }
         }
 
