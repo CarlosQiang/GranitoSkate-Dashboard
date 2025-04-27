@@ -1,4 +1,4 @@
-import shopifyClient, { formatShopifyId } from "@/lib/shopify"
+import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 
 export async function fetchRecentProducts(limit = 5) {
@@ -44,6 +44,12 @@ export async function fetchRecentProducts(limit = 5) {
 }
 
 export async function fetchProductById(id: string) {
+  // Asegurarse de que el ID tenga el formato correcto
+  const isFullShopifyId = id.includes("gid://shopify/Product/")
+  const formattedId = isFullShopifyId ? id : `gid://shopify/Product/${id}`
+
+  console.log(`Fetching product with ID: ${formattedId}`)
+
   const query = gql`
     query GetProductById($id: ID!) {
       product(id: $id) {
@@ -54,6 +60,8 @@ export async function fetchProductById(id: string) {
         descriptionHtml
         status
         totalInventory
+        vendor
+        productType
         featuredImage {
           url
           altText
@@ -67,7 +75,7 @@ export async function fetchProductById(id: string) {
             }
           }
         }
-        variants(first: 50) {
+        variants(first: 10) {
           edges {
             node {
               id
@@ -113,13 +121,6 @@ export async function fetchProductById(id: string) {
   `
 
   try {
-    // Asegurarse de que el ID tenga el formato correcto
-    // Si el ID ya tiene el formato gid://, usarlo directamente
-    // De lo contrario, formatearlo como gid://shopify/Product/ID
-    const formattedId = id.includes("gid://") ? id : `gid://shopify/Product/${id}`
-
-    console.log(`Fetching product with ID: ${formattedId}`)
-
     const data = await shopifyClient.request(query, { id: formattedId })
 
     if (!data || !data.product) {
@@ -201,6 +202,12 @@ export async function createProduct(productData: any) {
 }
 
 export async function updateProduct(id: string, productData: any) {
+  // Asegurarse de que el ID tenga el formato correcto
+  const isFullShopifyId = id.includes("gid://shopify/Product/")
+  const formattedId = isFullShopifyId ? id : `gid://shopify/Product/${id}`
+
+  console.log(`Updating product with ID: ${formattedId}`)
+
   const mutation = gql`
     mutation ProductUpdate($input: ProductInput!) {
       productUpdate(input: $input) {
@@ -218,18 +225,26 @@ export async function updateProduct(id: string, productData: any) {
   `
 
   try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const formattedId = formatShopifyId(id, "Product")
+    // Preparar los datos para la actualización
+    const input = {
+      id: formattedId,
+      title: productData.title,
+      descriptionHtml: productData.descriptionHtml || productData.description || "",
+      status: productData.status || "ACTIVE",
+    }
 
-    const data = await shopifyClient.request(mutation, {
-      input: {
-        id: formattedId,
-        ...productData,
-      },
-    })
+    // Si hay metafields, añadirlos
+    if (productData.metafields && productData.metafields.length > 0) {
+      input.metafields = productData.metafields
+    }
+
+    console.log("Enviando datos para actualizar producto:", JSON.stringify(input, null, 2))
+
+    const data = await shopifyClient.request(mutation, { input })
 
     if (data.productUpdate.userErrors && data.productUpdate.userErrors.length > 0) {
-      throw new Error(data.productUpdate.userErrors[0].message)
+      console.error("Errores al actualizar producto:", data.productUpdate.userErrors)
+      throw new Error(`Error al actualizar producto: ${data.productUpdate.userErrors[0].message}`)
     }
 
     return data.productUpdate.product
@@ -240,6 +255,10 @@ export async function updateProduct(id: string, productData: any) {
 }
 
 export async function deleteProduct(id: string) {
+  // Asegurarse de que el ID tenga el formato correcto
+  const isFullShopifyId = id.includes("gid://shopify/Product/")
+  const formattedId = isFullShopifyId ? id : `gid://shopify/Product/${id}`
+
   const mutation = gql`
     mutation ProductDelete($input: ProductDeleteInput!) {
       productDelete(input: $input) {
@@ -253,9 +272,6 @@ export async function deleteProduct(id: string) {
   `
 
   try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const formattedId = formatShopifyId(id, "Product")
-
     const data = await shopifyClient.request(mutation, {
       input: {
         id: formattedId,
@@ -275,6 +291,19 @@ export async function deleteProduct(id: string) {
 
 // Función para añadir productos a una colección
 export async function addProductsToCollection(collectionId: string, productIds: string[]) {
+  // Asegurarse de que el ID de la colección tenga el formato correcto
+  const isFullCollectionId = collectionId.includes("gid://shopify/Collection/")
+  const formattedCollectionId = isFullCollectionId ? collectionId : `gid://shopify/Collection/${collectionId}`
+
+  // Convertir IDs de productos al formato correcto
+  const formattedProductIds = productIds.map((id) => {
+    const isFullProductId = id.includes("gid://shopify/Product/")
+    return isFullProductId ? id : `gid://shopify/Product/${id}`
+  })
+
+  console.log(`Adding products to collection: ${formattedCollectionId}`)
+  console.log(`Products: ${JSON.stringify(formattedProductIds)}`)
+
   const mutation = gql`
     mutation collectionAddProducts($id: ID!, $productIds: [ID!]!) {
       collectionAddProducts(collectionId: $id, productIds: $productIds) {
@@ -292,10 +321,6 @@ export async function addProductsToCollection(collectionId: string, productIds: 
   `
 
   try {
-    // Convertir IDs a formato Shopify GID
-    const formattedProductIds = productIds.map((id) => formatShopifyId(id, "Product"))
-    const formattedCollectionId = formatShopifyId(collectionId, "Collection")
-
     const data = await shopifyClient.request(mutation, {
       id: formattedCollectionId,
       productIds: formattedProductIds,
@@ -315,6 +340,19 @@ export async function addProductsToCollection(collectionId: string, productIds: 
 
 // Función para eliminar productos de una colección
 export async function removeProductsFromCollection(collectionId: string, productIds: string[]) {
+  // Asegurarse de que el ID de la colección tenga el formato correcto
+  const isFullCollectionId = collectionId.includes("gid://shopify/Collection/")
+  const formattedCollectionId = isFullCollectionId ? collectionId : `gid://shopify/Collection/${collectionId}`
+
+  // Convertir IDs de productos al formato correcto
+  const formattedProductIds = productIds.map((id) => {
+    const isFullProductId = id.includes("gid://shopify/Product/")
+    return isFullProductId ? id : `gid://shopify/Product/${id}`
+  })
+
+  console.log(`Removing products from collection: ${formattedCollectionId}`)
+  console.log(`Products: ${JSON.stringify(formattedProductIds)}`)
+
   const mutation = gql`
     mutation collectionRemoveProducts($id: ID!, $productIds: [ID!]!) {
       collectionRemoveProducts(collectionId: $id, productIds: $productIds) {
@@ -332,10 +370,6 @@ export async function removeProductsFromCollection(collectionId: string, product
   `
 
   try {
-    // Convertir IDs a formato Shopify GID
-    const formattedProductIds = productIds.map((id) => formatShopifyId(id, "Product"))
-    const formattedCollectionId = formatShopifyId(collectionId, "Collection")
-
     const data = await shopifyClient.request(mutation, {
       id: formattedCollectionId,
       productIds: formattedProductIds,

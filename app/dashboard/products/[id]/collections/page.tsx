@@ -20,13 +20,13 @@ export default function ProductCollectionsPage({ params }: { params: { id: strin
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex items-center gap-2">
         <Button variant="outline" size="icon" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4" />
           <span className="sr-only">Volver</span>
         </Button>
-        <h1 className="text-3xl font-bold tracking-tight">Gestionar colecciones</h1>
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Gestionar colecciones</h1>
       </div>
 
       {isCompleted ? (

@@ -14,22 +14,34 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/components/ui/use-toast"
-import { fetchProductById, updateProduct } from "@/lib/api/products"
-import { fetchCollections } from "@/lib/api/collections"
-import { Package, ArrowLeft, Save, AlertTriangle, RefreshCw } from "lucide-react"
+import { fetchProductById, updateProduct, deleteProduct } from "@/lib/api/products"
+import { Package, ArrowLeft, Save, AlertTriangle, RefreshCw, Trash2 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export default function ProductPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const { toast } = useToast()
   const [product, setProduct] = useState<any>(null)
-  const [collections, setCollections] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     status: "ACTIVE",
+    vendor: "",
+    productType: "",
     seo: {
       title: "",
       description: "",
@@ -48,32 +60,30 @@ export default function ProductPage({ params }: { params: { id: string } }) {
         throw new Error("No se pudo encontrar el producto")
       }
 
+      console.log("Datos de producto recibidos:", productData)
       setProduct(productData)
+
+      // Extraer metafields SEO
+      const seoTitle =
+        productData.metafields?.edges?.find((edge: any) => edge.node.namespace === "seo" && edge.node.key === "title")
+          ?.node.value || ""
+
+      const seoDescription =
+        productData.metafields?.edges?.find(
+          (edge: any) => edge.node.namespace === "seo" && edge.node.key === "description",
+        )?.node.value || ""
+
       setFormData({
         title: productData.title || "",
         description: productData.description || "",
         status: productData.status || "ACTIVE",
+        vendor: productData.vendor || "",
+        productType: productData.productType || "",
         seo: {
-          title:
-            productData.metafields?.edges?.find(
-              (edge: any) => edge.node.namespace === "seo" && edge.node.key === "title",
-            )?.node.value ||
-            productData.title ||
-            "",
-          description:
-            productData.metafields?.edges?.find(
-              (edge: any) => edge.node.namespace === "seo" && edge.node.key === "description",
-            )?.node.value || "",
+          title: seoTitle || productData.title || "",
+          description: seoDescription || "",
         },
       })
-
-      try {
-        const collectionsData = await fetchCollections()
-        setCollections(collectionsData)
-      } catch (collectionError) {
-        console.error("Error fetching collections:", collectionError)
-        // No interrumpimos el flujo si falla la carga de colecciones
-      }
     } catch (error) {
       console.error("Error fetching product data:", error)
       setError(`No se pudo cargar la información del producto: ${(error as Error).message}`)
@@ -89,7 +99,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     fetchProductData()
-  }, [params.id, toast])
+  }, [params.id])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -121,27 +131,33 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSaving(true)
+    setError(null)
 
     try {
-      await updateProduct(params.id, {
+      const updateData = {
         title: formData.title,
         descriptionHtml: formData.description,
         status: formData.status,
+        vendor: formData.vendor,
+        productType: formData.productType,
         metafields: [
           {
             namespace: "seo",
             key: "title",
-            value: formData.seo.title,
+            value: formData.seo.title || formData.title,
             type: "single_line_text_field",
           },
           {
             namespace: "seo",
             key: "description",
-            value: formData.seo.description,
+            value: formData.seo.description || "",
             type: "multi_line_text_field",
           },
         ],
-      })
+      }
+
+      console.log("Enviando datos para actualizar producto:", updateData)
+      await updateProduct(params.id, updateData)
 
       toast({
         title: "Producto actualizado",
@@ -152,6 +168,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
       fetchProductData()
     } catch (error) {
       console.error("Error updating product:", error)
+      setError(`No se pudo actualizar el producto: ${(error as Error).message}`)
       toast({
         title: "Error",
         description: `No se pudo actualizar el producto: ${(error as Error).message}`,
@@ -159,6 +176,26 @@ export default function ProductPage({ params }: { params: { id: string } }) {
       })
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    setIsDeleting(true)
+    try {
+      await deleteProduct(params.id)
+      toast({
+        title: "Producto eliminado",
+        description: "El producto ha sido eliminado correctamente",
+      })
+      router.push("/dashboard/products")
+    } catch (error) {
+      console.error("Error deleting product:", error)
+      toast({
+        title: "Error",
+        description: `No se pudo eliminar el producto: ${(error as Error).message}`,
+        variant: "destructive",
+      })
+      setIsDeleting(false)
     }
   }
 
@@ -232,10 +269,39 @@ export default function ProductPage({ params }: { params: { id: string } }) {
           </Button>
           <h1 className="text-3xl font-bold tracking-tight">{product.title}</h1>
         </div>
-        <Button onClick={handleSubmit} disabled={isSaving}>
-          <Save className="mr-2 h-4 w-4" />
-          {isSaving ? "Guardando..." : "Guardar cambios"}
-        </Button>
+        <div className="flex gap-2">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" className="text-destructive">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Eliminar
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Esta acción no se puede deshacer. Esto eliminará permanentemente el producto.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="bg-destructive text-destructive-foreground"
+                >
+                  {isDeleting ? "Eliminando..." : "Eliminar"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <Button onClick={handleSubmit} disabled={isSaving}>
+            <Save className="mr-2 h-4 w-4" />
+            {isSaving ? "Guardando..." : "Guardar cambios"}
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="general">
@@ -304,6 +370,29 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               <div className="space-y-2">
                 <Label htmlFor="title">Nombre del producto</Label>
                 <Input id="title" name="title" value={formData.title} onChange={handleInputChange} />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="vendor">Fabricante</Label>
+                  <Input
+                    id="vendor"
+                    name="vendor"
+                    value={formData.vendor}
+                    onChange={handleInputChange}
+                    placeholder="Fabricante"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="productType">Tipo de producto</Label>
+                  <Input
+                    id="productType"
+                    name="productType"
+                    value={formData.productType}
+                    onChange={handleInputChange}
+                    placeholder="Tipo de producto"
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">

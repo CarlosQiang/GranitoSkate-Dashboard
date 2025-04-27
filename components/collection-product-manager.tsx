@@ -132,7 +132,7 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
     return (
       <Card>
         <CardHeader>
-          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-8 w-full sm:w-64" />
           <Skeleton className="h-4 w-full" />
         </CardHeader>
         <CardContent>
@@ -152,8 +152,8 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
   return (
     <Card className="border-granito/20 shadow-md">
       <CardHeader className="bg-gradient-to-r from-granito to-granito-light text-white">
-        <CardTitle>Gestionar productos en colecciones</CardTitle>
-        <CardDescription className="text-white/80">
+        <CardTitle className="text-lg sm:text-xl">Gestionar productos en colecciones</CardTitle>
+        <CardDescription className="text-white/80 text-sm">
           {mode === "add" ? "Añade productos a una colección" : "Elimina productos de una colección"}
         </CardDescription>
       </CardHeader>
@@ -162,7 +162,7 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription className="text-sm">{error}</AlertDescription>
           </Alert>
         )}
 
@@ -170,11 +170,11 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
           <Alert className="mb-4 border-green-500 bg-green-50 text-green-800">
             <Check className="h-4 w-4" />
             <AlertTitle>Operación completada</AlertTitle>
-            <AlertDescription>{success}</AlertDescription>
+            <AlertDescription className="text-sm">{success}</AlertDescription>
           </Alert>
         )}
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
           <Button
             variant={mode === "add" ? "default" : "outline"}
             onClick={() => setMode("add")}
@@ -230,15 +230,15 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
         </div>
 
         <div className="border rounded-md shadow-sm">
-          <div className="p-4 border-b bg-muted/50">
+          <div className="p-3 sm:p-4 border-b bg-muted/50">
             <div className="flex items-center justify-between">
-              <span className="font-medium">Productos</span>
-              <span className="text-sm text-muted-foreground">{selectedProducts.length} seleccionados</span>
+              <span className="font-medium text-sm sm:text-base">Productos</span>
+              <span className="text-xs sm:text-sm text-muted-foreground">{selectedProducts.length} seleccionados</span>
             </div>
           </div>
-          <div className="p-2 max-h-[300px] overflow-y-auto">
+          <div className="p-2 max-h-[250px] sm:max-h-[300px] overflow-y-auto">
             {filteredProducts.length === 0 ? (
-              <p className="text-center py-4 text-muted-foreground">No se encontraron productos</p>
+              <p className="text-center py-4 text-muted-foreground text-sm">No se encontraron productos</p>
             ) : (
               <div className="space-y-2">
                 {filteredProducts.map((product) => (
@@ -262,11 +262,11 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
                     />
                     <label
                       htmlFor={`product-${product.id}`}
-                      className="flex-1 text-sm cursor-pointer flex items-center justify-between"
+                      className="flex-1 text-xs sm:text-sm cursor-pointer flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1"
                     >
-                      <span>{product.title}</span>
+                      <span className="truncate">{product.title}</span>
                       <span
-                        className={`text-xs px-2 py-1 rounded-full ${
+                        className={`text-xs px-2 py-1 rounded-full inline-flex items-center justify-center ${
                           product.status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
                         }`}
                       >
@@ -280,11 +280,11 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
           </div>
         </div>
       </CardContent>
-      <CardFooter className="flex justify-end bg-gray-50 border-t p-4">
+      <CardFooter className="flex justify-end bg-gray-50 border-t p-3 sm:p-4">
         <Button
           onClick={handleSubmit}
           disabled={isSubmitting || !selectedCollection || selectedProducts.length === 0}
-          className="bg-granito hover:bg-granito-dark"
+          className="bg-granito hover:bg-granito-dark w-full sm:w-auto"
         >
           {isSubmitting ? (
             "Procesando..."

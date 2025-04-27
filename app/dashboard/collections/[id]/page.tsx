@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/components/ui/use-toast"
 import { fetchCollectionById, updateCollection } from "@/lib/api/collections"
-import { ArrowLeft, Save, Tags } from "lucide-react"
+import { ArrowLeft, Save, Tags, AlertTriangle, RefreshCw } from "lucide-react"
 
 export default function CollectionPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -22,6 +22,7 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
   const [collection, setCollection] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -31,33 +32,56 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
     },
   })
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const collectionData = await fetchCollectionById(params.id)
-        setCollection(collectionData)
-        setFormData({
-          title: collectionData.title,
-          description: collectionData.description || "",
-          seo: {
-            title: collectionData.seo?.title || collectionData.title,
-            description: collectionData.seo?.description || "",
-          },
-        })
-      } catch (error) {
-        console.error("Error fetching data:", error)
-        toast({
-          title: "Error",
-          description: "No se pudo cargar la información de la colección",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoading(false)
-      }
-    }
+  const fetchCollectionData = async () => {
+    setIsLoading(true)
+    setError(null)
 
-    fetchData()
-  }, [params.id, toast])
+    try {
+      console.log(`Intentando cargar colección con ID: ${params.id}`)
+      const collectionData = await fetchCollectionById(params.id)
+
+      if (!collectionData) {
+        throw new Error("No se pudo encontrar la colección")
+      }
+
+      console.log("Datos de colección recibidos:", collectionData)
+      setCollection(collectionData)
+
+      // Extraer metafields SEO
+      const seoTitle =
+        collectionData.metafields?.edges?.find(
+          (edge: any) => edge.node.namespace === "seo" && edge.node.key === "title",
+        )?.node.value || ""
+
+      const seoDescription =
+        collectionData.metafields?.edges?.find(
+          (edge: any) => edge.node.namespace === "seo" && edge.node.key === "description",
+        )?.node.value || ""
+
+      setFormData({
+        title: collectionData.title || "",
+        description: collectionData.description || "",
+        seo: {
+          title: seoTitle || collectionData.title || "",
+          description: seoDescription || "",
+        },
+      })
+    } catch (error) {
+      console.error("Error fetching collection data:", error)
+      setError(`No se pudo cargar la información de la colección: ${(error as Error).message}`)
+      toast({
+        title: "Error",
+        description: "No se pudo cargar la información de la colección",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchCollectionData()
+  }, [params.id])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -82,36 +106,44 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSaving(true)
+    setError(null)
 
     try {
-      await updateCollection(params.id, {
+      const updateData = {
         title: formData.title,
         descriptionHtml: formData.description,
         metafields: [
           {
             namespace: "seo",
             key: "title",
-            value: formData.seo.title,
+            value: formData.seo.title || formData.title,
             type: "single_line_text_field",
           },
           {
             namespace: "seo",
             key: "description",
-            value: formData.seo.description,
+            value: formData.seo.description || "",
             type: "multi_line_text_field",
           },
         ],
-      })
+      }
+
+      console.log("Enviando datos para actualizar colección:", updateData)
+      await updateCollection(params.id, updateData)
 
       toast({
         title: "Colección actualizada",
         description: "La colección ha sido actualizada correctamente",
       })
+
+      // Recargar los datos de la colección
+      fetchCollectionData()
     } catch (error) {
       console.error("Error updating collection:", error)
+      setError(`No se pudo actualizar la colección: ${(error as Error).message}`)
       toast({
         title: "Error",
-        description: "No se pudo actualizar la colección",
+        description: `No se pudo actualizar la colección: ${(error as Error).message}`,
         variant: "destructive",
       })
     } finally {
@@ -137,6 +169,44 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
             <Skeleton className="h-10 w-full" />
           </div>
         </div>
+      </div>
+    )
+  }
+
+  if (error || !collection) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-3xl font-bold tracking-tight">Error</h1>
+        </div>
+
+        <Card className="border-destructive">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              <CardTitle className="text-destructive">Error al cargar la colección</CardTitle>
+            </div>
+            <CardDescription>
+              No se pudo cargar la información de la colección. Es posible que la colección haya sido eliminada o que no
+              tengas permisos para acceder a ella.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">{error}</p>
+            <div className="mt-4 flex gap-2">
+              <Button variant="outline" onClick={() => router.push("/dashboard/collections")}>
+                Volver a colecciones
+              </Button>
+              <Button onClick={fetchCollectionData}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Reintentar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }

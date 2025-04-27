@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { AlertCircle, RefreshCw } from "lucide-react"
+import { AlertCircle, RefreshCw, CheckCircle } from "lucide-react"
 import { LoadingState } from "@/components/loading-state"
 
 export function ShopifyConnectionStatus() {
@@ -42,28 +42,32 @@ export function ShopifyConnectionStatus() {
   }, [])
 
   if (status === "loading") {
-    return <LoadingState message="Verificando conexión con Shopify..." />
+    return (
+      <div className="mb-4">
+        <LoadingState message="Verificando conexión con Shopify..." />
+      </div>
+    )
   }
 
   if (status === "error") {
     return (
       <Alert variant="destructive" className="my-4">
         <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Error de conexión con Shopify</AlertTitle>
-        <AlertDescription>
+        <AlertTitle className="text-sm sm:text-base">Error de conexión con Shopify</AlertTitle>
+        <AlertDescription className="text-xs sm:text-sm">
           <p>No se pudo conectar con la API de Shopify. Por favor, verifica:</p>
-          <ul className="list-disc pl-5 mt-2 mb-4">
+          <ul className="list-disc pl-5 mt-2 mb-4 space-y-1">
             <li>Que el dominio de la tienda (NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN) sea correcto</li>
             <li>Que el token de acceso (SHOPIFY_ACCESS_TOKEN) sea válido y tenga los permisos necesarios</li>
             <li>Que la tienda esté activa y accesible</li>
           </ul>
           {errorDetails && (
-            <div className="mt-2 p-2 bg-destructive/10 rounded text-sm font-mono overflow-auto max-h-32">
+            <div className="mt-2 p-2 bg-destructive/10 rounded text-xs sm:text-sm font-mono overflow-auto max-h-32">
               {errorDetails}
             </div>
           )}
-          <Button onClick={checkConnection} className="mt-4" variant="outline">
-            <RefreshCw className="mr-2 h-4 w-4" /> Reintentar conexión
+          <Button onClick={checkConnection} className="mt-4 w-full sm:w-auto" variant="outline" size="sm">
+            <RefreshCw className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Reintentar conexión
           </Button>
         </AlertDescription>
       </Alert>
@@ -73,9 +77,10 @@ export function ShopifyConnectionStatus() {
   if (status === "connected") {
     return (
       <div className="mb-4">
-        <Alert>
-          <AlertTitle>Conectado a Shopify</AlertTitle>
-          <AlertDescription>
+        <Alert className="bg-green-50 border-green-200 text-green-800">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertTitle className="text-sm sm:text-base">Conectado a Shopify</AlertTitle>
+          <AlertDescription className="text-xs sm:text-sm">
             Conexión establecida correctamente con la tienda: <strong>{shopName}</strong>
           </AlertDescription>
         </Alert>

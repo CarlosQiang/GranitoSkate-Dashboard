@@ -1,4 +1,4 @@
-import shopifyClient, { formatShopifyId } from "@/lib/shopify"
+import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 
 export async function fetchCollections(limit = 20) {
@@ -42,6 +42,13 @@ export async function fetchCollections(limit = 20) {
 }
 
 export async function fetchCollectionById(id: string) {
+  // Asegurarse de que el ID tenga el formato correcto
+  // Verificar si el ID ya tiene el formato completo de Shopify
+  const isFullShopifyId = id.includes("gid://shopify/Collection/")
+  const formattedId = isFullShopifyId ? id : `gid://shopify/Collection/${id}`
+
+  console.log(`Fetching collection with ID: ${formattedId}`)
+
   const query = gql`
     query GetCollectionById($id: ID!) {
       collection(id: $id) {
@@ -55,7 +62,7 @@ export async function fetchCollectionById(id: string) {
           url
           altText
         }
-        products(first: 50) {
+        products(first: 20) {
           edges {
             node {
               id
@@ -85,9 +92,6 @@ export async function fetchCollectionById(id: string) {
   `
 
   try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const formattedId = formatShopifyId(id, "Collection")
-
     const data = await shopifyClient.request(query, { id: formattedId })
 
     if (!data || !data.collection) {
@@ -97,7 +101,7 @@ export async function fetchCollectionById(id: string) {
     return data.collection
   } catch (error) {
     console.error(`Error fetching collection ${id}:`, error)
-    throw new Error(`Failed to fetch collection ${id}`)
+    throw new Error(`Error al cargar la colección: ${(error as Error).message}`)
   }
 }
 
@@ -133,6 +137,12 @@ export async function createCollection(collectionData: any) {
 }
 
 export async function updateCollection(id: string, collectionData: any) {
+  // Asegurarse de que el ID tenga el formato correcto
+  const isFullShopifyId = id.includes("gid://shopify/Collection/")
+  const formattedId = isFullShopifyId ? id : `gid://shopify/Collection/${id}`
+
+  console.log(`Updating collection with ID: ${formattedId}`)
+
   const mutation = gql`
     mutation CollectionUpdate($input: CollectionInput!) {
       collectionUpdate(input: $input) {
@@ -150,9 +160,6 @@ export async function updateCollection(id: string, collectionData: any) {
   `
 
   try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const formattedId = formatShopifyId(id, "Collection")
-
     const data = await shopifyClient.request(mutation, {
       input: {
         id: formattedId,
@@ -172,6 +179,10 @@ export async function updateCollection(id: string, collectionData: any) {
 }
 
 export async function deleteCollection(id: string) {
+  // Asegurarse de que el ID tenga el formato correcto
+  const isFullShopifyId = id.includes("gid://shopify/Collection/")
+  const formattedId = isFullShopifyId ? id : `gid://shopify/Collection/${id}`
+
   const mutation = gql`
     mutation CollectionDelete($input: CollectionDeleteInput!) {
       collectionDelete(input: $input) {
@@ -185,9 +196,6 @@ export async function deleteCollection(id: string) {
   `
 
   try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const formattedId = formatShopifyId(id, "Collection")
-
     const data = await shopifyClient.request(mutation, {
       input: {
         id: formattedId,

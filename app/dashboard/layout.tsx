@@ -22,7 +22,7 @@ export default async function DashboardLayout({
       <DashboardHeader />
       <div className="flex flex-1">
         <DashboardNav />
-        <main className="flex-1 p-6 overflow-auto">
+        <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-auto">
           <ShopifyConnectionStatus />
           {children}
         </main>
