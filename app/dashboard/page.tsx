@@ -2,6 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DashboardStats } from "@/components/dashboard-stats"
 import { RecentOrders } from "@/components/recent-orders"
 import { RecentProducts } from "@/components/recent-products"
+import { ShopifyApiStatus } from "@/components/shopify-api-status"
 
 export default function DashboardPage() {
   return (
@@ -10,6 +11,8 @@ export default function DashboardPage() {
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">Bienvenido al panel de administración de GranitoSkate</p>
       </div>
+
+      <ShopifyApiStatus />
 
       <DashboardStats />
 

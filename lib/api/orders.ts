@@ -4,17 +4,19 @@ import { gql } from "graphql-request"
 export async function fetchRecentOrders(limit = 5) {
   const query = gql`
     query {
-      orders(first: ${limit}, sortKey: PROCESSED_AT, reverse: true) {
+      orders(first: ${limit}, sortKey: CREATED_AT, reverse: true) {
         edges {
           node {
             id
             name
-            processedAt
-            fulfillmentStatus
-            financialStatus
-            totalPrice {
-              amount
-              currencyCode
+            createdAt
+            displayFulfillmentStatus
+            displayFinancialStatus
+            totalPriceSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
             }
             customer {
               firstName
@@ -27,7 +29,9 @@ export async function fetchRecentOrders(limit = 5) {
   `
 
   try {
+    console.log("Fetching recent orders...")
     const data = await shopifyClient.request(query)
+    console.log("Orders response received")
 
     if (!data || !data.orders || !data.orders.edges) {
       console.error("Respuesta de órdenes incompleta:", data)
@@ -37,10 +41,10 @@ export async function fetchRecentOrders(limit = 5) {
     return data.orders.edges.map((edge: any) => ({
       id: edge.node.id.split("/").pop(),
       name: edge.node.name,
-      processedAt: edge.node.processedAt,
-      fulfillmentStatus: edge.node.fulfillmentStatus || "UNFULFILLED",
-      financialStatus: edge.node.financialStatus,
-      totalPrice: edge.node.totalPrice.amount,
+      processedAt: edge.node.createdAt,
+      fulfillmentStatus: edge.node.displayFulfillmentStatus || "UNFULFILLED",
+      financialStatus: edge.node.displayFinancialStatus,
+      totalPrice: edge.node.totalPriceSet.shopMoney.amount,
       customer: edge.node.customer || { firstName: "Cliente", lastName: "Anónimo" },
     }))
   } catch (error) {
@@ -55,24 +59,32 @@ export async function fetchOrderById(id: string) {
       order(id: $id) {
         id
         name
-        processedAt
-        fulfillmentStatus
-        financialStatus
-        totalPrice {
-          amount
-          currencyCode
+        createdAt
+        displayFulfillmentStatus
+        displayFinancialStatus
+        totalPriceSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
         }
-        subtotalPrice {
-          amount
-          currencyCode
+        subtotalPriceSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
         }
-        totalShippingPrice {
-          amount
-          currencyCode
+        totalShippingPriceSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
         }
-        totalTax {
-          amount
-          currencyCode
+        totalTaxSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
         }
         customer {
           firstName
@@ -93,13 +105,17 @@ export async function fetchOrderById(id: string) {
             node {
               title
               quantity
-              originalUnitPrice {
-                amount
-                currencyCode
+              originalUnitPriceSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
               }
-              discountedUnitPrice {
-                amount
-                currencyCode
+              discountedUnitPriceSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
               }
               variant {
                 id

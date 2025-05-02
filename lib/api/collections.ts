@@ -45,7 +45,6 @@ export async function fetchCollections(limit = 20) {
 
 export async function fetchCollectionById(id: string) {
   // Asegurarse de que el ID tenga el formato correcto
-  // Verificar si el ID ya tiene el formato completo de Shopify
   const isFullShopifyId = id.includes("gid://shopify/Collection/")
   const formattedId = isFullShopifyId ? id : `gid://shopify/Collection/${id}`
 
