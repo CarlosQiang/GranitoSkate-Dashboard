@@ -135,8 +135,9 @@ export async function fetchProductById(id: string) {
   }
 }
 
+// Actualizar la función createProduct para usar la nueva API
 export async function createProduct(productData: any) {
-  // Versión simplificada de la mutación para crear productos
+  // Versión actualizada de la mutación para crear productos según la documentación
   const mutation = gql`
     mutation productCreate($input: ProductInput!) {
       productCreate(input: $input) {
@@ -158,12 +159,13 @@ export async function createProduct(productData: any) {
     const input = {
       title: productData.title,
       descriptionHtml: productData.descriptionHtml || "",
+      handle: productData.handle || undefined, // Usar el handle generado si se proporciona
       status: productData.status || "ACTIVE",
       vendor: productData.vendor || "GranitoSkate",
       productType: productData.productType || "SKATEBOARD",
     }
 
-    // Si hay variantes, añadirlas pero SIN inventoryQuantities
+    // Si hay variantes, añadirlas
     if (productData.variants && productData.variants.length > 0) {
       input.variants = productData.variants.map((variant: any) => ({
         price: variant.price || "0.00",
@@ -201,6 +203,7 @@ export async function createProduct(productData: any) {
   }
 }
 
+// Actualizar la función updateProduct para usar la nueva API
 export async function updateProduct(id: string, productData: any) {
   // Asegurarse de que el ID tenga el formato correcto
   const isFullShopifyId = id.includes("gid://shopify/Product/")
@@ -231,6 +234,8 @@ export async function updateProduct(id: string, productData: any) {
       title: productData.title,
       descriptionHtml: productData.descriptionHtml || productData.description || "",
       status: productData.status || "ACTIVE",
+      vendor: productData.vendor || undefined,
+      productType: productData.productType || undefined,
     }
 
     // Si hay metafields, añadirlos

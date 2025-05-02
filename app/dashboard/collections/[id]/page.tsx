@@ -13,8 +13,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/components/ui/use-toast"
-import { fetchCollectionById, updateCollection } from "@/lib/api/collections"
-import { ArrowLeft, Save, Tags, AlertTriangle, RefreshCw } from "lucide-react"
+import { fetchCollectionById, updateCollection, deleteCollection } from "@/lib/api/collections"
+import { ArrowLeft, Save, Tags, AlertTriangle, RefreshCw, AlertCircle, Plus, Trash2, Package } from "lucide-react"
+import { generateSeoMetafields } from "@/lib/seo-utils"
+import { SeoPreview } from "@/components/seo-preview"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export default function CollectionPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -22,14 +36,11 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
   const [collection, setCollection] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    seo: {
-      title: "",
-      description: "",
-    },
   })
 
   const fetchCollectionData = async () => {
@@ -47,24 +58,9 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
       console.log("Datos de colección recibidos:", collectionData)
       setCollection(collectionData)
 
-      // Extraer metafields SEO
-      const seoTitle =
-        collectionData.metafields?.edges?.find(
-          (edge: any) => edge.node.namespace === "seo" && edge.node.key === "title",
-        )?.node.value || ""
-
-      const seoDescription =
-        collectionData.metafields?.edges?.find(
-          (edge: any) => edge.node.namespace === "seo" && edge.node.key === "description",
-        )?.node.value || ""
-
       setFormData({
         title: collectionData.title || "",
         description: collectionData.description || "",
-        seo: {
-          title: seoTitle || collectionData.title || "",
-          description: seoDescription || "",
-        },
       })
     } catch (error) {
       console.error("Error fetching collection data:", error)
@@ -85,22 +81,10 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-
-    if (name.startsWith("seo.")) {
-      const seoField = name.split(".")[1]
-      setFormData({
-        ...formData,
-        seo: {
-          ...formData.seo,
-          [seoField]: value,
-        },
-      })
-    } else {
-      setFormData({
-        ...formData,
-        [name]: value,
-      })
-    }
+    setFormData({
+      ...formData,
+      [name]: value,
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -112,28 +96,16 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
       const updateData = {
         title: formData.title,
         descriptionHtml: formData.description,
-        metafields: [
-          {
-            namespace: "seo",
-            key: "title",
-            value: formData.seo.title || formData.title,
-            type: "single_line_text_field",
-          },
-          {
-            namespace: "seo",
-            key: "description",
-            value: formData.seo.description || "",
-            type: "multi_line_text_field",
-          },
-        ],
+        // Generar automáticamente los metafields de SEO
+        metafields: generateSeoMetafields(formData.title, formData.description),
       }
 
       console.log("Enviando datos para actualizar colección:", updateData)
       await updateCollection(params.id, updateData)
 
       toast({
-        title: "Colección actualizada",
-        description: "La colección ha sido actualizada correctamente",
+        title: "¡Colección actualizada!",
+        description: "Los cambios se han guardado y optimizado para buscadores",
       })
 
       // Recargar los datos de la colección
@@ -148,6 +120,26 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
       })
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    setIsDeleting(true)
+    try {
+      await deleteCollection(params.id)
+      toast({
+        title: "Colección eliminada",
+        description: "La colección ha sido eliminada correctamente",
+      })
+      router.push("/dashboard/collections")
+    } catch (error) {
+      console.error("Error deleting collection:", error)
+      toast({
+        title: "Error",
+        description: `No se pudo eliminar la colección: ${(error as Error).message}`,
+        variant: "destructive",
+      })
+      setIsDeleting(false)
     }
   }
 
@@ -221,17 +213,54 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
           </Button>
           <h1 className="text-3xl font-bold tracking-tight">{collection.title}</h1>
         </div>
-        <Button onClick={handleSubmit} disabled={isSaving}>
-          <Save className="mr-2 h-4 w-4" />
-          {isSaving ? "Guardando..." : "Guardar cambios"}
-        </Button>
+        <div className="flex gap-2">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" className="text-destructive">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Eliminar
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Esta acción no se puede deshacer. Esto eliminará permanentemente la colección.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="bg-destructive text-destructive-foreground"
+                >
+                  {isDeleting ? "Eliminando..." : "Eliminar"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <Button onClick={handleSubmit} disabled={isSaving}>
+            <Save className="mr-2 h-4 w-4" />
+            {isSaving ? "Guardando..." : "Guardar cambios"}
+          </Button>
+        </div>
       </div>
+
+      <Alert className="bg-blue-50 border-blue-200">
+        <AlertCircle className="h-4 w-4 text-blue-600" />
+        <AlertTitle className="text-blue-800">Posicionamiento automático</AlertTitle>
+        <AlertDescription className="text-blue-700">
+          No te preocupes por el SEO. Tu colección se optimizará automáticamente para aparecer en Google usando el
+          nombre y la descripción que escribas.
+        </AlertDescription>
+      </Alert>
 
       <Tabs defaultValue="general">
         <TabsList>
-          <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="general">Información básica</TabsTrigger>
           <TabsTrigger value="products">Productos</TabsTrigger>
-          <TabsTrigger value="seo">SEO</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
@@ -256,7 +285,9 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="title">Nombre de la colección</Label>
+                <Label htmlFor="title">
+                  Nombre de la colección <span className="text-red-500">*</span>
+                </Label>
                 <Input id="title" name="title" value={formData.title} onChange={handleInputChange} />
               </div>
 
@@ -272,6 +303,9 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
               </div>
             </div>
           </div>
+
+          {/* Vista previa de Google */}
+          <SeoPreview title={formData.title} description={formData.description} />
         </TabsContent>
 
         <TabsContent value="products" className="space-y-6">
@@ -291,76 +325,53 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
             </CardHeader>
             <CardContent>
               {collection.products?.edges.length > 0 ? (
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {collection.products.edges.map((edge: any) => (
-                    <div key={edge.node.id} className="flex items-center justify-between p-4 border rounded-md">
-                      <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-md overflow-hidden bg-muted">
-                          {edge.node.featuredImage ? (
-                            <Image
-                              src={edge.node.featuredImage.url || "/placeholder.svg"}
-                              alt={edge.node.title}
-                              width={48}
-                              height={48}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="h-full w-full flex items-center justify-center bg-muted">
-                              <Tags className="h-6 w-6 text-muted-foreground" />
-                            </div>
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-medium">{edge.node.title}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {edge.node.status} • Stock: {edge.node.totalInventory}
-                          </p>
+                    <div key={edge.node.id} className="border rounded-md overflow-hidden">
+                      <div className="aspect-square relative">
+                        {edge.node.featuredImage ? (
+                          <Image
+                            src={edge.node.featuredImage.url || "/placeholder.svg"}
+                            alt={edge.node.title}
+                            fill
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center bg-muted">
+                            <Package className="h-12 w-12 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-3">
+                        <h3 className="font-medium truncate">{edge.node.title}</h3>
+                        <div className="flex items-center justify-between mt-2">
+                          <span
+                            className={`text-xs px-2 py-1 rounded-full ${
+                              edge.node.status === "ACTIVE"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-gray-100 text-gray-800"
+                            }`}
+                          >
+                            {edge.node.status === "ACTIVE" ? "Visible" : "Oculto"}
+                          </span>
+                          <Button variant="ghost" size="sm" asChild className="ml-auto">
+                            <a href={`/dashboard/products/${edge.node.id.split("/").pop()}`}>Ver</a>
+                          </Button>
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm" asChild>
-                        <a href={`/dashboard/products/${edge.node.id.split("/").pop()}`}>Ver</a>
-                      </Button>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-center text-muted-foreground py-6">Esta colección no tiene productos asignados</p>
+                <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                  <Tags className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground mb-4">Esta colección no tiene productos asignados</p>
+                  <Button onClick={() => router.push(`/dashboard/collections/${params.id}/products`)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Añadir productos
+                  </Button>
+                </div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="seo" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Optimización para motores de búsqueda</CardTitle>
-              <CardDescription>Mejora la visibilidad de tu colección en los resultados de búsqueda</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="seo-title">Título SEO</Label>
-                <Input
-                  id="seo-title"
-                  name="seo.title"
-                  value={formData.seo.title}
-                  onChange={handleInputChange}
-                  placeholder="Título para motores de búsqueda"
-                />
-                <p className="text-xs text-muted-foreground">Recomendado: 50-60 caracteres</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="seo-description">Descripción SEO</Label>
-                <Textarea
-                  id="seo-description"
-                  name="seo.description"
-                  value={formData.seo.description}
-                  onChange={handleInputChange}
-                  placeholder="Descripción para motores de búsqueda"
-                  rows={4}
-                />
-                <p className="text-xs text-muted-foreground">Recomendado: 150-160 caracteres</p>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>

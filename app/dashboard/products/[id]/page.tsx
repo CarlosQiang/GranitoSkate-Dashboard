@@ -15,7 +15,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/components/ui/use-toast"
 import { fetchProductById, updateProduct, deleteProduct } from "@/lib/api/products"
-import { Package, ArrowLeft, Save, AlertTriangle, RefreshCw, Trash2 } from "lucide-react"
+import { Package, ArrowLeft, Save, AlertTriangle, RefreshCw, Trash2, AlertCircle } from "lucide-react"
+import { generateSeoMetafields } from "@/lib/seo-utils"
+import { SeoPreview } from "@/components/seo-preview"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,10 +45,6 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     status: "ACTIVE",
     vendor: "",
     productType: "",
-    seo: {
-      title: "",
-      description: "",
-    },
   })
 
   const fetchProductData = async () => {
@@ -63,26 +62,12 @@ export default function ProductPage({ params }: { params: { id: string } }) {
       console.log("Datos de producto recibidos:", productData)
       setProduct(productData)
 
-      // Extraer metafields SEO
-      const seoTitle =
-        productData.metafields?.edges?.find((edge: any) => edge.node.namespace === "seo" && edge.node.key === "title")
-          ?.node.value || ""
-
-      const seoDescription =
-        productData.metafields?.edges?.find(
-          (edge: any) => edge.node.namespace === "seo" && edge.node.key === "description",
-        )?.node.value || ""
-
       setFormData({
         title: productData.title || "",
         description: productData.description || "",
         status: productData.status || "ACTIVE",
         vendor: productData.vendor || "",
         productType: productData.productType || "",
-        seo: {
-          title: seoTitle || productData.title || "",
-          description: seoDescription || "",
-        },
       })
     } catch (error) {
       console.error("Error fetching product data:", error)
@@ -103,22 +88,10 @@ export default function ProductPage({ params }: { params: { id: string } }) {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-
-    if (name.startsWith("seo.")) {
-      const seoField = name.split(".")[1]
-      setFormData({
-        ...formData,
-        seo: {
-          ...formData.seo,
-          [seoField]: value,
-        },
-      })
-    } else {
-      setFormData({
-        ...formData,
-        [name]: value,
-      })
-    }
+    setFormData({
+      ...formData,
+      [name]: value,
+    })
   }
 
   const handleStatusChange = (checked: boolean) => {
@@ -140,28 +113,16 @@ export default function ProductPage({ params }: { params: { id: string } }) {
         status: formData.status,
         vendor: formData.vendor,
         productType: formData.productType,
-        metafields: [
-          {
-            namespace: "seo",
-            key: "title",
-            value: formData.seo.title || formData.title,
-            type: "single_line_text_field",
-          },
-          {
-            namespace: "seo",
-            key: "description",
-            value: formData.seo.description || "",
-            type: "multi_line_text_field",
-          },
-        ],
+        // Generar automáticamente los metafields de SEO
+        metafields: generateSeoMetafields(formData.title, formData.description),
       }
 
       console.log("Enviando datos para actualizar producto:", updateData)
       await updateProduct(params.id, updateData)
 
       toast({
-        title: "Producto actualizado",
-        description: "El producto ha sido actualizado correctamente",
+        title: "¡Producto actualizado!",
+        description: "Los cambios se han guardado y optimizado para buscadores",
       })
 
       // Recargar los datos del producto
@@ -304,12 +265,20 @@ export default function ProductPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
+      <Alert className="bg-blue-50 border-blue-200">
+        <AlertCircle className="h-4 w-4 text-blue-600" />
+        <AlertTitle className="text-blue-800">Posicionamiento automático</AlertTitle>
+        <AlertDescription className="text-blue-700">
+          No te preocupes por el SEO. Tu producto se optimizará automáticamente para aparecer en Google usando el nombre
+          y la descripción que escribas.
+        </AlertDescription>
+      </Alert>
+
       <Tabs defaultValue="general">
         <TabsList>
-          <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="general">Información básica</TabsTrigger>
           <TabsTrigger value="images">Imágenes</TabsTrigger>
-          <TabsTrigger value="variants">Variantes</TabsTrigger>
-          <TabsTrigger value="seo">SEO</TabsTrigger>
+          <TabsTrigger value="variants">Precio y stock</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
@@ -333,7 +302,9 @@ export default function ProductPage({ params }: { params: { id: string } }) {
 
               <div className="flex items-center space-x-2 mb-4">
                 <Switch id="status" checked={formData.status === "ACTIVE"} onCheckedChange={handleStatusChange} />
-                <Label htmlFor="status">{formData.status === "ACTIVE" ? "Activo" : "Borrador"}</Label>
+                <Label htmlFor="status">
+                  {formData.status === "ACTIVE" ? "Visible en tienda" : "Oculto (borrador)"}
+                </Label>
               </div>
 
               <Card>
@@ -368,19 +339,21 @@ export default function ProductPage({ params }: { params: { id: string } }) {
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="title">Nombre del producto</Label>
+                <Label htmlFor="title">
+                  Nombre del producto <span className="text-red-500">*</span>
+                </Label>
                 <Input id="title" name="title" value={formData.title} onChange={handleInputChange} />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="vendor">Fabricante</Label>
+                  <Label htmlFor="vendor">Marca</Label>
                   <Input
                     id="vendor"
                     name="vendor"
                     value={formData.vendor}
                     onChange={handleInputChange}
-                    placeholder="Fabricante"
+                    placeholder="Ej: Element, Santa Cruz, etc."
                   />
                 </div>
                 <div className="space-y-2">
@@ -390,7 +363,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                     name="productType"
                     value={formData.productType}
                     onChange={handleInputChange}
-                    placeholder="Tipo de producto"
+                    placeholder="Ej: Tabla, Ruedas, Trucks, etc."
                   />
                 </div>
               </div>
@@ -407,41 +380,9 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               </div>
             </div>
           </div>
-        </TabsContent>
 
-        <TabsContent value="seo" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Optimización para motores de búsqueda</CardTitle>
-              <CardDescription>Mejora la visibilidad de tu producto en los resultados de búsqueda</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="seo-title">Título SEO</Label>
-                <Input
-                  id="seo-title"
-                  name="seo.title"
-                  value={formData.seo.title}
-                  onChange={handleInputChange}
-                  placeholder="Título para motores de búsqueda"
-                />
-                <p className="text-xs text-muted-foreground">Recomendado: 50-60 caracteres</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="seo-description">Descripción SEO</Label>
-                <Textarea
-                  id="seo-description"
-                  name="seo.description"
-                  value={formData.seo.description}
-                  onChange={handleInputChange}
-                  placeholder="Descripción para motores de búsqueda"
-                  rows={4}
-                />
-                <p className="text-xs text-muted-foreground">Recomendado: 150-160 caracteres</p>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Vista previa de Google */}
+          <SeoPreview title={formData.title} description={formData.description} />
         </TabsContent>
 
         <TabsContent value="images">
@@ -475,7 +416,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
         <TabsContent value="variants">
           <Card>
             <CardHeader>
-              <CardTitle>Variantes del producto</CardTitle>
+              <CardTitle>Precio y stock</CardTitle>
               <CardDescription>Gestiona las variantes de tu producto</CardDescription>
             </CardHeader>
             <CardContent>

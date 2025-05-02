@@ -13,6 +13,8 @@ import { fetchRecentProducts } from "@/lib/api/products"
 import { addProductsToCollection, removeProductsFromCollection } from "@/lib/api/products"
 import { Search, Plus, Trash, Check, AlertCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useRouter } from "next/navigation"
+import Image from "next/image"
 
 interface Product {
   id: string
@@ -36,12 +38,19 @@ interface Collection {
 }
 
 interface CollectionProductManagerProps {
-  productId?: string // Si se proporciona, se preselecciona este producto
-  collectionId?: string // Si se proporciona, se preselecciona esta colección
+  productId?: string
+  collectionId?: string
   onComplete?: () => void
+  mode?: "add" | "remove"
 }
 
-export function CollectionProductManager({ productId, collectionId, onComplete }: CollectionProductManagerProps) {
+export function CollectionProductManager({
+  productId,
+  collectionId,
+  onComplete,
+  mode: initialMode = "add",
+}: CollectionProductManagerProps) {
+  const router = useRouter()
   const { toast } = useToast()
   const [collections, setCollections] = useState<Collection[]>([])
   const [products, setProducts] = useState<Product[]>([])
@@ -50,7 +59,7 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
   const [searchQuery, setSearchQuery] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [mode, setMode] = useState<"add" | "remove">("add")
+  const [mode, setMode] = useState<"add" | "remove">(initialMode)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
@@ -81,7 +90,7 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
   const handleSubmit = async () => {
     if (!selectedCollection || selectedProducts.length === 0) {
       toast({
-        title: "Error",
+        title: "Faltan datos",
         description: "Debes seleccionar una colección y al menos un producto",
         variant: "destructive",
       })
@@ -95,17 +104,17 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
     try {
       if (mode === "add") {
         await addProductsToCollection(selectedCollection, selectedProducts)
-        setSuccess("Los productos han sido añadidos a la colección correctamente")
+        setSuccess("¡Productos añadidos correctamente a la colección!")
         toast({
-          title: "Productos añadidos",
-          description: "Los productos han sido añadidos a la colección correctamente",
+          title: "¡Listo!",
+          description: "Los productos han sido añadidos a la colección",
         })
       } else {
         await removeProductsFromCollection(selectedCollection, selectedProducts)
-        setSuccess("Los productos han sido eliminados de la colección correctamente")
+        setSuccess("¡Productos eliminados correctamente de la colección!")
         toast({
-          title: "Productos eliminados",
-          description: "Los productos han sido eliminados de la colección correctamente",
+          title: "¡Listo!",
+          description: "Los productos han sido eliminados de la colección",
         })
       }
 
@@ -126,6 +135,14 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleCreateCollection = () => {
+    router.push("/dashboard/collections/new")
+  }
+
+  const handleCreateProduct = () => {
+    router.push("/dashboard/products/new")
   }
 
   if (isLoading) {
@@ -169,7 +186,7 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
         {success && (
           <Alert className="mb-4 border-green-500 bg-green-50 text-green-800">
             <Check className="h-4 w-4" />
-            <AlertTitle>Operación completada</AlertTitle>
+            <AlertTitle>¡Operación completada!</AlertTitle>
             <AlertDescription className="text-sm">{success}</AlertDescription>
           </Alert>
         )}
@@ -194,91 +211,154 @@ export function CollectionProductManager({ productId, collectionId, onComplete }
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="collection" className="text-sm font-medium">
-            Colección
-          </Label>
-          <select
-            id="collection"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-granito focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            value={selectedCollection || ""}
-            onChange={(e) => setSelectedCollection(e.target.value)}
-          >
-            <option value="">Selecciona una colección</option>
-            {collections.map((collection) => (
-              <option key={collection.id} value={collection.id}>
-                {collection.title} ({collection.productsCount} productos)
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="search" className="text-sm font-medium">
-            Buscar productos
-          </Label>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="search"
-              type="search"
-              placeholder="Buscar productos..."
-              className="pl-8 border-granito/20 focus-visible:ring-granito"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="border rounded-md shadow-sm">
-          <div className="p-3 sm:p-4 border-b bg-muted/50">
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-sm sm:text-base">Productos</span>
-              <span className="text-xs sm:text-sm text-muted-foreground">{selectedProducts.length} seleccionados</span>
-            </div>
-          </div>
-          <div className="p-2 max-h-[250px] sm:max-h-[300px] overflow-y-auto">
-            {filteredProducts.length === 0 ? (
-              <p className="text-center py-4 text-muted-foreground text-sm">No se encontraron productos</p>
-            ) : (
-              <div className="space-y-2">
-                {filteredProducts.map((product) => (
-                  <div
-                    key={product.id}
-                    className={`flex items-center space-x-2 p-2 rounded-md hover:bg-muted transition-colors ${
-                      selectedProducts.includes(product.id) ? "bg-granito/10 border border-granito/20" : ""
-                    }`}
-                  >
-                    <Checkbox
-                      id={`product-${product.id}`}
-                      checked={selectedProducts.includes(product.id)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedProducts([...selectedProducts, product.id])
-                        } else {
-                          setSelectedProducts(selectedProducts.filter((id) => id !== product.id))
-                        }
-                      }}
-                      className="border-granito data-[state=checked]:bg-granito data-[state=checked]:text-primary-foreground"
-                    />
-                    <label
-                      htmlFor={`product-${product.id}`}
-                      className="flex-1 text-xs sm:text-sm cursor-pointer flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1"
-                    >
-                      <span className="truncate">{product.title}</span>
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full inline-flex items-center justify-center ${
-                          product.status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {product.status === "ACTIVE" ? "Activo" : "Borrador"}
-                      </span>
-                    </label>
-                  </div>
-                ))}
-              </div>
+          <div className="flex justify-between items-center">
+            <Label htmlFor="collection" className="text-sm font-medium">
+              Colección
+            </Label>
+            {collections.length === 0 && (
+              <Button variant="link" size="sm" onClick={handleCreateCollection} className="text-granito">
+                Crear nueva colección
+              </Button>
             )}
           </div>
+
+          {collections.length > 0 ? (
+            <select
+              id="collection"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-granito focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              value={selectedCollection || ""}
+              onChange={(e) => setSelectedCollection(e.target.value)}
+            >
+              <option value="">Selecciona una colección</option>
+              {collections.map((collection) => (
+                <option key={collection.id} value={collection.id}>
+                  {collection.title} ({collection.productsCount} productos)
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="rounded-md border border-dashed p-6 text-center">
+              <p className="text-muted-foreground mb-4">No hay colecciones disponibles</p>
+              <Button onClick={handleCreateCollection} className="bg-granito hover:bg-granito-dark">
+                <Plus className="mr-2 h-4 w-4" />
+                Crear mi primera colección
+              </Button>
+            </div>
+          )}
         </div>
+
+        {collections.length > 0 && (
+          <>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <Label htmlFor="search" className="text-sm font-medium">
+                  Buscar productos
+                </Label>
+                {products.length === 0 && (
+                  <Button variant="link" size="sm" onClick={handleCreateProduct} className="text-granito">
+                    Crear nuevo producto
+                  </Button>
+                )}
+              </div>
+
+              {products.length > 0 ? (
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="search"
+                    type="search"
+                    placeholder="Buscar productos..."
+                    className="pl-8 border-granito/20 focus-visible:ring-granito"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+              ) : (
+                <div className="rounded-md border border-dashed p-6 text-center">
+                  <p className="text-muted-foreground mb-4">No hay productos disponibles</p>
+                  <Button onClick={handleCreateProduct} className="bg-granito hover:bg-granito-dark">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Crear mi primer producto
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {products.length > 0 && (
+              <div className="border rounded-md shadow-sm">
+                <div className="p-3 sm:p-4 border-b bg-muted/50">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm sm:text-base">Productos</span>
+                    <span className="text-xs sm:text-sm text-muted-foreground">
+                      {selectedProducts.length} seleccionados
+                    </span>
+                  </div>
+                </div>
+                <div className="p-2 max-h-[250px] sm:max-h-[300px] overflow-y-auto">
+                  {filteredProducts.length === 0 ? (
+                    <p className="text-center py-4 text-muted-foreground text-sm">No se encontraron productos</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {filteredProducts.map((product) => (
+                        <div
+                          key={product.id}
+                          className={`flex items-center space-x-2 p-2 rounded-md hover:bg-muted transition-colors ${
+                            selectedProducts.includes(product.id) ? "bg-granito/10 border border-granito/20" : ""
+                          }`}
+                        >
+                          <Checkbox
+                            id={`product-${product.id}`}
+                            checked={selectedProducts.includes(product.id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedProducts([...selectedProducts, product.id])
+                              } else {
+                                setSelectedProducts(selectedProducts.filter((id) => id !== product.id))
+                              }
+                            }}
+                            className="border-granito data-[state=checked]:bg-granito data-[state=checked]:text-primary-foreground"
+                          />
+                          <div className="flex items-center gap-2 flex-1">
+                            <div className="h-8 w-8 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                              {product.featuredImage ? (
+                                <Image
+                                  src={product.featuredImage.url || "/placeholder.svg"}
+                                  alt={product.title}
+                                  width={32}
+                                  height={32}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="h-full w-full flex items-center justify-center bg-muted">
+                                  <span className="text-xs text-muted-foreground">Sin img</span>
+                                </div>
+                              )}
+                            </div>
+                            <label
+                              htmlFor={`product-${product.id}`}
+                              className="flex-1 text-xs sm:text-sm cursor-pointer flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1"
+                            >
+                              <span className="truncate">{product.title}</span>
+                              <span
+                                className={`text-xs px-2 py-1 rounded-full inline-flex items-center justify-center ${
+                                  product.status === "ACTIVE"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-gray-100 text-gray-800"
+                                }`}
+                              >
+                                {product.status === "ACTIVE" ? "Visible" : "Oculto"}
+                              </span>
+                            </label>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </CardContent>
       <CardFooter className="flex justify-end bg-gray-50 border-t p-3 sm:p-4">
         <Button

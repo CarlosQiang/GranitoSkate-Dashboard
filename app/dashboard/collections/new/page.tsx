@@ -9,10 +9,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Save } from "lucide-react"
+import { ArrowLeft, Save, AlertCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { createCollection } from "@/lib/api/collections"
+import { generateSeoMetafields, generateSeoHandle } from "@/lib/seo-utils"
+import { SeoPreview } from "@/components/seo-preview"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function NewCollectionPage() {
   const router = useRouter()
@@ -21,30 +23,14 @@ export default function NewCollectionPage() {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    seo: {
-      title: "",
-      description: "",
-    },
   })
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-
-    if (name.startsWith("seo.")) {
-      const seoField = name.split(".")[1]
-      setFormData({
-        ...formData,
-        seo: {
-          ...formData.seo,
-          [seoField]: value,
-        },
-      })
-    } else {
-      setFormData({
-        ...formData,
-        [name]: value,
-      })
-    }
+    setFormData({
+      ...formData,
+      [name]: value,
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -52,30 +38,22 @@ export default function NewCollectionPage() {
     setIsSaving(true)
 
     try {
+      // Generar handle SEO-friendly
+      const handle = generateSeoHandle(formData.title)
+
       const collectionData = {
         title: formData.title,
         descriptionHtml: formData.description,
-        metafields: [
-          {
-            namespace: "seo",
-            key: "title",
-            value: formData.seo.title || formData.title,
-            type: "single_line_text_field",
-          },
-          {
-            namespace: "seo",
-            key: "description",
-            value: formData.seo.description,
-            type: "multi_line_text_field",
-          },
-        ],
+        handle: handle,
+        // Generar automáticamente los metafields de SEO
+        metafields: generateSeoMetafields(formData.title, formData.description),
       }
 
       const collection = await createCollection(collectionData)
 
       toast({
-        title: "Colección creada",
-        description: "La colección ha sido creada correctamente",
+        title: "¡Colección creada!",
+        description: "Tu colección ya está disponible en la tienda y optimizada para buscadores",
       })
 
       router.push(`/dashboard/collections/${collection.id.split("/").pop()}`)
@@ -101,87 +79,57 @@ export default function NewCollectionPage() {
           </Button>
           <h1 className="text-3xl font-bold tracking-tight">Nueva colección</h1>
         </div>
-        <Button onClick={handleSubmit} disabled={isSaving}>
+        <Button onClick={handleSubmit} disabled={isSaving || !formData.title}>
           <Save className="mr-2 h-4 w-4" />
           {isSaving ? "Guardando..." : "Guardar colección"}
         </Button>
       </div>
 
-      <Tabs defaultValue="general">
-        <TabsList>
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="seo">SEO</TabsTrigger>
-        </TabsList>
+      <Alert className="bg-blue-50 border-blue-200">
+        <AlertCircle className="h-4 w-4 text-blue-600" />
+        <AlertTitle className="text-blue-800">Posicionamiento automático</AlertTitle>
+        <AlertDescription className="text-blue-700">
+          No te preocupes por el SEO. Tu colección se optimizará automáticamente para aparecer en Google usando el
+          nombre y la descripción que escribas.
+        </AlertDescription>
+      </Alert>
 
-        <TabsContent value="general" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Información de la colección</CardTitle>
-              <CardDescription>Información básica sobre la colección</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Nombre de la colección</Label>
-                <Input
-                  id="title"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleInputChange}
-                  placeholder="Nombre de la colección"
-                  required
-                />
-              </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Información de la colección</CardTitle>
+          <CardDescription>Datos principales de tu colección</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="title">
+              Nombre de la colección <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="title"
+              name="title"
+              value={formData.title}
+              onChange={handleInputChange}
+              placeholder="Ej: Tablas completas, Ofertas de verano, etc."
+              required
+            />
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="description">Descripción</Label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  placeholder="Descripción de la colección"
-                  rows={8}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+          <div className="space-y-2">
+            <Label htmlFor="description">Descripción</Label>
+            <Textarea
+              id="description"
+              name="description"
+              value={formData.description}
+              onChange={handleInputChange}
+              placeholder="Describe esta colección para que tus clientes entiendan qué productos incluye"
+              rows={6}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
-        <TabsContent value="seo" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Optimización para motores de búsqueda</CardTitle>
-              <CardDescription>Mejora la visibilidad de tu colección en los resultados de búsqueda</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="seo-title">Título SEO</Label>
-                <Input
-                  id="seo-title"
-                  name="seo.title"
-                  value={formData.seo.title}
-                  onChange={handleInputChange}
-                  placeholder="Título para motores de búsqueda"
-                />
-                <p className="text-xs text-muted-foreground">Recomendado: 50-60 caracteres</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="seo-description">Descripción SEO</Label>
-                <Textarea
-                  id="seo-description"
-                  name="seo.description"
-                  value={formData.seo.description}
-                  onChange={handleInputChange}
-                  placeholder="Descripción para motores de búsqueda"
-                  rows={4}
-                />
-                <p className="text-xs text-muted-foreground">Recomendado: 150-160 caracteres</p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      {/* Vista previa de Google */}
+      {formData.title && <SeoPreview title={formData.title} description={formData.description} />}
     </div>
   )
 }

@@ -25,6 +25,12 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Optimización de compilación
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn'],
+    } : false,
+  },
 };
 
 export default nextConfig;

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, Users, ShoppingCart, Tags, Settings, FileText, BarChart } from "lucide-react"
+import { LayoutDashboard, ShoppingBag, Users, FileText, Settings, Package, BarChart3, Percent } from "lucide-react"
 
 export const navigationItems = [
   {
@@ -9,12 +9,23 @@ export const navigationItems = [
   {
     name: "Productos",
     href: "/dashboard/products",
-    icon: Package,
+    icon: ShoppingBag,
   },
   {
     name: "Colecciones",
     href: "/dashboard/collections",
-    icon: Tags,
+    icon: Package,
+  },
+  {
+    name: "Promociones",
+    href: "/dashboard/promotions",
+    icon: Percent,
+    isNew: true,
+  },
+  {
+    name: "Pedidos",
+    href: "/dashboard/orders",
+    icon: FileText,
   },
   {
     name: "Clientes",
@@ -22,19 +33,9 @@ export const navigationItems = [
     icon: Users,
   },
   {
-    name: "Pedidos",
-    href: "/dashboard/orders",
-    icon: ShoppingCart,
-  },
-  {
-    name: "Contenido",
-    href: "/dashboard/content",
-    icon: FileText,
-  },
-  {
-    name: "Estadísticas",
+    name: "Analíticas",
     href: "/dashboard/analytics",
-    icon: BarChart,
+    icon: BarChart3,
   },
   {
     name: "Configuración",

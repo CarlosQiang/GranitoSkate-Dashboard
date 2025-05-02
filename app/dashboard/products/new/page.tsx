@@ -11,9 +11,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Save } from "lucide-react"
+import { ArrowLeft, Save, AlertCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { createProduct } from "@/lib/api/products"
+import { generateSeoMetafields, generateSeoHandle } from "@/lib/seo-utils"
+import { SeoPreview } from "@/components/seo-preview"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function NewProductPage() {
   const router = useRouter()
@@ -33,25 +36,12 @@ export default function NewProductPage() {
         title: "Default",
       },
     ],
-    seo: {
-      title: "",
-      description: "",
-    },
   })
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
 
-    if (name.startsWith("seo.")) {
-      const seoField = name.split(".")[1]
-      setFormData({
-        ...formData,
-        seo: {
-          ...formData.seo,
-          [seoField]: value,
-        },
-      })
-    } else if (name.startsWith("variants[0].")) {
+    if (name.startsWith("variants[0].")) {
       const variantField = name.split(".")[1]
       const updatedVariants = [...formData.variants]
       updatedVariants[0] = {
@@ -82,10 +72,14 @@ export default function NewProductPage() {
     setIsSaving(true)
 
     try {
+      // Generar handle SEO-friendly
+      const handle = generateSeoHandle(formData.title)
+
       // Preparar los datos para la API de Shopify
       const productData = {
         title: formData.title,
         descriptionHtml: formData.description,
+        handle: handle,
         status: formData.status,
         vendor: formData.vendor,
         productType: formData.productType,
@@ -97,20 +91,8 @@ export default function NewProductPage() {
             title: formData.variants[0].title || "Default Title",
           },
         ],
-        metafields: [
-          {
-            namespace: "seo",
-            key: "title",
-            value: formData.seo.title || formData.title,
-            type: "single_line_text_field",
-          },
-          {
-            namespace: "seo",
-            key: "description",
-            value: formData.seo.description || "",
-            type: "multi_line_text_field",
-          },
-        ],
+        // Generar automáticamente los metafields de SEO
+        metafields: generateSeoMetafields(formData.title, formData.description),
       }
 
       console.log("Enviando datos para crear producto:", productData)
@@ -118,19 +100,11 @@ export default function NewProductPage() {
       console.log("Producto creado:", product)
 
       toast({
-        title: "Producto creado",
-        description: "El producto ha sido creado correctamente",
+        title: "¡Producto creado!",
+        description: "Tu producto ya está disponible en la tienda y optimizado para buscadores",
       })
 
-      // Redirigir a la lista de productos en lugar de a la página de detalles
-      // para evitar problemas de carga inmediata
       router.push("/dashboard/products")
-
-      // Opcional: mostrar un mensaje adicional para indicar que se está redirigiendo
-      toast({
-        title: "Redirigiendo...",
-        description: "Serás redirigido a la lista de productos",
-      })
     } catch (error) {
       console.error("Error creating product:", error)
       toast({
@@ -153,34 +127,44 @@ export default function NewProductPage() {
           </Button>
           <h1 className="text-3xl font-bold tracking-tight">Nuevo producto</h1>
         </div>
-        <Button onClick={handleSubmit} disabled={isSaving}>
+        <Button onClick={handleSubmit} disabled={isSaving || !formData.title || !formData.variants[0].price}>
           <Save className="mr-2 h-4 w-4" />
           {isSaving ? "Guardando..." : "Guardar producto"}
         </Button>
       </div>
 
+      <Alert className="bg-blue-50 border-blue-200">
+        <AlertCircle className="h-4 w-4 text-blue-600" />
+        <AlertTitle className="text-blue-800">Posicionamiento automático</AlertTitle>
+        <AlertDescription className="text-blue-700">
+          No te preocupes por el SEO. Tu producto se optimizará automáticamente para aparecer en Google usando el nombre
+          y la descripción que escribas.
+        </AlertDescription>
+      </Alert>
+
       <Tabs defaultValue="general">
         <TabsList>
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="variants">Variantes</TabsTrigger>
-          <TabsTrigger value="seo">SEO</TabsTrigger>
+          <TabsTrigger value="general">Información básica</TabsTrigger>
+          <TabsTrigger value="variants">Precio y stock</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Información del producto</CardTitle>
-              <CardDescription>Información básica sobre el producto</CardDescription>
+              <CardDescription>Datos principales de tu producto</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="title">Nombre del producto</Label>
+                <Label htmlFor="title">
+                  Nombre del producto <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   id="title"
                   name="title"
                   value={formData.title}
                   onChange={handleInputChange}
-                  placeholder="Nombre del producto"
+                  placeholder="Ej: Tabla completa Element 8.0"
                   required
                 />
               </div>
@@ -192,20 +176,20 @@ export default function NewProductPage() {
                   name="description"
                   value={formData.description}
                   onChange={handleInputChange}
-                  placeholder="Descripción del producto"
-                  rows={8}
+                  placeholder="Describe tu producto con detalle para que tus clientes lo conozcan mejor"
+                  rows={6}
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="vendor">Fabricante</Label>
+                  <Label htmlFor="vendor">Marca</Label>
                   <Input
                     id="vendor"
                     name="vendor"
                     value={formData.vendor}
                     onChange={handleInputChange}
-                    placeholder="Fabricante"
+                    placeholder="Ej: Element, Santa Cruz, etc."
                   />
                 </div>
                 <div className="space-y-2">
@@ -215,103 +199,82 @@ export default function NewProductPage() {
                     name="productType"
                     value={formData.productType}
                     onChange={handleInputChange}
-                    placeholder="Tipo de producto"
+                    placeholder="Ej: Tabla, Ruedas, Trucks, etc."
                   />
                 </div>
               </div>
 
               <div className="flex items-center space-x-2">
                 <Switch id="status" checked={formData.status === "ACTIVE"} onCheckedChange={handleStatusChange} />
-                <Label htmlFor="status">{formData.status === "ACTIVE" ? "Activo" : "Borrador"}</Label>
+                <Label htmlFor="status">
+                  {formData.status === "ACTIVE" ? "Visible en tienda" : "Oculto (borrador)"}
+                </Label>
               </div>
             </CardContent>
           </Card>
+
+          {/* Vista previa de Google */}
+          {formData.title && <SeoPreview title={formData.title} description={formData.description} />}
         </TabsContent>
 
         <TabsContent value="variants" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Variante predeterminada</CardTitle>
-              <CardDescription>Configura la variante predeterminada del producto</CardDescription>
+              <CardTitle>Precio y disponibilidad</CardTitle>
+              <CardDescription>Configura el precio y stock de tu producto</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Precio</Label>
-                  <Input
-                    id="price"
-                    name="variants[0].price"
-                    type="number"
-                    step="0.01"
-                    value={formData.variants[0].price}
-                    onChange={handleInputChange}
-                    placeholder="0.00"
-                    required
-                  />
+                  <Label htmlFor="price">
+                    Precio <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2">€</span>
+                    <Input
+                      id="price"
+                      name="variants[0].price"
+                      type="number"
+                      step="0.01"
+                      value={formData.variants[0].price}
+                      onChange={handleInputChange}
+                      placeholder="0.00"
+                      className="pl-8"
+                      required
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="compareAtPrice">Precio anterior (opcional)</Label>
-                  <Input
-                    id="compareAtPrice"
-                    name="variants[0].compareAtPrice"
-                    type="number"
-                    step="0.01"
-                    value={formData.variants[0].compareAtPrice}
-                    onChange={handleInputChange}
-                    placeholder="0.00"
-                  />
+                  <Label htmlFor="compareAtPrice">Precio anterior (para ofertas)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2">€</span>
+                    <Input
+                      id="compareAtPrice"
+                      name="variants[0].compareAtPrice"
+                      type="number"
+                      step="0.01"
+                      value={formData.variants[0].compareAtPrice}
+                      onChange={handleInputChange}
+                      placeholder="0.00"
+                      className="pl-8"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="sku">SKU (opcional)</Label>
+                  <Label htmlFor="sku">Código de referencia (SKU)</Label>
                   <Input
                     id="sku"
                     name="variants[0].sku"
                     value={formData.variants[0].sku}
                     onChange={handleInputChange}
-                    placeholder="SKU"
+                    placeholder="Ej: GS-001"
                   />
                 </div>
               </div>
               <div className="bg-yellow-50 p-4 rounded-md border border-yellow-200">
                 <p className="text-sm text-yellow-800">
-                  Nota: El inventario se configurará automáticamente después de crear el producto para evitar errores
-                  con las ubicaciones.
+                  El inventario se configurará automáticamente después de crear el producto.
                 </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="seo" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Optimización para motores de búsqueda</CardTitle>
-              <CardDescription>Mejora la visibilidad de tu producto en los resultados de búsqueda</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="seo-title">Título SEO</Label>
-                <Input
-                  id="seo-title"
-                  name="seo.title"
-                  value={formData.seo.title}
-                  onChange={handleInputChange}
-                  placeholder="Título para motores de búsqueda"
-                />
-                <p className="text-xs text-muted-foreground">Recomendado: 50-60 caracteres</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="seo-description">Descripción SEO</Label>
-                <Textarea
-                  id="seo-description"
-                  name="seo.description"
-                  value={formData.seo.description}
-                  onChange={handleInputChange}
-                  placeholder="Descripción para motores de búsqueda"
-                  rows={4}
-                />
-                <p className="text-xs text-muted-foreground">Recomendado: 150-160 caracteres</p>
               </div>
             </CardContent>
           </Card>

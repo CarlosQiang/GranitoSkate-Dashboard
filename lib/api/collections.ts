@@ -105,6 +105,7 @@ export async function fetchCollectionById(id: string) {
   }
 }
 
+// Actualizar la función createCollection para usar la nueva API
 export async function createCollection(collectionData: any) {
   const mutation = gql`
     mutation CollectionCreate($input: CollectionInput!) {
@@ -123,7 +124,21 @@ export async function createCollection(collectionData: any) {
   `
 
   try {
-    const data = await shopifyClient.request(mutation, { input: collectionData })
+    // Preparar los datos para la creación
+    const input = {
+      title: collectionData.title,
+      descriptionHtml: collectionData.descriptionHtml || "",
+      handle: collectionData.handle || undefined, // Usar el handle generado si se proporciona
+    }
+
+    // Si hay metafields, añadirlos
+    if (collectionData.metafields && collectionData.metafields.length > 0) {
+      input.metafields = collectionData.metafields
+    }
+
+    console.log("Enviando datos para crear colección:", JSON.stringify(input, null, 2))
+
+    const data = await shopifyClient.request(mutation, { input })
 
     if (data.collectionCreate.userErrors && data.collectionCreate.userErrors.length > 0) {
       throw new Error(data.collectionCreate.userErrors[0].message)
@@ -136,6 +151,7 @@ export async function createCollection(collectionData: any) {
   }
 }
 
+// Actualizar la función updateCollection para usar la nueva API
 export async function updateCollection(id: string, collectionData: any) {
   // Asegurarse de que el ID tenga el formato correcto
   const isFullShopifyId = id.includes("gid://shopify/Collection/")
@@ -160,12 +176,21 @@ export async function updateCollection(id: string, collectionData: any) {
   `
 
   try {
-    const data = await shopifyClient.request(mutation, {
-      input: {
-        id: formattedId,
-        ...collectionData,
-      },
-    })
+    // Preparar los datos para la actualización
+    const input = {
+      id: formattedId,
+      title: collectionData.title,
+      descriptionHtml: collectionData.descriptionHtml || "",
+    }
+
+    // Si hay metafields, añadirlos
+    if (collectionData.metafields && collectionData.metafields.length > 0) {
+      input.metafields = collectionData.metafields
+    }
+
+    console.log("Enviando datos para actualizar colección:", JSON.stringify(input, null, 2))
+
+    const data = await shopifyClient.request(mutation, { input })
 
     if (data.collectionUpdate.userErrors && data.collectionUpdate.userErrors.length > 0) {
       throw new Error(data.collectionUpdate.userErrors[0].message)
