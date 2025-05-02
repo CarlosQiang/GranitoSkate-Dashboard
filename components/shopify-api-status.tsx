@@ -15,11 +15,19 @@ export function ShopifyApiStatus() {
     setIsChecking(true)
     try {
       const response = await fetch("/api/shopify/check")
+
+      if (!response.ok) {
+        setStatus("error")
+        setError(`Error al conectar con Shopify: ${response.status} ${response.statusText}`)
+        setIsChecking(false)
+        return
+      }
+
       const data = await response.json()
 
-      if (response.ok) {
+      if (data.success) {
         setStatus("connected")
-        setShopName(data.shop || "")
+        setShopName(data.shopName || "")
       } else {
         setStatus("error")
         setError(data.error || "Error desconocido al conectar con Shopify")
@@ -27,7 +35,7 @@ export function ShopifyApiStatus() {
     } catch (err) {
       console.error("Error al verificar la conexión con Shopify:", err)
       setStatus("error")
-      setError("Error al verificar la conexión con Shopify")
+      setError(`Error al verificar la conexión con Shopify: ${(err as Error).message}`)
     } finally {
       setIsChecking(false)
     }

@@ -1,59 +1,112 @@
 import { NextResponse } from "next/server"
-import shopifyClient from "@/lib/shopify"
-import { gql } from "graphql-request"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 export async function GET() {
   try {
-    // Verificar que las variables de entorno estén configuradas
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
+    // Verificar variables de entorno
     const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
     const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
 
-    if (!shopDomain || !accessToken) {
+    if (!shopDomain) {
+      console.error("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está configurado")
       return NextResponse.json(
         {
           success: false,
-          message: "Faltan variables de entorno para la conexión con Shopify",
-          missingEnvVars: {
-            NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: !shopDomain,
-            SHOPIFY_ACCESS_TOKEN: !accessToken,
-          },
+          error: "Configuración de Shopify incompleta: falta el dominio de la tienda",
         },
-        { status: 500 },
+        { status: 200 },
       )
     }
 
-    // Consulta simple para verificar la conexión
-    const query = gql`
+    if (!accessToken) {
+      console.error("SHOPIFY_ACCESS_TOKEN no está configurado")
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Configuración de Shopify incompleta: falta el token de acceso",
+        },
+        { status: 200 },
+      )
+    }
+
+    // Consulta GraphQL simple para verificar la conexión
+    const query = `
       {
         shop {
           name
-          primaryDomain {
-            url
-          }
         }
       }
     `
 
-    const data = await shopifyClient.request(query)
+    // Hacer la solicitud a la API de Shopify
+    const response = await fetch(`https://${shopDomain}/admin/api/2023-10/graphql.json`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": accessToken,
+      },
+      body: JSON.stringify({ query }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`Error en la respuesta de Shopify (${response.status}): ${errorText}`)
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Error en la respuesta de Shopify: ${response.status} ${response.statusText}`,
+          details: errorText,
+        },
+        { status: 200 },
+      )
+    }
+
+    const data = await response.json()
+
+    // Verificar si hay errores en la respuesta GraphQL
+    if (data.errors) {
+      console.error("Errores GraphQL:", data.errors)
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Error en la consulta GraphQL",
+          details: data.errors,
+        },
+        { status: 200 },
+      )
+    }
+
+    // Verificar que la respuesta contiene los datos esperados
+    if (!data.data || !data.data.shop) {
+      console.error("Respuesta de Shopify incompleta:", data)
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Respuesta de Shopify incompleta o inesperada",
+        },
+        { status: 200 },
+      )
+    }
 
     return NextResponse.json({
       success: true,
-      message: "Conexión con Shopify establecida correctamente",
-      shop: data.shop,
-      config: {
-        shopDomain,
-        accessTokenConfigured: !!accessToken,
-      },
+      shopName: data.data.shop.name,
     })
   } catch (error) {
-    console.error("Error checking Shopify connection:", error)
+    console.error("Error al verificar la conexión con Shopify:", error)
     return NextResponse.json(
       {
         success: false,
-        message: `Error al conectar con Shopify: ${(error as Error).message}`,
-        error: (error as Error).message,
+        error: `Error al verificar la conexión: ${(error as Error).message}`,
       },
-      { status: 500 },
+      { status: 200 },
     )
   }
 }

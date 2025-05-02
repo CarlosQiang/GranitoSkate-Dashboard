@@ -4,7 +4,6 @@ import { RecentOrders } from "@/components/recent-orders"
 import { RecentProducts } from "@/components/recent-products"
 import { ShopifyApiStatus } from "@/components/shopify-api-status"
 import { DashboardErrorBoundary } from "@/components/dashboard-error-boundary"
-import { ConditionalShopifyComponent } from "@/components/conditional-shopify-component"
 
 export default function DashboardPage() {
   return (
@@ -17,9 +16,7 @@ export default function DashboardPage() {
 
         <ShopifyApiStatus />
 
-        <ConditionalShopifyComponent>
-          <DashboardStats />
-        </ConditionalShopifyComponent>
+        <DashboardStats />
 
         <Tabs defaultValue="orders">
           <TabsList>
@@ -27,14 +24,10 @@ export default function DashboardPage() {
             <TabsTrigger value="products">Productos recientes</TabsTrigger>
           </TabsList>
           <TabsContent value="orders" className="space-y-4">
-            <ConditionalShopifyComponent>
-              <RecentOrders />
-            </ConditionalShopifyComponent>
+            <RecentOrders />
           </TabsContent>
           <TabsContent value="products" className="space-y-4">
-            <ConditionalShopifyComponent>
-              <RecentProducts />
-            </ConditionalShopifyComponent>
+            <RecentProducts />
           </TabsContent>
         </Tabs>
       </div>

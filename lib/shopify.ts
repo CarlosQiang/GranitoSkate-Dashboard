@@ -1,34 +1,32 @@
 import { GraphQLClient } from "graphql-request"
 
-// Función para obtener la URL base de la API de Shopify
-function getShopifyApiUrl() {
-  const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
-  if (!shopDomain) {
-    throw new Error("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está definido")
+// Función para obtener la URL base de la aplicación
+const getBaseUrl = () => {
+  // En el navegador, usamos window.location.origin
+  if (typeof window !== "undefined") {
+    return window.location.origin
   }
-  return `https://${shopDomain}/admin/api/2023-10/graphql.json`
+
+  // En el servidor, usamos la URL de Vercel o localhost
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`
+  }
+
+  return "http://localhost:3000"
 }
 
-// Función para obtener el token de acceso de Shopify
-function getShopifyAccessToken() {
-  const token = process.env.SHOPIFY_ACCESS_TOKEN
-  if (!token) {
-    throw new Error("SHOPIFY_ACCESS_TOKEN no está definido")
-  }
-  return token
-}
-
-// Crear y configurar el cliente GraphQL
-const shopifyClient = new GraphQLClient(getShopifyApiUrl(), {
+// Configuración del cliente GraphQL para Shopify a través del proxy
+const shopifyClient = new GraphQLClient(`${getBaseUrl()}/api/shopify`, {
   headers: {
-    "X-Shopify-Access-Token": getShopifyAccessToken(),
     "Content-Type": "application/json",
   },
+  // Añadir un timeout para evitar que las solicitudes se queden colgadas
+  timeout: 30000, // 30 segundos
 })
 
-// Función para formatear IDs de Shopify
-export function formatShopifyId(id: string, type: string) {
-  if (id.includes(`gid://shopify/${type}/`)) {
+// Función para formatear correctamente los IDs de Shopify
+export function formatShopifyId(id: string, type = "Product") {
+  if (id.startsWith("gid://")) {
     return id
   }
   return `gid://shopify/${type}/${id}`
