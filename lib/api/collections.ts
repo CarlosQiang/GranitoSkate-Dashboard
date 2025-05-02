@@ -1,7 +1,7 @@
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 
-export async function fetchCollections(limit = 50) {
+export async function fetchCollections(limit = 20) {
   const query = gql`
     query {
       collections(first: ${limit}) {
@@ -13,9 +13,7 @@ export async function fetchCollections(limit = 50) {
             productsCount
             image {
               url
-              altText
             }
-            updatedAt
           }
         }
       }
@@ -25,7 +23,7 @@ export async function fetchCollections(limit = 50) {
   try {
     console.log("Fetching collections from Shopify...")
     const data = await shopifyClient.request(query)
-    console.log("Collections response:", JSON.stringify(data, null, 2))
+    console.log("Collections response received")
 
     if (!data || !data.collections || !data.collections.edges) {
       console.error("Respuesta de colecciones incompleta:", data)
@@ -38,7 +36,6 @@ export async function fetchCollections(limit = 50) {
       handle: edge.node.handle,
       productsCount: edge.node.productsCount || 0,
       image: edge.node.image,
-      updatedAt: edge.node.updatedAt,
     }))
   } catch (error) {
     console.error("Error fetching collections:", error)
