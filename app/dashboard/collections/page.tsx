@@ -9,9 +9,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tags, Search, Plus, MoreHorizontal, Pencil, Trash2, Layers } from "lucide-react"
+import { Tags, Search, Plus, MoreHorizontal, Pencil, Trash2, Layers, AlertCircle } from "lucide-react"
 import { fetchCollections, deleteCollection } from "@/lib/api/collections"
 import { useToast } from "@/components/ui/use-toast"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 interface Collection {
   id: string
@@ -28,16 +29,21 @@ export default function CollectionsPage() {
   const { toast } = useToast()
   const [collections, setCollections] = useState<Collection[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
 
   useEffect(() => {
     const getCollections = async () => {
+      setIsLoading(true)
+      setError(null)
       try {
         const data = await fetchCollections()
+        console.log("Collections loaded:", data)
         setCollections(data)
       } catch (error) {
         console.error("Error fetching collections:", error)
+        setError((error as Error).message)
         toast({
           title: "Error",
           description: "No se pudieron cargar las colecciones",
@@ -69,6 +75,26 @@ export default function CollectionsPage() {
         })
       }
     }
+  }
+
+  const handleRetry = () => {
+    setIsLoading(true)
+    setError(null)
+    fetchCollections()
+      .then((data) => {
+        setCollections(data)
+      })
+      .catch((error) => {
+        setError((error as Error).message)
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar las colecciones",
+          variant: "destructive",
+        })
+      })
+      .finally(() => {
+        setIsLoading(false)
+      })
   }
 
   const filteredCollections = collections.filter((collection) =>
@@ -124,6 +150,19 @@ export default function CollectionsPage() {
           </Button>
         </div>
       </div>
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error al cargar las colecciones</AlertTitle>
+          <AlertDescription>
+            <p>{error}</p>
+            <Button onClick={handleRetry} variant="outline" size="sm" className="mt-2">
+              Reintentar
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {isLoading ? (
         viewMode === "grid" ? (
