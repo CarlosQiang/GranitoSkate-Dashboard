@@ -795,7 +795,7 @@ export async function saveLocalBusinessMetafields(
     // Nombre del negocio
     if (localBusiness.name !== undefined) {
       metafieldPromises.push(
-        setMetafield(shopId, "SHOP", "local_business", "name", localBusiness.name, "single_line_text_field")  "SHOP\", \"local_business", "name", localBusiness.name, "single_line_text_field")
+        setMetafield(shopId, "SHOP", "local_business", "name", localBusiness.name, "single_line_text_field"),
       )
     }
 
