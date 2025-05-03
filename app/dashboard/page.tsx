@@ -1,36 +1,32 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Suspense } from "react"
 import { DashboardStats } from "@/components/dashboard-stats"
 import { RecentOrders } from "@/components/recent-orders"
 import { RecentProducts } from "@/components/recent-products"
-import { ShopifyApiStatus } from "@/components/shopify-api-status"
-import { DashboardErrorBoundary } from "@/components/dashboard-error-boundary"
+import { LoadingState } from "@/components/loading-state"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export default function DashboardPage() {
   return (
-    <DashboardErrorBoundary>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Bienvenido al panel de administración de GranitoSkate</p>
-        </div>
+    <div className="flex flex-col gap-4">
+      <h1 className="text-2xl font-bold">Dashboard</h1>
+      <p className="text-muted-foreground">Bienvenido al panel de administración de GranitoSkate</p>
 
-        <ShopifyApiStatus />
+      {/* Eliminamos el ShopifyConnectionChecker de aquí ya que se mostrará en el layout */}
 
+      <Suspense fallback={<LoadingState />}>
         <DashboardStats />
+      </Suspense>
 
-        <Tabs defaultValue="orders">
-          <TabsList>
-            <TabsTrigger value="orders">Pedidos recientes</TabsTrigger>
-            <TabsTrigger value="products">Productos recientes</TabsTrigger>
-          </TabsList>
-          <TabsContent value="orders" className="space-y-4">
-            <RecentOrders />
-          </TabsContent>
-          <TabsContent value="products" className="space-y-4">
-            <RecentProducts />
-          </TabsContent>
-        </Tabs>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Suspense fallback={<LoadingState />}>
+          <RecentOrders />
+        </Suspense>
+        <Suspense fallback={<LoadingState />}>
+          <RecentProducts />
+        </Suspense>
       </div>
-    </DashboardErrorBoundary>
+    </div>
   )
 }

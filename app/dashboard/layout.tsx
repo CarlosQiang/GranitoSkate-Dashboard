@@ -1,32 +1,25 @@
 import type React from "react"
-import { getServerSession } from "next-auth"
-import { redirect } from "next/navigation"
-import { authOptions } from "@/lib/auth"
 import { DashboardNav } from "@/components/dashboard-nav"
 import { DashboardHeader } from "@/components/dashboard-header"
-import { ShopifyConnectionStatus } from "@/components/shopify-connection-status"
+import { ShopifyConnectionChecker } from "@/components/shopify-connection-checker"
+import { DashboardErrorBoundary } from "@/components/dashboard-error-boundary"
+import { DashboardLayoutWrapper } from "@/components/dashboard-layout-wrapper"
 
-export default async function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  const session = await getServerSession(authOptions)
-
-  if (!session) {
-    redirect("/login")
-  }
-
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col">
-      <DashboardHeader />
-      <div className="flex flex-1">
-        <DashboardNav />
-        <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-auto">
-          <ShopifyConnectionStatus />
-          {children}
-        </main>
+    <DashboardLayoutWrapper>
+      <div className="flex min-h-screen flex-col">
+        <DashboardHeader />
+        <div className="container grid flex-1 gap-12 md:grid-cols-[200px_1fr]">
+          <aside className="hidden w-[200px] flex-col md:flex">
+            <DashboardNav />
+          </aside>
+          <main className="flex w-full flex-1 flex-col overflow-hidden">
+            <ShopifyConnectionChecker />
+            <DashboardErrorBoundary>{children}</DashboardErrorBoundary>
+          </main>
+        </div>
       </div>
-    </div>
+    </DashboardLayoutWrapper>
   )
 }

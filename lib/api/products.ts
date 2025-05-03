@@ -22,7 +22,9 @@ export async function fetchRecentProducts(limit = 5) {
   `
 
   try {
+    console.log("Fetching recent products from Shopify...")
     const data = await shopifyClient.request(query, { limit })
+    console.log("Products response received:", data)
 
     if (!data || !data.products || !data.products.edges) {
       console.error("Respuesta de productos incompleta:", data)

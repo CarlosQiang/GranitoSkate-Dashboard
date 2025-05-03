@@ -3,8 +3,8 @@ import { gql } from "graphql-request"
 
 export async function fetchCollections(limit = 20) {
   const query = gql`
-    query {
-      collections(first: ${limit}) {
+    query GetCollections($limit: Int!) {
+      collections(first: $limit) {
         edges {
           node {
             id
@@ -18,7 +18,7 @@ export async function fetchCollections(limit = 20) {
 
   try {
     console.log("Fetching collections from Shopify...")
-    const data = await shopifyClient.request(query)
+    const data = await shopifyClient.request(query, { limit })
     console.log("Collections response received")
 
     if (!data || !data.collections || !data.collections.edges) {
