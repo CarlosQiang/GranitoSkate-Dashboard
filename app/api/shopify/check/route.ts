@@ -1,63 +1,40 @@
 import { NextResponse } from "next/server"
-import shopifyClient from "@/lib/shopify"
-import { gql } from "graphql-request"
+import { testShopifyConnection } from "@/lib/shopify-diagnostics"
 
 export async function GET() {
   try {
-    // Consulta simple para verificar la conexión
-    const query = gql`
-      {
-        shop {
-          name
-          url
-        }
-      }
-    `
+    // Usar la función de diagnóstico existente para probar la conexión
+    const result = await testShopifyConnection()
 
-    const data = await shopifyClient.request(query)
-
-    if (!data || !data.shop) {
+    if (result.success) {
+      return NextResponse.json({
+        success: true,
+        shopName: result.data?.shop?.name || "Tienda Shopify",
+        message: "Conexión establecida correctamente",
+      })
+    } else {
+      console.error("Error de conexión con Shopify:", result.message)
       return NextResponse.json(
         {
           success: false,
-          message: "No se pudo conectar con la API de Shopify",
-          details: "Respuesta incompleta o inválida",
+          error: result.message || "Error desconocido al conectar con Shopify",
         },
-        { status: 400 },
-      )
+        { status: 200 },
+      ) // Devolvemos 200 para manejar el error en el cliente
     }
-
-    return NextResponse.json({
-      success: true,
-      message: "Conexión establecida correctamente",
-      shop: data.shop,
-    })
   } catch (error) {
-    console.error("Error al verificar la conexión con Shopify:", error)
-
-    // Extraer mensaje de error más detallado
-    let errorMessage = "Error desconocido"
-    let errorDetails = null
-
-    if (error instanceof Error) {
-      errorMessage = error.message
-
-      // Intentar extraer más detalles si es un error de GraphQL
-      if ("response" in error && typeof error.response === "object" && error.response) {
-        const response = error.response as any
-        if (response.errors && Array.isArray(response.errors) && response.errors.length > 0) {
-          errorDetails = response.errors.map((e: any) => e.message).join(", ")
-        }
-      }
-    }
-
+    console.error("Error inesperado al verificar la conexión con Shopify:", error)
     return NextResponse.json(
       {
         success: false,
-        message: "Error al verificar la conexión con Shopify",
-        details: errorDetails || errorMessage,
+        error: `Error general: ${(error as Error).message}`,
       },
-      { status: 500 },
-    )
+      { status: 200 },
+    ) // Devolvemos 200 para manejar el error en el cliente
   }
+}
+
+// También permitimos POST para mantener compatibilidad con código existente
+export async function POST() {
+  return GET()
 }

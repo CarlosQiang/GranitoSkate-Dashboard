@@ -1,39 +1,22 @@
 import { GraphQLClient } from "graphql-request"
 
-// Función para obtener la URL base de la aplicación
-const getBaseUrl = () => {
-  // En el navegador, usamos window.location.origin
-  if (typeof window !== "undefined") {
-    return window.location.origin
-  }
+// Verificar que las variables de entorno estén definidas
+const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
+const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
 
-  // En el servidor, usamos la URL de Vercel o localhost
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`
-  }
-
-  return "http://localhost:3000"
+if (!shopDomain || !accessToken) {
+  console.warn(
+    "⚠️ Configuración de Shopify incompleta. Asegúrate de definir NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN y SHOPIFY_ACCESS_TOKEN en tu archivo .env.local",
+  )
 }
 
-// Configuración del cliente GraphQL para Shopify a través del proxy
-const shopifyClient = new GraphQLClient(`${getBaseUrl()}/api/shopify`, {
+// Crear el cliente GraphQL para Shopify
+const shopifyClient = new GraphQLClient(`https://${shopDomain}/admin/api/2023-10/graphql.json`, {
   headers: {
+    "X-Shopify-Access-Token": accessToken || "",
     "Content-Type": "application/json",
   },
-  // Añadir un timeout para evitar que las solicitudes se queden colgadas
-  timeout: 30000, // 30 segundos
+  timeout: 30000, // Aumentar el tiempo de espera a 30 segundos
 })
 
-// Función para formatear correctamente los IDs de Shopify
-export function formatShopifyId(id: string, type = "Product") {
-  if (id.startsWith("gid://")) {
-    return id
-  }
-  return `gid://shopify/${type}/${id}`
-}
-
 export default shopifyClient
-
-export const getShopifyApi = async () => {
-  return shopifyClient
-}
