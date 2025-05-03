@@ -13,17 +13,34 @@ export function ShopifyApiStatus() {
 
   const checkConnection = async () => {
     setIsChecking(true)
-    try {
-      const response = await fetch("/api/shopify/check")
+    setStatus("loading")
 
-      if (!response.ok) {
+    try {
+      const response = await fetch("/api/shopify/check", {
+        method: "GET",
+        headers: {
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+        },
+      })
+
+      let data
+      try {
+        const text = await response.text()
+        console.log("Respuesta de la API:", text)
+
+        if (!text) {
+          throw new Error("Respuesta vacía del servidor")
+        }
+
+        data = JSON.parse(text)
+      } catch (parseError) {
+        console.error("Error al parsear la respuesta:", parseError)
         setStatus("error")
-        setError(`Error al conectar con Shopify: ${response.status} ${response.statusText}`)
+        setError(`Error al parsear la respuesta: ${(parseError as Error).message}`)
         setIsChecking(false)
         return
       }
-
-      const data = await response.json()
 
       if (data.success) {
         setStatus("connected")

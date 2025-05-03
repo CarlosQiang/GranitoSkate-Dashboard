@@ -10,10 +10,6 @@ export async function fetchCollections(limit = 20) {
             id
             title
             handle
-            productsCount
-            image {
-              url
-            }
           }
         }
       }
@@ -34,8 +30,6 @@ export async function fetchCollections(limit = 20) {
       id: edge.node.id.split("/").pop(),
       title: edge.node.title,
       handle: edge.node.handle,
-      productsCount: edge.node.productsCount || 0,
-      image: edge.node.image,
     }))
   } catch (error) {
     console.error("Error fetching collections:", error)
@@ -58,11 +52,6 @@ export async function fetchCollectionById(id: string) {
         handle
         description
         descriptionHtml
-        productsCount
-        image {
-          url
-          altText
-        }
         products(first: 20) {
           edges {
             node {
@@ -73,18 +62,6 @@ export async function fetchCollectionById(id: string) {
                 url
               }
               status
-              totalInventory
-            }
-          }
-        }
-        metafields(first: 20) {
-          edges {
-            node {
-              id
-              namespace
-              key
-              value
-              type
             }
           }
         }

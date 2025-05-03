@@ -55,6 +55,7 @@ export async function GET() {
       body: JSON.stringify({ query }),
     })
 
+    // Verificar si la respuesta es exitosa
     if (!response.ok) {
       const errorText = await response.text()
       console.error(`Error en la respuesta de Shopify (${response.status}): ${errorText}`)
@@ -68,7 +69,21 @@ export async function GET() {
       )
     }
 
-    const data = await response.json()
+    // Intentar parsear la respuesta JSON
+    let data
+    try {
+      data = await response.json()
+    } catch (error) {
+      console.error("Error al parsear la respuesta JSON:", error)
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Error al parsear la respuesta JSON de Shopify",
+          details: (error as Error).message,
+        },
+        { status: 200 },
+      )
+    }
 
     // Verificar si hay errores en la respuesta GraphQL
     if (data.errors) {
@@ -90,6 +105,7 @@ export async function GET() {
         {
           success: false,
           error: "Respuesta de Shopify incompleta o inesperada",
+          details: data,
         },
         { status: 200 },
       )

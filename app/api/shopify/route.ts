@@ -32,33 +32,73 @@ export async function POST(request: Request) {
 
     // Obtener el cuerpo de la solicitud
     const body = await request.json()
+    const { query, variables } = body
+
+    console.log("Enviando consulta a Shopify:", query.substring(0, 100) + "...")
 
     // Hacer la solicitud a la API de Shopify
-    const shopifyResponse = await fetch(`https://${shopDomain}/admin/api/2023-10/graphql.json`, {
+    const response = await fetch(`https://${shopDomain}/admin/api/2023-10/graphql.json`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-Shopify-Access-Token": accessToken,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        query,
+        variables,
+      }),
     })
 
     // Verificar si la respuesta es exitosa
-    if (!shopifyResponse.ok) {
-      const errorText = await shopifyResponse.text()
-      console.error(`Error en la respuesta de Shopify (${shopifyResponse.status}): ${errorText}`)
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`Error en la respuesta de Shopify (${response.status}): ${errorText}`)
       return NextResponse.json(
-        { error: `Error en la respuesta de Shopify: ${shopifyResponse.status}` },
-        { status: shopifyResponse.status },
+        {
+          error: `Error en la respuesta de Shopify: ${response.status} ${response.statusText}`,
+          details: errorText,
+        },
+        { status: response.status },
       )
     }
 
-    // Devolver la respuesta de Shopify
-    const data = await shopifyResponse.json()
+    // Intentar parsear la respuesta JSON
+    let data
+    try {
+      data = await response.json()
+    } catch (error) {
+      console.error("Error al parsear la respuesta JSON:", error)
+      return NextResponse.json(
+        {
+          error: "Error al parsear la respuesta JSON de Shopify",
+          details: (error as Error).message,
+        },
+        { status: 500 },
+      )
+    }
+
+    // Verificar si hay errores en la respuesta GraphQL
+    if (data.errors) {
+      console.error("Errores GraphQL:", JSON.stringify(data.errors, null, 2))
+      return NextResponse.json(
+        {
+          error: "Error en la consulta GraphQL",
+          details: data.errors,
+        },
+        { status: 400 },
+      )
+    }
+
     return NextResponse.json(data)
   } catch (error) {
-    console.error("Error en la API de Shopify:", error)
-    return NextResponse.json({ error: `Error interno del servidor: ${(error as Error).message}` }, { status: 500 })
+    console.error("Error en el proxy de Shopify:", error)
+    return NextResponse.json(
+      {
+        error: "Error interno del servidor",
+        details: (error as Error).message,
+      },
+      { status: 500 },
+    )
   }
 }
 
