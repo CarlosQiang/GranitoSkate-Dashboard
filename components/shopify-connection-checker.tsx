@@ -17,7 +17,7 @@ export function ShopifyConnectionChecker({ children }: { children: React.ReactNo
     try {
       // Intentar hacer una solicitud simple a través del proxy
       const response = await fetch("/api/shopify/check", {
-        method: "POST",
+        method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
