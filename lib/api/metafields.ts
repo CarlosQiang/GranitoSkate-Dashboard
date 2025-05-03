@@ -1,190 +1,76 @@
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
-import type {
-  Metafield,
-  MetafieldDefinition,
-  Metaobject,
-  MetaobjectDefinition,
-  SeoMetafields,
-  LocalBusinessMetafields,
-  SocialMediaMetafields,
-} from "@/types/metafields"
+import type { MetafieldInput, LocalBusinessData, SocialMediaData } from "@/types/metafields"
 
-// Obtener definiciones de metafields para un tipo de propietario específico
-export async function fetchMetafieldDefinitions(ownerType: string): Promise<MetafieldDefinition[]> {
-  try {
-    const query = gql`
-      query GetMetafieldDefinitions($ownerType: MetafieldOwnerType!) {
-        metafieldDefinitions(first: 100, ownerType: $ownerType) {
-          edges {
-            node {
-              id
-              name
-              key
-              namespace
-              description
-              type {
-                name
-              }
-              validations {
-                name
-                value
-              }
-              ownerType
-              visibleToStorefrontApi
-              pinnedPosition
-            }
-          }
-        }
-      }
-    `
-
-    const data = await shopifyClient.request(query, { ownerType })
-
-    if (!data || !data.metafieldDefinitions || !data.metafieldDefinitions.edges) {
-      console.error("Respuesta de definiciones de metafields incompleta:", data)
-      return []
-    }
-
-    return data.metafieldDefinitions.edges.map((edge: any) => ({
-      id: edge.node.id,
-      name: edge.node.name,
-      key: edge.node.key,
-      namespace: edge.node.namespace,
-      description: edge.node.description,
-      type: edge.node.type.name,
-      validations: edge.node.validations,
-      ownerType: edge.node.ownerType,
-      visibleToStorefrontApi: edge.node.visibleToStorefrontApi,
-      pinnedPosition: edge.node.pinnedPosition,
-    }))
-  } catch (error) {
-    console.error("Error fetching metafield definitions:", error)
-    return []
-  }
-}
-
-// Crear una definición de metafield
-export async function createMetafieldDefinition(
-  definition: Partial<MetafieldDefinition>,
-): Promise<MetafieldDefinition | null> {
-  try {
-    const mutation = gql`
-      mutation CreateMetafieldDefinition($definition: MetafieldDefinitionInput!) {
-        metafieldDefinitionCreate(definition: $definition) {
-          metafieldDefinition {
+// Función para obtener metafields de un recurso
+export async function getMetafields(ownerId: string, ownerType: string) {
+  const query = gql`
+    query GetMetafields($ownerId: ID!, $ownerType: MetafieldOwnerType!) {
+      metafields(first: 100, owner: { id: $ownerId, type: $ownerType }) {
+        edges {
+          node {
             id
-            name
-            key
             namespace
-            description
-            type {
-              name
-            }
-            ownerType
-          }
-          userErrors {
-            field
-            message
+            key
+            value
+            type
           }
         }
       }
-    `
-
-    const variables = {
-      definition: {
-        name: definition.name,
-        namespace: definition.namespace,
-        key: definition.key,
-        description: definition.description,
-        type: definition.type,
-        ownerType: definition.ownerType,
-        validations: definition.validations,
-        visibleToStorefrontApi: definition.visibleToStorefrontApi || true,
-      },
     }
+  `
 
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.metafieldDefinitionCreate.userErrors && data.metafieldDefinitionCreate.userErrors.length > 0) {
-      console.error("Error creating metafield definition:", data.metafieldDefinitionCreate.userErrors)
-      return null
-    }
-
-    const result = data.metafieldDefinitionCreate.metafieldDefinition
-    return {
-      id: result.id,
-      name: result.name,
-      key: result.key,
-      namespace: result.namespace,
-      description: result.description,
-      type: result.type.name,
-      ownerType: result.ownerType,
-      visibleToStorefrontApi: result.visibleToStorefrontApi,
-    }
-  } catch (error) {
-    console.error("Error creating metafield definition:", error)
-    return null
-  }
-}
-
-// Obtener metafields para un propietario específico
-export async function fetchMetafields(ownerId: string, ownerType: string): Promise<Metafield[]> {
   try {
     // Asegurarse de que el ID tenga el formato correcto
-    const isFullShopifyId = ownerId.includes(`gid://shopify/${ownerType}/`)
-    const formattedId = isFullShopifyId ? ownerId : `gid://shopify/${ownerType}/${ownerId}`
+    const isFullShopifyId = ownerId.includes("gid://shopify/")
+    let formattedId = ownerId
+    const formattedOwnerType = ownerType
 
-    const query = gql`
-      query GetMetafields($ownerId: ID!) {
-        node(id: $ownerId) {
-          id
-          ... on ${ownerType} {
-            metafields(first: 100) {
-              edges {
-                node {
-                  id
-                  namespace
-                  key
-                  value
-                  type
-                  description
-                  createdAt
-                  updatedAt
-                }
-              }
-            }
-          }
-        }
+    // Si no es un ID completo, formatearlo según el tipo de propietario
+    if (!isFullShopifyId) {
+      switch (ownerType) {
+        case "PRODUCT":
+          formattedId = `gid://shopify/Product/${ownerId}`
+          break
+        case "COLLECTION":
+          formattedId = `gid://shopify/Collection/${ownerId}`
+          break
+        case "SHOP":
+          formattedId = `gid://shopify/Shop/${ownerId}`
+          break
+        default:
+          throw new Error(`Tipo de propietario no soportado: ${ownerType}`)
       }
-    `
+    }
 
-    const data = await shopifyClient.request(query, { ownerId: formattedId })
+    const data = await shopifyClient.request(query, {
+      ownerId: formattedId,
+      ownerType: formattedOwnerType,
+    })
 
-    if (!data || !data.node || !data.node.metafields || !data.node.metafields.edges) {
-      console.error("Respuesta de metafields incompleta:", data)
+    if (!data || !data.metafields || !data.metafields.edges) {
       return []
     }
 
-    return data.node.metafields.edges.map((edge: any) => ({
-      id: edge.node.id,
-      namespace: edge.node.namespace,
-      key: edge.node.key,
-      value: edge.node.value,
-      type: edge.node.type,
-      description: edge.node.description,
-      createdAt: edge.node.createdAt,
-      updatedAt: edge.node.updatedAt,
-      ownerType,
-      ownerId,
-    }))
+    return data.metafields.edges.map((edge: any) => edge.node)
   } catch (error) {
     console.error(`Error fetching metafields for ${ownerType} ${ownerId}:`, error)
-    return []
+    throw new Error(`Error al obtener metafields: ${(error as Error).message}`)
   }
 }
 
-// Establecer un metafield
+// Función para obtener un metafield específico
+export async function getMetafield(ownerId: string, ownerType: string, namespace: string, key: string) {
+  try {
+    const metafields = await getMetafields(ownerId, ownerType)
+    return metafields.find((metafield: any) => metafield.namespace === namespace && metafield.key === key) || null
+  } catch (error) {
+    console.error(`Error fetching specific metafield for ${ownerType} ${ownerId}:`, error)
+    throw new Error(`Error al obtener metafield específico: ${(error as Error).message}`)
+  }
+}
+
+// Función para establecer un metafield
 export async function setMetafield(
   ownerId: string,
   ownerType: string,
@@ -192,603 +78,139 @@ export async function setMetafield(
   key: string,
   value: string,
   type: string,
-): Promise<Metafield | null> {
-  try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const isFullShopifyId = ownerId.includes(`gid://shopify/${ownerType}/`)
-    const formattedId = isFullShopifyId ? ownerId : `gid://shopify/${ownerType}/${ownerId}`
-
-    const mutation = gql`
-      mutation MetafieldSet($metafield: MetafieldInput!) {
-        metafieldSet(metafield: $metafield) {
-          metafield {
-            id
-            namespace
-            key
-            value
-            type
-            createdAt
-            updatedAt
-          }
-          userErrors {
-            field
-            message
-          }
+) {
+  const mutation = gql`
+    mutation MetafieldSet($input: MetafieldInput!) {
+      metafieldSet(metafield: $input) {
+        metafield {
+          id
+          namespace
+          key
+          value
+          type
+        }
+        userErrors {
+          field
+          message
         }
       }
-    `
+    }
+  `
 
-    const variables = {
-      metafield: {
-        ownerId: formattedId,
-        namespace,
-        key,
-        value,
-        type,
-      },
+  try {
+    // Asegurarse de que el ID tenga el formato correcto
+    const isFullShopifyId = ownerId.includes("gid://shopify/")
+    let formattedId = ownerId
+    const formattedOwnerType = ownerType
+
+    // Si no es un ID completo, formatearlo según el tipo de propietario
+    if (!isFullShopifyId) {
+      switch (ownerType) {
+        case "PRODUCT":
+          formattedId = `gid://shopify/Product/${ownerId}`
+          break
+        case "COLLECTION":
+          formattedId = `gid://shopify/Collection/${ownerId}`
+          break
+        case "SHOP":
+          formattedId = `gid://shopify/Shop/${ownerId}`
+          break
+        default:
+          throw new Error(`Tipo de propietario no soportado: ${ownerType}`)
+      }
     }
 
-    const data = await shopifyClient.request(mutation, variables)
+    const input = {
+      ownerId: formattedId,
+      namespace,
+      key,
+      value,
+      type,
+    }
+
+    const data = await shopifyClient.request(mutation, { input })
 
     if (data.metafieldSet.userErrors && data.metafieldSet.userErrors.length > 0) {
-      console.error("Error setting metafield:", data.metafieldSet.userErrors)
-      return null
+      throw new Error(data.metafieldSet.userErrors[0].message)
     }
 
-    const result = data.metafieldSet.metafield
-    return {
-      id: result.id,
-      namespace: result.namespace,
-      key: result.key,
-      value: result.value,
-      type: result.type,
-      createdAt: result.createdAt,
-      updatedAt: result.updatedAt,
-      ownerType,
-      ownerId,
-    }
+    return data.metafieldSet.metafield
   } catch (error) {
     console.error(`Error setting metafield for ${ownerType} ${ownerId}:`, error)
-    return null
+    throw new Error(`Error al establecer metafield: ${(error as Error).message}`)
   }
 }
 
-// Eliminar un metafield
-export async function deleteMetafield(id: string): Promise<boolean> {
-  try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const isFullShopifyId = id.includes("gid://shopify/Metafield/")
-    const formattedId = isFullShopifyId ? id : `gid://shopify/Metafield/${id}`
-
-    const mutation = gql`
-      mutation MetafieldDelete($input: MetafieldDeleteInput!) {
-        metafieldDelete(input: $input) {
-          deletedId
-          userErrors {
-            field
-            message
-          }
+// Función para eliminar un metafield
+export async function deleteMetafield(metafieldId: string) {
+  const mutation = gql`
+    mutation MetafieldDelete($input: MetafieldDeleteInput!) {
+      metafieldDelete(input: $input) {
+        deletedId
+        userErrors {
+          field
+          message
         }
       }
-    `
+    }
+  `
 
-    const variables = {
+  try {
+    // Asegurarse de que el ID tenga el formato correcto
+    const isFullShopifyId = metafieldId.includes("gid://shopify/Metafield/")
+    const formattedId = isFullShopifyId ? metafieldId : `gid://shopify/Metafield/${metafieldId}`
+
+    const data = await shopifyClient.request(mutation, {
       input: {
         id: formattedId,
       },
-    }
-
-    const data = await shopifyClient.request(mutation, variables)
+    })
 
     if (data.metafieldDelete.userErrors && data.metafieldDelete.userErrors.length > 0) {
-      console.error("Error deleting metafield:", data.metafieldDelete.userErrors)
-      return false
+      throw new Error(data.metafieldDelete.userErrors[0].message)
     }
 
-    return true
+    return data.metafieldDelete.deletedId
   } catch (error) {
-    console.error(`Error deleting metafield ${id}:`, error)
-    return false
+    console.error(`Error deleting metafield ${metafieldId}:`, error)
+    throw new Error(`Error al eliminar metafield: ${(error as Error).message}`)
   }
 }
 
-// Obtener definiciones de metaobjects
-export async function fetchMetaobjectDefinitions(): Promise<MetaobjectDefinition[]> {
+// Función para establecer múltiples metafields para SEO
+export async function setSeoMetafields(ownerId: string, ownerType: string, metafields: MetafieldInput[]) {
   try {
-    const query = gql`
-      query {
-        metaobjectDefinitions(first: 100) {
-          edges {
-            node {
-              id
-              name
-              type
-              fieldDefinitions {
-                name
-                key
-                type {
-                  name
-                }
-                required
-                description
-                validations {
-                  name
-                  value
-                }
-              }
-            }
-          }
-        }
-      }
-    `
+    const metafieldPromises = metafields.map((metafield) =>
+      setMetafield(
+        ownerId,
+        ownerType,
+        metafield.namespace,
+        metafield.key,
+        metafield.value,
+        metafield.type || "single_line_text_field",
+      ),
+    )
 
-    const data = await shopifyClient.request(query)
-
-    if (!data || !data.metaobjectDefinitions || !data.metaobjectDefinitions.edges) {
-      console.error("Respuesta de definiciones de metaobjects incompleta:", data)
-      return []
-    }
-
-    return data.metaobjectDefinitions.edges.map((edge: any) => ({
-      id: edge.node.id,
-      name: edge.node.name,
-      type: edge.node.type,
-      fieldDefinitions: edge.node.fieldDefinitions.map((field: any) => ({
-        name: field.name,
-        key: field.key,
-        type: field.type.name,
-        required: field.required,
-        description: field.description,
-        validations: field.validations,
-      })),
-    }))
+    return await Promise.all(metafieldPromises)
   } catch (error) {
-    console.error("Error fetching metaobject definitions:", error)
-    return []
+    console.error(`Error setting multiple metafields for ${ownerType} ${ownerId}:`, error)
+    throw new Error(`Error al establecer múltiples metafields: ${(error as Error).message}`)
   }
 }
 
-// Obtener metaobjects por tipo
-export async function fetchMetaobjectsByType(type: string): Promise<Metaobject[]> {
+// Función para obtener metafields de SEO
+export async function getSeoMetafields(ownerId: string, ownerType: string) {
   try {
-    const query = gql`
-      query GetMetaobjectsByType($type: String!) {
-        metaobjects(type: $type, first: 100) {
-          edges {
-            node {
-              id
-              handle
-              type
-              fields {
-                key
-                value
-                type
-              }
-            }
-          }
-        }
-      }
-    `
-
-    const data = await shopifyClient.request(query, { type })
-
-    if (!data || !data.metaobjects || !data.metaobjects.edges) {
-      console.error("Respuesta de metaobjects incompleta:", data)
-      return []
-    }
-
-    return data.metaobjects.edges.map((edge: any) => ({
-      id: edge.node.id,
-      handle: edge.node.handle,
-      type: edge.node.type,
-      fields: edge.node.fields.map((field: any) => ({
-        key: field.key,
-        value: field.value,
-        type: field.type,
-      })),
-    }))
-  } catch (error) {
-    console.error(`Error fetching metaobjects of type ${type}:`, error)
-    return []
-  }
-}
-
-// Crear un metaobject
-export async function createMetaobject(
-  type: string,
-  fields: { key: string; value: string }[],
-): Promise<Metaobject | null> {
-  try {
-    const mutation = gql`
-      mutation MetaobjectCreate($metaobject: MetaobjectCreateInput!) {
-        metaobjectCreate(metaobject: $metaobject) {
-          metaobject {
-            id
-            handle
-            type
-            fields {
-              key
-              value
-              type
-            }
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const variables = {
-      metaobject: {
-        type,
-        fields: fields.map((field) => ({
-          key: field.key,
-          value: field.value,
-        })),
-      },
-    }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.metaobjectCreate.userErrors && data.metaobjectCreate.userErrors.length > 0) {
-      console.error("Error creating metaobject:", data.metaobjectCreate.userErrors)
-      return null
-    }
-
-    const result = data.metaobjectCreate.metaobject
-    return {
-      id: result.id,
-      handle: result.handle,
-      type: result.type,
-      fields: result.fields.map((field: any) => ({
-        key: field.key,
-        value: field.value,
-        type: field.type,
-      })),
-    }
-  } catch (error) {
-    console.error(`Error creating metaobject of type ${type}:`, error)
-    return null
-  }
-}
-
-// Actualizar un metaobject
-export async function updateMetaobject(
-  id: string,
-  fields: { key: string; value: string }[],
-): Promise<Metaobject | null> {
-  try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const isFullShopifyId = id.includes("gid://shopify/Metaobject/")
-    const formattedId = isFullShopifyId ? id : `gid://shopify/Metaobject/${id}`
-
-    const mutation = gql`
-      mutation MetaobjectUpdate($id: ID!, $fields: [MetaobjectFieldInput!]!) {
-        metaobjectUpdate(id: $id, fields: $fields) {
-          metaobject {
-            id
-            handle
-            type
-            fields {
-              key
-              value
-              type
-            }
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const variables = {
-      id: formattedId,
-      fields: fields.map((field) => ({
-        key: field.key,
-        value: field.value,
-      })),
-    }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.metaobjectUpdate.userErrors && data.metaobjectUpdate.userErrors.length > 0) {
-      console.error("Error updating metaobject:", data.metaobjectUpdate.userErrors)
-      return null
-    }
-
-    const result = data.metaobjectUpdate.metaobject
-    return {
-      id: result.id,
-      handle: result.handle,
-      type: result.type,
-      fields: result.fields.map((field: any) => ({
-        key: field.key,
-        value: field.value,
-        type: field.type,
-      })),
-    }
-  } catch (error) {
-    console.error(`Error updating metaobject ${id}:`, error)
-    return null
-  }
-}
-
-// Eliminar un metaobject
-export async function deleteMetaobject(id: string): Promise<boolean> {
-  try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const isFullShopifyId = id.includes("gid://shopify/Metaobject/")
-    const formattedId = isFullShopifyId ? id : `gid://shopify/Metaobject/${id}`
-
-    const mutation = gql`
-      mutation MetaobjectDelete($id: ID!) {
-        metaobjectDelete(id: $id) {
-          deletedId
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const variables = {
-      id: formattedId,
-    }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.metaobjectDelete.userErrors && data.metaobjectDelete.userErrors.length > 0) {
-      console.error("Error deleting metaobject:", data.metaobjectDelete.userErrors)
-      return false
-    }
-
-    return true
-  } catch (error) {
-    console.error(`Error deleting metaobject ${id}:`, error)
-    return false
-  }
-}
-
-// Funciones específicas para SEO
-
-// Obtener metafields de SEO para un propietario específico
-export async function fetchSeoMetafields(ownerId: string, ownerType: string): Promise<SeoMetafields> {
-  try {
-    const metafields = await fetchMetafields(ownerId, ownerType)
-
-    // Filtrar metafields por namespace "seo"
-    const seoMetafields = metafields.filter((metafield) => metafield.namespace === "seo")
-
-    // Construir objeto de SEO
-    const seo: SeoMetafields = {
-      title: "",
-      description: "",
-      keywords: [],
-    }
-
-    // Rellenar con valores de metafields
-    seoMetafields.forEach((metafield) => {
-      switch (metafield.key) {
-        case "title":
-          seo.title = metafield.value
-          break
-        case "description":
-          seo.description = metafield.value
-          break
-        case "keywords":
-          try {
-            seo.keywords = JSON.parse(metafield.value)
-          } catch (e) {
-            seo.keywords = metafield.value.split(",").map((k) => k.trim())
-          }
-          break
-        case "og_title":
-          seo.ogTitle = metafield.value
-          break
-        case "og_description":
-          seo.ogDescription = metafield.value
-          break
-        case "og_image":
-          seo.ogImage = metafield.value
-          break
-        case "twitter_title":
-          seo.twitterTitle = metafield.value
-          break
-        case "twitter_description":
-          seo.twitterDescription = metafield.value
-          break
-        case "twitter_image":
-          seo.twitterImage = metafield.value
-          break
-        case "canonical_url":
-          seo.canonicalUrl = metafield.value
-          break
-        case "structured_data":
-          seo.structuredData = metafield.value
-          break
-      }
-    })
-
-    return seo
+    const metafields = await getMetafields(ownerId, ownerType)
+    return metafields.filter((metafield: any) => metafield.namespace === "seo")
   } catch (error) {
     console.error(`Error fetching SEO metafields for ${ownerType} ${ownerId}:`, error)
-    return {
-      title: "",
-      description: "",
-      keywords: [],
-    }
+    throw new Error(`Error al obtener metafields de SEO: ${(error as Error).message}`)
   }
 }
 
-// Guardar metafields de SEO para un propietario específico
-export async function saveSeoMetafields(ownerId: string, ownerType: string, seo: SeoMetafields): Promise<boolean> {
-  try {
-    const metafieldPromises = []
-
-    // Título SEO
-    if (seo.title !== undefined) {
-      metafieldPromises.push(setMetafield(ownerId, ownerType, "seo", "title", seo.title, "single_line_text_field"))
-    }
-
-    // Descripción SEO
-    if (seo.description !== undefined) {
-      metafieldPromises.push(
-        setMetafield(ownerId, ownerType, "seo", "description", seo.description, "multi_line_text_field"),
-      )
-    }
-
-    // Palabras clave
-    if (seo.keywords !== undefined) {
-      metafieldPromises.push(setMetafield(ownerId, ownerType, "seo", "keywords", JSON.stringify(seo.keywords), "json"))
-    }
-
-    // Open Graph
-    if (seo.ogTitle !== undefined) {
-      metafieldPromises.push(setMetafield(ownerId, ownerType, "seo", "og_title", seo.ogTitle, "single_line_text_field"))
-    }
-
-    if (seo.ogDescription !== undefined) {
-      metafieldPromises.push(
-        setMetafield(ownerId, ownerType, "seo", "og_description", seo.ogDescription, "multi_line_text_field"),
-      )
-    }
-
-    if (seo.ogImage !== undefined) {
-      metafieldPromises.push(setMetafield(ownerId, ownerType, "seo", "og_image", seo.ogImage, "url"))
-    }
-
-    // Twitter
-    if (seo.twitterTitle !== undefined) {
-      metafieldPromises.push(
-        setMetafield(ownerId, ownerType, "seo", "twitter_title", seo.twitterTitle, "single_line_text_field"),
-      )
-    }
-
-    if (seo.twitterDescription !== undefined) {
-      metafieldPromises.push(
-        setMetafield(ownerId, ownerType, "seo", "twitter_description", seo.twitterDescription, "multi_line_text_field"),
-      )
-    }
-
-    if (seo.twitterImage !== undefined) {
-      metafieldPromises.push(setMetafield(ownerId, ownerType, "seo", "twitter_image", seo.twitterImage, "url"))
-    }
-
-    // URL canónica
-    if (seo.canonicalUrl !== undefined) {
-      metafieldPromises.push(setMetafield(ownerId, ownerType, "seo", "canonical_url", seo.canonicalUrl, "url"))
-    }
-
-    // Datos estructurados
-    if (seo.structuredData !== undefined) {
-      metafieldPromises.push(setMetafield(ownerId, ownerType, "seo", "structured_data", seo.structuredData, "json"))
-    }
-
-    // Ejecutar todas las promesas
-    await Promise.all(metafieldPromises)
-
-    return true
-  } catch (error) {
-    console.error(`Error saving SEO metafields for ${ownerType} ${ownerId}:`, error)
-    return false
-  }
-}
-
-// Obtener metafields de negocio local
-export async function fetchLocalBusinessMetafields(shopId = "1"): Promise<LocalBusinessMetafields> {
-  try {
-    const metafields = await fetchMetafields(shopId, "SHOP")
-
-    // Filtrar metafields por namespace "local_business"
-    const localBusinessMetafields = metafields.filter((metafield) => metafield.namespace === "local_business")
-
-    // Construir objeto de negocio local
-    const localBusiness: LocalBusinessMetafields = {
-      name: "",
-      streetAddress: "",
-      addressLocality: "",
-      addressRegion: "",
-      postalCode: "",
-      addressCountry: "",
-      telephone: "",
-      email: "",
-      openingHours: [],
-      latitude: 0,
-      longitude: 0,
-    }
-
-    // Rellenar con valores de metafields
-    localBusinessMetafields.forEach((metafield) => {
-      switch (metafield.key) {
-        case "name":
-          localBusiness.name = metafield.value
-          break
-        case "street_address":
-          localBusiness.streetAddress = metafield.value
-          break
-        case "address_locality":
-          localBusiness.addressLocality = metafield.value
-          break
-        case "address_region":
-          localBusiness.addressRegion = metafield.value
-          break
-        case "postal_code":
-          localBusiness.postalCode = metafield.value
-          break
-        case "address_country":
-          localBusiness.addressCountry = metafield.value
-          break
-        case "telephone":
-          localBusiness.telephone = metafield.value
-          break
-        case "email":
-          localBusiness.email = metafield.value
-          break
-        case "opening_hours":
-          try {
-            localBusiness.openingHours = JSON.parse(metafield.value)
-          } catch (e) {
-            localBusiness.openingHours = metafield.value.split(",").map((h) => h.trim())
-          }
-          break
-        case "latitude":
-          localBusiness.latitude = Number.parseFloat(metafield.value)
-          break
-        case "longitude":
-          localBusiness.longitude = Number.parseFloat(metafield.value)
-          break
-      }
-    })
-
-    return localBusiness
-  } catch (error) {
-    console.error(`Error fetching local business metafields:`, error)
-    return {
-      name: "",
-      streetAddress: "",
-      addressLocality: "",
-      addressRegion: "",
-      postalCode: "",
-      addressCountry: "",
-      telephone: "",
-      email: "",
-      openingHours: [],
-      latitude: 0,
-      longitude: 0,
-    }
-  }
-}
-
-// Guardar metafields de negocio local
-export async function saveLocalBusinessMetafields(
-  shopId = "1",
-  localBusiness: LocalBusinessMetafields,
-): Promise<boolean> {
+// Función para establecer datos de Local Business
+export async function setLocalBusinessData(shopId: string, localBusiness: LocalBusinessData) {
   try {
     const metafieldPromises = []
 
@@ -799,46 +221,28 @@ export async function saveLocalBusinessMetafields(
       )
     }
 
+    // Tipo de negocio
+    if (localBusiness.type !== undefined) {
+      metafieldPromises.push(
+        setMetafield(shopId, "SHOP", "local_business", "type", localBusiness.type, "single_line_text_field"),
+      )
+    }
+
     // Dirección
-    if (localBusiness.streetAddress !== undefined) {
+    if (localBusiness.address !== undefined) {
       metafieldPromises.push(
-        setMetafield(
-          shopId,
-          "SHOP",
-          "local_business",
-          "street_address",
-          localBusiness.streetAddress,
-          "single_line_text_field",
-        ),
+        setMetafield(shopId, "SHOP", "local_business", "address", localBusiness.address, "single_line_text_field"),
       )
     }
 
-    if (localBusiness.addressLocality !== undefined) {
+    // Ciudad
+    if (localBusiness.city !== undefined) {
       metafieldPromises.push(
-        setMetafield(
-          shopId,
-          "SHOP",
-          "local_business",
-          "address_locality",
-          localBusiness.addressLocality,
-          "single_line_text_field",
-        ),
+        setMetafield(shopId, "SHOP", "local_business", "city", localBusiness.city, "single_line_text_field"),
       )
     }
 
-    if (localBusiness.addressRegion !== undefined) {
-      metafieldPromises.push(
-        setMetafield(
-          shopId,
-          "SHOP",
-          "local_business",
-          "address_region",
-          localBusiness.addressRegion,
-          "single_line_text_field",
-        ),
-      )
-    }
-
+    // Código postal
     if (localBusiness.postalCode !== undefined) {
       metafieldPromises.push(
         setMetafield(
@@ -852,33 +256,49 @@ export async function saveLocalBusinessMetafields(
       )
     }
 
-    if (localBusiness.addressCountry !== undefined) {
+    // Región/Provincia
+    if (localBusiness.region !== undefined) {
       metafieldPromises.push(
-        setMetafield(
-          shopId,
-          "SHOP",
-          "local_business",
-          "address_country",
-          localBusiness.addressCountry,
-          "single_line_text_field",
-        ),
+        setMetafield(shopId, "SHOP", "local_business", "region", localBusiness.region, "single_line_text_field"),
       )
     }
 
-    // Contacto
-    if (localBusiness.telephone !== undefined) {
+    // País
+    if (localBusiness.country !== undefined) {
       metafieldPromises.push(
-        setMetafield(shopId, "SHOP", "local_business", "telephone", localBusiness.telephone, "single_line_text_field"),
+        setMetafield(shopId, "SHOP", "local_business", "country", localBusiness.country, "single_line_text_field"),
       )
     }
 
+    // Teléfono
+    if (localBusiness.phone !== undefined) {
+      metafieldPromises.push(
+        setMetafield(shopId, "SHOP", "local_business", "phone", localBusiness.phone, "single_line_text_field"),
+      )
+    }
+
+    // Email
     if (localBusiness.email !== undefined) {
       metafieldPromises.push(
         setMetafield(shopId, "SHOP", "local_business", "email", localBusiness.email, "single_line_text_field"),
       )
     }
 
-    // Horarios
+    // Latitud
+    if (localBusiness.latitude !== undefined) {
+      metafieldPromises.push(
+        setMetafield(shopId, "SHOP", "local_business", "latitude", localBusiness.latitude, "single_line_text_field"),
+      )
+    }
+
+    // Longitud
+    if (localBusiness.longitude !== undefined) {
+      metafieldPromises.push(
+        setMetafield(shopId, "SHOP", "local_business", "longitude", localBusiness.longitude, "single_line_text_field"),
+      )
+    }
+
+    // Horario de apertura
     if (localBusiness.openingHours !== undefined) {
       metafieldPromises.push(
         setMetafield(
@@ -886,133 +306,190 @@ export async function saveLocalBusinessMetafields(
           "SHOP",
           "local_business",
           "opening_hours",
-          JSON.stringify(localBusiness.openingHours),
-          "json",
+          localBusiness.openingHours,
+          "multi_line_text_field",
         ),
       )
     }
 
-    // Coordenadas
-    if (localBusiness.latitude !== undefined) {
-      metafieldPromises.push(
-        setMetafield(shopId, "SHOP", "local_business", "latitude", localBusiness.latitude.toString(), "number_decimal"),
-      )
-    }
-
-    if (localBusiness.longitude !== undefined) {
+    // Precio
+    if (localBusiness.priceRange !== undefined) {
       metafieldPromises.push(
         setMetafield(
           shopId,
           "SHOP",
           "local_business",
-          "longitude",
-          localBusiness.longitude.toString(),
-          "number_decimal",
+          "price_range",
+          localBusiness.priceRange,
+          "single_line_text_field",
         ),
       )
     }
 
-    // Ejecutar todas las promesas
-    await Promise.all(metafieldPromises)
-
-    return true
+    return await Promise.all(metafieldPromises)
   } catch (error) {
-    console.error(`Error saving local business metafields:`, error)
-    return false
+    console.error(`Error setting local business data for shop ${shopId}:`, error)
+    throw new Error(`Error al establecer datos de negocio local: ${(error as Error).message}`)
   }
 }
 
-// Obtener metafields de redes sociales
-export async function fetchSocialMediaMetafields(shopId = "1"): Promise<SocialMediaMetafields> {
+// Función para obtener datos de Local Business
+export async function getLocalBusinessData(shopId: string): Promise<LocalBusinessData> {
   try {
-    const metafields = await fetchMetafields(shopId, "SHOP")
+    const metafields = await getMetafields(shopId, "SHOP")
+    const localBusinessMetafields = metafields.filter((metafield: any) => metafield.namespace === "local_business")
 
-    // Filtrar metafields por namespace "social_media"
-    const socialMediaMetafields = metafields.filter((metafield) => metafield.namespace === "social_media")
+    const localBusinessData: LocalBusinessData = {}
 
-    // Construir objeto de redes sociales
-    const socialMedia: SocialMediaMetafields = {}
-
-    // Rellenar con valores de metafields
-    socialMediaMetafields.forEach((metafield) => {
+    localBusinessMetafields.forEach((metafield: any) => {
       switch (metafield.key) {
-        case "facebook":
-          socialMedia.facebook = metafield.value
+        case "name":
+          localBusinessData.name = metafield.value
           break
-        case "instagram":
-          socialMedia.instagram = metafield.value
+        case "type":
+          localBusinessData.type = metafield.value
           break
-        case "twitter":
-          socialMedia.twitter = metafield.value
+        case "address":
+          localBusinessData.address = metafield.value
           break
-        case "youtube":
-          socialMedia.youtube = metafield.value
+        case "city":
+          localBusinessData.city = metafield.value
           break
-        case "pinterest":
-          socialMedia.pinterest = metafield.value
+        case "postal_code":
+          localBusinessData.postalCode = metafield.value
           break
-        case "linkedin":
-          socialMedia.linkedin = metafield.value
+        case "region":
+          localBusinessData.region = metafield.value
           break
-        case "tiktok":
-          socialMedia.tiktok = metafield.value
+        case "country":
+          localBusinessData.country = metafield.value
+          break
+        case "phone":
+          localBusinessData.phone = metafield.value
+          break
+        case "email":
+          localBusinessData.email = metafield.value
+          break
+        case "latitude":
+          localBusinessData.latitude = metafield.value
+          break
+        case "longitude":
+          localBusinessData.longitude = metafield.value
+          break
+        case "opening_hours":
+          localBusinessData.openingHours = metafield.value
+          break
+        case "price_range":
+          localBusinessData.priceRange = metafield.value
           break
       }
     })
 
-    return socialMedia
+    return localBusinessData
   } catch (error) {
-    console.error(`Error fetching social media metafields:`, error)
-    return {}
+    console.error(`Error fetching local business data for shop ${shopId}:`, error)
+    throw new Error(`Error al obtener datos de negocio local: ${(error as Error).message}`)
   }
 }
 
-// Guardar metafields de redes sociales
-export async function saveSocialMediaMetafields(shopId = "1", socialMedia: SocialMediaMetafields): Promise<boolean> {
+// Función para establecer datos de redes sociales
+export async function setSocialMediaData(shopId: string, socialMedia: SocialMediaData) {
   try {
     const metafieldPromises = []
 
     // Facebook
     if (socialMedia.facebook !== undefined) {
-      metafieldPromises.push(setMetafield(shopId, "SHOP", "social_media", "facebook", socialMedia.facebook, "url"))
-    }
-
-    // Instagram
-    if (socialMedia.instagram !== undefined) {
-      metafieldPromises.push(setMetafield(shopId, "SHOP", "social_media", "instagram", socialMedia.instagram, "url"))
+      metafieldPromises.push(
+        setMetafield(shopId, "SHOP", "social_media", "facebook", socialMedia.facebook, "single_line_text_field"),
+      )
     }
 
     // Twitter
     if (socialMedia.twitter !== undefined) {
-      metafieldPromises.push(setMetafield(shopId, "SHOP", "social_media", "twitter", socialMedia.twitter, "url"))
+      metafieldPromises.push(
+        setMetafield(shopId, "SHOP", "social_media", "twitter", socialMedia.twitter, "single_line_text_field"),
+      )
+    }
+
+    // Instagram
+    if (socialMedia.instagram !== undefined) {
+      metafieldPromises.push(
+        setMetafield(shopId, "SHOP", "social_media", "instagram", socialMedia.instagram, "single_line_text_field"),
+      )
     }
 
     // YouTube
     if (socialMedia.youtube !== undefined) {
-      metafieldPromises.push(setMetafield(shopId, "SHOP", "social_media", "youtube", socialMedia.youtube, "url"))
+      metafieldPromises.push(
+        setMetafield(shopId, "SHOP", "social_media", "youtube", socialMedia.youtube, "single_line_text_field"),
+      )
     }
 
     // Pinterest
     if (socialMedia.pinterest !== undefined) {
-      metafieldPromises.push(setMetafield(shopId, "SHOP", "social_media", "pinterest", socialMedia.pinterest, "url"))
+      metafieldPromises.push(
+        setMetafield(shopId, "SHOP", "social_media", "pinterest", socialMedia.pinterest, "single_line_text_field"),
+      )
     }
 
     // LinkedIn
     if (socialMedia.linkedin !== undefined) {
-      metafieldPromises.push(setMetafield(shopId, "SHOP", "social_media", "linkedin", socialMedia.linkedin, "url"))
+      metafieldPromises.push(
+        setMetafield(shopId, "SHOP", "social_media", "linkedin", socialMedia.linkedin, "single_line_text_field"),
+      )
     }
 
     // TikTok
     if (socialMedia.tiktok !== undefined) {
-      metafieldPromises.push(setMetafield(shopId, "SHOP", "social_media", "tiktok", socialMedia.tiktok, "url"))
+      metafieldPromises.push(
+        setMetafield(shopId, "SHOP", "social_media", "tiktok", socialMedia.tiktok, "single_line_text_field"),
+      )
     }
 
-    // Ejecutar todas las promesas
-    await Promise.all(metafieldPromises)
-
-    return true
+    return await Promise.all(metafieldPromises)
   } catch (error) {
-    console.error(`Error saving social media metafields:`, error)
-    return false
+    console.error(`Error setting social media data for shop ${shopId}:`, error)
+    throw new Error(`Error al establecer datos de redes sociales: ${(error as Error).message}`)
+  }
+}
+
+// Función para obtener datos de redes sociales
+export async function getSocialMediaData(shopId: string): Promise<SocialMediaData> {
+  try {
+    const metafields = await getMetafields(shopId, "SHOP")
+    const socialMediaMetafields = metafields.filter((metafield: any) => metafield.namespace === "social_media")
+
+    const socialMediaData: SocialMediaData = {}
+
+    socialMediaMetafields.forEach((metafield: any) => {
+      switch (metafield.key) {
+        case "facebook":
+          socialMediaData.facebook = metafield.value
+          break
+        case "twitter":
+          socialMediaData.twitter = metafield.value
+          break
+        case "instagram":
+          socialMediaData.instagram = metafield.value
+          break
+        case "youtube":
+          socialMediaData.youtube = metafield.value
+          break
+        case "pinterest":
+          socialMediaData.pinterest = metafield.value
+          break
+        case "linkedin":
+          socialMediaData.linkedin = metafield.value
+          break
+        case "tiktok":
+          socialMediaData.tiktok = metafield.value
+          break
+      }
+    })
+
+    return socialMediaData
+  } catch (error) {
+    console.error(`Error fetching social media data for shop ${shopId}:`, error)
+    throw new Error(`Error al obtener datos de redes sociales: ${(error as Error).message}`)
   }
 }

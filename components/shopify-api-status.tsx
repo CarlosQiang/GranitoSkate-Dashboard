@@ -12,8 +12,15 @@ export function ShopifyApiStatus() {
   const [isChecking, setIsChecking] = useState(false)
   const [hasData, setHasData] = useState(false)
 
-  // Verificar si hay datos en la página
-  const checkForData = () => {
+  // Verificar si hay datos en la página o si existe el mensaje de conexión exitosa
+  const checkForDataOrSuccessMessage = () => {
+    // Verificar si existe el mensaje de conexión exitosa
+    const successMessage = document.querySelector('[data-shopify-connected="true"]')
+    if (successMessage) {
+      setHasData(true)
+      return true
+    }
+
     // Si estamos en la página de colecciones, verificar si hay colecciones
     if (window.location.pathname.includes("/collections")) {
       const collectionElements = document.querySelectorAll("[data-collection-item]")
@@ -40,9 +47,9 @@ export function ShopifyApiStatus() {
     setStatus("loading")
 
     try {
-      // Primero verificamos si hay datos en la página
-      if (checkForData()) {
-        console.log("Se encontraron datos en la página, ocultando el estado de la API")
+      // Primero verificamos si hay datos en la página o mensaje de éxito
+      if (checkForDataOrSuccessMessage()) {
+        console.log("Se encontraron datos o mensaje de éxito, ocultando el estado de la API")
         setStatus("hidden")
         setIsChecking(false)
         return
@@ -56,13 +63,18 @@ export function ShopifyApiStatus() {
         },
       })
 
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`)
+      }
+
+      // Intentar parsear la respuesta JSON
       let data
       try {
         const text = await response.text()
 
         if (!text) {
           // Si no hay respuesta pero hay datos, ocultamos el estado
-          if (checkForData()) {
+          if (checkForDataOrSuccessMessage()) {
             setStatus("hidden")
             setIsChecking(false)
             return
@@ -76,7 +88,7 @@ export function ShopifyApiStatus() {
         console.error("Error al parsear la respuesta:", parseError)
 
         // Si hay un error pero hay datos, ocultamos el estado
-        if (checkForData()) {
+        if (checkForDataOrSuccessMessage()) {
           setStatus("hidden")
           setIsChecking(false)
           return
@@ -93,7 +105,7 @@ export function ShopifyApiStatus() {
         setShopName(data.shopName || "")
       } else {
         // Si hay un error pero hay datos, ocultamos el estado
-        if (checkForData()) {
+        if (checkForDataOrSuccessMessage()) {
           setStatus("hidden")
           setIsChecking(false)
           return
@@ -106,7 +118,7 @@ export function ShopifyApiStatus() {
       console.error("Error al verificar la conexión con Shopify:", err)
 
       // Si hay un error pero hay datos, ocultamos el estado
-      if (checkForData()) {
+      if (checkForDataOrSuccessMessage()) {
         setStatus("hidden")
         setIsChecking(false)
         return
@@ -166,7 +178,7 @@ export function ShopifyApiStatus() {
   }
 
   return (
-    <Alert variant="default" className="bg-green-50 border-green-200">
+    <Alert variant="default" className="bg-green-50 border-green-200" data-shopify-connected="true">
       <CheckCircle2 className="h-4 w-4 text-green-600" />
       <AlertTitle className="text-green-800">Conectado a Shopify</AlertTitle>
       <AlertDescription className="text-green-700">
