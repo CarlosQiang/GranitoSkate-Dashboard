@@ -33,3 +33,7 @@ export function formatShopifyId(id: string, type = "Product") {
 }
 
 export default shopifyClient
+
+export const getShopifyApi = async () => {
+  return shopifyClient
+}

@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { ProductSeoForm } from "@/components/product-seo-form"
 
 export default function ProductPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -279,6 +280,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
           <TabsTrigger value="general">Información básica</TabsTrigger>
           <TabsTrigger value="images">Imágenes</TabsTrigger>
           <TabsTrigger value="variants">Precio y stock</TabsTrigger>
+          <TabsTrigger value="seo">SEO</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
@@ -445,6 +447,14 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="seo">
+          <ProductSeoForm
+            productId={params.id}
+            productTitle={formData.title}
+            productDescription={formData.description}
+            productImage={product.featuredImage?.url}
+          />
         </TabsContent>
       </Tabs>
     </div>

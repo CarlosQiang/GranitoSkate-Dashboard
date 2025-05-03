@@ -29,6 +29,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { CollectionSeoForm } from "@/components/collection-seo-form"
 
 export default function CollectionPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -261,6 +262,7 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
         <TabsList>
           <TabsTrigger value="general">Información básica</TabsTrigger>
           <TabsTrigger value="products">Productos</TabsTrigger>
+          <TabsTrigger value="seo">SEO</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
@@ -374,6 +376,14 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="seo">
+          <CollectionSeoForm
+            collectionId={params.id}
+            collectionTitle={formData.title}
+            collectionDescription={formData.description}
+            collectionImage={collection.image?.url}
+          />
         </TabsContent>
       </Tabs>
     </div>

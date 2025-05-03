@@ -74,27 +74,162 @@ export function generateSeoDescription(description: string, title: string): stri
   return plainText.length > 160 ? plainText.substring(0, 157) + "..." : plainText
 }
 
-/**
- * Genera metafields para SEO basados en título y descripción
- */
+// Actualizar la función generateSeoMetafields para usar el nuevo sistema de metafields
 export function generateSeoMetafields(title: string, description: string) {
-  const seoTitle = generateSeoTitle(title)
-  const seoDescription = generateSeoDescription(description, title)
-
   return [
     {
       namespace: "seo",
       key: "title",
-      value: seoTitle,
+      value: title,
       type: "single_line_text_field",
     },
     {
       namespace: "seo",
       key: "description",
-      value: seoDescription,
+      value: description,
       type: "multi_line_text_field",
     },
+    {
+      namespace: "seo",
+      key: "settings",
+      value: JSON.stringify({
+        title,
+        description,
+        keywords: extractKeywords(title, description),
+      }),
+      type: "json",
+    },
   ]
+}
+
+// Mejorar la función extractKeywords para obtener palabras clave más relevantes
+
+// Reemplazar la función extractKeywords con esta versión mejorada
+function extractKeywords(title: string, description: string): string[] {
+  // Combinar título y descripción
+  const text = `${title} ${description}`.toLowerCase()
+
+  // Lista ampliada de palabras comunes en español
+  const commonWords = [
+    "el",
+    "la",
+    "los",
+    "las",
+    "un",
+    "una",
+    "unos",
+    "unas",
+    "y",
+    "o",
+    "de",
+    "del",
+    "al",
+    "a",
+    "para",
+    "por",
+    "con",
+    "en",
+    "que",
+    "se",
+    "su",
+    "sus",
+    "mi",
+    "mis",
+    "tu",
+    "tus",
+    "este",
+    "esta",
+    "estos",
+    "estas",
+    "ese",
+    "esa",
+    "esos",
+    "esas",
+    "aquel",
+    "aquella",
+    "aquellos",
+    "aquellas",
+    "como",
+    "cuando",
+    "donde",
+    "quien",
+    "quienes",
+    "cuyo",
+    "cuya",
+    "cuyos",
+    "cuyas",
+    "pero",
+    "sino",
+    "aunque",
+    "si",
+    "no",
+    "ni",
+    "que",
+    "cual",
+    "cuales",
+    "cuanto",
+    "cuanta",
+    "cuantos",
+    "cuantas",
+    "mas",
+    "menos",
+    "tanto",
+    "tanta",
+    "tantos",
+    "tantas",
+    "tal",
+    "tales",
+  ]
+
+  // Palabras clave específicas del sector skate que queremos priorizar
+  const skateKeywords = [
+    "skate",
+    "skateboard",
+    "tabla",
+    "deck",
+    "ruedas",
+    "trucks",
+    "rodamientos",
+    "bearings",
+    "grip",
+    "griptape",
+    "completo",
+    "complete",
+    "street",
+    "park",
+    "vert",
+    "bowl",
+    "ramp",
+    "halfpipe",
+    "longboard",
+    "cruiser",
+    "old school",
+    "freestyle",
+    "downhill",
+    "slide",
+  ]
+
+  // Eliminar caracteres especiales y dividir en palabras
+  const words = text
+    .replace(/[^\w\sáéíóúüñ]/gi, " ")
+    .split(/\s+/)
+    .filter((word) => word.length > 3 && !commonWords.includes(word))
+
+  // Contar frecuencia de palabras
+  const wordCount: Record<string, number> = {}
+  words.forEach((word) => {
+    // Dar más peso a las palabras que aparecen en el título
+    const titleWeight = title.toLowerCase().includes(word) ? 2 : 1
+    // Dar más peso a palabras clave del sector skate
+    const skateWeight = skateKeywords.includes(word) ? 3 : 1
+    wordCount[word] = (wordCount[word] || 0) + 1 * titleWeight * skateWeight
+  })
+
+  // Ordenar por frecuencia y tomar las 5 más comunes
+  return Object.entries(wordCount)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([word]) => word)
 }
 
 /**

@@ -6,16 +6,48 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 
 export function ShopifyApiStatus() {
-  const [status, setStatus] = useState<"loading" | "connected" | "error">("loading")
+  const [status, setStatus] = useState<"loading" | "connected" | "error" | "hidden">("loading")
   const [shopName, setShopName] = useState<string>("")
   const [error, setError] = useState<string>("")
   const [isChecking, setIsChecking] = useState(false)
+  const [hasData, setHasData] = useState(false)
+
+  // Verificar si hay datos en la página
+  const checkForData = () => {
+    // Si estamos en la página de colecciones, verificar si hay colecciones
+    if (window.location.pathname.includes("/collections")) {
+      const collectionElements = document.querySelectorAll("[data-collection-item]")
+      if (collectionElements && collectionElements.length > 0) {
+        setHasData(true)
+        return true
+      }
+    }
+
+    // Si estamos en la página de productos, verificar si hay productos
+    if (window.location.pathname.includes("/products")) {
+      const productElements = document.querySelectorAll("[data-product-item]")
+      if (productElements && productElements.length > 0) {
+        setHasData(true)
+        return true
+      }
+    }
+
+    return false
+  }
 
   const checkConnection = async () => {
     setIsChecking(true)
     setStatus("loading")
 
     try {
+      // Primero verificamos si hay datos en la página
+      if (checkForData()) {
+        console.log("Se encontraron datos en la página, ocultando el estado de la API")
+        setStatus("hidden")
+        setIsChecking(false)
+        return
+      }
+
       const response = await fetch("/api/shopify/check", {
         method: "GET",
         headers: {
@@ -27,15 +59,29 @@ export function ShopifyApiStatus() {
       let data
       try {
         const text = await response.text()
-        console.log("Respuesta de la API:", text)
 
         if (!text) {
+          // Si no hay respuesta pero hay datos, ocultamos el estado
+          if (checkForData()) {
+            setStatus("hidden")
+            setIsChecking(false)
+            return
+          }
+
           throw new Error("Respuesta vacía del servidor")
         }
 
         data = JSON.parse(text)
       } catch (parseError) {
         console.error("Error al parsear la respuesta:", parseError)
+
+        // Si hay un error pero hay datos, ocultamos el estado
+        if (checkForData()) {
+          setStatus("hidden")
+          setIsChecking(false)
+          return
+        }
+
         setStatus("error")
         setError(`Error al parsear la respuesta: ${(parseError as Error).message}`)
         setIsChecking(false)
@@ -46,11 +92,26 @@ export function ShopifyApiStatus() {
         setStatus("connected")
         setShopName(data.shopName || "")
       } else {
+        // Si hay un error pero hay datos, ocultamos el estado
+        if (checkForData()) {
+          setStatus("hidden")
+          setIsChecking(false)
+          return
+        }
+
         setStatus("error")
         setError(data.error || "Error desconocido al conectar con Shopify")
       }
     } catch (err) {
       console.error("Error al verificar la conexión con Shopify:", err)
+
+      // Si hay un error pero hay datos, ocultamos el estado
+      if (checkForData()) {
+        setStatus("hidden")
+        setIsChecking(false)
+        return
+      }
+
       setStatus("error")
       setError(`Error al verificar la conexión con Shopify: ${(err as Error).message}`)
     } finally {
@@ -59,8 +120,18 @@ export function ShopifyApiStatus() {
   }
 
   useEffect(() => {
-    checkConnection()
+    // Esperar a que el DOM esté completamente cargado
+    const timer = setTimeout(() => {
+      checkConnection()
+    }, 1000)
+
+    return () => clearTimeout(timer)
   }, [])
+
+  // Si el estado es "hidden", no mostramos nada
+  if (status === "hidden") {
+    return null
+  }
 
   if (status === "loading") {
     return (
