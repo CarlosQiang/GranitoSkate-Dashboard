@@ -12,56 +12,59 @@ export async function fetchPromotions(limit = 20) {
             node {
               id
               discount {
-                ... on DiscountAutomaticNode {
-                  automaticDiscount {
-                    title
-                    summary
-                    startsAt
-                    endsAt
-                    status
-                    minimumRequirement {
-                      ... on DiscountMinimumSubtotal {
-                        greaterThanOrEqualToSubtotal
-                      }
+                __typename
+                ... on DiscountAutomatic {
+                  title
+                  summary
+                  startsAt
+                  endsAt
+                  status
+                  minimumRequirement {
+                    ... on DiscountMinimumSubtotal {
+                      greaterThanOrEqualToSubtotal
                     }
-                    customerGets {
-                      value {
-                        ... on DiscountPercentage {
-                          percentage
-                        }
-                        ... on DiscountAmount {
+                  }
+                  customerGets {
+                    value {
+                      ... on DiscountPercentage {
+                        percentage
+                      }
+                      ... on DiscountAmount {
+                        amount {
                           amount
+                          currencyCode
                         }
                       }
                     }
                   }
                 }
-                ... on DiscountCodeNode {
-                  codeDiscount {
-                    title
-                    codes(first: 1) {
-                      edges {
-                        node {
-                          code
-                        }
+                ... on DiscountCode {
+                  title
+                  codes(first: 1) {
+                    edges {
+                      node {
+                        code
                       }
                     }
-                    startsAt
-                    endsAt
-                    status
-                    usageLimit
-                    customerSelection {
-                      ... on DiscountCustomerAll {
-                        allCustomers
-                      }
+                  }
+                  startsAt
+                  endsAt
+                  status
+                  usageLimit
+                  customerSelection {
+                    ... on DiscountCustomerAll {
+                      allCustomers
                     }
-                    customerGets {
-                      value {
-                        ... on DiscountPercentage {
-                          percentage
-                        }
-                        ... on DiscountAmount {
+                  }
+                  customerGets {
+                    value {
+                      ... on DiscountPercentage {
+                        percentage
+                      }
+                      ... on DiscountAmount {
+                        amount {
                           amount
+                          currencyCode
                         }
                       }
                     }
@@ -86,51 +89,50 @@ export async function fetchPromotions(limit = 20) {
         const node = edge.node
         const discount = node.discount
 
-        // Determinar si es un descuento automático o un código de descuento
-        const isAutomatic = !!discount.automaticDiscount
-        const discountData = isAutomatic ? discount.automaticDiscount : discount.codeDiscount
+        if (!discount) return null
 
-        if (!discountData) return null
+        // Determinar si es un descuento automático o un código de descuento
+        const isAutomatic = discount.__typename === "DiscountAutomatic"
 
         // Extraer el código si es un código de descuento
-        const code = !isAutomatic && discountData.codes?.edges?.[0]?.node?.code
+        const code = !isAutomatic && discount.codes?.edges?.[0]?.node?.code
 
         // Extraer el valor del descuento
         let value = "0"
         let valueType = "percentage"
         const currencyCode = "EUR"
 
-        if (discountData.customerGets?.value?.percentage) {
-          value = discountData.customerGets.value.percentage
+        if (discount.customerGets?.value?.percentage) {
+          value = discount.customerGets.value.percentage
           valueType = "percentage"
-        } else if (discountData.customerGets?.value?.amount) {
-          value = discountData.customerGets.value.amount
+        } else if (discount.customerGets?.value?.amount) {
+          value = discount.customerGets.value.amount.amount || "0"
           valueType = "fixed_amount"
         }
 
         // Extraer el requisito mínimo si existe
         let minimumRequirement = null
-        if (discountData.minimumRequirement?.greaterThanOrEqualToSubtotal) {
+        if (discount.minimumRequirement?.greaterThanOrEqualToSubtotal) {
           minimumRequirement = {
             type: "subtotal",
-            value: discountData.minimumRequirement.greaterThanOrEqualToSubtotal,
+            value: discount.minimumRequirement.greaterThanOrEqualToSubtotal,
           }
         }
 
         return {
           id: node.id.split("/").pop(),
-          title: discountData.title,
+          title: discount.title,
           code: code || null,
           isAutomatic: isAutomatic,
-          startsAt: discountData.startsAt,
-          endsAt: discountData.endsAt,
-          status: discountData.status,
+          startsAt: discount.startsAt,
+          endsAt: discount.endsAt,
+          status: discount.status,
           valueType: valueType,
           value: value,
           currencyCode: currencyCode,
           minimumRequirement: minimumRequirement,
-          usageLimit: discountData.usageLimit || null,
-          summary: discountData.summary || null,
+          usageLimit: discount.usageLimit || null,
+          summary: discount.summary || null,
         }
       })
       .filter(Boolean) // Eliminar posibles valores nulos
@@ -156,56 +158,59 @@ export async function fetchPromotionById(id) {
         discountNode(id: $id) {
           id
           discount {
-            ... on DiscountAutomaticNode {
-              automaticDiscount {
-                title
-                summary
-                startsAt
-                endsAt
-                status
-                minimumRequirement {
-                  ... on DiscountMinimumSubtotal {
-                    greaterThanOrEqualToSubtotal
-                  }
+            __typename
+            ... on DiscountAutomatic {
+              title
+              summary
+              startsAt
+              endsAt
+              status
+              minimumRequirement {
+                ... on DiscountMinimumSubtotal {
+                  greaterThanOrEqualToSubtotal
                 }
-                customerGets {
-                  value {
-                    ... on DiscountPercentage {
-                      percentage
-                    }
-                    ... on DiscountAmount {
+              }
+              customerGets {
+                value {
+                  ... on DiscountPercentage {
+                    percentage
+                  }
+                  ... on DiscountAmount {
+                    amount {
                       amount
+                      currencyCode
                     }
                   }
                 }
               }
             }
-            ... on DiscountCodeNode {
-              codeDiscount {
-                title
-                codes(first: 1) {
-                  edges {
-                    node {
-                      code
-                    }
+            ... on DiscountCode {
+              title
+              codes(first: 1) {
+                edges {
+                  node {
+                    code
                   }
                 }
-                startsAt
-                endsAt
-                status
-                usageLimit
-                customerSelection {
-                  ... on DiscountCustomerAll {
-                    allCustomers
-                  }
+              }
+              startsAt
+              endsAt
+              status
+              usageLimit
+              customerSelection {
+                ... on DiscountCustomerAll {
+                  allCustomers
                 }
-                customerGets {
-                  value {
-                    ... on DiscountPercentage {
-                      percentage
-                    }
-                    ... on DiscountAmount {
+              }
+              customerGets {
+                value {
+                  ... on DiscountPercentage {
+                    percentage
+                  }
+                  ... on DiscountAmount {
+                    amount {
                       amount
+                      currencyCode
                     }
                   }
                 }
@@ -226,53 +231,52 @@ export async function fetchPromotionById(id) {
     const node = data.discountNode
     const discount = node.discount
 
-    // Determinar si es un descuento automático o un código de descuento
-    const isAutomatic = !!discount.automaticDiscount
-    const discountData = isAutomatic ? discount.automaticDiscount : discount.codeDiscount
-
-    if (!discountData) {
+    if (!discount) {
       throw new Error(`Tipo de promoción no soportado: ${id}`)
     }
 
+    // Determinar si es un descuento automático o un código de descuento
+    const isAutomatic = discount.__typename === "DiscountAutomatic"
+
     // Extraer el código si es un código de descuento
-    const code = !isAutomatic && discountData.codes?.edges?.[0]?.node?.code
+    const code = !isAutomatic && discount.codes?.edges?.[0]?.node?.code
 
     // Extraer el valor del descuento
     let value = "0"
     let valueType = "percentage"
     const currencyCode = "EUR"
 
-    if (discountData.customerGets?.value?.percentage) {
-      value = discountData.customerGets.value.percentage
+    if (discount.customerGets?.value?.percentage) {
+      value = discount.customerGets.value.percentage
       valueType = "percentage"
-    } else if (discountData.customerGets?.value?.amount) {
-      value = discountData.customerGets.value.amount
+    } else if (discount.customerGets?.value?.amount) {
+      value = discount.customerGets.value.amount.amount || "0"
       valueType = "fixed_amount"
     }
 
     // Extraer el requisito mínimo si existe
     let minimumRequirement = null
-    if (discountData.minimumRequirement?.greaterThanOrEqualToSubtotal) {
+    if (discount.minimumRequirement?.greaterThanOrEqualToSubtotal) {
       minimumRequirement = {
         type: "subtotal",
-        value: discountData.minimumRequirement.greaterThanOrEqualToSubtotal,
+        value: discount.minimumRequirement.greaterThanOrEqualToSubtotal,
       }
     }
 
     return {
       id: node.id.split("/").pop(),
-      title: discountData.title,
+      title: discount.title,
       code: code || null,
       isAutomatic: isAutomatic,
-      startsAt: discountData.startsAt,
-      endsAt: discountData.endsAt,
-      status: discountData.status,
+      startsAt: discount.startsAt,
+      endsAt: discount.endsAt,
+      status: discount.status,
       valueType: valueType,
       value: value,
       currencyCode: currencyCode,
       minimumRequirement: minimumRequirement,
-      usageLimit: discountData.usageLimit || null,
-      summary: discountData.summary || null,
+      usageLimit: discount.usageLimit || null,
+      summary: discount.summary || null,
     }
   } catch (error) {
     console.error(`Error fetching promotion ${id}:`, error)

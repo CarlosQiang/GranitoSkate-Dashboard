@@ -77,8 +77,40 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
   }
 
   useEffect(() => {
-    fetchCollectionData()
-  }, [params.id])
+    const fetchData = async () => {
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        console.log(`Intentando cargar colección con ID: ${params.id}`)
+        const collectionData = await fetchCollectionById(params.id)
+
+        if (!collectionData) {
+          throw new Error("No se pudo encontrar la colección")
+        }
+
+        console.log("Datos de colección recibidos:", collectionData)
+        setCollection(collectionData)
+
+        setFormData({
+          title: collectionData.title || "",
+          description: collectionData.description || "",
+        })
+      } catch (error) {
+        console.error("Error fetching collection data:", error)
+        setError(`No se pudo cargar la información de la colección: ${(error as Error).message}`)
+        toast({
+          title: "Error",
+          description: "No se pudo cargar la información de la colección",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [params.id, toast])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target

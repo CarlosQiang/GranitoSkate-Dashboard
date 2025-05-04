@@ -30,11 +30,12 @@ export default function PromotionsPage() {
       try {
         setIsLoading(true)
         const data = await fetchPriceLists()
-        setPromotions(data)
+        setPromotions(Array.isArray(data) ? data : [])
         setError(null)
       } catch (err) {
         console.error("Error al cargar promociones:", err)
         setError("No se pudieron cargar las promociones. Por favor, inténtalo de nuevo.")
+        setPromotions([])
       } finally {
         setIsLoading(false)
       }
