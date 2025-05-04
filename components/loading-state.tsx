@@ -1,26 +1,21 @@
 import { RefreshCw } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
 
 interface LoadingStateProps {
   message?: string
-  fullPage?: boolean
+  size?: "sm" | "md" | "lg"
 }
 
-export function LoadingState({ message = "Cargando...", fullPage = false }: LoadingStateProps) {
-  const content = (
-    <div className="flex flex-col items-center justify-center p-8 text-center">
-      <RefreshCw className="h-8 w-8 animate-spin mb-4" />
-      <p className="text-muted-foreground">{message}</p>
-    </div>
-  )
-
-  if (fullPage) {
-    return <div className="flex items-center justify-center min-h-[400px] w-full">{content}</div>
+export function LoadingState({ message = "Cargando...", size = "md" }: LoadingStateProps) {
+  const sizeClasses = {
+    sm: "h-4 w-4",
+    md: "h-6 w-6",
+    lg: "h-8 w-8",
   }
 
   return (
-    <Card>
-      <CardContent className="p-0">{content}</CardContent>
-    </Card>
+    <div className="flex flex-col items-center justify-center p-8 text-center">
+      <RefreshCw className={`${sizeClasses[size]} animate-spin text-primary mb-2`} />
+      <p className="text-muted-foreground">{message}</p>
+    </div>
   )
 }

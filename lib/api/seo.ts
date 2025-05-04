@@ -9,6 +9,9 @@ import type {
   SocialMediaProfiles,
   StructuredDataConfig,
 } from "@/types/seo"
+import shopifyClient from "@/lib/shopify"
+import { gql } from "graphql-request"
+import { formatShopifyId } from "@/lib/shopify"
 
 // Función para obtener todas las definiciones de metafields
 export async function getMetafieldDefinitions(ownerType?: string): Promise<MetafieldDefinition[]> {
@@ -851,5 +854,231 @@ export async function saveCollectionSeoSettings(collectionId: string, settings: 
   } catch (error) {
     console.error("Error saving collection SEO settings:", error)
     return false
+  }
+}
+
+export async function fetchProductSEO(productId) {
+  try {
+    const formattedId = formatShopifyId(productId, "Product")
+
+    const query = gql`
+      query GetProductSEO($id: ID!) {
+        product(id: $id) {
+          id
+          title
+          description
+          seo {
+            title
+            description
+          }
+          metafields(first: 10) {
+            edges {
+              node {
+                id
+                namespace
+                key
+                value
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const variables = {
+      id: formattedId,
+    }
+
+    const data = await shopifyClient.request(query, variables)
+
+    if (!data?.product) {
+      throw new Error("No se pudo obtener la información SEO del producto")
+    }
+
+    return {
+      title: data.product.seo?.title || data.product.title,
+      description: data.product.seo?.description || data.product.description,
+      metafields: data.product.metafields?.edges?.map((edge) => edge.node) || [],
+    }
+  } catch (error) {
+    console.error("Error fetching product SEO:", error)
+    throw new Error(`Error al cargar la información SEO del producto: ${(error as Error).message}`)
+  }
+}
+
+export async function updateProductSEO(productId, seoData) {
+  try {
+    const formattedId = formatShopifyId(productId, "Product")
+
+    const mutation = gql`
+      mutation productUpdate($input: ProductInput!) {
+        productUpdate(input: $input) {
+          product {
+            id
+            seo {
+              title
+              description
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const variables = {
+      input: {
+        id: formattedId,
+        seo: {
+          title: seoData.title,
+          description: seoData.description,
+        },
+      },
+    }
+
+    const data = await shopifyClient.request(mutation, variables)
+
+    if (data?.productUpdate?.userErrors?.length > 0) {
+      throw new Error(data.productUpdate.userErrors[0].message)
+    }
+
+    return data.productUpdate.product
+  } catch (error) {
+    console.error("Error updating product SEO:", error)
+    throw new Error(`Error al actualizar la información SEO del producto: ${(error as Error).message}`)
+  }
+}
+
+export async function fetchCollectionSEO(collectionId) {
+  try {
+    const formattedId = formatShopifyId(collectionId, "Collection")
+
+    const query = gql`
+      query GetCollectionSEO($id: ID!) {
+        collection(id: $id) {
+          id
+          title
+          description
+          seo {
+            title
+            description
+          }
+          metafields(first: 10) {
+            edges {
+              node {
+                id
+                namespace
+                key
+                value
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const variables = {
+      id: formattedId,
+    }
+
+    const data = await shopifyClient.request(query, variables)
+
+    if (!data?.collection) {
+      throw new Error("No se pudo obtener la información SEO de la colección")
+    }
+
+    return {
+      title: data.collection.seo?.title || data.collection.title,
+      description: data.collection.seo?.description || data.collection.description,
+      metafields: data.collection.metafields?.edges?.map((edge) => edge.node) || [],
+    }
+  } catch (error) {
+    console.error("Error fetching collection SEO:", error)
+    throw new Error(`Error al cargar la información SEO de la colección: ${(error as Error).message}`)
+  }
+}
+
+export async function updateCollectionSEO(collectionId, seoData) {
+  try {
+    const formattedId = formatShopifyId(collectionId, "Collection")
+
+    const mutation = gql`
+      mutation collectionUpdate($input: CollectionInput!) {
+        collectionUpdate(input: $input) {
+          collection {
+            id
+            seo {
+              title
+              description
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const variables = {
+      input: {
+        id: formattedId,
+        seo: {
+          title: seoData.title,
+          description: seoData.description,
+        },
+      },
+    }
+
+    const data = await shopifyClient.request(mutation, variables)
+
+    if (data?.collectionUpdate?.userErrors?.length > 0) {
+      throw new Error(data.collectionUpdate.userErrors[0].message)
+    }
+
+    return data.collectionUpdate.collection
+  } catch (error) {
+    console.error("Error updating collection SEO:", error)
+    throw new Error(`Error al actualizar la información SEO de la colección: ${(error as Error).message}`)
+  }
+}
+
+export async function fetchShopSEO() {
+  try {
+    const query = gql`
+      query {
+        shop {
+          name
+          description
+          metafields(first: 20) {
+            edges {
+              node {
+                id
+                namespace
+                key
+                value
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const data = await shopifyClient.request(query)
+
+    if (!data?.shop) {
+      throw new Error("No se pudo obtener la información SEO de la tienda")
+    }
+
+    return {
+      name: data.shop.name,
+      description: data.shop.description,
+      metafields: data.shop.metafields?.edges?.map((edge) => edge.node) || [],
+    }
+  } catch (error) {
+    console.error("Error fetching shop SEO:", error)
+    throw new Error(`Error al cargar la información SEO de la tienda: ${(error as Error).message}`)
   }
 }

@@ -1,21 +1,23 @@
 import { GraphQLClient } from "graphql-request"
 
-// Verificar que las variables de entorno estén definidas
-const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
-const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
+// Función para obtener la URL base de la aplicación
+const getBaseUrl = () => {
+  // En el navegador, usamos window.location.origin
+  if (typeof window !== "undefined") {
+    return window.location.origin
+  }
 
-if (!shopDomain) {
-  console.warn("⚠️ NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está definido en las variables de entorno")
+  // En el servidor, usamos la URL de Vercel o localhost
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`
+  }
+
+  return "http://localhost:3000"
 }
 
-if (!accessToken) {
-  console.warn("⚠️ SHOPIFY_ACCESS_TOKEN no está definido en las variables de entorno")
-}
-
-// Crear el cliente GraphQL con un timeout más largo
-const shopifyClient = new GraphQLClient(`https://${shopDomain}/admin/api/2023-10/graphql.json`, {
+// Crear el cliente GraphQL que usa nuestro proxy en lugar de conectarse directamente a Shopify
+const shopifyClient = new GraphQLClient(`${getBaseUrl()}/api/shopify/proxy`, {
   headers: {
-    "X-Shopify-Access-Token": accessToken || "",
     "Content-Type": "application/json",
   },
   timeout: 60000, // 60 segundos de timeout para operaciones largas
@@ -32,20 +34,27 @@ export function formatShopifyId(id: string, type = "Product") {
 // Función para realizar una consulta de prueba a Shopify
 export async function testShopifyConnection() {
   try {
-    const query = `
-      {
-        shop {
-          name
-          url
-        }
-      }
-    `
+    const response = await fetch(`${getBaseUrl()}/api/shopify/proxy`, {
+      method: "GET",
+      headers: {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+      },
+    })
 
-    const data = await shopifyClient.request(query)
-    return {
-      success: true,
-      data,
-      message: "Conexión exitosa con Shopify",
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status}`)
+    }
+
+    const data = await response.json()
+
+    if (data.success) {
+      return {
+        success: true,
+        data: { shop: { name: data.shopName } },
+        message: data.message,
+      }
+    } else {
+      throw new Error(data.error || "Error desconocido")
     }
   } catch (error) {
     console.error("Error al probar la conexión con Shopify:", error)

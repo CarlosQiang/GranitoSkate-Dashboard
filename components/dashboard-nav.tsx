@@ -3,7 +3,8 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
-import { Menu, X } from "lucide-react"
+import { Menu, X, LogOut } from "lucide-react"
+import { signOut } from "next-auth/react"
 import { cn } from "@/lib/utils"
 import { navigationItems } from "@/config/navigation"
 import { Button } from "@/components/ui/button"
@@ -14,6 +15,10 @@ export function DashboardNav() {
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen)
+  }
+
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: "/login" })
   }
 
   return (
@@ -35,6 +40,7 @@ export function DashboardNav() {
           "fixed md:sticky top-0 left-0 h-full z-40",
           "transform transition-transform duration-300 ease-in-out",
           "md:transform-none md:opacity-100 md:pointer-events-auto",
+          "flex flex-col justify-between",
           isMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
         )}
       >
@@ -55,6 +61,18 @@ export function DashboardNav() {
               {item.name}
             </Link>
           ))}
+        </div>
+
+        {/* Botón de logout */}
+        <div className="p-4 mt-auto border-t">
+          <Button
+            variant="outline"
+            className="w-full flex items-center justify-center gap-2 text-red-500 hover:text-red-600 hover:bg-red-50"
+            onClick={handleLogout}
+          >
+            <LogOut className="h-4 w-4" />
+            Cerrar sesión
+          </Button>
         </div>
       </nav>
 

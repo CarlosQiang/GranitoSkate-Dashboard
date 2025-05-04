@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { AlertCircle, CheckCircle, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { testShopifyConnection } from "@/lib/shopify"
 
 export function ShopifyConnectionChecker() {
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
@@ -17,32 +18,15 @@ export function ShopifyConnectionChecker() {
     setStatus("loading")
 
     try {
-      // Añadir un parámetro de timestamp para evitar el caché
-      const timestamp = new Date().getTime()
-      const response = await fetch(`/api/shopify/check?t=${timestamp}&retry=${retryCount}`, {
-        method: "GET",
-        headers: {
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
-        },
-        // Aumentar el timeout para evitar problemas de conexión
-        signal: AbortSignal.timeout(15000),
-      })
+      const result = await testShopifyConnection()
 
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`)
-      }
-
-      const data = await response.json()
-
-      if (data.success) {
+      if (result.success) {
         setStatus("success")
-        setShopName(data.shopName || "")
-        setMessage(`Conexión establecida correctamente con la tienda: ${data.shopName || ""}`)
+        setShopName(result.data?.shop?.name || "")
+        setMessage(`Conexión establecida correctamente con la tienda: ${result.data?.shop?.name || ""}`)
       } else {
         setStatus("error")
-        setMessage(data.error || "Error al verificar la conexión con Shopify")
+        setMessage(result.message || "Error al verificar la conexión con Shopify")
       }
     } catch (error) {
       setStatus("error")
@@ -79,7 +63,7 @@ export function ShopifyConnectionChecker() {
         <AlertDescription className="flex flex-col md:flex-row md:items-center gap-2 justify-between">
           <span>Conexión establecida correctamente con la tienda: {shopName}</span>
           <Button variant="outline" size="sm" className="w-fit" onClick={handleRetry} disabled={isChecking}>
-            <RefreshCw className="mr-2 h-4 w-4" />
+            <RefreshCw className={`mr-2 h-4 w-4 ${isChecking ? "animate-spin" : ""}`} />
             Actualizar
           </Button>
         </AlertDescription>

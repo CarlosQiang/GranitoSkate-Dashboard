@@ -1,9 +1,9 @@
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 
-export async function fetchShopStats() {
+export async function fetchDashboardStats() {
   try {
-    // Consulta simplificada que solo obtiene datos básicos de la tienda
+    // Consulta para obtener estadísticas básicas de la tienda
     const query = gql`
       query {
         shop {
@@ -13,26 +13,66 @@ export async function fetchShopStats() {
             url
           }
         }
+        products(first: 250) {
+          edges {
+            node {
+              id
+            }
+          }
+        }
+        customers(first: 250) {
+          edges {
+            node {
+              id
+            }
+          }
+        }
+        orders(first: 250) {
+          edges {
+            node {
+              id
+              totalPriceSet {
+                shopMoney {
+                  amount
+                }
+              }
+            }
+          }
+        }
       }
     `
 
     const data = await shopifyClient.request(query)
 
-    // Devolver valores estáticos para evitar errores
-    // En una implementación real, estos valores vendrían de consultas adicionales
+    // Calcular estadísticas
+    const totalProducts = data?.products?.edges?.length || 0
+    const totalCustomers = data?.customers?.edges?.length || 0
+    const totalOrders = data?.orders?.edges?.length || 0
+
+    // Calcular ingresos totales
+    let totalRevenue = 0
+    if (data?.orders?.edges) {
+      totalRevenue = data.orders.edges.reduce((sum, order) => {
+        const amount = Number.parseFloat(order.node.totalPriceSet?.shopMoney?.amount || "0")
+        return sum + amount
+      }, 0)
+    }
+
     return {
-      totalOrders: 0,
-      totalCustomers: 0,
-      totalProducts: 0,
-      totalRevenue: "€0.00",
+      totalProducts,
+      totalCustomers,
+      totalOrders,
+      totalRevenue,
+      shopName: data?.shop?.name || "",
+      shopDomain: data?.shop?.myshopifyDomain || "",
+      shopUrl: data?.shop?.primaryDomain?.url || "",
     }
   } catch (error) {
     console.error("Error fetching shop stats:", error)
-    return {
-      totalOrders: 0,
-      totalCustomers: 0,
-      totalProducts: 0,
-      totalRevenue: "€0.00",
-    }
+    throw new Error(`Error al cargar estadísticas: ${(error as Error).message}`)
   }
+}
+
+export async function fetchShopStats() {
+  return fetchDashboardStats()
 }
