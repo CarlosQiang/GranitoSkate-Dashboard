@@ -3,11 +3,11 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { fetchCollections } from "@/lib/api/collections"
+import { fetchCollections, deleteCollection } from "@/lib/api/collections"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Pencil, Trash2, Package } from "lucide-react"
+import { Pencil, Trash2, Package, RefreshCw } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import {
   AlertDialog,
@@ -20,7 +20,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { deleteCollection } from "@/lib/api/collections"
 import { useRouter } from "next/navigation"
 
 export function CollectionsList() {
@@ -31,21 +30,22 @@ export function CollectionsList() {
   const { toast } = useToast()
   const router = useRouter()
 
-  useEffect(() => {
-    async function loadCollections() {
-      try {
-        setLoading(true)
-        setError(null)
-        const data = await fetchCollections()
-        setCollections(data)
-      } catch (err) {
-        console.error("Error al cargar colecciones:", err)
-        setError(err.message || "No se pudieron cargar las colecciones")
-      } finally {
-        setLoading(false)
-      }
+  const loadCollections = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await fetchCollections()
+      console.log("Collections loaded:", data)
+      setCollections(data)
+    } catch (err) {
+      console.error("Error al cargar colecciones:", err)
+      setError(err.message || "No se pudieron cargar las colecciones")
+    } finally {
+      setLoading(false)
     }
+  }
 
+  useEffect(() => {
     loadCollections()
   }, [])
 
@@ -94,7 +94,8 @@ export function CollectionsList() {
       <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
         <p className="font-medium">Error al cargar las colecciones</p>
         <p>{error}</p>
-        <Button variant="outline" className="mt-2" onClick={() => router.refresh()}>
+        <Button variant="outline" className="mt-2" onClick={loadCollections}>
+          <RefreshCw className="mr-2 h-4 w-4" />
           Reintentar
         </Button>
       </div>
@@ -142,13 +143,13 @@ export function CollectionsList() {
           <CardFooter className="p-4 pt-0 flex justify-between">
             <div className="flex gap-2">
               <Button asChild size="sm" variant="outline">
-                <Link href={`/dashboard/collections/${collection.id}`}>
+                <Link href={`/dashboard/collections/${collection.id.split("/").pop()}`}>
                   <Pencil className="h-4 w-4 mr-1" />
                   Editar
                 </Link>
               </Button>
               <Button asChild size="sm" variant="outline">
-                <Link href={`/dashboard/collections/${collection.id}/products`}>
+                <Link href={`/dashboard/collections/${collection.id.split("/").pop()}/products`}>
                   <Package className="h-4 w-4 mr-1" />
                   Productos
                 </Link>
