@@ -15,7 +15,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/components/ui/use-toast"
 import { fetchCollectionById, updateCollection, deleteCollection } from "@/lib/api/collections"
 import { ArrowLeft, Save, Tags, AlertTriangle, RefreshCw, AlertCircle, Plus, Trash2, Package } from "lucide-react"
-import { generateSeoMetafields } from "@/lib/seo-utils"
 import { SeoPreview } from "@/components/seo-preview"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
@@ -30,6 +29,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { CollectionSeoForm } from "@/components/collection-seo-form"
+import Link from "next/link"
 
 export default function CollectionPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -77,40 +77,8 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
   }
 
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true)
-      setError(null)
-
-      try {
-        console.log(`Intentando cargar colección con ID: ${params.id}`)
-        const collectionData = await fetchCollectionById(params.id)
-
-        if (!collectionData) {
-          throw new Error("No se pudo encontrar la colección")
-        }
-
-        console.log("Datos de colección recibidos:", collectionData)
-        setCollection(collectionData)
-
-        setFormData({
-          title: collectionData.title || "",
-          description: collectionData.description || "",
-        })
-      } catch (error) {
-        console.error("Error fetching collection data:", error)
-        setError(`No se pudo cargar la información de la colección: ${(error as Error).message}`)
-        toast({
-          title: "Error",
-          description: "No se pudo cargar la información de la colección",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchData()
-  }, [params.id, toast])
+    fetchCollectionData()
+  }, [params.id])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -128,9 +96,7 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
     try {
       const updateData = {
         title: formData.title,
-        descriptionHtml: formData.description,
-        // Generar automáticamente los metafields de SEO
-        metafields: generateSeoMetafields(formData.title, formData.description),
+        description: formData.description,
       }
 
       console.log("Enviando datos para actualizar colección:", updateData)
@@ -358,15 +324,15 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
               </Button>
             </CardHeader>
             <CardContent>
-              {collection.products?.edges.length > 0 ? (
+              {Array.isArray(collection.products) && collection.products.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {collection.products.edges.map((edge: any) => (
-                    <div key={edge.node.id} className="border rounded-md overflow-hidden">
+                  {collection.products.map((product) => (
+                    <div key={product.id} className="border rounded-md overflow-hidden">
                       <div className="aspect-square relative">
-                        {edge.node.featuredImage ? (
+                        {product.image ? (
                           <Image
-                            src={edge.node.featuredImage.url || "/placeholder.svg"}
-                            alt={edge.node.title}
+                            src={product.image.url || "/placeholder.svg"}
+                            alt={product.title}
                             fill
                             className="object-cover"
                           />
@@ -377,19 +343,17 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
                         )}
                       </div>
                       <div className="p-3">
-                        <h3 className="font-medium truncate">{edge.node.title}</h3>
+                        <h3 className="font-medium truncate">{product.title}</h3>
                         <div className="flex items-center justify-between mt-2">
                           <span
                             className={`text-xs px-2 py-1 rounded-full ${
-                              edge.node.status === "ACTIVE"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-gray-100 text-gray-800"
+                              product.status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
                             }`}
                           >
-                            {edge.node.status === "ACTIVE" ? "Visible" : "Oculto"}
+                            {product.status === "ACTIVE" ? "Visible" : "Oculto"}
                           </span>
                           <Button variant="ghost" size="sm" asChild className="ml-auto">
-                            <a href={`/dashboard/products/${edge.node.id.split("/").pop()}`}>Ver</a>
+                            <Link href={`/dashboard/products/${product.id}`}>Ver</Link>
                           </Button>
                         </div>
                       </div>
