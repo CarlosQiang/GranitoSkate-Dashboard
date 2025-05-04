@@ -59,3 +59,13 @@ export interface LocalBusinessMetafields {
   latitude: number
   longitude: number
 }
+
+export interface SocialMediaMetafields {
+  facebook: string
+  instagram: string
+  twitter: string
+  youtube: string
+  pinterest: string
+  linkedin: string
+  tiktok: string
+}

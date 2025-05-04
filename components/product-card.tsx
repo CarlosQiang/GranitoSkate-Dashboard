@@ -12,16 +12,19 @@ export function ProductCard({ product }) {
     price = 0,
     currencyCode = "EUR",
     status = "ACTIVE",
-    image = null,
+    featuredImage = null,
   } = product || {}
+
+  // Obtener la URL de la imagen
+  const imageUrl = featuredImage?.url || null
 
   return (
     <Link href={`/dashboard/products/${id}`} className="block">
       <Card className="overflow-hidden transition-all hover:shadow-md">
         <div className="aspect-square relative bg-muted">
-          {image ? (
+          {imageUrl ? (
             <Image
-              src={image || "/placeholder.svg"}
+              src={imageUrl || "/placeholder.svg"}
               alt={title}
               fill
               className="object-cover"

@@ -56,7 +56,7 @@ export async function fetchProducts(limit = 20) {
       const variant = node.variants.edges[0]?.node || {}
 
       return {
-        id: node.id.split("/").pop(), // Extraer el ID numérico
+        id: node.id,
         title: node.title,
         handle: node.handle,
         description: node.description,
@@ -74,6 +74,10 @@ export async function fetchProducts(limit = 20) {
       }
     })
 
+    console.log(
+      "Productos procesados:",
+      products.map((p) => ({ id: p.id, title: p.title, featuredImage: p.featuredImage })),
+    )
     return products
   } catch (error) {
     console.error("Error al cargar productos:", error)
