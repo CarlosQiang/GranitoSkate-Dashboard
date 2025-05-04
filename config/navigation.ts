@@ -1,18 +1,79 @@
 import {
   LayoutDashboard,
   ShoppingBag,
-  Tag,
   Users,
-  Package,
-  Settings,
-  BarChart3,
   FileText,
+  Settings,
+  Package,
+  BarChart3,
+  Percent,
   Globe,
   Search,
-  Percent,
   AlertTriangle,
 } from "lucide-react"
 
+// Exportamos navigationItems para mantener compatibilidad con el código existente
+export const navigationItems = [
+  {
+    name: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    name: "Productos",
+    href: "/dashboard/products",
+    icon: ShoppingBag,
+  },
+  {
+    name: "Colecciones",
+    href: "/dashboard/collections",
+    icon: Package,
+  },
+  {
+    name: "Promociones",
+    href: "/dashboard/promotions",
+    icon: Percent,
+  },
+  {
+    name: "SEO",
+    href: "/dashboard/seo",
+    icon: Search,
+    isNew: true,
+  },
+  {
+    name: "Mercados",
+    href: "/dashboard/seo-markets",
+    icon: Globe,
+  },
+  {
+    name: "Pedidos",
+    href: "/dashboard/orders",
+    icon: FileText,
+  },
+  {
+    name: "Clientes",
+    href: "/dashboard/customers",
+    icon: Users,
+  },
+  {
+    name: "Analíticas",
+    href: "/dashboard/analytics",
+    icon: BarChart3,
+  },
+  {
+    name: "Configuración",
+    href: "/dashboard/settings",
+    icon: Settings,
+  },
+  {
+    title: "Monitorización SEO",
+    href: "/dashboard/seo/monitoring",
+    icon: "barChart2",
+    description: "Monitoriza el rendimiento SEO de tu tienda",
+  },
+]
+
+// Exportamos también las nuevas estructuras de navegación
 export const mainNav = [
   {
     title: "Dashboard",
@@ -29,7 +90,7 @@ export const mainNav = [
   {
     title: "Colecciones",
     href: "/dashboard/collections",
-    icon: Tag,
+    icon: Package,
     color: "text-pink-500",
   },
   {

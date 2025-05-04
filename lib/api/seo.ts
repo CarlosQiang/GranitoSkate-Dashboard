@@ -1082,3 +1082,5 @@ export async function fetchShopSEO() {
     throw new Error(`Error al cargar la información SEO de la tienda: ${(error as Error).message}`)
   }
 }
+
+export { getShopifyApi }

@@ -1,6 +1,6 @@
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
-import type { MetafieldInput, LocalBusinessData, SocialMediaData } from "@/types/metafields"
+import type { MetafieldInput, LocalBusinessData, SocialMediaData, SeoMetafields } from "@/types/metafields"
 
 // Función para obtener metafields de un recurso
 export async function getMetafields(ownerId: string, ownerType: string) {
@@ -491,5 +491,176 @@ export async function getSocialMediaData(shopId: string): Promise<SocialMediaDat
   } catch (error) {
     console.error(`Error fetching social media data for shop ${shopId}:`, error)
     throw new Error(`Error al obtener datos de redes sociales: ${(error as Error).message}`)
+  }
+}
+
+// Añadir las funciones que faltan
+export async function fetchSeoMetafields(ownerId: string, ownerType: string): Promise<SeoMetafields> {
+  try {
+    const metafields = await getMetafields(ownerId, ownerType)
+    const seoMetafields = metafields.filter((metafield: any) => metafield.namespace === "seo")
+
+    const result: SeoMetafields = {
+      title: "",
+      description: "",
+      keywords: [],
+      ogTitle: "",
+      ogDescription: "",
+      ogImage: "",
+      twitterTitle: "",
+      twitterDescription: "",
+      twitterImage: "",
+      canonicalUrl: "",
+    }
+
+    seoMetafields.forEach((metafield: any) => {
+      switch (metafield.key) {
+        case "title":
+          result.title = metafield.value
+          break
+        case "description":
+          result.description = metafield.value
+          break
+        case "keywords":
+          try {
+            result.keywords = JSON.parse(metafield.value)
+          } catch (e) {
+            result.keywords = metafield.value.split(",").map((k: string) => k.trim())
+          }
+          break
+        case "og_title":
+          result.ogTitle = metafield.value
+          break
+        case "og_description":
+          result.ogDescription = metafield.value
+          break
+        case "og_image":
+          result.ogImage = metafield.value
+          break
+        case "twitter_title":
+          result.twitterTitle = metafield.value
+          break
+        case "twitter_description":
+          result.twitterDescription = metafield.value
+          break
+        case "twitter_image":
+          result.twitterImage = metafield.value
+          break
+        case "canonical_url":
+          result.canonicalUrl = metafield.value
+          break
+      }
+    })
+
+    return result
+  } catch (error) {
+    console.error(`Error fetching SEO metafields for ${ownerType} ${ownerId}:`, error)
+    return {
+      title: "",
+      description: "",
+      keywords: [],
+      ogTitle: "",
+      ogDescription: "",
+      ogImage: "",
+      twitterTitle: "",
+      twitterDescription: "",
+      twitterImage: "",
+      canonicalUrl: "",
+    }
+  }
+}
+
+export async function saveSeoMetafields(ownerId: string, ownerType: string, seoData: SeoMetafields): Promise<boolean> {
+  try {
+    const metafieldPromises = []
+
+    if (seoData.title !== undefined) {
+      metafieldPromises.push(setMetafield(ownerId, ownerType, "seo", "title", seoData.title, "single_line_text_field"))
+    }
+
+    if (seoData.description !== undefined) {
+      metafieldPromises.push(
+        setMetafield(ownerId, ownerType, "seo", "description", seoData.description, "multi_line_text_field"),
+      )
+    }
+
+    if (seoData.keywords !== undefined) {
+      const keywordsValue =
+        typeof seoData.keywords === "string"
+          ? seoData.keywords
+          : Array.isArray(seoData.keywords)
+            ? JSON.stringify(seoData.keywords)
+            : ""
+      metafieldPromises.push(setMetafield(ownerId, ownerType, "seo", "keywords", keywordsValue, "json"))
+    }
+
+    if (seoData.ogTitle !== undefined) {
+      metafieldPromises.push(
+        setMetafield(ownerId, ownerType, "seo", "og_title", seoData.ogTitle, "single_line_text_field"),
+      )
+    }
+
+    if (seoData.ogDescription !== undefined) {
+      metafieldPromises.push(
+        setMetafield(ownerId, ownerType, "seo", "og_description", seoData.ogDescription, "multi_line_text_field"),
+      )
+    }
+
+    if (seoData.ogImage !== undefined) {
+      metafieldPromises.push(
+        setMetafield(ownerId, ownerType, "seo", "og_image", seoData.ogImage, "single_line_text_field"),
+      )
+    }
+
+    if (seoData.twitterTitle !== undefined) {
+      metafieldPromises.push(
+        setMetafield(ownerId, ownerType, "seo", "twitter_title", seoData.twitterTitle, "single_line_text_field"),
+      )
+    }
+
+    if (seoData.twitterDescription !== undefined) {
+      metafieldPromises.push(
+        setMetafield(
+          ownerId,
+          ownerType,
+          "seo",
+          "twitter_description",
+          seoData.twitterDescription,
+          "multi_line_text_field",
+        ),
+      )
+    }
+
+    if (seoData.twitterImage !== undefined) {
+      metafieldPromises.push(
+        setMetafield(ownerId, ownerType, "seo", "twitter_image", seoData.twitterImage, "single_line_text_field"),
+      )
+    }
+
+    if (seoData.canonicalUrl !== undefined) {
+      metafieldPromises.push(
+        setMetafield(ownerId, ownerType, "seo", "canonical_url", seoData.canonicalUrl, "single_line_text_field"),
+      )
+    }
+
+    await Promise.all(metafieldPromises)
+    return true
+  } catch (error) {
+    console.error(`Error saving SEO metafields for ${ownerType} ${ownerId}:`, error)
+    return false
+  }
+}
+
+export async function fetchLocalBusinessMetafields(shopId: string): Promise<any> {
+  return getLocalBusinessData(shopId)
+}
+
+export async function saveLocalBusinessMetafields(shopId: string, data: LocalBusinessData): Promise<boolean> {
+  try {
+    await setLocalBusinessData(shopId, data)
+    return true
+  } catch (error) {
+    console.error(`Error saving local business metafields for shop ${shopId}:`, error)
+    return false
   }
 }

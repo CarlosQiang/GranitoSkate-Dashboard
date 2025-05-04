@@ -90,7 +90,7 @@ export async function fetchPromotions(limit = 20) {
     }
 
     const promotions = data.discountNodes.edges
-      .map((edge) => {
+      .map((edge: any) => {
         const node = edge.node
         const discount = node.discount
 
@@ -162,10 +162,6 @@ export async function fetchPromotionById(id) {
 
     const query = gql`
       query GetDiscountNode($id: ID!) {
-        discountNode(id: $id) {
-          id
-          discount {
-            ... on DiscountAutomat  {
         discountNode(id: $id) {
           id
           discount {
@@ -300,6 +296,22 @@ export async function fetchPromotionById(id) {
     console.error(`Error fetching promotion ${id}:`, error)
     throw new Error(`Error al cargar la promoción: ${error.message}`)
   }
+}
+
+// Añadir funciones para compatibilidad
+export const fetchPriceLists = fetchPromotions
+export const fetchPriceListById = fetchPromotionById
+export const createPriceList = async (data) => {
+  console.warn("createPriceList está obsoleto, usa createPromotion en su lugar")
+  return createPromotion(data)
+}
+export const updatePriceList = async (id, data) => {
+  console.warn("updatePriceList está obsoleto, usa updatePromotion en su lugar")
+  return { id, ...data }
+}
+export const deletePriceList = async (id) => {
+  console.warn("deletePriceList está obsoleto, usa deletePromotion en su lugar")
+  return deletePromotion(id)
 }
 
 export async function createPromotion(promotionData) {
