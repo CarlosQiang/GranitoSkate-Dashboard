@@ -35,14 +35,8 @@ export async function fetchProducts(limit = 20) {
                   node {
                     id
                     title
-                    price {
-                      amount
-                      currencyCode
-                    }
-                    compareAtPrice {
-                      amount
-                      currencyCode
-                    }
+                    price
+                    compareAtPrice
                     sku
                     inventoryQuantity
                   }
@@ -72,9 +66,9 @@ export async function fetchProducts(limit = 20) {
         status: node.status,
         totalInventory: node.totalInventory,
         featuredImage: node.featuredImage,
-        price: variant.price?.amount || "0.00",
-        compareAtPrice: variant.compareAtPrice?.amount || null,
-        currencyCode: variant.price?.currencyCode || "EUR",
+        price: variant.price || "0.00",
+        compareAtPrice: variant.compareAtPrice || null,
+        currencyCode: "EUR", // Valor por defecto
         sku: variant.sku || "",
         inventoryQuantity: variant.inventoryQuantity || 0,
       }
@@ -114,14 +108,8 @@ export async function fetchProductById(id) {
               node {
                 id
                 title
-                price {
-                  amount
-                  currencyCode
-                }
-                compareAtPrice {
-                  amount
-                  currencyCode
-                }
+                price
+                compareAtPrice
                 sku
                 inventoryQuantity
               }
