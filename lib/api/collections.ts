@@ -90,10 +90,8 @@ export async function fetchCollectionById(id) {
                 variants(first: 1) {
                   edges {
                     node {
-                      price {
-                        amount
-                        currencyCode
-                      }
+                      price
+                      compareAtPrice
                     }
                   }
                 }
@@ -122,8 +120,8 @@ export async function fetchCollectionById(id) {
         id: edge.node.id.split("/").pop(),
         title: edge.node.title,
         image: edge.node.featuredImage,
-        price: edge.node.variants.edges[0]?.node.price.amount || "0.00",
-        currencyCode: edge.node.variants.edges[0]?.node.price.currencyCode || "EUR",
+        price: edge.node.variants.edges[0]?.node.price || "0.00",
+        currencyCode: "EUR", // Valor por defecto
       })),
     }
 

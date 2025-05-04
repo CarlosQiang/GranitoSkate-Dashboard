@@ -1018,3 +1018,169 @@ export async function fetchShopSEO() {
     throw new Error(`Error al cargar la información SEO de la tienda: ${error.message}`)
   }
 }
+
+// Función para obtener las definiciones de metafields para SEO
+export async function fetchSeoMetafieldDefinitions(ownerType = "PRODUCT") {
+  try {
+    const query = gql`
+      query GetMetafieldDefinitions($ownerType: MetafieldOwnerType!) {
+        metafieldDefinitions(first: 50, ownerType: $ownerType) {
+          edges {
+            node {
+              id
+              name
+              key
+              namespace
+              description
+              ownerType
+              validations {
+                name
+                value
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const data = await shopifyClient.request(query, { ownerType })
+
+    if (!data || !data.metafieldDefinitions || !data.metafieldDefinitions.edges) {
+      console.error("Respuesta de definiciones de metafields incompleta:", data)
+      return []
+    }
+
+    const definitions: MetafieldDefinition[] = data.metafieldDefinitions.edges.map((edge: any) => ({
+      id: edge.node.id,
+      name: edge.node.name,
+      key: edge.node.key,
+      namespace: edge.node.namespace,
+      description: edge.node.description,
+      ownerType: edge.node.ownerType,
+      validations: edge.node.validations,
+    }))
+
+    // Filtrar solo las definiciones relacionadas con SEO
+    const seoDefinitions = definitions.filter(
+      (def) => def.namespace === "seo" || def.key.includes("seo") || def.name.toLowerCase().includes("seo"),
+    )
+
+    return seoDefinitions
+  } catch (error) {
+    console.error("Error al cargar definiciones de metafields para SEO:", error)
+    throw new Error(`Error al cargar definiciones de metafields para SEO: ${error.message}`)
+  }
+}
+
+// Función para obtener los metafields de SEO de un producto o colección
+export async function fetchSeoMetafields(id: string, type = "PRODUCT") {
+  try {
+    // Asegurarse de que el ID tenga el formato correcto
+    const isFullId = id.includes("gid://shopify/")
+    const resourceType = type === "PRODUCT" ? "Product" : "Collection"
+    const formattedId = isFullId ? id : `gid://shopify/${resourceType}/${id}`
+
+    const query = gql`
+      query GetSeoMetafields($id: ID!) {
+        ${type.toLowerCase()}(id: $id) {
+          metafields(first: 20) {
+            edges {
+              node {
+                id
+                namespace
+                key
+                value
+                type
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const data = await shopifyClient.request(query, { id: formattedId })
+
+    if (!data || !data[type.toLowerCase()] || !data[type.toLowerCase()].metafields) {
+      console.error(`Respuesta de metafields incompleta para ${type} ${id}:`, data)
+      return []
+    }
+
+    const metafields = data[type.toLowerCase()].metafields.edges.map((edge: any) => ({
+      id: edge.node.id,
+      namespace: edge.node.namespace,
+      key: edge.node.key,
+      value: edge.node.value,
+      type: edge.node.type,
+    }))
+
+    // Filtrar solo los metafields relacionados con SEO
+    const seoMetafields = metafields.filter(
+      (meta) =>
+        meta.namespace === "seo" ||
+        meta.key.includes("seo") ||
+        (meta.namespace === "global" && meta.key === "description_tag"),
+    )
+
+    return seoMetafields
+  } catch (error) {
+    console.error(`Error al cargar metafields de SEO para ${type} ${id}:`, error)
+    throw new Error(`Error al cargar metafields de SEO: ${error.message}`)
+  }
+}
+
+// Función para actualizar los metafields de SEO de un producto o colección
+export async function updateSeoMetafields(id: string, metafields: any[], type = "PRODUCT") {
+  try {
+    // Asegurarse de que el ID tenga el formato correcto
+    const isFullId = id.includes("gid://shopify/")
+    const resourceType = type === "PRODUCT" ? "Product" : "Collection"
+    const formattedId = isFullId ? id : `gid://shopify/${resourceType}/${id}`
+
+    const mutation = gql`
+      mutation UpdateMetafields($input: ${resourceType}Input!) {
+        ${resourceType.toLowerCase()}Update(input: $input) {
+          ${resourceType.toLowerCase()} {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const formattedMetafields = metafields.map((meta) => ({
+      namespace: meta.namespace,
+      key: meta.key,
+      value: meta.value,
+      type: meta.type,
+    }))
+
+    const variables = {
+      input: {
+        id: formattedId,
+        metafields: formattedMetafields,
+      },
+    }
+
+    const data = await shopifyClient.request(mutation, variables)
+
+    if (
+      data &&
+      data[`${resourceType.toLowerCase()}Update`] &&
+      data[`${resourceType.toLowerCase()}Update`].userErrors &&
+      data[`${resourceType.toLowerCase()}Update`].userErrors.length > 0
+    ) {
+      throw new Error(data[`${resourceType.toLowerCase()}Update`].userErrors[0].message)
+    }
+
+    return {
+      success: true,
+      id: data[`${resourceType.toLowerCase()}Update`][resourceType.toLowerCase()].id,
+    }
+  } catch (error) {
+    console.error(`Error al actualizar metafields de SEO para ${type} ${id}:`, error)
+    throw new Error(`Error al actualizar metafields de SEO: ${error.message}`)
+  }
+}

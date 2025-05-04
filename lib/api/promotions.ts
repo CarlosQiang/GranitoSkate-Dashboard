@@ -21,9 +21,7 @@ export async function fetchPromotions(limit = 20) {
                     status
                     minimumRequirement {
                       ... on DiscountMinimumSubtotal {
-                        greaterThanOrEqualToSubtotal {
-                          amount
-                        }
+                        greaterThanOrEqualToSubtotal
                       }
                     }
                     customerGets {
@@ -32,10 +30,7 @@ export async function fetchPromotions(limit = 20) {
                           percentage
                         }
                         ... on DiscountAmount {
-                          amount {
-                            amount
-                            currencyCode
-                          }
+                          amount
                         }
                       }
                     }
@@ -66,10 +61,7 @@ export async function fetchPromotions(limit = 20) {
                           percentage
                         }
                         ... on DiscountAmount {
-                          amount {
-                            amount
-                            currencyCode
-                          }
+                          amount
                         }
                       }
                     }
@@ -106,23 +98,22 @@ export async function fetchPromotions(limit = 20) {
         // Extraer el valor del descuento
         let value = "0"
         let valueType = "percentage"
-        let currencyCode = "EUR"
+        const currencyCode = "EUR"
 
         if (discountData.customerGets?.value?.percentage) {
           value = discountData.customerGets.value.percentage
           valueType = "percentage"
-        } else if (discountData.customerGets?.value?.amount?.amount) {
-          value = discountData.customerGets.value.amount.amount
+        } else if (discountData.customerGets?.value?.amount) {
+          value = discountData.customerGets.value.amount
           valueType = "fixed_amount"
-          currencyCode = discountData.customerGets.value.amount.currencyCode || "EUR"
         }
 
         // Extraer el requisito mínimo si existe
         let minimumRequirement = null
-        if (discountData.minimumRequirement?.greaterThanOrEqualToSubtotal?.amount) {
+        if (discountData.minimumRequirement?.greaterThanOrEqualToSubtotal) {
           minimumRequirement = {
             type: "subtotal",
-            value: discountData.minimumRequirement.greaterThanOrEqualToSubtotal.amount,
+            value: discountData.minimumRequirement.greaterThanOrEqualToSubtotal,
           }
         }
 
@@ -174,9 +165,7 @@ export async function fetchPromotionById(id) {
                 status
                 minimumRequirement {
                   ... on DiscountMinimumSubtotal {
-                    greaterThanOrEqualToSubtotal {
-                      amount
-                    }
+                    greaterThanOrEqualToSubtotal
                   }
                 }
                 customerGets {
@@ -185,10 +174,7 @@ export async function fetchPromotionById(id) {
                       percentage
                     }
                     ... on DiscountAmount {
-                      amount {
-                        amount
-                        currencyCode
-                      }
+                      amount
                     }
                   }
                 }
@@ -219,10 +205,7 @@ export async function fetchPromotionById(id) {
                       percentage
                     }
                     ... on DiscountAmount {
-                      amount {
-                        amount
-                        currencyCode
-                      }
+                      amount
                     }
                   }
                 }
@@ -257,23 +240,22 @@ export async function fetchPromotionById(id) {
     // Extraer el valor del descuento
     let value = "0"
     let valueType = "percentage"
-    let currencyCode = "EUR"
+    const currencyCode = "EUR"
 
     if (discountData.customerGets?.value?.percentage) {
       value = discountData.customerGets.value.percentage
       valueType = "percentage"
-    } else if (discountData.customerGets?.value?.amount?.amount) {
-      value = discountData.customerGets.value.amount.amount
+    } else if (discountData.customerGets?.value?.amount) {
+      value = discountData.customerGets.value.amount
       valueType = "fixed_amount"
-      currencyCode = discountData.customerGets.value.amount.currencyCode || "EUR"
     }
 
     // Extraer el requisito mínimo si existe
     let minimumRequirement = null
-    if (discountData.minimumRequirement?.greaterThanOrEqualToSubtotal?.amount) {
+    if (discountData.minimumRequirement?.greaterThanOrEqualToSubtotal) {
       minimumRequirement = {
         type: "subtotal",
-        value: discountData.minimumRequirement.greaterThanOrEqualToSubtotal.amount,
+        value: discountData.minimumRequirement.greaterThanOrEqualToSubtotal,
       }
     }
 
@@ -350,7 +332,7 @@ export async function createPromotion(promotionData) {
             value:
               promotionData.valueType === "percentage"
                 ? { percentage: Number.parseFloat(promotionData.value) }
-                : { amount: { amount: promotionData.value, currencyCode: promotionData.currencyCode || "EUR" } },
+                : { amount: promotionData.value },
             items: { all: true },
           },
           minimumRequirement: promotionData.minimumRequirement
@@ -388,7 +370,7 @@ export async function createPromotion(promotionData) {
             value:
               promotionData.valueType === "percentage"
                 ? { percentage: Number.parseFloat(promotionData.value) }
-                : { amount: { amount: promotionData.value, currencyCode: promotionData.currencyCode || "EUR" } },
+                : { amount: promotionData.value },
             items: { all: true },
           },
           usageLimit: promotionData.usageLimit || null,

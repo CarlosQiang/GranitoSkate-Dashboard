@@ -2,385 +2,178 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Skeleton } from "@/components/ui/skeleton"
-import { useToast } from "@/components/ui/use-toast"
-import { fetchCollections } from "@/lib/api/collections"
-import { fetchRecentProducts } from "@/lib/api/products"
-import { addProductsToCollection, removeProductsFromCollection } from "@/lib/api/products"
-import { Search, Plus, Trash, Check, AlertCircle } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { useRouter } from "next/navigation"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Card, CardContent } from "@/components/ui/card"
+import { Loader2, Search, Package } from "lucide-react"
+import { fetchProducts } from "@/lib/api/products"
+import { addProductsToCollection, removeProductsFromCollection } from "@/lib/api/collections"
 import Image from "next/image"
 
-interface Product {
-  id: string
-  title: string
-  handle: string
-  status: string
-  totalInventory: number
-  featuredImage: {
-    url: string
-  } | null
-}
-
-interface Collection {
-  id: string
-  title: string
-  handle: string
-  productsCount: number
-  image: {
-    url: string
-  } | null
-}
-
 interface CollectionProductManagerProps {
-  productId?: string
-  collectionId?: string
-  onComplete?: () => void
-  mode?: "add" | "remove"
+  collectionId: string
+  onComplete: () => void
+  mode: "add" | "remove"
 }
 
-export function CollectionProductManager({
-  productId,
-  collectionId,
-  onComplete,
-  mode: initialMode = "add",
-}: CollectionProductManagerProps) {
-  const router = useRouter()
-  const { toast } = useToast()
-  const [collections, setCollections] = useState<Collection[]>([])
-  const [products, setProducts] = useState<Product[]>([])
-  const [selectedCollection, setSelectedCollection] = useState<string | null>(collectionId || null)
-  const [selectedProducts, setSelectedProducts] = useState<string[]>(productId ? [productId] : [])
-  const [searchQuery, setSearchQuery] = useState("")
+export function CollectionProductManager({ collectionId, onComplete, mode }: CollectionProductManagerProps) {
+  const [products, setProducts] = useState<any[]>([])
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [mode, setMode] = useState<"add" | "remove">(initialMode)
+  const [searchTerm, setSearchTerm] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true)
-      setError(null)
+    async function loadProducts() {
       try {
-        const [collectionsData, productsData] = await Promise.all([
-          fetchCollections(),
-          fetchRecentProducts(50), // Obtener más productos para tener una buena selección
-        ])
-        setCollections(collectionsData)
+        setIsLoading(true)
+        setError(null)
+        const productsData = await fetchProducts(50) // Cargar más productos para tener una buena selección
         setProducts(productsData)
-      } catch (error) {
-        console.error("Error fetching data:", error)
-        setError("No se pudieron cargar los datos. Por favor, inténtalo de nuevo.")
+      } catch (err) {
+        console.error("Error al cargar productos:", err)
+        setError("No se pudieron cargar los productos. Por favor, inténtalo de nuevo.")
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchData()
+    loadProducts()
   }, [])
 
-  const filteredProducts = products.filter((product) => product.title.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredProducts = products.filter((product) => product.title.toLowerCase().includes(searchTerm.toLowerCase()))
+
+  const handleToggleProduct = (productId: string) => {
+    setSelectedProducts((prev) =>
+      prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId],
+    )
+  }
 
   const handleSubmit = async () => {
-    if (!selectedCollection || selectedProducts.length === 0) {
-      toast({
-        title: "Faltan datos",
-        description: "Debes seleccionar una colección y al menos un producto",
-        variant: "destructive",
-      })
+    if (selectedProducts.length === 0) {
       return
     }
 
-    setIsSubmitting(true)
-    setError(null)
-    setSuccess(null)
-
     try {
+      setIsSubmitting(true)
+      setError(null)
+
       if (mode === "add") {
-        await addProductsToCollection(selectedCollection, selectedProducts)
-        setSuccess("¡Productos añadidos correctamente a la colección!")
-        toast({
-          title: "¡Listo!",
-          description: "Los productos han sido añadidos a la colección",
-        })
+        await addProductsToCollection(collectionId, selectedProducts)
       } else {
-        await removeProductsFromCollection(selectedCollection, selectedProducts)
-        setSuccess("¡Productos eliminados correctamente de la colección!")
-        toast({
-          title: "¡Listo!",
-          description: "Los productos han sido eliminados de la colección",
-        })
+        await removeProductsFromCollection(collectionId, selectedProducts)
       }
 
-      // Esperar un momento antes de llamar a onComplete para que el usuario vea el mensaje de éxito
-      setTimeout(() => {
-        if (onComplete) {
-          onComplete()
-        }
-      }, 1500)
-    } catch (error) {
-      console.error("Error:", error)
-      setError(`No se pudo completar la operación: ${(error as Error).message}`)
-      toast({
-        title: "Error",
-        description: `No se pudo completar la operación: ${(error as Error).message}`,
-        variant: "destructive",
-      })
-    } finally {
+      onComplete()
+    } catch (err) {
+      console.error(`Error al ${mode === "add" ? "añadir" : "eliminar"} productos:`, err)
+      setError(
+        `No se pudieron ${
+          mode === "add" ? "añadir" : "eliminar"
+        } los productos a la colección. Por favor, inténtalo de nuevo.`,
+      )
       setIsSubmitting(false)
     }
   }
 
-  const handleCreateCollection = () => {
-    router.push("/dashboard/collections/new")
-  }
-
-  const handleCreateProduct = () => {
-    router.push("/dashboard/products/new")
-  }
-
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-8 w-full sm:w-64" />
-          <Skeleton className="h-4 w-full" />
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <Skeleton className="h-10 w-full" />
-            <div className="space-y-2">
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground">Cargando productos...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="bg-destructive/10 border border-destructive text-destructive p-4 rounded-md">
+        <p>{error}</p>
+        <Button variant="outline" className="mt-2" onClick={() => window.location.reload()}>
+          Reintentar
+        </Button>
+      </div>
     )
   }
 
   return (
-    <Card className="border-granito/20 shadow-md">
-      <CardHeader className="bg-gradient-to-r from-granito to-granito-light text-white">
-        <CardTitle className="text-lg sm:text-xl">Gestionar productos en colecciones</CardTitle>
-        <CardDescription className="text-white/80 text-sm">
-          {mode === "add" ? "Añade productos a una colección" : "Elimina productos de una colección"}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4 pt-6">
-        {error && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription className="text-sm">{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {success && (
-          <Alert className="mb-4 border-green-500 bg-green-50 text-green-800">
-            <Check className="h-4 w-4" />
-            <AlertTitle>¡Operación completada!</AlertTitle>
-            <AlertDescription className="text-sm">{success}</AlertDescription>
-          </Alert>
-        )}
-
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
-          <Button
-            variant={mode === "add" ? "default" : "outline"}
-            onClick={() => setMode("add")}
-            className="flex-1 bg-granito hover:bg-granito-dark"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Añadir productos
-          </Button>
-          <Button
-            variant={mode === "remove" ? "default" : "outline"}
-            onClick={() => setMode("remove")}
-            className={`flex-1 ${mode === "remove" ? "bg-granito hover:bg-granito-dark" : ""}`}
-          >
-            <Trash className="mr-2 h-4 w-4" />
-            Eliminar productos
-          </Button>
+    <div className="space-y-4">
+      <div className="flex items-center space-x-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Buscar productos..."
+            className="pl-8"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
-
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <Label htmlFor="collection" className="text-sm font-medium">
-              Colección
-            </Label>
-            {collections.length === 0 && (
-              <Button variant="link" size="sm" onClick={handleCreateCollection} className="text-granito">
-                Crear nueva colección
-              </Button>
-            )}
-          </div>
-
-          {collections.length > 0 ? (
-            <select
-              id="collection"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-granito focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              value={selectedCollection || ""}
-              onChange={(e) => setSelectedCollection(e.target.value)}
-            >
-              <option value="">Selecciona una colección</option>
-              {collections.map((collection) => (
-                <option key={collection.id} value={collection.id}>
-                  {collection.title} ({collection.productsCount} productos)
-                </option>
-              ))}
-            </select>
-          ) : (
-            <div className="rounded-md border border-dashed p-6 text-center">
-              <p className="text-muted-foreground mb-4">No hay colecciones disponibles</p>
-              <Button onClick={handleCreateCollection} className="bg-granito hover:bg-granito-dark">
-                <Plus className="mr-2 h-4 w-4" />
-                Crear mi primera colección
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {collections.length > 0 && (
-          <>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <Label htmlFor="search" className="text-sm font-medium">
-                  Buscar productos
-                </Label>
-                {products.length === 0 && (
-                  <Button variant="link" size="sm" onClick={handleCreateProduct} className="text-granito">
-                    Crear nuevo producto
-                  </Button>
-                )}
-              </div>
-
-              {products.length > 0 ? (
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="search"
-                    type="search"
-                    placeholder="Buscar productos..."
-                    className="pl-8 border-granito/20 focus-visible:ring-granito"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-              ) : (
-                <div className="rounded-md border border-dashed p-6 text-center">
-                  <p className="text-muted-foreground mb-4">No hay productos disponibles</p>
-                  <Button onClick={handleCreateProduct} className="bg-granito hover:bg-granito-dark">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Crear mi primer producto
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {products.length > 0 && (
-              <div className="border rounded-md shadow-sm">
-                <div className="p-3 sm:p-4 border-b bg-muted/50">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-sm sm:text-base">Productos</span>
-                    <span className="text-xs sm:text-sm text-muted-foreground">
-                      {selectedProducts.length} seleccionados
-                    </span>
-                  </div>
-                </div>
-                <div className="p-2 max-h-[250px] sm:max-h-[300px] overflow-y-auto">
-                  {filteredProducts.length === 0 ? (
-                    <p className="text-center py-4 text-muted-foreground text-sm">No se encontraron productos</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {filteredProducts.map((product) => (
-                        <div
-                          key={product.id}
-                          className={`flex items-center space-x-2 p-2 rounded-md hover:bg-muted transition-colors ${
-                            selectedProducts.includes(product.id) ? "bg-granito/10 border border-granito/20" : ""
-                          }`}
-                        >
-                          <Checkbox
-                            id={`product-${product.id}`}
-                            checked={selectedProducts.includes(product.id)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setSelectedProducts([...selectedProducts, product.id])
-                              } else {
-                                setSelectedProducts(selectedProducts.filter((id) => id !== product.id))
-                              }
-                            }}
-                            className="border-granito data-[state=checked]:bg-granito data-[state=checked]:text-primary-foreground"
-                          />
-                          <div className="flex items-center gap-2 flex-1">
-                            <div className="h-8 w-8 rounded-md overflow-hidden bg-muted flex-shrink-0">
-                              {product.featuredImage ? (
-                                <Image
-                                  src={product.featuredImage.url || "/placeholder.svg"}
-                                  alt={product.title}
-                                  width={32}
-                                  height={32}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <div className="h-full w-full flex items-center justify-center bg-muted">
-                                  <span className="text-xs text-muted-foreground">Sin img</span>
-                                </div>
-                              )}
-                            </div>
-                            <label
-                              htmlFor={`product-${product.id}`}
-                              className="flex-1 text-xs sm:text-sm cursor-pointer flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1"
-                            >
-                              <span className="truncate">{product.title}</span>
-                              <span
-                                className={`text-xs px-2 py-1 rounded-full inline-flex items-center justify-center ${
-                                  product.status === "ACTIVE"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-gray-100 text-gray-800"
-                                }`}
-                              >
-                                {product.status === "ACTIVE" ? "Visible" : "Oculto"}
-                              </span>
-                            </label>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </CardContent>
-      <CardFooter className="flex justify-end bg-gray-50 border-t p-3 sm:p-4">
-        <Button
-          onClick={handleSubmit}
-          disabled={isSubmitting || !selectedCollection || selectedProducts.length === 0}
-          className="bg-granito hover:bg-granito-dark w-full sm:w-auto"
-        >
+        <Button onClick={handleSubmit} disabled={selectedProducts.length === 0 || isSubmitting}>
           {isSubmitting ? (
-            "Procesando..."
-          ) : mode === "add" ? (
             <>
-              <Check className="mr-2 h-4 w-4" />
-              Añadir a colección
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {mode === "add" ? "Añadiendo..." : "Eliminando..."}
             </>
           ) : (
             <>
-              <Trash className="mr-2 h-4 w-4" />
-              Eliminar de colección
+              {mode === "add" ? "Añadir" : "Eliminar"} {selectedProducts.length}{" "}
+              {selectedProducts.length === 1 ? "producto" : "productos"}
             </>
           )}
         </Button>
-      </CardFooter>
-    </Card>
+      </div>
+
+      {filteredProducts.length === 0 ? (
+        <div className="text-center py-12 border-2 border-dashed rounded-lg">
+          <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <p className="text-muted-foreground">No se encontraron productos</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {filteredProducts.map((product) => (
+            <Card
+              key={product.id}
+              className={`overflow-hidden cursor-pointer transition-all ${
+                selectedProducts.includes(product.id) ? "ring-2 ring-primary" : ""
+              }`}
+              onClick={() => handleToggleProduct(product.id)}
+            >
+              <div className="aspect-square relative">
+                {product.featuredImage ? (
+                  <Image
+                    src={product.featuredImage.url || "/placeholder.svg"}
+                    alt={product.title}
+                    fill
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center bg-muted">
+                    <Package className="h-12 w-12 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="absolute top-2 right-2">
+                  <Checkbox checked={selectedProducts.includes(product.id)} />
+                </div>
+              </div>
+              <CardContent className="p-3">
+                <h3 className="font-medium truncate">{product.title}</h3>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-sm font-medium">{product.price} €</span>
+                  <span
+                    className={`text-xs px-2 py-1 rounded-full ${
+                      product.status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                    }`}
+                  >
+                    {product.status === "ACTIVE" ? "Visible" : "Oculto"}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
