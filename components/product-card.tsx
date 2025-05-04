@@ -18,8 +18,11 @@ export function ProductCard({ product }) {
   // Obtener la URL de la imagen
   const imageUrl = featuredImage?.url || null
 
+  // Formatear el ID correctamente para la URL
+  const formattedId = id?.includes("/") ? id.split("/").pop() : id
+
   return (
-    <Link href={`/dashboard/products/${id}`} className="block">
+    <Link href={`/dashboard/products/${formattedId}`} className="block">
       <Card className="overflow-hidden transition-all hover:shadow-md">
         <div className="aspect-square relative bg-muted">
           {imageUrl ? (
@@ -45,7 +48,7 @@ export function ProductCard({ product }) {
             </Badge>
           </div>
         </CardContent>
-        <CardFooter className="p-4 pt-0 text-xs text-muted-foreground">ID: {id?.split("/").pop() || id}</CardFooter>
+        <CardFooter className="p-4 pt-0 text-xs text-muted-foreground">ID: {formattedId}</CardFooter>
       </Card>
     </Link>
   )

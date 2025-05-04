@@ -91,6 +91,8 @@ export async function fetchProductById(id) {
     // Asegurarse de que el ID tenga el formato correcto
     const formattedId = id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
 
+    console.log("Fetching product with formatted ID:", formattedId)
+
     const query = gql`
       query GetProduct($id: ID!) {
         product(id: $id) {
@@ -112,8 +114,14 @@ export async function fetchProductById(id) {
               node {
                 id
                 title
-                price
-                compareAtPrice
+                price {
+                  amount
+                  currencyCode
+                }
+                compareAtPrice {
+                  amount
+                  currencyCode
+                }
                 sku
                 inventoryQuantity
               }
@@ -125,6 +133,8 @@ export async function fetchProductById(id) {
 
     const data = await shopifyClient.request(query, { id: formattedId })
 
+    console.log("Product data received:", data)
+
     if (!data.product) {
       throw new Error(`No se encontró el producto con ID: ${id}`)
     }
@@ -133,7 +143,7 @@ export async function fetchProductById(id) {
     const product = data.product
 
     return {
-      id: product.id.split("/").pop(),
+      id: product.id,
       title: product.title,
       handle: product.handle,
       description: product.description,
@@ -144,12 +154,12 @@ export async function fetchProductById(id) {
       totalInventory: product.totalInventory,
       featuredImage: product.featuredImage,
       variants: product.variants.edges.map((edge) => ({
-        id: edge.node.id.split("/").pop(),
+        id: edge.node.id,
         title: edge.node.title,
-        price: edge.node.price,
-        compareAtPrice: edge.node.compareAtPrice,
-        sku: edge.node.sku,
-        inventoryQuantity: edge.node.inventoryQuantity,
+        price: edge.node.price?.amount || "0.00",
+        compareAtPrice: edge.node.compareAtPrice?.amount || null,
+        sku: edge.node.sku || "",
+        inventoryQuantity: edge.node.inventoryQuantity || 0,
       })),
     }
   } catch (error) {

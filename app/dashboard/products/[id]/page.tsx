@@ -59,12 +59,18 @@ export default function ProductPage({ params }) {
       try {
         setIsLoading(true)
         setError(null)
-        const productData = await fetchProductById(params.id)
+
+        // Asegurarse de que el ID no tenga el prefijo de Shopify
+        const cleanId = params.id.replace("gid://shopify/Product/", "")
+        console.log("Cargando producto con ID:", cleanId)
+
+        const productData = await fetchProductById(cleanId)
+        console.log("Datos del producto cargados:", productData)
 
         setProduct(productData)
 
         // Extraer la primera variante
-        const firstVariant = productData.variants?.edges?.[0]?.node || {}
+        const firstVariant = productData.variants?.[0] || {}
 
         setFormData({
           title: productData.title || "",
@@ -74,8 +80,8 @@ export default function ProductPage({ params }) {
           productType: productData.productType || "",
           variants: [
             {
-              price: firstVariant.price?.amount || "",
-              compareAtPrice: firstVariant.compareAtPrice?.amount || "",
+              price: firstVariant.price?.amount || firstVariant.price || "",
+              compareAtPrice: firstVariant.compareAtPrice?.amount || firstVariant.compareAtPrice || "",
               sku: firstVariant.sku || "",
               title: firstVariant.title || "Default",
             },
