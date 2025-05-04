@@ -1,41 +1,32 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { RefreshCw, AlertCircle, Eye } from "lucide-react"
+import { fetchRecentProducts } from "@/lib/api/products"
+import { formatCurrency } from "@/lib/utils"
 import Link from "next/link"
 import Image from "next/image"
-import { Package, RefreshCw, AlertCircle, Eye } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { fetchRecentProducts } from "@/lib/api/products"
-
-interface Product {
-  id: string
-  title: string
-  handle: string
-  status: string
-  totalInventory: number
-  featuredImage: {
-    url: string
-  } | null
-}
 
 export function RecentProducts() {
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [products, setProducts] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   const loadProducts = async () => {
-    setLoading(true)
+    setIsLoading(true)
     setError(null)
     try {
       const data = await fetchRecentProducts(5)
       setProducts(data)
     } catch (err) {
       console.error("Error al cargar productos recientes:", err)
-      setError((err as Error).message || "Error desconocido al cargar productos")
+      setError(err.message || "No se pudieron cargar los productos recientes")
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
@@ -43,82 +34,108 @@ export function RecentProducts() {
     loadProducts()
   }, [])
 
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-lg font-bold">Productos recientes</CardTitle>
-        <Button variant="ghost" size="sm" onClick={loadProducts} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          <span className="sr-only">Actualizar</span>
-        </Button>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="flex items-center justify-center h-40">
-            <RefreshCw className="h-6 w-6 animate-spin" />
-            <span className="ml-2">Cargando productos...</span>
-          </div>
-        ) : error ? (
-          <div className="bg-red-50 border border-red-200 text-red-800 p-3 sm:p-4 rounded-md">
-            <p className="flex items-center gap-2 text-sm">
-              <AlertCircle className="h-4 w-4" />
-              <span>{error}</span>
-            </p>
-            <Button variant="outline" size="sm" onClick={loadProducts} className="mt-2 w-full sm:w-auto">
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Productos recientes</CardTitle>
+          <CardDescription>Los últimos productos añadidos a tu tienda</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="flex items-center gap-3 py-2">
+              <Skeleton className="h-10 w-10 rounded-md" />
+              <div className="space-y-1 flex-1">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-3 w-16" />
+              </div>
+              <Skeleton className="h-6 w-16" />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Productos recientes</span>
+            <Button variant="outline" size="sm" onClick={loadProducts}>
+              <RefreshCw className="h-4 w-4 mr-2" />
               Reintentar
             </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center p-4 text-sm border rounded-md bg-red-50 border-red-200 text-red-800">
+            <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+            <p>{error}</p>
           </div>
-        ) : products.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-40 text-center">
-            <Package className="h-10 w-10 text-muted-foreground mb-2 opacity-20" />
-            <p className="text-muted-foreground">No hay productos recientes</p>
-          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          <span>Productos recientes</span>
+          <Button variant="outline" size="sm" onClick={loadProducts}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Actualizar
+          </Button>
+        </CardTitle>
+        <CardDescription>Los últimos productos añadidos a tu tienda</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {products.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4 text-center">No hay productos recientes para mostrar</p>
         ) : (
           <div className="space-y-4">
             {products.map((product) => (
-              <div
-                key={product.id}
-                className="flex items-center gap-2 sm:gap-4 p-2 sm:p-3 rounded-lg border hover:bg-gray-50 transition-colors"
-              >
-                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-md overflow-hidden bg-muted flex-shrink-0">
-                  {product.featuredImage ? (
+              <div key={product.id} className="flex items-center gap-3 border-b pb-3 last:border-0 last:pb-0">
+                <div className="h-12 w-12 relative bg-gray-100 rounded-md overflow-hidden flex-shrink-0">
+                  {product.image ? (
                     <Image
-                      src={product.featuredImage.url || "/placeholder.svg"}
+                      src={product.image || "/placeholder.svg"}
                       alt={product.title}
-                      width={48}
-                      height={48}
-                      className="h-full w-full object-cover"
+                      fill
+                      className="object-cover"
                     />
                   ) : (
-                    <div className="h-full w-full flex items-center justify-center bg-muted">
-                      <Package className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
+                    <div className="flex items-center justify-center h-full w-full text-gray-400">
+                      <span className="text-xs">Sin imagen</span>
                     </div>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm sm:text-base truncate">{product.title}</p>
-                  <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-1">
-                    <Badge
-                      variant={product.status === "ACTIVE" ? "default" : "secondary"}
-                      className={`text-xs ${
-                        product.status === "ACTIVE" ? "bg-green-100 text-green-800 hover:bg-green-200" : ""
-                      }`}
-                    >
-                      {product.status}
+                  <Link
+                    href={`/dashboard/products/${product.id}`}
+                    className="font-medium hover:underline truncate block"
+                  >
+                    {product.title}
+                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={product.status === "ACTIVE" ? "default" : "secondary"} className="text-xs">
+                      {product.status === "ACTIVE" ? "Activo" : "Borrador"}
                     </Badge>
-                    <p className="text-xs sm:text-sm text-muted-foreground">Stock: {product.totalInventory}</p>
+                    <span className="text-xs text-muted-foreground">Stock: {product.totalInventory || 0}</span>
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  asChild
-                  className="hover:bg-primary/10 hover:text-primary p-1 sm:p-2 flex-shrink-0"
-                >
-                  <Link href={`/dashboard/products/${product.id}`}>
-                    <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
+                <div className="text-right">
+                  <div className="font-bold">{formatCurrency(product.price, product.currencyCode)}</div>
+                  <Link
+                    href={`/dashboard/products/${product.id}`}
+                    className="text-xs text-blue-600 hover:underline flex items-center"
+                  >
+                    <Eye className="h-3 w-3 mr-1" />
+                    Ver
                   </Link>
-                </Button>
+                </div>
               </div>
             ))}
           </div>

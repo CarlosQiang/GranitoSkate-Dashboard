@@ -20,7 +20,7 @@ export function CollectionCard({ collection }) {
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-muted">
+            <div className="w-full h-full flex items-center justify-center bg-gray-100">
               <span className="text-muted-foreground">Sin imagen</span>
             </div>
           )}

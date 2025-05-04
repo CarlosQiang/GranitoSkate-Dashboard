@@ -5,54 +5,50 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatDate(dateString: string): string {
-  if (!dateString) return ""
+export function formatCurrency(amount: number | string, currencyCode = "EUR"): string {
+  // Convertir a número si es string
+  const numericAmount = typeof amount === "string" ? Number.parseFloat(amount) : amount
 
-  const date = new Date(dateString)
+  // Si no es un número válido, devolver un valor por defecto
+  if (isNaN(numericAmount)) {
+    return `${currencyCode} 0.00`
+  }
+
+  // Formatear según la moneda
+  try {
+    return new Intl.NumberFormat("es-ES", {
+      style: "currency",
+      currency: currencyCode,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(numericAmount)
+  } catch (error) {
+    // Si hay un error con la API de Intl, usar un formato básico
+    return `${currencyCode} ${numericAmount.toFixed(2)}`
+  }
+}
+
+export function formatDate(date: string | Date): string {
+  if (!date) return ""
+
+  const dateObj = typeof date === "string" ? new Date(date) : date
+
+  if (isNaN(dateObj.getTime())) {
+    return ""
+  }
+
   return new Intl.DateTimeFormat("es-ES", {
-    day: "2-digit",
-    month: "2-digit",
     year: "numeric",
+    month: "long",
+    day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(date)
+  }).format(dateObj)
 }
 
-export function formatCurrency(amount: string | number): string {
-  if (!amount) return "€0.00"
-
-  const numAmount = typeof amount === "string" ? Number.parseFloat(amount) : amount
-
-  return new Intl.NumberFormat("es-ES", {
-    style: "currency",
-    currency: "EUR",
-    minimumFractionDigits: 2,
-  }).format(numAmount)
-}
-
-export function truncateText(text: string, maxLength: number): string {
+export function truncateText(text: string, maxLength = 100): string {
   if (!text) return ""
   if (text.length <= maxLength) return text
 
-  return text.slice(0, maxLength) + "..."
-}
-
-export function generateSlug(text: string): string {
-  if (!text) return ""
-
-  return text
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .trim()
-}
-
-export function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout | null = null
-
-  return (...args: Parameters<T>) => {
-    if (timeout) clearTimeout(timeout)
-    timeout = setTimeout(() => func(...args), wait)
-  }
+  return text.substring(0, maxLength) + "..."
 }

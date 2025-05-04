@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -17,11 +15,13 @@ import { createProduct } from "@/lib/api/products"
 import { generateSeoMetafields, generateSeoHandle } from "@/lib/seo-utils"
 import { SeoPreview } from "@/components/seo-preview"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { ImageUpload } from "@/components/image-upload"
 
 export default function NewProductPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [isSaving, setIsSaving] = useState(false)
+  const [productImage, setProductImage] = useState(null)
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -38,7 +38,7 @@ export default function NewProductPage() {
     ],
   })
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e) => {
     const { name, value } = e.target
 
     if (name.startsWith("variants[0].")) {
@@ -60,14 +60,18 @@ export default function NewProductPage() {
     }
   }
 
-  const handleStatusChange = (checked: boolean) => {
+  const handleStatusChange = (checked) => {
     setFormData({
       ...formData,
       status: checked ? "ACTIVE" : "DRAFT",
     })
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleImageChange = (imageData) => {
+    setProductImage(imageData)
+  }
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setIsSaving(true)
 
@@ -91,6 +95,8 @@ export default function NewProductPage() {
             title: formData.variants[0].title || "Default Title",
           },
         ],
+        // Añadir la imagen si existe
+        image: productImage,
         // Generar automáticamente los metafields de SEO
         metafields: generateSeoMetafields(formData.title, formData.description),
       }
@@ -109,7 +115,7 @@ export default function NewProductPage() {
       console.error("Error creating product:", error)
       toast({
         title: "Error",
-        description: `No se pudo crear el producto: ${(error as Error).message}`,
+        description: `No se pudo crear el producto: ${error.message}`,
         variant: "destructive",
       })
     } finally {
@@ -146,6 +152,7 @@ export default function NewProductPage() {
         <TabsList>
           <TabsTrigger value="general">Información básica</TabsTrigger>
           <TabsTrigger value="variants">Precio y stock</TabsTrigger>
+          <TabsTrigger value="images">Imágenes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
@@ -274,6 +281,24 @@ export default function NewProductPage() {
               <div className="bg-yellow-50 p-4 rounded-md border border-yellow-200">
                 <p className="text-sm text-yellow-800">
                   El inventario se configurará automáticamente después de crear el producto.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="images" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Imágenes del producto</CardTitle>
+              <CardDescription>Añade imágenes para mostrar tu producto</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-4">
+                <Label>Imagen principal</Label>
+                <ImageUpload onImageChange={handleImageChange} />
+                <p className="text-sm text-muted-foreground">
+                  Esta imagen se mostrará como la principal en la tienda y en los listados de productos.
                 </p>
               </div>
             </CardContent>
