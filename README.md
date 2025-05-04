@@ -1,73 +1,66 @@
 # GestionGranito-App
 
-Panel de administración para la tienda GranitoSkate en Shopify.
+Aplicación de gestión para tiendas Shopify, con funcionalidades de SEO, gestión de productos, colecciones y promociones.
 
-## Características
-
-- Autenticación de usuario único
-- Dashboard con estadísticas generales
-- Gestión de productos (CRUD)
-- Gestión de colecciones (CRUD)
-- Gestión de clientes
-- Gestión de pedidos
-- Gestión de contenido
-- Estadísticas y análisis
-- Configuración de la tienda
-
-## Tecnologías
-
-- Next.js 14
-- TypeScript
-- Tailwind CSS
-- shadcn/ui
-- NextAuth.js
-- Shopify Admin GraphQL API
-
-## Requisitos
+## Requisitos previos
 
 - Node.js 18.x o superior
-- NPM 9.x o superior
-- Cuenta de Shopify con acceso a la API Admin
+- Una cuenta de Shopify con acceso a la API Admin
+- Token de acceso a la API de Shopify
 
-## Configuración
+## Instalación
 
-1. Clona este repositorio
-2. Copia el archivo `.env.example` a `.env.local` y completa las variables de entorno
-3. Instala las dependencias:
-
+1. Clona este repositorio:
 \`\`\`bash
-npm install --legacy-peer-deps
+git clone https://github.com/tu-usuario/GestionGranito-App.git
+cd GestionGranito-App
 \`\`\`
 
-4. Ejecuta el servidor de desarrollo:
+2. Instala las dependencias:
+\`\`\`bash
+npm install
+\`\`\`
 
+3. Copia el archivo `.env.example` a `.env.local` y configura las variables de entorno:
+\`\`\`bash
+cp .env.example .env.local
+\`\`\`
+
+4. Edita el archivo `.env.local` con tus credenciales:
+\`\`\`
+NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN=tu-tienda.myshopify.com
+SHOPIFY_ACCESS_TOKEN=tu-token-de-acceso
+SHOPIFY_API_URL=https://tu-tienda.myshopify.com/admin/api/2023-07/graphql.json
+NEXTAUTH_SECRET=un-secreto-aleatorio-largo
+NEXTAUTH_URL=http://localhost:3000
+ADMIN_EMAIL=tu-email@ejemplo.com
+ADMIN_PASSWORD=tu-contraseña-segura
+\`\`\`
+
+5. Inicia el servidor de desarrollo:
 \`\`\`bash
 npm run dev
 \`\`\`
 
+6. Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
+
 ## Despliegue en Vercel
 
-1. Conecta tu repositorio a Vercel
-2. Configura las variables de entorno en el panel de Vercel:
-   - `NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN`: Dominio de tu tienda Shopify
-   - `SHOPIFY_ACCESS_TOKEN`: Token de acceso a la API de Shopify
-   - `NEXTAUTH_SECRET`: Clave secreta para NextAuth
-   - `ADMIN_EMAIL`: Email del administrador
-   - `ADMIN_PASSWORD`: Contraseña del administrador
-3. Despliega la aplicación
+La forma más sencilla de desplegar esta aplicación es utilizando [Vercel](https://vercel.com):
+
+1. Crea una cuenta en Vercel si aún no tienes una
+2. Importa este repositorio a Vercel
+3. Configura las variables de entorno en la configuración del proyecto
+4. ¡Listo! Tu aplicación estará desplegada automáticamente
+
+## Características principales
+
+- Gestión de productos y colecciones de Shopify
+- Optimización SEO automática
+- Gestión de promociones
+- Monitorización de la tienda
+- Diagnósticos del sistema
 
 ## Solución de problemas
 
-Si encuentras problemas con la aplicación, puedes verificar el estado de la misma visitando la ruta `/api/health`. Esta ruta te mostrará si todas las variables de entorno están configuradas correctamente.
-
-Si tienes problemas con la API de Shopify, asegúrate de que:
-1. El token de acceso es válido y tiene los permisos necesarios
-2. El dominio de la tienda es correcto
-3. Las variables de entorno están configuradas correctamente en Vercel
-
-## Mantenimiento
-
-Para mantener la aplicación actualizada:
-1. Actualiza regularmente las dependencias
-2. Verifica periódicamente la validez del token de Shopify
-3. Mantén seguras las credenciales de administrador
+Si encuentras algún problema durante la instalación o el uso de la aplicación, consulta la sección de diagnósticos en `/dashboard/diagnostics` para verificar el estado de la conexión con Shopify y otros componentes del sistema.

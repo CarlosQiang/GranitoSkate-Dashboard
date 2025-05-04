@@ -169,3 +169,52 @@ export async function checkSystemConfiguration() {
     }
   }
 }
+
+// Función para realizar una verificación completa del sistema
+export async function performSystemCheck() {
+  console.log("🔍 Iniciando verificación del sistema...")
+
+  try {
+    // 1. Verificar conexión con Shopify
+    console.log("Verificando conexión con Shopify...")
+    const shopifyStatus = await checkShopifyConnection()
+    console.log(`Estado: ${shopifyStatus.status}`)
+    console.log(`Mensaje: ${shopifyStatus.message}`)
+
+    // 2. Verificar configuración del sistema
+    console.log("\nVerificando configuración del sistema...")
+    const configStatus = await checkSystemConfiguration()
+    console.log(`Estado: ${configStatus.status}`)
+    console.log(`Mensaje: ${configStatus.message}`)
+
+    // 3. Verificar disponibilidad de la API
+    console.log("\nVerificando disponibilidad de la API...")
+    const apiStatus = await checkApiAvailability()
+    console.log(`Estado: ${apiStatus.status}`)
+    console.log(`Mensaje: ${apiStatus.message}`)
+
+    // 4. Verificar estado general del sistema
+    console.log("\nVerificando estado general del sistema...")
+    const systemStatus = await checkSystemStatus()
+    console.log(`Estado: ${systemStatus.status}`)
+    console.log(`Mensaje: ${systemStatus.message}`)
+
+    // Resultado final
+    console.log("\n✅ Verificación del sistema completada")
+
+    return {
+      shopifyStatus,
+      configStatus,
+      apiStatus,
+      systemStatus,
+      timestamp: new Date().toISOString(),
+    }
+  } catch (error) {
+    console.error("❌ Error durante la verificación del sistema:", error)
+    return {
+      status: "error",
+      message: `Error durante la verificación del sistema: ${(error as Error).message}`,
+      timestamp: new Date().toISOString(),
+    }
+  }
+}

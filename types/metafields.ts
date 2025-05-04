@@ -30,3 +30,16 @@ export interface SocialMediaData {
   linkedin?: string
   tiktok?: string
 }
+
+export interface SeoMetafields {
+  title: string
+  description: string
+  keywords: string[] | string
+  ogTitle?: string
+  ogDescription?: string
+  ogImage?: string
+  twitterTitle?: string
+  twitterDescription?: string
+  twitterImage?: string
+  canonicalUrl?: string
+}

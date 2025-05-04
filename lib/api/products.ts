@@ -1,28 +1,43 @@
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 
-export async function fetchRecentProducts(limit = 5) {
+// Función para obtener todos los productos
+export async function fetchProducts(limit = 20) {
   try {
-    console.log(`Fetching ${limit} recent products from Shopify...`)
-
     const query = gql`
-      query GetRecentProducts($limit: Int!) {
-        products(first: $limit, sortKey: CREATED_AT, reverse: true) {
+      query GetProducts($first: Int!) {
+        products(first: $first) {
           edges {
             node {
               id
               title
               handle
+              description
+              descriptionHtml
+              vendor
+              productType
               status
               totalInventory
               featuredImage {
                 url
                 altText
               }
-              priceRange {
-                minVariantPrice {
-                  amount
-                  currencyCode
+              variants(first: 1) {
+                edges {
+                  node {
+                    id
+                    title
+                    price {
+                      amount
+                      currencyCode
+                    }
+                    compareAtPrice {
+                      amount
+                      currencyCode
+                    }
+                    sku
+                    inventoryQuantity
+                  }
                 }
               }
             }
@@ -31,70 +46,62 @@ export async function fetchRecentProducts(limit = 5) {
       }
     `
 
-    const data = await shopifyClient.request(query, { limit })
+    const data = await shopifyClient.request(query, { first: limit })
 
-    if (!data || !data.products || !data.products.edges) {
-      console.error("Respuesta de productos incompleta:", data)
-      return []
-    }
+    // Transformar los datos para un formato más fácil de usar
+    const products = data.products.edges.map((edge) => {
+      const node = edge.node
+      const variant = node.variants.edges[0]?.node || {}
 
-    const products = data.products.edges.map((edge) => ({
-      id: edge.node.id.split("/").pop(),
-      title: edge.node.title,
-      handle: edge.node.handle,
-      status: edge.node.status,
-      totalInventory: edge.node.totalInventory || 0,
-      image: edge.node.featuredImage?.url || null,
-      price: edge.node.priceRange?.minVariantPrice?.amount || "0.00",
-      currencyCode: edge.node.priceRange?.minVariantPrice?.currencyCode || "EUR",
-    }))
+      return {
+        id: node.id.split("/").pop(), // Extraer el ID numérico
+        title: node.title,
+        handle: node.handle,
+        description: node.description,
+        descriptionHtml: node.descriptionHtml,
+        vendor: node.vendor,
+        productType: node.productType,
+        status: node.status,
+        totalInventory: node.totalInventory,
+        featuredImage: node.featuredImage,
+        price: variant.price?.amount || "0.00",
+        compareAtPrice: variant.compareAtPrice?.amount || null,
+        currencyCode: variant.price?.currencyCode || "EUR",
+        sku: variant.sku || "",
+        inventoryQuantity: variant.inventoryQuantity || 0,
+      }
+    })
 
-    console.log(`Successfully fetched ${products.length} products`)
     return products
   } catch (error) {
-    console.error("Error fetching recent products:", error)
-    throw new Error(`Error al cargar productos recientes: ${error.message}`)
+    console.error("Error al cargar productos:", error)
+    throw new Error(`Error al cargar productos: ${error.message}`)
   }
 }
 
-export async function fetchProducts(limit = 20) {
-  return fetchRecentProducts(limit)
-}
-
+// Función para obtener un producto por ID
 export async function fetchProductById(id) {
   try {
     // Asegurarse de que el ID tenga el formato correcto
-    const isFullShopifyId = id.includes("gid://shopify/Product/")
-    const formattedId = isFullShopifyId ? id : `gid://shopify/Product/${id}`
-
-    console.log(`Fetching product with ID: ${formattedId}`)
+    const formattedId = id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
 
     const query = gql`
-      query GetProductById($id: ID!) {
+      query GetProduct($id: ID!) {
         product(id: $id) {
           id
           title
           handle
           description
           descriptionHtml
-          status
-          totalInventory
           vendor
           productType
+          status
+          totalInventory
           featuredImage {
             url
             altText
           }
-          images(first: 10) {
-            edges {
-              node {
-                id
-                url
-                altText
-              }
-            }
-          }
-          variants(first: 10) {
+          variants(first: 5) {
             edges {
               node {
                 id
@@ -107,31 +114,8 @@ export async function fetchProductById(id) {
                   amount
                   currencyCode
                 }
-                inventoryQuantity
                 sku
-                selectedOptions {
-                  name
-                  value
-                }
-              }
-            }
-          }
-          metafields(first: 20) {
-            edges {
-              node {
-                id
-                namespace
-                key
-                value
-                type
-              }
-            }
-          }
-          collections(first: 10) {
-            edges {
-              node {
-                id
-                title
+                inventoryQuantity
               }
             }
           }
@@ -141,23 +125,44 @@ export async function fetchProductById(id) {
 
     const data = await shopifyClient.request(query, { id: formattedId })
 
-    if (!data || !data.product) {
-      console.error(`Producto no encontrado: ${id}`)
-      throw new Error(`Producto no encontrado: ${id}`)
+    if (!data.product) {
+      throw new Error(`No se encontró el producto con ID: ${id}`)
     }
 
-    console.log(`Successfully fetched product: ${data.product.title}`)
-    return data.product
+    // Transformar los datos para un formato más fácil de usar
+    const product = data.product
+
+    return {
+      id: product.id.split("/").pop(),
+      title: product.title,
+      handle: product.handle,
+      description: product.description,
+      descriptionHtml: product.descriptionHtml,
+      vendor: product.vendor,
+      productType: product.productType,
+      status: product.status,
+      totalInventory: product.totalInventory,
+      featuredImage: product.featuredImage,
+      variants: product.variants.edges.map((edge) => ({
+        id: edge.node.id.split("/").pop(),
+        title: edge.node.title,
+        price: edge.node.price,
+        compareAtPrice: edge.node.compareAtPrice,
+        sku: edge.node.sku,
+        inventoryQuantity: edge.node.inventoryQuantity,
+      })),
+    }
   } catch (error) {
-    console.error(`Error fetching product ${id}:`, error)
+    console.error(`Error al cargar el producto ${id}:`, error)
     throw new Error(`Error al cargar el producto: ${error.message}`)
   }
 }
 
+// Función para crear un nuevo producto
 export async function createProduct(productData) {
   try {
     const mutation = gql`
-      mutation productCreate($input: ProductInput!) {
+      mutation CreateProduct($input: ProductInput!) {
         productCreate(input: $input) {
           product {
             id
@@ -172,76 +177,53 @@ export async function createProduct(productData) {
       }
     `
 
-    // Asegurarse de que los datos tienen el formato correcto
-    const input = {
-      title: productData.title,
-      descriptionHtml: productData.descriptionHtml || "",
-      handle: productData.handle || undefined,
-      status: productData.status || "ACTIVE",
-      vendor: productData.vendor || "GranitoSkate",
-      productType: productData.productType || "SKATEBOARD",
+    const variables = {
+      input: {
+        title: productData.title,
+        descriptionHtml: productData.description || "",
+        vendor: productData.vendor || "",
+        productType: productData.productType || "",
+        status: productData.status || "ACTIVE",
+        images: productData.image ? [{ src: productData.image }] : [],
+        variants: [
+          {
+            price: productData.price || "0.00",
+            compareAtPrice: productData.compareAtPrice || null,
+            sku: productData.sku || "",
+            inventoryQuantities: {
+              availableQuantity: productData.inventoryQuantity || 0,
+              locationId: "gid://shopify/Location/1", // Ubicación por defecto
+            },
+          },
+        ],
+      },
     }
 
-    // Si hay una imagen, añadirla
-    if (productData.image) {
-      input.images = [
-        {
-          altText: productData.title,
-          src: productData.image,
-        },
-      ]
-    }
-
-    // Si hay variantes, añadirlas
-    if (productData.variants && productData.variants.length > 0) {
-      input.variants = productData.variants.map((variant) => ({
-        price: variant.price || "0.00",
-        compareAtPrice: variant.compareAtPrice || null,
-        sku: variant.sku || "",
-        options: [variant.title || "Default Title"],
-      }))
-    }
-
-    // Si hay metafields, añadirlos
-    if (productData.metafields && productData.metafields.length > 0) {
-      input.metafields = productData.metafields
-    }
-
-    console.log("Creating product with data:", JSON.stringify(input, null, 2))
-
-    const data = await shopifyClient.request(mutation, { input })
+    const data = await shopifyClient.request(mutation, variables)
 
     if (data.productCreate.userErrors && data.productCreate.userErrors.length > 0) {
-      console.error("Errores al crear producto:", data.productCreate.userErrors)
-      throw new Error(`Error al crear producto: ${data.productCreate.userErrors[0].message}`)
+      throw new Error(data.productCreate.userErrors[0].message)
     }
 
-    // Extraer correctamente el ID del producto
-    const productId = data.productCreate.product.id.split("/").pop()
-
-    console.log(`Successfully created product: ${data.productCreate.product.title} (ID: ${productId})`)
-
-    // Devolver el producto con el ID en formato simple
     return {
-      ...data.productCreate.product,
-      id: productId,
+      id: data.productCreate.product.id.split("/").pop(),
+      title: data.productCreate.product.title,
+      handle: data.productCreate.product.handle,
     }
   } catch (error) {
-    console.error("Error creating product:", error)
-    throw error
+    console.error("Error al crear el producto:", error)
+    throw new Error(`Error al crear el producto: ${error.message}`)
   }
 }
 
+// Función para actualizar un producto
 export async function updateProduct(id, productData) {
   try {
     // Asegurarse de que el ID tenga el formato correcto
-    const isFullShopifyId = id.includes("gid://shopify/Product/")
-    const formattedId = isFullShopifyId ? id : `gid://shopify/Product/${id}`
-
-    console.log(`Updating product with ID: ${formattedId}`)
+    const formattedId = id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
 
     const mutation = gql`
-      mutation ProductUpdate($input: ProductInput!) {
+      mutation UpdateProduct($input: ProductInput!) {
         productUpdate(input: $input) {
           product {
             id
@@ -256,58 +238,47 @@ export async function updateProduct(id, productData) {
       }
     `
 
-    // Preparar los datos para la actualización
     const input = {
       id: formattedId,
       title: productData.title,
-      descriptionHtml: productData.descriptionHtml || productData.description || "",
+      descriptionHtml: productData.descriptionHtml || "",
+      vendor: productData.vendor || "",
+      productType: productData.productType || "",
       status: productData.status || "ACTIVE",
-      vendor: productData.vendor || undefined,
-      productType: productData.productType || undefined,
     }
 
-    // Si hay una imagen nueva, añadirla
+    // Añadir imagen solo si se proporciona
     if (productData.image) {
-      input.images = [
-        {
-          altText: productData.title,
-          src: productData.image,
-        },
-      ]
+      input.images = [{ src: productData.image }]
     }
 
-    // Si hay metafields, añadirlos
-    if (productData.metafields && productData.metafields.length > 0) {
-      input.metafields = productData.metafields
-    }
+    const variables = { input }
 
-    console.log("Updating product with data:", JSON.stringify(input, null, 2))
-
-    const data = await shopifyClient.request(mutation, { input })
+    const data = await shopifyClient.request(mutation, variables)
 
     if (data.productUpdate.userErrors && data.productUpdate.userErrors.length > 0) {
-      console.error("Errores al actualizar producto:", data.productUpdate.userErrors)
-      throw new Error(`Error al actualizar producto: ${data.productUpdate.userErrors[0].message}`)
+      throw new Error(data.productUpdate.userErrors[0].message)
     }
 
-    console.log(`Successfully updated product: ${data.productUpdate.product.title}`)
-    return data.productUpdate.product
+    return {
+      id: data.productUpdate.product.id.split("/").pop(),
+      title: data.productUpdate.product.title,
+      handle: data.productUpdate.product.handle,
+    }
   } catch (error) {
-    console.error(`Error updating product ${id}:`, error)
-    throw error
+    console.error(`Error al actualizar el producto ${id}:`, error)
+    throw new Error(`Error al actualizar el producto: ${error.message}`)
   }
 }
 
+// Función para eliminar un producto
 export async function deleteProduct(id) {
   try {
     // Asegurarse de que el ID tenga el formato correcto
-    const isFullShopifyId = id.includes("gid://shopify/Product/")
-    const formattedId = isFullShopifyId ? id : `gid://shopify/Product/${id}`
-
-    console.log(`Deleting product with ID: ${formattedId}`)
+    const formattedId = id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
 
     const mutation = gql`
-      mutation ProductDelete($input: ProductDeleteInput!) {
+      mutation DeleteProduct($input: ProductDeleteInput!) {
         productDelete(input: $input) {
           deletedProductId
           userErrors {
@@ -318,21 +289,72 @@ export async function deleteProduct(id) {
       }
     `
 
-    const data = await shopifyClient.request(mutation, {
+    const variables = {
       input: {
         id: formattedId,
       },
-    })
+    }
+
+    const data = await shopifyClient.request(mutation, variables)
 
     if (data.productDelete.userErrors && data.productDelete.userErrors.length > 0) {
       throw new Error(data.productDelete.userErrors[0].message)
     }
 
-    console.log(`Successfully deleted product with ID: ${formattedId}`)
-    return data.productDelete.deletedProductId
+    return {
+      id: data.productDelete.deletedProductId,
+    }
   } catch (error) {
-    console.error(`Error deleting product ${id}:`, error)
-    throw error
+    console.error(`Error al eliminar el producto ${id}:`, error)
+    throw new Error(`Error al eliminar el producto: ${error.message}`)
+  }
+}
+
+// Función para actualizar el inventario de un producto
+export async function updateProductInventory(variantId, locationId, quantity) {
+  try {
+    // Asegurarse de que el ID tenga el formato correcto
+    const formattedVariantId = variantId.includes("gid://shopify/ProductVariant/")
+      ? variantId
+      : `gid://shopify/ProductVariant/${variantId}`
+
+    const formattedLocationId = locationId.includes("gid://shopify/Location/")
+      ? locationId
+      : `gid://shopify/Location/${locationId}`
+
+    const mutation = gql`
+      mutation UpdateInventoryLevel($input: InventoryAdjustQuantityInput!) {
+        inventoryAdjustQuantity(input: $input) {
+          inventoryLevel {
+            available
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const variables = {
+      input: {
+        inventoryLevelId: `gid://shopify/InventoryLevel/${formattedLocationId}/${formattedVariantId}`,
+        availableDelta: quantity,
+      },
+    }
+
+    const data = await shopifyClient.request(mutation, variables)
+
+    if (data.inventoryAdjustQuantity.userErrors && data.inventoryAdjustQuantity.userErrors.length > 0) {
+      throw new Error(data.inventoryAdjustQuantity.userErrors[0].message)
+    }
+
+    return {
+      available: data.inventoryAdjustQuantity.inventoryLevel.available,
+    }
+  } catch (error) {
+    console.error(`Error al actualizar el inventario del producto ${variantId}:`, error)
+    throw new Error(`Error al actualizar el inventario: ${error.message}`)
   }
 }
 

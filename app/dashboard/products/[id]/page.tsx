@@ -34,7 +34,7 @@ export default function ProductPage({ params }) {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(isDeleting)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState(null)
   const [productImage, setProductImage] = useState(null)
   const [product, setProduct] = useState(null)
@@ -143,7 +143,7 @@ export default function ProductPage({ params }) {
         vendor: formData.vendor,
         productType: formData.productType,
         // Añadir la imagen si existe y ha cambiado
-        ...(productImage !== product.featuredImage?.url && { image: productImage }),
+        ...(productImage !== product?.featuredImage?.url && { image: productImage }),
         // Generar automáticamente los metafields de SEO
         metafields: generateSeoMetafields(formData.title, formData.description),
       }
