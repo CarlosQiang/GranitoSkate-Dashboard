@@ -3,39 +3,35 @@ import { checkSystemHealth } from "@/lib/system-check"
 
 export async function GET() {
   try {
-    // Verificar si las variables de entorno están definidas
-    const shopifyApiUrl = process.env.SHOPIFY_API_URL
-    const shopifyAccessToken = process.env.SHOPIFY_ACCESS_TOKEN
+    const healthCheck = await checkSystemHealth()
 
-    // Si faltan variables de entorno, devolver una respuesta con advertencia pero no fallar
-    if (!shopifyApiUrl || !shopifyAccessToken) {
+    // Si hay un problema con la salud del sistema, devolver un código de estado apropiado
+    if (healthCheck.status === "error") {
+      return NextResponse.json(healthCheck, { status: 500 })
+    } else if (healthCheck.status === "warning") {
+      return NextResponse.json(healthCheck, { status: 200 })
+    }
+
+    return NextResponse.json(healthCheck, { status: 200 })
+  } catch (error) {
+    console.error("Error en la ruta de verificación de salud:", error)
+
+    // Manejar específicamente el error de variables de entorno faltantes
+    if ((error as Error).message.includes("variables de entorno")) {
       return NextResponse.json(
         {
           status: "warning",
-          message: "Faltan variables de entorno para Shopify (SHOPIFY_API_URL, SHOPIFY_ACCESS_TOKEN)",
+          message: "Advertencia: " + (error as Error).message,
           timestamp: new Date().toISOString(),
-          environment: process.env.NODE_ENV,
-          services: {
-            shopify: {
-              status: "warning",
-              message: "Configuración incompleta",
-            },
-          },
         },
         { status: 200 },
-      )
+      ) // Devolver 200 para que no falle el despliegue
     }
 
-    // Si las variables están presentes, realizar la verificación completa
-    const healthStatus = await checkSystemHealth()
-
-    return NextResponse.json(healthStatus)
-  } catch (error) {
-    console.error("Error en health check:", error)
     return NextResponse.json(
       {
         status: "error",
-        message: error instanceof Error ? error.message : "Error desconocido en health check",
+        message: "Error en la verificación de salud: " + (error as Error).message,
         timestamp: new Date().toISOString(),
       },
       { status: 500 },

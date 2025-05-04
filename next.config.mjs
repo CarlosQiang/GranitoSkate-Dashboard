@@ -12,7 +12,6 @@ const nextConfig = {
     unoptimized: true,
   },
   // Optimizaciones para producción
-  swcMinify: true,
   poweredByHeader: false,
   // Configuración para Vercel
   env: {

@@ -664,3 +664,18 @@ export async function saveLocalBusinessMetafields(shopId: string, data: LocalBus
     return false
   }
 }
+
+// Añadir las funciones que faltan para social media metafields
+export async function fetchSocialMediaMetafields(shopId: string): Promise<SocialMediaData> {
+  return getSocialMediaData(shopId)
+}
+
+export async function saveSocialMediaMetafields(shopId: string, data: SocialMediaData): Promise<boolean> {
+  try {
+    await setSocialMediaData(shopId, data)
+    return true
+  } catch (error) {
+    console.error(`Error saving social media metafields for shop ${shopId}:`, error)
+    return false
+  }
+}
