@@ -1,7 +1,4 @@
 import { Suspense } from "react"
-import Link from "next/link"
-import { Plus } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { LoadingState } from "@/components/loading-state"
 import { ProductsList } from "@/components/products-list"
 
@@ -16,12 +13,6 @@ export default function ProductsPage() {
           <h1 className="text-2xl font-bold">Productos</h1>
           <p className="text-muted-foreground">Gestiona los productos de tu tienda</p>
         </div>
-        <Button asChild className="w-full sm:w-auto">
-          <Link href="/dashboard/products/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo producto
-          </Link>
-        </Button>
       </div>
 
       <Suspense fallback={<LoadingState message="Cargando productos..." />}>

@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Save, Trash2, AlertCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { fetchProductById, updateProduct, deleteProduct } from "@/lib/api/products"
-import { generateSeoMetafields } from "@/lib/seo-utils"
+import { generateProductSeoMetafields } from "@/lib/api/products"
 import { SeoPreview } from "@/components/seo-preview"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ImageUpload } from "@/components/image-upload"
@@ -62,11 +62,8 @@ export default function ProductPage({ params }) {
 
         // Asegurarse de que el ID no tenga el prefijo de Shopify
         const cleanId = params.id.replace("gid://shopify/Product/", "")
-        console.log("Cargando producto con ID:", cleanId)
 
         const productData = await fetchProductById(cleanId)
-        console.log("Datos del producto cargados:", productData)
-
         setProduct(productData)
 
         // Extraer la primera variante
@@ -80,8 +77,9 @@ export default function ProductPage({ params }) {
           productType: productData.productType || "",
           variants: [
             {
-              price: firstVariant.price?.amount || firstVariant.price || "",
-              compareAtPrice: firstVariant.compareAtPrice?.amount || firstVariant.compareAtPrice || "",
+              id: firstVariant.id,
+              price: firstVariant.price || "",
+              compareAtPrice: firstVariant.compareAtPrice || "",
               sku: firstVariant.sku || "",
               title: firstVariant.title || "Default",
             },
@@ -144,17 +142,18 @@ export default function ProductPage({ params }) {
       // Preparar los datos para la API de Shopify
       const productData = {
         title: formData.title,
-        descriptionHtml: formData.description,
+        description: formData.description,
         status: formData.status,
         vendor: formData.vendor,
         productType: formData.productType,
         // Añadir la imagen si existe y ha cambiado
         ...(productImage !== product?.featuredImage?.url && { image: productImage }),
         // Generar automáticamente los metafields de SEO
-        metafields: generateSeoMetafields(formData.title, formData.description),
+        metafields: generateProductSeoMetafields(formData.title, formData.description),
+        // Incluir variantes
+        variants: formData.variants,
       }
 
-      console.log("Enviando datos para actualizar producto:", productData)
       await updateProduct(params.id, productData)
 
       toast({

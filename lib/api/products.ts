@@ -3,9 +3,7 @@ import { gql } from "graphql-request"
 
 // Función para obtener productos recientes
 export async function fetchRecentProducts(limit = 5) {
-  // Implementación de la función para obtener productos recientes
-  // Utilizamos la función fetchProducts existente con un límite
-  const products = await fetchProducts({ limit })
+  const products = await fetchProducts(limit)
   return products
 }
 
@@ -57,6 +55,7 @@ export async function fetchProducts(limit = 20) {
 
       return {
         id: node.id,
+        numericId: node.id.split("/").pop(),
         title: node.title,
         handle: node.handle,
         description: node.description,
@@ -74,10 +73,6 @@ export async function fetchProducts(limit = 20) {
       }
     })
 
-    console.log(
-      "Productos procesados:",
-      products.map((p) => ({ id: p.id, title: p.title, featuredImage: p.featuredImage })),
-    )
     return products
   } catch (error) {
     console.error("Error al cargar productos:", error)
@@ -90,8 +85,6 @@ export async function fetchProductById(id) {
   try {
     // Asegurarse de que el ID tenga el formato correcto
     const formattedId = id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
-
-    console.log("Fetching product with formatted ID:", formattedId)
 
     const query = gql`
       query GetProduct($id: ID!) {
@@ -114,14 +107,8 @@ export async function fetchProductById(id) {
               node {
                 id
                 title
-                price {
-                  amount
-                  currencyCode
-                }
-                compareAtPrice {
-                  amount
-                  currencyCode
-                }
+                price
+                compareAtPrice
                 sku
                 inventoryQuantity
               }
@@ -133,17 +120,25 @@ export async function fetchProductById(id) {
 
     const data = await shopifyClient.request(query, { id: formattedId })
 
-    console.log("Product data received:", data)
-
     if (!data.product) {
       throw new Error(`No se encontró el producto con ID: ${id}`)
     }
 
     // Transformar los datos para un formato más fácil de usar
     const product = data.product
+    const variants = product.variants.edges.map((edge) => ({
+      id: edge.node.id,
+      numericId: edge.node.id.split("/").pop(),
+      title: edge.node.title,
+      price: edge.node.price,
+      compareAtPrice: edge.node.compareAtPrice,
+      sku: edge.node.sku || "",
+      inventoryQuantity: edge.node.inventoryQuantity || 0,
+    }))
 
     return {
       id: product.id,
+      numericId: product.id.split("/").pop(),
       title: product.title,
       handle: product.handle,
       description: product.description,
@@ -153,14 +148,7 @@ export async function fetchProductById(id) {
       status: product.status,
       totalInventory: product.totalInventory,
       featuredImage: product.featuredImage,
-      variants: product.variants.edges.map((edge) => ({
-        id: edge.node.id,
-        title: edge.node.title,
-        price: edge.node.price?.amount || "0.00",
-        compareAtPrice: edge.node.compareAtPrice?.amount || null,
-        sku: edge.node.sku || "",
-        inventoryQuantity: edge.node.inventoryQuantity || 0,
-      })),
+      variants,
     }
   } catch (error) {
     console.error(`Error al cargar el producto ${id}:`, error)
@@ -197,15 +185,12 @@ export async function createProduct(productData) {
         images: productData.image ? [{ src: productData.image }] : [],
         variants: [
           {
-            price: productData.price || "0.00",
-            compareAtPrice: productData.compareAtPrice || null,
-            sku: productData.sku || "",
-            inventoryQuantities: {
-              availableQuantity: productData.inventoryQuantity || 0,
-              locationId: "gid://shopify/Location/1", // Ubicación por defecto
-            },
+            price: productData.variants?.[0]?.price || productData.price || "0.00",
+            compareAtPrice: productData.variants?.[0]?.compareAtPrice || productData.compareAtPrice || null,
+            sku: productData.variants?.[0]?.sku || productData.sku || "",
           },
         ],
+        metafields: productData.metafields || [],
       },
     }
 
@@ -216,7 +201,8 @@ export async function createProduct(productData) {
     }
 
     return {
-      id: data.productCreate.product.id.split("/").pop(),
+      id: data.productCreate.product.id,
+      numericId: data.productCreate.product.id.split("/").pop(),
       title: data.productCreate.product.title,
       handle: data.productCreate.product.handle,
     }
@@ -251,15 +237,26 @@ export async function updateProduct(id, productData) {
     const input = {
       id: formattedId,
       title: productData.title,
-      descriptionHtml: productData.descriptionHtml || "",
+      descriptionHtml: productData.descriptionHtml || productData.description || "",
       vendor: productData.vendor || "",
       productType: productData.productType || "",
       status: productData.status || "ACTIVE",
+      metafields: productData.metafields || [],
     }
 
     // Añadir imagen solo si se proporciona
     if (productData.image) {
       input.images = [{ src: productData.image }]
+    }
+
+    // Añadir variantes si se proporcionan
+    if (productData.variants && productData.variants.length > 0) {
+      input.variants = productData.variants.map((variant) => ({
+        id: variant.id,
+        price: variant.price,
+        compareAtPrice: variant.compareAtPrice,
+        sku: variant.sku,
+      }))
     }
 
     const variables = { input }
@@ -271,7 +268,8 @@ export async function updateProduct(id, productData) {
     }
 
     return {
-      id: data.productUpdate.product.id.split("/").pop(),
+      id: data.productUpdate.product.id,
+      numericId: data.productUpdate.product.id.split("/").pop(),
       title: data.productUpdate.product.title,
       handle: data.productUpdate.product.handle,
     }
@@ -318,6 +316,24 @@ export async function deleteProduct(id) {
     console.error(`Error al eliminar el producto ${id}:`, error)
     throw new Error(`Error al eliminar el producto: ${error.message}`)
   }
+}
+
+// Función para generar metafields SEO para un producto
+export function generateProductSeoMetafields(title, description) {
+  return [
+    {
+      namespace: "seo",
+      key: "title",
+      value: title,
+      type: "single_line_text_field",
+    },
+    {
+      namespace: "seo",
+      key: "description",
+      value: description || `Descubre ${title} en nuestra tienda. Calidad garantizada y envío rápido.`,
+      type: "multi_line_text_field",
+    },
+  ]
 }
 
 // Añadir funciones para gestionar productos en colecciones
