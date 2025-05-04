@@ -1,22 +1,29 @@
 import type React from "react"
+import type { Metadata } from "next"
 import { DashboardNav } from "@/components/dashboard-nav"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { ShopifyConnectionChecker } from "@/components/shopify-connection-checker"
-import { DashboardErrorBoundary } from "@/components/dashboard-error-boundary"
 import { DashboardLayoutWrapper } from "@/components/dashboard-layout-wrapper"
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export const metadata: Metadata = {
+  title: "Dashboard - GranitoSkate",
+  description: "Panel de administración para la tienda GranitoSkate",
+}
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
     <DashboardLayoutWrapper>
       <div className="flex min-h-screen flex-col">
         <DashboardHeader />
-        <div className="container grid flex-1 gap-12 md:grid-cols-[200px_1fr]">
-          <aside className="hidden w-[200px] flex-col md:flex">
-            <DashboardNav />
-          </aside>
-          <main className="flex w-full flex-1 flex-col overflow-hidden">
+        <div className="flex flex-1 flex-col md:flex-row">
+          <DashboardNav />
+          <main className="flex-1 p-4 md:p-6 w-full max-w-full overflow-x-hidden">
             <ShopifyConnectionChecker />
-            <DashboardErrorBoundary>{children}</DashboardErrorBoundary>
+            {children}
           </main>
         </div>
       </div>

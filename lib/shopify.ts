@@ -18,30 +18,49 @@ const shopifyClient = new GraphQLClient(`https://${shopDomain}/admin/api/2023-10
     "X-Shopify-Access-Token": accessToken || "",
     "Content-Type": "application/json",
   },
-  timeout: 30000, // 30 segundos de timeout
+  timeout: 60000, // 60 segundos de timeout para operaciones largas
 })
 
-// Añadir interceptor para manejar errores comunes
-const originalRequest = shopifyClient.request.bind(shopifyClient)
-shopifyClient.request = async (...args) => {
+// Función para formatear correctamente los IDs de Shopify
+export function formatShopifyId(id: string, type = "Product") {
+  if (id.startsWith("gid://")) {
+    return id
+  }
+  return `gid://shopify/${type}/${id}`
+}
+
+// Función para realizar una consulta de prueba a Shopify
+export async function testShopifyConnection() {
   try {
-    return await originalRequest(...args)
-  } catch (error) {
-    console.error("Error en la solicitud a Shopify API:", error)
-
-    // Añadir información adicional al error
-    if (error instanceof Error) {
-      if (error.message.includes("401")) {
-        console.error("Error de autenticación: Verifica tu SHOPIFY_ACCESS_TOKEN")
-      } else if (error.message.includes("404")) {
-        console.error("Error 404: Verifica tu NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN")
-      } else if (error.message.includes("429")) {
-        console.error("Error 429: Has excedido el límite de solicitudes a la API")
+    const query = `
+      {
+        shop {
+          name
+          url
+        }
       }
-    }
+    `
 
-    throw error
+    const data = await shopifyClient.request(query)
+    return {
+      success: true,
+      data,
+      message: "Conexión exitosa con Shopify",
+    }
+  } catch (error) {
+    console.error("Error al probar la conexión con Shopify:", error)
+    return {
+      success: false,
+      data: null,
+      message: error instanceof Error ? error.message : "Error desconocido",
+    }
   }
 }
 
+// Exportar el cliente de Shopify
 export default shopifyClient
+
+// Función para obtener el cliente de Shopify (para compatibilidad con código existente)
+export const getShopifyApi = async () => {
+  return shopifyClient
+}

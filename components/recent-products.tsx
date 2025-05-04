@@ -1,15 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
-import { fetchRecentProducts } from "@/lib/api/products"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Package, RefreshCw, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, Package, AlertCircle } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { ProductCard } from "@/components/product-card"
+import { fetchRecentProducts } from "@/lib/api/products"
 
 export function RecentProducts() {
-  const [products, setProducts] = useState<any[]>([])
+  const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -17,11 +17,11 @@ export function RecentProducts() {
     setLoading(true)
     setError(null)
     try {
-      const recentProducts = await fetchRecentProducts(5)
-      setProducts(recentProducts)
+      const data = await fetchRecentProducts()
+      setProducts(data)
     } catch (err) {
-      console.error("Error cargando productos recientes:", err)
-      setError(`Error al cargar productos: ${(err as Error).message}`)
+      console.error("Error al cargar productos recientes:", err)
+      setError("No se pudieron cargar los productos recientes")
     } finally {
       setLoading(false)
     }
@@ -32,65 +32,51 @@ export function RecentProducts() {
   }, [])
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+    <Card className="col-span-1">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div>
-          <CardTitle>Productos recientes</CardTitle>
+          <CardTitle className="text-lg font-bold">Productos recientes</CardTitle>
           <CardDescription>Los últimos 5 productos añadidos a tu tienda</CardDescription>
         </div>
-        <Button variant="outline" size="icon" onClick={loadProducts} disabled={loading}>
+        <Button variant="ghost" size="icon" onClick={loadProducts} disabled={loading} aria-label="Actualizar productos">
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          <span className="sr-only">Actualizar</span>
         </Button>
       </CardHeader>
       <CardContent>
-        {error ? (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : loading ? (
-          <div className="flex items-center justify-center p-8">
-            <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+        {loading ? (
+          <div className="flex items-center justify-center h-40">
+            <RefreshCw className="h-6 w-6 animate-spin" />
+            <span className="ml-2">Cargando productos...</span>
           </div>
-        ) : products.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-8 text-center">
-            <Package className="h-10 w-10 text-muted-foreground mb-2" />
-            <p className="text-muted-foreground">No hay productos recientes</p>
-            <Button variant="outline" className="mt-4" asChild>
-              <Link href="/dashboard/products/new">Crear producto</Link>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center h-40 text-center">
+            <p className="text-red-500 mb-2">{error}</p>
+            <Button variant="outline" size="sm" onClick={loadProducts}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Reintentar
             </Button>
           </div>
-        ) : (
+        ) : products.length > 0 ? (
           <div className="space-y-4">
             {products.map((product) => (
-              <div key={product.id} className="flex items-center justify-between rounded-lg border p-3">
-                <div className="flex items-center gap-4">
-                  {product.featuredImage ? (
-                    <img
-                      src={product.featuredImage.url || "/placeholder.svg"}
-                      alt={product.title}
-                      className="h-10 w-10 rounded-md object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
-                      <Package className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                  )}
-                  <div>
-                    <p className="text-sm font-medium">{product.title}</p>
-                    <p className="text-xs text-muted-foreground">Stock: {product.totalInventory}</p>
-                  </div>
-                </div>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href={`/dashboard/products/${product.id}`}>Ver</Link>
-                </Button>
-              </div>
+              <ProductCard key={product.id} product={product} />
             ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-40 text-center">
+            <Package className="h-10 w-10 text-muted-foreground mb-2" />
+            <p className="text-muted-foreground">No hay productos recientes</p>
           </div>
         )}
       </CardContent>
+      <CardFooter>
+        <Button asChild className="w-full">
+          <Link href="/dashboard/products/new">
+            <Plus className="mr-2 h-4 w-4" />
+            Crear producto
+          </Link>
+        </Button>
+      </CardFooter>
     </Card>
   )
 }

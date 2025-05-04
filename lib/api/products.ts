@@ -1,7 +1,10 @@
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 
+// Función para obtener productos recientes
 export async function fetchRecentProducts(limit = 5) {
+  console.log(`Fetching ${limit} recent products from Shopify...`)
+
   const query = gql`
     query GetRecentProducts($limit: Int!) {
       products(first: $limit, sortKey: CREATED_AT, reverse: true) {
@@ -22,16 +25,14 @@ export async function fetchRecentProducts(limit = 5) {
   `
 
   try {
-    console.log("Fetching recent products from Shopify...")
     const data = await shopifyClient.request(query, { limit })
-    console.log("Products response received:", data)
 
     if (!data || !data.products || !data.products.edges) {
       console.error("Respuesta de productos incompleta:", data)
       return []
     }
 
-    return data.products.edges.map((edge: any) => ({
+    const products = data.products.edges.map((edge: any) => ({
       id: edge.node.id.split("/").pop(),
       title: edge.node.title,
       handle: edge.node.handle,
@@ -39,12 +40,16 @@ export async function fetchRecentProducts(limit = 5) {
       totalInventory: edge.node.totalInventory || 0,
       featuredImage: edge.node.featuredImage,
     }))
+
+    console.log(`Successfully fetched ${products.length} products`)
+    return products
   } catch (error) {
     console.error("Error fetching recent products:", error)
-    return []
+    throw new Error(`Error al cargar productos recientes: ${(error as Error).message}`)
   }
 }
 
+// Función para obtener un producto por ID
 export async function fetchProductById(id: string) {
   // Asegurarse de que el ID tenga el formato correcto
   const isFullShopifyId = id.includes("gid://shopify/Product/")
@@ -130,6 +135,7 @@ export async function fetchProductById(id: string) {
       throw new Error(`Producto no encontrado: ${id}`)
     }
 
+    console.log(`Successfully fetched product: ${data.product.title}`)
     return data.product
   } catch (error) {
     console.error(`Error fetching product ${id}:`, error)
@@ -137,9 +143,8 @@ export async function fetchProductById(id: string) {
   }
 }
 
-// Actualizar la función createProduct para usar la nueva API
+// Función para crear un producto
 export async function createProduct(productData: any) {
-  // Versión actualizada de la mutación para crear productos según la documentación
   const mutation = gql`
     mutation productCreate($input: ProductInput!) {
       productCreate(input: $input) {
@@ -161,7 +166,7 @@ export async function createProduct(productData: any) {
     const input = {
       title: productData.title,
       descriptionHtml: productData.descriptionHtml || "",
-      handle: productData.handle || undefined, // Usar el handle generado si se proporciona
+      handle: productData.handle || undefined,
       status: productData.status || "ACTIVE",
       vendor: productData.vendor || "GranitoSkate",
       productType: productData.productType || "SKATEBOARD",
@@ -182,7 +187,7 @@ export async function createProduct(productData: any) {
       input.metafields = productData.metafields
     }
 
-    console.log("Enviando datos para crear producto:", JSON.stringify(input, null, 2))
+    console.log("Creating product with data:", JSON.stringify(input, null, 2))
 
     const data = await shopifyClient.request(mutation, { input })
 
@@ -193,6 +198,8 @@ export async function createProduct(productData: any) {
 
     // Extraer correctamente el ID del producto
     const productId = data.productCreate.product.id.split("/").pop()
+
+    console.log(`Successfully created product: ${data.productCreate.product.title} (ID: ${productId})`)
 
     // Devolver el producto con el ID en formato simple
     return {
@@ -205,7 +212,7 @@ export async function createProduct(productData: any) {
   }
 }
 
-// Actualizar la función updateProduct para usar la nueva API
+// Función para actualizar un producto
 export async function updateProduct(id: string, productData: any) {
   // Asegurarse de que el ID tenga el formato correcto
   const isFullShopifyId = id.includes("gid://shopify/Product/")
@@ -245,7 +252,7 @@ export async function updateProduct(id: string, productData: any) {
       input.metafields = productData.metafields
     }
 
-    console.log("Enviando datos para actualizar producto:", JSON.stringify(input, null, 2))
+    console.log("Updating product with data:", JSON.stringify(input, null, 2))
 
     const data = await shopifyClient.request(mutation, { input })
 
@@ -254,6 +261,7 @@ export async function updateProduct(id: string, productData: any) {
       throw new Error(`Error al actualizar producto: ${data.productUpdate.userErrors[0].message}`)
     }
 
+    console.log(`Successfully updated product: ${data.productUpdate.product.title}`)
     return data.productUpdate.product
   } catch (error) {
     console.error(`Error updating product ${id}:`, error)
@@ -261,10 +269,13 @@ export async function updateProduct(id: string, productData: any) {
   }
 }
 
+// Función para eliminar un producto
 export async function deleteProduct(id: string) {
   // Asegurarse de que el ID tenga el formato correcto
   const isFullShopifyId = id.includes("gid://shopify/Product/")
   const formattedId = isFullShopifyId ? id : `gid://shopify/Product/${id}`
+
+  console.log(`Deleting product with ID: ${formattedId}`)
 
   const mutation = gql`
     mutation ProductDelete($input: ProductDeleteInput!) {
@@ -289,6 +300,7 @@ export async function deleteProduct(id: string) {
       throw new Error(data.productDelete.userErrors[0].message)
     }
 
+    console.log(`Successfully deleted product with ID: ${formattedId}`)
     return data.productDelete.deletedProductId
   } catch (error) {
     console.error(`Error deleting product ${id}:`, error)
@@ -308,8 +320,7 @@ export async function addProductsToCollection(collectionId: string, productIds: 
     return isFullProductId ? id : `gid://shopify/Product/${id}`
   })
 
-  console.log(`Adding products to collection: ${formattedCollectionId}`)
-  console.log(`Products: ${JSON.stringify(formattedProductIds)}`)
+  console.log(`Adding ${formattedProductIds.length} products to collection: ${formattedCollectionId}`)
 
   const mutation = gql`
     mutation collectionAddProducts($id: ID!, $productIds: [ID!]!) {
@@ -338,6 +349,9 @@ export async function addProductsToCollection(collectionId: string, productIds: 
       throw new Error(`Error al añadir productos: ${data.collectionAddProducts.userErrors[0].message}`)
     }
 
+    console.log(
+      `Successfully added ${formattedProductIds.length} products to collection: ${data.collectionAddProducts.collection.title}`,
+    )
     return data.collectionAddProducts.collection
   } catch (error) {
     console.error(`Error adding products to collection ${collectionId}:`, error)
@@ -357,8 +371,7 @@ export async function removeProductsFromCollection(collectionId: string, product
     return isFullProductId ? id : `gid://shopify/Product/${id}`
   })
 
-  console.log(`Removing products from collection: ${formattedCollectionId}`)
-  console.log(`Products: ${JSON.stringify(formattedProductIds)}`)
+  console.log(`Removing ${formattedProductIds.length} products from collection: ${formattedCollectionId}`)
 
   const mutation = gql`
     mutation collectionRemoveProducts($id: ID!, $productIds: [ID!]!) {
@@ -387,6 +400,9 @@ export async function removeProductsFromCollection(collectionId: string, product
       throw new Error(`Error al eliminar productos: ${data.collectionRemoveProducts.userErrors[0].message}`)
     }
 
+    console.log(
+      `Successfully removed ${formattedProductIds.length} products from collection: ${data.collectionRemoveProducts.collection.title}`,
+    )
     return data.collectionRemoveProducts.collection
   } catch (error) {
     console.error(`Error removing products from collection ${collectionId}:`, error)
