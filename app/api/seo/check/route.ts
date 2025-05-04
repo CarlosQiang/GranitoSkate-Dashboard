@@ -3,7 +3,7 @@ import shopifyClient from "@/lib/shopify"
 
 export async function GET() {
   try {
-    // Intentar hacer una consulta simple para verificar que la API funciona
+    // Verificar la conexión con Shopify
     const query = `
       query {
         shop {
@@ -12,31 +12,13 @@ export async function GET() {
       }
     `
 
-    const data = await shopifyClient.request(query)
+    await shopifyClient.request(query)
 
-    if (!data || !data.shop) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Error en la API de Shopify: No se pudo obtener información de la tienda",
-        },
-        { status: 500 },
-      )
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: "API de SEO conectada correctamente",
-      shop: data.shop.name,
-    })
-  } catch (error) {
-    console.error("Error checking SEO API:", error)
-
+    return NextResponse.json({ status: "ok", message: "Conexión con Shopify establecida correctamente" })
+  } catch (error: any) {
+    console.error("Error al verificar la conexión con Shopify:", error)
     return NextResponse.json(
-      {
-        success: false,
-        message: (error as Error).message || "Error al conectar con la API de SEO",
-      },
+      { status: "error", message: `Error al conectar con Shopify: ${error.message}` },
       { status: 500 },
     )
   }

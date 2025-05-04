@@ -80,18 +80,12 @@ export function generateSeoDescription(description: string, title: string): stri
  * @returns Slug SEO-friendly
  */
 export function generateSeoHandle(title: string): string {
-  if (!title) return ""
-
   return title
-    .toString()
     .toLowerCase()
-    .normalize("NFD") // Normalizar acentos
-    .replace(/[\u0300-\u036f]/g, "") // Eliminar acentos
+    .replace(/[^\w\s-]/g, "") // Eliminar caracteres especiales
     .replace(/\s+/g, "-") // Reemplazar espacios con guiones
-    .replace(/[^\w-]+/g, "") // Eliminar caracteres no alfanuméricos
     .replace(/--+/g, "-") // Reemplazar múltiples guiones con uno solo
-    .replace(/^-+/, "") // Eliminar guiones al inicio
-    .replace(/-+$/, "") // Eliminar guiones al final
+    .trim() // Eliminar espacios al inicio y final
 }
 
 // Actualizar la función generateSeoMetafields para usar el nuevo sistema de metafields

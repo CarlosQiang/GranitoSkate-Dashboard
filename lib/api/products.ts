@@ -3,59 +3,10 @@ import { gql } from "graphql-request"
 
 // Función para obtener productos recientes
 export async function fetchRecentProducts(limit = 5) {
-  try {
-    console.log(`Fetching ${limit} recent products from Shopify...`)
-
-    const query = gql`
-      query GetRecentProducts($limit: Int!) {
-        products(first: $limit, sortKey: CREATED_AT, reverse: true) {
-          edges {
-            node {
-              id
-              title
-              handle
-              status
-              totalInventory
-              featuredImage {
-                url
-                altText
-              }
-              priceRange {
-                minVariantPrice {
-                  amount
-                  currencyCode
-                }
-              }
-            }
-          }
-        }
-      }
-    `
-
-    const data = await shopifyClient.request(query, { limit })
-
-    if (!data || !data.products || !data.products.edges) {
-      console.error("Respuesta de productos incompleta:", data)
-      return []
-    }
-
-    const products = data.products.edges.map((edge) => ({
-      id: edge.node.id.split("/").pop(),
-      title: edge.node.title,
-      handle: edge.node.handle,
-      status: edge.node.status,
-      totalInventory: edge.node.totalInventory || 0,
-      image: edge.node.featuredImage?.url || null,
-      price: edge.node.priceRange?.minVariantPrice?.amount || "0.00",
-      currencyCode: edge.node.priceRange?.minVariantPrice?.currencyCode || "EUR",
-    }))
-
-    console.log(`Successfully fetched ${products.length} products`)
-    return products
-  } catch (error) {
-    console.error("Error fetching recent products:", error)
-    throw new Error(`Error al cargar productos recientes: ${error.message}`)
-  }
+  // Implementación de la función para obtener productos recientes
+  // Utilizamos la función fetchProducts existente con un límite
+  const products = await fetchProducts({ limit })
+  return products
 }
 
 // Función para obtener todos los productos

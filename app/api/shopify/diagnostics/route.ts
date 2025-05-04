@@ -1,76 +1,49 @@
 import { NextResponse } from "next/server"
 import { fetchProducts } from "@/lib/api/products"
-import { fetchCollections } from "@/lib/api/collections"
-import { fetchRecentOrders } from "@/lib/api/orders"
-import { fetchPromotions } from "@/lib/api/promotions"
+import shopifyClient from "@/lib/shopify"
 
-export async function GET(request) {
-  const { searchParams } = new URL(request.url)
-  const type = searchParams.get("type")
-
+export async function GET() {
   try {
-    let result
-    let message
-    let details
-
-    switch (type) {
-      case "products":
-        result = await fetchProducts(3)
-        message = `Se cargaron ${result.length} productos correctamente`
-        details = {
-          count: result.length,
-          sample: result.map((p) => ({ id: p.id, title: p.title })),
-        }
-        break
-
-      case "collections":
-        result = await fetchCollections(3)
-        message = `Se cargaron ${result.length} colecciones correctamente`
-        details = {
-          count: result.length,
-          sample: result.map((c) => ({ id: c.id, title: c.title })),
-        }
-        break
-
-      case "orders":
-        result = await fetchRecentOrders(3)
-        message = `Se cargaron ${result.length} pedidos correctamente`
-        details = {
-          count: result.length,
-          sample: result.map((o) => ({ id: o.id, name: o.name })),
-        }
-        break
-
-      case "promotions":
-        result = await fetchPromotions(3)
-        message = `Se cargaron ${result.length} promociones correctamente`
-        details = {
-          count: result.length,
-          sample: result.map((p) => ({ id: p.id, title: p.title })),
-        }
-        break
-
-      default:
-        return NextResponse.json({ success: false, message: "Tipo de diagnóstico no válido" }, { status: 400 })
+    // Realizar varias comprobaciones para diagnosticar la conexión con Shopify
+    const diagnostics = {
+      connection: false,
+      products: false,
+      collections: false,
+      orders: false,
+      customers: false,
+      errors: [] as string[],
     }
 
-    return NextResponse.json({
-      success: true,
-      message,
-      details,
-    })
-  } catch (error) {
-    console.error(`Error en diagnóstico de ${type}:`, error)
+    // Comprobar conexión básica
+    try {
+      const query = `
+        query {
+          shop {
+            name
+          }
+        }
+      `
 
+      const data = await shopifyClient.request(query)
+      diagnostics.connection = !!data?.shop?.name
+    } catch (error: any) {
+      diagnostics.errors.push(`Error de conexión: ${error.message}`)
+    }
+
+    // Comprobar acceso a productos
+    try {
+      const products = await fetchProducts({ limit: 1 })
+      diagnostics.products = products && products.length > 0
+    } catch (error: any) {
+      diagnostics.errors.push(`Error al acceder a productos: ${error.message}`)
+    }
+
+    // Devolver resultados del diagnóstico
+    return NextResponse.json(diagnostics)
+  } catch (error: any) {
+    console.error("Error en diagnóstico de Shopify:", error)
     return NextResponse.json(
-      {
-        success: false,
-        message: `Error en diagnóstico de ${type}: ${error.message}`,
-        details: {
-          error: error.message,
-          stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
-        },
-      },
+      { status: "error", message: `Error en diagnóstico: ${error.message}`, errors: [error.message] },
       { status: 500 },
     )
   }

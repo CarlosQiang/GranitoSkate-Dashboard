@@ -41,7 +41,6 @@ export async function getMetafieldDefinitions(ownerType?: string): Promise<Metaf
     const data = await shopifyClient.request(query, { ownerType })
 
     if (!data || !data.metafieldDefinitions || !data.metafieldDefinitions.edges) {
-      console.error("Respuesta de definiciones de metafields incompleta:",  {\
       console.error("Respuesta de definiciones de metafields incompleta:", data)
       return []
     }
@@ -59,9 +58,10 @@ export async function getMetafieldDefinitions(ownerType?: string): Promise<Metaf
         return acc
       }, {}),
     }))
-  } catch (error) 
+  } catch (error: any) {
     console.error("Error fetching metafield definitions:", error)
     return []
+  }
 }
 
 // Función para crear una definición de metafield
@@ -115,10 +115,7 @@ export async function createMetafieldDefinition(
     const data = await shopifyClient.request(mutation, variables)
 
     if (data.metafieldDefinitionCreate.userErrors && data.metafieldDefinitionCreate.userErrors.length > 0) {
-      console.error(
-        "Error creating metafield definition:",
-        data.metafieldDefinitionCreate.userErrors,
-      )
+      console.error("Error creating metafield definition:", data.metafieldDefinitionCreate.userErrors)
       return null
     }
 
@@ -390,10 +387,7 @@ export async function createMetaobjectDefinition(
     const data = await shopifyClient.request(mutation, variables)
 
     if (data.metaobjectDefinitionCreate.userErrors && data.metaobjectDefinitionCreate.userErrors.length > 0) {
-      console.error(
-        "Error creating metaobject definition:",
-        data.metaobjectDefinitionCreate.userErrors,
-      )
+      console.error("Error creating metaobject definition:", data.metaobjectDefinitionCreate.userErrors)
       return null
     }
 
