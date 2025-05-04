@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { fetchRecentProducts } from "@/lib/api/products"
+import { fetchProducts } from "@/lib/api/products"
 import { fetchCollections } from "@/lib/api/collections"
 import { fetchRecentOrders } from "@/lib/api/orders"
 import { fetchPromotions } from "@/lib/api/promotions"
@@ -15,7 +15,7 @@ export async function GET(request) {
 
     switch (type) {
       case "products":
-        result = await fetchRecentProducts(3)
+        result = await fetchProducts(3)
         message = `Se cargaron ${result.length} productos correctamente`
         details = {
           count: result.length,

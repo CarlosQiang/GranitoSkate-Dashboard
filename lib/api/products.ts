@@ -1,6 +1,63 @@
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 
+// Función para obtener productos recientes
+export async function fetchRecentProducts(limit = 5) {
+  try {
+    console.log(`Fetching ${limit} recent products from Shopify...`)
+
+    const query = gql`
+      query GetRecentProducts($limit: Int!) {
+        products(first: $limit, sortKey: CREATED_AT, reverse: true) {
+          edges {
+            node {
+              id
+              title
+              handle
+              status
+              totalInventory
+              featuredImage {
+                url
+                altText
+              }
+              priceRange {
+                minVariantPrice {
+                  amount
+                  currencyCode
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const data = await shopifyClient.request(query, { limit })
+
+    if (!data || !data.products || !data.products.edges) {
+      console.error("Respuesta de productos incompleta:", data)
+      return []
+    }
+
+    const products = data.products.edges.map((edge) => ({
+      id: edge.node.id.split("/").pop(),
+      title: edge.node.title,
+      handle: edge.node.handle,
+      status: edge.node.status,
+      totalInventory: edge.node.totalInventory || 0,
+      image: edge.node.featuredImage?.url || null,
+      price: edge.node.priceRange?.minVariantPrice?.amount || "0.00",
+      currencyCode: edge.node.priceRange?.minVariantPrice?.currencyCode || "EUR",
+    }))
+
+    console.log(`Successfully fetched ${products.length} products`)
+    return products
+  } catch (error) {
+    console.error("Error fetching recent products:", error)
+    throw new Error(`Error al cargar productos recientes: ${error.message}`)
+  }
+}
+
 // Función para obtener todos los productos
 export async function fetchProducts(limit = 20) {
   try {
@@ -307,54 +364,6 @@ export async function deleteProduct(id) {
   } catch (error) {
     console.error(`Error al eliminar el producto ${id}:`, error)
     throw new Error(`Error al eliminar el producto: ${error.message}`)
-  }
-}
-
-// Función para actualizar el inventario de un producto
-export async function updateProductInventory(variantId, locationId, quantity) {
-  try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const formattedVariantId = variantId.includes("gid://shopify/ProductVariant/")
-      ? variantId
-      : `gid://shopify/ProductVariant/${variantId}`
-
-    const formattedLocationId = locationId.includes("gid://shopify/Location/")
-      ? locationId
-      : `gid://shopify/Location/${locationId}`
-
-    const mutation = gql`
-      mutation UpdateInventoryLevel($input: InventoryAdjustQuantityInput!) {
-        inventoryAdjustQuantity(input: $input) {
-          inventoryLevel {
-            available
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const variables = {
-      input: {
-        inventoryLevelId: `gid://shopify/InventoryLevel/${formattedLocationId}/${formattedVariantId}`,
-        availableDelta: quantity,
-      },
-    }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.inventoryAdjustQuantity.userErrors && data.inventoryAdjustQuantity.userErrors.length > 0) {
-      throw new Error(data.inventoryAdjustQuantity.userErrors[0].message)
-    }
-
-    return {
-      available: data.inventoryAdjustQuantity.inventoryLevel.available,
-    }
-  } catch (error) {
-    console.error(`Error al actualizar el inventario del producto ${variantId}:`, error)
-    throw new Error(`Error al actualizar el inventario: ${error.message}`)
   }
 }
 

@@ -1,4 +1,4 @@
-import { getShopifyApi } from "../shopify"
+import shopifyClient, { formatShopifyId } from "@/lib/shopify"
 import type {
   MetafieldDefinition,
   Metafield,
@@ -9,17 +9,12 @@ import type {
   SocialMediaProfiles,
   StructuredDataConfig,
 } from "@/types/seo"
-import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
-import { formatShopifyId } from "@/lib/shopify"
 
 // Función para obtener todas las definiciones de metafields
 export async function getMetafieldDefinitions(ownerType?: string): Promise<MetafieldDefinition[]> {
-  const shopify = await getShopifyApi()
-
   try {
-    const response = await shopify.graphql(
-      `
+    const query = gql`
       query GetMetafieldDefinitions($ownerType: MetafieldOwnerType) {
         metafieldDefinitions(first: 100, ownerType: $ownerType) {
           edges {
@@ -41,22 +36,17 @@ export async function getMetafieldDefinitions(ownerType?: string): Promise<Metaf
           }
         }
       }
-    `,
-      {
-        variables: {
-          ownerType: ownerType,
-        },
-      },
-    )
+    `
 
-    const data = await response.json()
+    const data = await shopifyClient.request(query, { ownerType })
 
-    if (data.errors) {
-      console.error("Error fetching metafield definitions:", data.errors)
+    if (!data || !data.metafieldDefinitions || !data.metafieldDefinitions.edges) {
+      console.error("Respuesta de definiciones de metafields incompleta:",  {\
+      console.error("Respuesta de definiciones de metafields incompleta:", data)
       return []
     }
 
-    return data.data.metafieldDefinitions.edges.map((edge: any) => ({
+    return data.metafieldDefinitions.edges.map((edge: any) => ({
       id: edge.node.id,
       name: edge.node.name,
       namespace: edge.node.namespace,
@@ -69,21 +59,17 @@ export async function getMetafieldDefinitions(ownerType?: string): Promise<Metaf
         return acc
       }, {}),
     }))
-  } catch (error) {
+  } catch (error) 
     console.error("Error fetching metafield definitions:", error)
     return []
-  }
 }
 
 // Función para crear una definición de metafield
 export async function createMetafieldDefinition(
   definition: Partial<MetafieldDefinition>,
 ): Promise<MetafieldDefinition | null> {
-  const shopify = await getShopifyApi()
-
   try {
-    const response = await shopify.graphql(
-      `
+    const mutation = gql`
       mutation CreateMetafieldDefinition($input: MetafieldDefinitionInput!) {
         metafieldDefinitionCreate(definition: $input) {
           metafieldDefinition {
@@ -107,38 +93,36 @@ export async function createMetafieldDefinition(
           }
         }
       }
-    `,
-      {
-        variables: {
-          input: {
-            name: definition.name,
-            namespace: definition.namespace,
-            key: definition.key,
-            description: definition.description,
-            ownerType: definition.ownerType,
-            type: definition.type,
-            validations: definition.validations
-              ? Object.entries(definition.validations).map(([name, value]) => ({
-                  name,
-                  value: String(value),
-                }))
-              : [],
-          },
-        },
+    `
+
+    const variables = {
+      input: {
+        name: definition.name,
+        namespace: definition.namespace,
+        key: definition.key,
+        description: definition.description,
+        ownerType: definition.ownerType,
+        type: definition.type,
+        validations: definition.validations
+          ? Object.entries(definition.validations).map(([name, value]) => ({
+              name,
+              value: String(value),
+            }))
+          : [],
       },
-    )
+    }
 
-    const data = await response.json()
+    const data = await shopifyClient.request(mutation, variables)
 
-    if (data.errors || data.data.metafieldDefinitionCreate.userErrors.length > 0) {
+    if (data.metafieldDefinitionCreate.userErrors && data.metafieldDefinitionCreate.userErrors.length > 0) {
       console.error(
         "Error creating metafield definition:",
-        data.errors || data.data.metafieldDefinitionCreate.userErrors,
+        data.metafieldDefinitionCreate.userErrors,
       )
       return null
     }
 
-    const node = data.data.metafieldDefinitionCreate.metafieldDefinition
+    const node = data.metafieldDefinitionCreate.metafieldDefinition
     return {
       id: node.id,
       name: node.name,
@@ -160,11 +144,8 @@ export async function createMetafieldDefinition(
 
 // Modificar la función getMetafields para incluir mejor manejo de errores
 export async function getMetafields(ownerId: string, ownerType: string, namespace?: string): Promise<Metafield[]> {
-  const shopify = await getShopifyApi()
-
   try {
-    const response = await shopify.graphql(
-      `
+    const query = gql`
       query GetMetafields($ownerId: ID!, $ownerType: MetafieldOwnerType!, $namespace: String) {
         owner: ${ownerType.toLowerCase()}(id: $ownerId) {
           metafields(first: 100, namespace: $namespace) {
@@ -182,29 +163,22 @@ export async function getMetafields(ownerId: string, ownerType: string, namespac
           }
         }
       }
-    `,
-      {
-        variables: {
-          ownerId,
-          ownerType,
-          namespace,
-        },
-      },
-    )
+    `
 
-    const data = await response.json()
-
-    if (data.errors) {
-      console.error("Error fetching metafields:", data.errors)
-      throw new Error(`Error al obtener metafields: ${data.errors[0]?.message || "Error desconocido"}`)
+    const variables = {
+      ownerId,
+      ownerType,
+      namespace,
     }
 
-    if (!data.data?.owner?.metafields?.edges) {
+    const data = await shopifyClient.request(query, variables)
+
+    if (!data?.owner?.metafields?.edges) {
       console.error("No metafields data found:", data)
       return []
     }
 
-    return data.data.owner.metafields.edges.map((edge: any) => ({
+    return data.owner.metafields.edges.map((edge: any) => ({
       id: edge.node.id,
       namespace: edge.node.namespace,
       key: edge.node.key,
@@ -215,9 +189,9 @@ export async function getMetafields(ownerId: string, ownerType: string, namespac
       createdAt: edge.node.createdAt,
       updatedAt: edge.node.updatedAt,
     }))
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching metafields:", error)
-    throw new Error(`Error al obtener metafields: ${(error as Error).message}`)
+    throw new Error(`Error al obtener metafields: ${error.message}`)
   }
 }
 
@@ -227,11 +201,8 @@ export async function setMetafield(
   ownerType: string,
   metafield: Partial<Metafield>,
 ): Promise<Metafield | null> {
-  const shopify = await getShopifyApi()
-
   try {
-    const response = await shopify.graphql(
-      `
+    const mutation = gql`
       mutation SetMetafield($input: MetafieldsSetInput!) {
         metafieldsSet(metafields: $input) {
           metafields {
@@ -249,32 +220,30 @@ export async function setMetafield(
           }
         }
       }
-    `,
-      {
-        variables: {
-          input: {
-            ownerId,
-            metafields: [
-              {
-                namespace: metafield.namespace,
-                key: metafield.key,
-                value: metafield.value,
-                type: metafield.type,
-              },
-            ],
+    `
+
+    const variables = {
+      input: {
+        ownerId,
+        metafields: [
+          {
+            namespace: metafield.namespace,
+            key: metafield.key,
+            value: metafield.value,
+            type: metafield.type,
           },
-        },
+        ],
       },
-    )
+    }
 
-    const data = await response.json()
+    const data = await shopifyClient.request(mutation, variables)
 
-    if (data.errors || data.data.metafieldsSet.userErrors.length > 0) {
-      console.error("Error setting metafield:", data.errors || data.data.metafieldsSet.userErrors)
+    if (data.metafieldsSet.userErrors && data.metafieldsSet.userErrors.length > 0) {
+      console.error("Error setting metafield:", data.metafieldsSet.userErrors)
       return null
     }
 
-    const node = data.data.metafieldsSet.metafields[0]
+    const node = data.metafieldsSet.metafields[0]
     return {
       id: node.id,
       namespace: node.namespace,
@@ -294,11 +263,8 @@ export async function setMetafield(
 
 // Función para eliminar un metafield
 export async function deleteMetafield(id: string): Promise<boolean> {
-  const shopify = await getShopifyApi()
-
   try {
-    const response = await shopify.graphql(
-      `
+    const mutation = gql`
       mutation DeleteMetafield($input: MetafieldDeleteInput!) {
         metafieldDelete(input: $input) {
           deletedId
@@ -308,20 +274,18 @@ export async function deleteMetafield(id: string): Promise<boolean> {
           }
         }
       }
-    `,
-      {
-        variables: {
-          input: {
-            id,
-          },
-        },
+    `
+
+    const variables = {
+      input: {
+        id,
       },
-    )
+    }
 
-    const data = await response.json()
+    const data = await shopifyClient.request(mutation, variables)
 
-    if (data.errors || data.data.metafieldDelete.userErrors.length > 0) {
-      console.error("Error deleting metafield:", data.errors || data.data.metafieldDelete.userErrors)
+    if (data.metafieldDelete.userErrors && data.metafieldDelete.userErrors.length > 0) {
+      console.error("Error deleting metafield:", data.metafieldDelete.userErrors)
       return false
     }
 
@@ -334,10 +298,8 @@ export async function deleteMetafield(id: string): Promise<boolean> {
 
 // Función para obtener todas las definiciones de metaobjects
 export async function getMetaobjectDefinitions(): Promise<MetaobjectDefinition[]> {
-  const shopify = await getShopifyApi()
-
   try {
-    const response = await shopify.graphql(`
+    const query = gql`
       query GetMetaobjectDefinitions {
         metaobjectDefinitions(first: 100) {
           edges {
@@ -357,16 +319,16 @@ export async function getMetaobjectDefinitions(): Promise<MetaobjectDefinition[]
           }
         }
       }
-    `)
+    `
 
-    const data = await response.json()
+    const data = await shopifyClient.request(query)
 
-    if (data.errors) {
-      console.error("Error fetching metaobject definitions:", data.errors)
+    if (!data || !data.metaobjectDefinitions || !data.metaobjectDefinitions.edges) {
+      console.error("Respuesta de definiciones de metaobjects incompleta:", data)
       return []
     }
 
-    return data.data.metaobjectDefinitions.edges.map((edge: any) => ({
+    return data.metaobjectDefinitions.edges.map((edge: any) => ({
       id: edge.node.id,
       name: edge.node.name,
       type: edge.node.type,
@@ -387,11 +349,8 @@ export async function getMetaobjectDefinitions(): Promise<MetaobjectDefinition[]
 export async function createMetaobjectDefinition(
   definition: Partial<MetaobjectDefinition>,
 ): Promise<MetaobjectDefinition | null> {
-  const shopify = await getShopifyApi()
-
   try {
-    const response = await shopify.graphql(
-      `
+    const mutation = gql`
       mutation CreateMetaobjectDefinition($input: MetaobjectDefinitionCreateInput!) {
         metaobjectDefinitionCreate(definition: $input) {
           metaobjectDefinition {
@@ -413,34 +372,32 @@ export async function createMetaobjectDefinition(
           }
         }
       }
-    `,
-      {
-        variables: {
-          input: {
-            name: definition.name,
-            type: definition.type,
-            fieldDefinitions: definition.fieldDefinitions?.map((field) => ({
-              name: field.name,
-              key: field.key,
-              type: field.type,
-              required: field.required,
-            })),
-          },
-        },
+    `
+
+    const variables = {
+      input: {
+        name: definition.name,
+        type: definition.type,
+        fieldDefinitions: definition.fieldDefinitions?.map((field) => ({
+          name: field.name,
+          key: field.key,
+          type: field.type,
+          required: field.required,
+        })),
       },
-    )
+    }
 
-    const data = await response.json()
+    const data = await shopifyClient.request(mutation, variables)
 
-    if (data.errors || data.data.metaobjectDefinitionCreate.userErrors.length > 0) {
+    if (data.metaobjectDefinitionCreate.userErrors && data.metaobjectDefinitionCreate.userErrors.length > 0) {
       console.error(
         "Error creating metaobject definition:",
-        data.errors || data.data.metaobjectDefinitionCreate.userErrors,
+        data.metaobjectDefinitionCreate.userErrors,
       )
       return null
     }
 
-    const node = data.data.metaobjectDefinitionCreate.metaobjectDefinition
+    const node = data.metaobjectDefinitionCreate.metaobjectDefinition
     return {
       id: node.id,
       name: node.name,
@@ -460,11 +417,8 @@ export async function createMetaobjectDefinition(
 
 // Función para obtener metaobjects por tipo
 export async function getMetaobjects(type: string): Promise<Metaobject[]> {
-  const shopify = await getShopifyApi()
-
   try {
-    const response = await shopify.graphql(
-      `
+    const query = gql`
       query GetMetaobjects($type: String!) {
         metaobjects(type: $type, first: 100) {
           edges {
@@ -481,22 +435,20 @@ export async function getMetaobjects(type: string): Promise<Metaobject[]> {
           }
         }
       }
-    `,
-      {
-        variables: {
-          type,
-        },
-      },
-    )
+    `
 
-    const data = await response.json()
+    const variables = {
+      type,
+    }
 
-    if (data.errors) {
-      console.error("Error fetching metaobjects:", data.errors)
+    const data = await shopifyClient.request(query, variables)
+
+    if (!data || !data.metaobjects || !data.metaobjects.edges) {
+      console.error("Respuesta de metaobjects incompleta:", data)
       return []
     }
 
-    return data.data.metaobjects.edges.map((edge: any) => ({
+    return data.metaobjects.edges.map((edge: any) => ({
       id: edge.node.id,
       type: edge.node.type,
       handle: edge.node.handle,
@@ -518,11 +470,8 @@ export async function setMetaobject(
   handle: string,
   fields: { key: string; value: string; type: string }[],
 ): Promise<Metaobject | null> {
-  const shopify = await getShopifyApi()
-
   try {
-    const response = await shopify.graphql(
-      `
+    const mutation = gql`
       mutation SetMetaobject($input: MetaobjectCreateInput!) {
         metaobjectCreate(metaobject: $input) {
           metaobject {
@@ -541,30 +490,28 @@ export async function setMetaobject(
           }
         }
       }
-    `,
-      {
-        variables: {
-          input: {
-            type,
-            handle,
-            fields: fields.map((field) => ({
-              key: field.key,
-              value: field.value,
-              type: field.type,
-            })),
-          },
-        },
+    `
+
+    const variables = {
+      input: {
+        type,
+        handle,
+        fields: fields.map((field) => ({
+          key: field.key,
+          value: field.value,
+          type: field.type,
+        })),
       },
-    )
+    }
 
-    const data = await response.json()
+    const data = await shopifyClient.request(mutation, variables)
 
-    if (data.errors || data.data.metaobjectCreate.userErrors.length > 0) {
-      console.error("Error setting metaobject:", data.errors || data.data.metaobjectCreate.userErrors)
+    if (data.metaobjectCreate.userErrors && data.metaobjectCreate.userErrors.length > 0) {
+      console.error("Error setting metaobject:", data.metaobjectCreate.userErrors)
       return null
     }
 
-    const node = data.data.metaobjectCreate.metaobject
+    const node = data.metaobjectCreate.metaobject
     return {
       id: node.id,
       type: node.type,
@@ -583,11 +530,8 @@ export async function setMetaobject(
 
 // Función para eliminar un metaobject
 export async function deleteMetaobject(id: string): Promise<boolean> {
-  const shopify = await getShopifyApi()
-
   try {
-    const response = await shopify.graphql(
-      `
+    const mutation = gql`
       mutation DeleteMetaobject($input: MetaobjectDeleteInput!) {
         metaobjectDelete(input: $input) {
           deletedId
@@ -597,20 +541,18 @@ export async function deleteMetaobject(id: string): Promise<boolean> {
           }
         }
       }
-    `,
-      {
-        variables: {
-          input: {
-            id,
-          },
-        },
+    `
+
+    const variables = {
+      input: {
+        id,
       },
-    )
+    }
 
-    const data = await response.json()
+    const data = await shopifyClient.request(mutation, variables)
 
-    if (data.errors || data.data.metaobjectDelete.userErrors.length > 0) {
-      console.error("Error deleting metaobject:", data.errors || data.data.metaobjectDelete.userErrors)
+    if (data.metaobjectDelete.userErrors && data.metaobjectDelete.userErrors.length > 0) {
+      console.error("Error deleting metaobject:", data.metaobjectDelete.userErrors)
       return false
     }
 
@@ -900,9 +842,9 @@ export async function fetchProductSEO(productId) {
       description: data.product.seo?.description || data.product.description,
       metafields: data.product.metafields?.edges?.map((edge) => edge.node) || [],
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching product SEO:", error)
-    throw new Error(`Error al cargar la información SEO del producto: ${(error as Error).message}`)
+    throw new Error(`Error al cargar la información SEO del producto: ${error.message}`)
   }
 }
 
@@ -945,9 +887,9 @@ export async function updateProductSEO(productId, seoData) {
     }
 
     return data.productUpdate.product
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error updating product SEO:", error)
-    throw new Error(`Error al actualizar la información SEO del producto: ${(error as Error).message}`)
+    throw new Error(`Error al actualizar la información SEO del producto: ${error.message}`)
   }
 }
 
@@ -994,9 +936,9 @@ export async function fetchCollectionSEO(collectionId) {
       description: data.collection.seo?.description || data.collection.description,
       metafields: data.collection.metafields?.edges?.map((edge) => edge.node) || [],
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching collection SEO:", error)
-    throw new Error(`Error al cargar la información SEO de la colección: ${(error as Error).message}`)
+    throw new Error(`Error al cargar la información SEO de la colección: ${error.message}`)
   }
 }
 
@@ -1039,9 +981,9 @@ export async function updateCollectionSEO(collectionId, seoData) {
     }
 
     return data.collectionUpdate.collection
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error updating collection SEO:", error)
-    throw new Error(`Error al actualizar la información SEO de la colección: ${(error as Error).message}`)
+    throw new Error(`Error al actualizar la información SEO de la colección: ${error.message}`)
   }
 }
 
@@ -1077,10 +1019,8 @@ export async function fetchShopSEO() {
       description: data.shop.description,
       metafields: data.shop.metafields?.edges?.map((edge) => edge.node) || [],
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching shop SEO:", error)
-    throw new Error(`Error al cargar la información SEO de la tienda: ${(error as Error).message}`)
+    throw new Error(`Error al cargar la información SEO de la tienda: ${error.message}`)
   }
 }
-
-export { getShopifyApi }
