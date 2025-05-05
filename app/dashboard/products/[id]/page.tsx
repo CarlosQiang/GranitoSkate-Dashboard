@@ -146,8 +146,9 @@ export default function ProductPage({ params }) {
         status: formData.status,
         vendor: formData.vendor,
         productType: formData.productType,
-        // Añadir la imagen si existe y ha cambiado
-        ...(productImage !== product?.featuredImage?.url && { image: productImage }),
+        // Pasar la imagen actual y la nueva imagen si existe
+        image: productImage,
+        currentImage: product?.featuredImage?.url || null,
         // Generar automáticamente los metafields de SEO
         metafields: generateProductSeoMetafields(formData.title, formData.description),
         // Incluir variantes

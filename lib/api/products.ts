@@ -285,6 +285,7 @@ export async function updateProduct(id, productData) {
       }
     `
 
+    // Preparar el input sin el campo images
     const input = {
       id: formattedId,
       title: productData.title,
@@ -295,27 +296,41 @@ export async function updateProduct(id, productData) {
       metafields: productData.metafields || [],
     }
 
-    // Añadir imagen solo si se proporciona
-    if (productData.image) {
-      input.images = [{ src: productData.image }]
-    }
-
-    // Añadir variantes si se proporcionan
+    // Añadir variantes si se proporcionan, asegurándose de que compareAtPrice no sea una cadena vacía
     if (productData.variants && productData.variants.length > 0) {
-      input.variants = productData.variants.map((variant) => ({
-        id: variant.id,
-        price: variant.price,
-        compareAtPrice: variant.compareAtPrice,
-        sku: variant.sku,
-      }))
+      input.variants = productData.variants.map((variant) => {
+        const variantInput = {
+          id: variant.id,
+          price: variant.price,
+          sku: variant.sku || "",
+        }
+
+        // Solo incluir compareAtPrice si tiene un valor
+        if (variant.compareAtPrice && variant.compareAtPrice.trim() !== "") {
+          variantInput.compareAtPrice = variant.compareAtPrice
+        }
+
+        return variantInput
+      })
     }
 
     const variables = { input }
+
+    console.log("Enviando mutación de actualización con variables:", JSON.stringify(variables, null, 2))
 
     const data = await shopifyClient.request(mutation, variables)
 
     if (data.productUpdate.userErrors && data.productUpdate.userErrors.length > 0) {
       throw new Error(data.productUpdate.userErrors[0].message)
+    }
+
+    // Si hay una imagen y es diferente a la actual, actualizar la imagen en una operación separada
+    if (productData.image && productData.image !== productData.currentImage) {
+      try {
+        await addProductImage(data.productUpdate.product.id, productData.image)
+      } catch (imageError) {
+        console.error("Error al actualizar la imagen, pero el producto se actualizó correctamente:", imageError)
+      }
     }
 
     return {
