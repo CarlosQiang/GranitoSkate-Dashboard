@@ -275,7 +275,13 @@ export default function PromotionsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => router.push(`/dashboard/promotions/${promotion.id}`)}
+                            onClick={() => {
+                              // Extraer el ID numérico si es un GID de Shopify
+                              const numericId = promotion.id.includes("/")
+                                ? promotion.id.split("/").pop()
+                                : promotion.id
+                              router.push(`/dashboard/promotions/${numericId}`)
+                            }}
                           >
                             Ver detalles
                           </Button>

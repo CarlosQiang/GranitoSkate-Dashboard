@@ -51,7 +51,9 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
     async function loadPromotion() {
       try {
         setIsLoading(true)
-        const data = await fetchPriceListById(params.id)
+        // El ID puede ser el ID completo o solo el número
+        const id = params.id
+        const data = await fetchPriceListById(id)
         setPromotion(data)
         setError(null)
       } catch (err) {

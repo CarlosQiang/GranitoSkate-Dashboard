@@ -297,7 +297,7 @@ export async function addProductsToCollection(collectionId, productIds) {
 
     const mutation = gql`
       mutation CollectionAddProducts($id: ID!, $productIds: [ID!]!) {
-        collectionAddProducts(collectionId: $id, productIds: $productIds) {
+        collectionAddProducts(id: $id, productIds: $productIds) {
           collection {
             id
             title
@@ -347,7 +347,7 @@ export async function removeProductsFromCollection(collectionId, productIds) {
 
     const mutation = gql`
       mutation CollectionRemoveProducts($id: ID!, $productIds: [ID!]!) {
-        collectionRemoveProducts(collectionId: $id, productIds: $productIds) {
+        collectionRemoveProducts(id: $id, productIds: $productIds) {
           collection {
             id
             title
