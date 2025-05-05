@@ -67,13 +67,49 @@ export default function PromotionsPage() {
     }
   }
 
+  // Función para formatear fechas de manera segura
+  const formatDateSafe = (dateString: string | null | undefined) => {
+    if (!dateString) return "N/A"
+
+    try {
+      const date = new Date(dateString)
+      // Verificar si la fecha es válida
+      if (isNaN(date.getTime())) {
+        return "Fecha inválida"
+      }
+      return format(date, "dd MMM yyyy", { locale: es })
+    } catch (error) {
+      console.error("Error al formatear fecha:", error, dateString)
+      return "Fecha inválida"
+    }
+  }
+
   // Filtrar promociones según la pestaña activa y el término de búsqueda
   const filteredPromotions = promotions.filter((promo) => {
     const matchesSearch = promo.title.toLowerCase().includes(searchTerm.toLowerCase())
-    const isActive =
-      new Date(promo.startDate) <= new Date() && (!promo.endDate || new Date(promo.endDate) >= new Date())
-    const isUpcoming = new Date(promo.startDate) > new Date()
-    const isExpired = promo.endDate && new Date(promo.endDate) < new Date()
+
+    // Verificar fechas de manera segura
+    let isActive = false
+    let isUpcoming = false
+    let isExpired = false
+
+    try {
+      const now = new Date()
+      const startDate = promo.startsAt ? new Date(promo.startsAt) : null
+      const endDate = promo.endsAt ? new Date(promo.endsAt) : null
+
+      if (startDate && !isNaN(startDate.getTime())) {
+        if (endDate && !isNaN(endDate.getTime())) {
+          isActive = startDate <= now && endDate >= now
+          isExpired = endDate < now
+        } else {
+          isActive = startDate <= now
+        }
+        isUpcoming = startDate > now
+      }
+    } catch (error) {
+      console.error("Error al procesar fechas de promoción:", error, promo)
+    }
 
     if (activeTab === "all") return matchesSearch
     if (activeTab === "active") return matchesSearch && isActive
@@ -103,25 +139,34 @@ export default function PromotionsPage() {
     } else if (promotion.type === "FIXED_AMOUNT_DISCOUNT") {
       return `${promotion.value}€ de descuento`
     } else if (promotion.type === "BUY_X_GET_Y") {
-      return `Compra ${promotion.conditions[0]?.value} y llévate ${promotion.value}`
+      return `Compra ${promotion.conditions?.[0]?.value || "X"} y llévate ${promotion.value}`
     }
     return `${promotion.value}`
   }
 
   // Función para formatear el estado de la promoción
   const getPromotionStatus = (promotion: Promotion) => {
-    const now = new Date()
-    const startDate = new Date(promotion.startDate)
-    const endDate = promotion.endDate ? new Date(promotion.endDate) : null
+    try {
+      const now = new Date()
+      const startDate = promotion.startsAt ? new Date(promotion.startsAt) : null
+      const endDate = promotion.endsAt ? new Date(promotion.endsAt) : null
 
-    if (startDate > now) {
-      return { label: "Próximamente", color: "bg-blue-100 text-blue-800" }
-    } else if (endDate && endDate < now) {
-      return { label: "Expirada", color: "bg-gray-100 text-gray-800" }
-    } else if (!promotion.active) {
-      return { label: "Inactiva", color: "bg-yellow-100 text-yellow-800" }
-    } else {
-      return { label: "Activa", color: "bg-green-100 text-green-800" }
+      if (!startDate || isNaN(startDate.getTime())) {
+        return { label: "Estado desconocido", color: "bg-gray-100 text-gray-800" }
+      }
+
+      if (startDate > now) {
+        return { label: "Próximamente", color: "bg-blue-100 text-blue-800" }
+      } else if (endDate && !isNaN(endDate.getTime()) && endDate < now) {
+        return { label: "Expirada", color: "bg-gray-100 text-gray-800" }
+      } else if (!promotion.active) {
+        return { label: "Inactiva", color: "bg-yellow-100 text-yellow-800" }
+      } else {
+        return { label: "Activa", color: "bg-green-100 text-green-800" }
+      }
+    } catch (error) {
+      console.error("Error al determinar estado de promoción:", error, promotion)
+      return { label: "Estado desconocido", color: "bg-gray-100 text-gray-800" }
     }
   }
 
@@ -224,10 +269,8 @@ export default function PromotionsPage() {
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium">Periodo:</span>
                           <span className="text-sm">
-                            {format(new Date(promotion.startDate), "dd MMM", { locale: es })} -{" "}
-                            {promotion.endDate
-                              ? format(new Date(promotion.endDate), "dd MMM", { locale: es })
-                              : "Sin fin"}
+                            {formatDateSafe(promotion.startsAt)} -{" "}
+                            {promotion.endsAt ? formatDateSafe(promotion.endsAt) : "Sin fin"}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
