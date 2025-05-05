@@ -602,7 +602,7 @@ export async function createPromotion(promotionData) {
 
       // Configurar el valor del descuento
       if (promotionData.type === "PERCENTAGE_DISCOUNT") {
-        discountInput.customerGets.value = { percentage: promotionData.value.toString() }
+        discountInput.customerGets.value = { percentage: Number.parseFloat(promotionData.value) }
       } else if (promotionData.type === "FIXED_AMOUNT_DISCOUNT") {
         discountInput.customerGets.value = {
           amount: {
@@ -616,7 +616,7 @@ export async function createPromotion(promotionData) {
       if (promotionData.minimumPurchase && Number.parseFloat(promotionData.minimumPurchase) > 0) {
         discountInput.minimumRequirement = {
           subtotal: {
-            greaterThanOrEqualToAmount: {
+            greaterThanOrEqualToSubtotal: {
               amount: promotionData.minimumPurchase,
               currencyCode: "EUR",
             },
@@ -660,7 +660,7 @@ export async function createPromotion(promotionData) {
 
       // Configurar el valor del descuento
       if (promotionData.type === "PERCENTAGE_DISCOUNT") {
-        discountInput.customerGets.value = { percentage: promotionData.value.toString() }
+        discountInput.customerGets.value = { percentage: Number.parseFloat(promotionData.value) }
       } else if (promotionData.type === "FIXED_AMOUNT_DISCOUNT") {
         discountInput.customerGets.value = {
           amount: {
@@ -674,7 +674,7 @@ export async function createPromotion(promotionData) {
       if (promotionData.minimumPurchase && Number.parseFloat(promotionData.minimumPurchase) > 0) {
         discountInput.minimumRequirement = {
           subtotal: {
-            greaterThanOrEqualToAmount: {
+            greaterThanOrEqualToSubtotal: {
               amount: promotionData.minimumPurchase,
               currencyCode: "EUR",
             },
