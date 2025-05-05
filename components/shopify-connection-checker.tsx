@@ -6,7 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { testShopifyConnection } from "@/lib/shopify"
 
-export function ShopifyConnectionChecker() {
+interface ShopifyConnectionCheckerProps {
+  onConnectionChange?: (connected: boolean) => void
+}
+
+export function ShopifyConnectionChecker({ onConnectionChange }: ShopifyConnectionCheckerProps) {
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
   const [message, setMessage] = useState("")
   const [shopName, setShopName] = useState("")
@@ -24,17 +28,20 @@ export function ShopifyConnectionChecker() {
         setStatus("success")
         setShopName(result.data?.shop?.name || "")
         setMessage(`Conexión establecida correctamente con la tienda: ${result.data?.shop?.name || ""}`)
+        onConnectionChange?.(true)
       } else {
         setStatus("error")
         setMessage(result.message || "Error al verificar la conexión con Shopify")
+        onConnectionChange?.(false)
       }
     } catch (error) {
       setStatus("error")
       setMessage(`Error al verificar la conexión: ${(error as Error).message}`)
+      onConnectionChange?.(false)
     } finally {
       setIsChecking(false)
     }
-  }, [retryCount])
+  }, [retryCount, onConnectionChange])
 
   const handleRetry = () => {
     setRetryCount((prev) => prev + 1)

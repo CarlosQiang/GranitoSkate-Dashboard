@@ -18,8 +18,6 @@ const checkShopifyEnvVars = () => {
 // Obtener todos los clientes con paginación y filtros
 export async function fetchCustomers(first = 20, query?: string, after?: string): Promise<CustomersResponse> {
   try {
-    checkShopifyEnvVars()
-
     const variables: { first: number; query?: string; after?: string } = { first }
     if (query) {
       variables.query = query
@@ -113,8 +111,6 @@ export async function fetchCustomers(first = 20, query?: string, after?: string)
 // Obtener un cliente por ID
 export async function fetchCustomerById(id: string): Promise<Customer> {
   try {
-    checkShopifyEnvVars()
-
     const graphqlQuery = `
       query getCustomer($id: ID!) {
         customer(id: $id) {
@@ -236,8 +232,6 @@ export async function fetchCustomerById(id: string): Promise<Customer> {
 // Obtener los pedidos de un cliente
 export async function fetchCustomerOrders(customerId: string): Promise<CustomerOrder[]> {
   try {
-    checkShopifyEnvVars()
-
     const graphqlQuery = `
       query getCustomerOrders($customerId: ID!) {
         customer(id: $customerId) {
@@ -329,8 +323,6 @@ export async function fetchCustomerOrders(customerId: string): Promise<CustomerO
 // Crear un nuevo cliente
 export async function createCustomer(customerData: CustomerInput): Promise<Customer> {
   try {
-    checkShopifyEnvVars()
-
     const graphqlQuery = `
       mutation customerCreate($input: CustomerInput!) {
         customerCreate(input: $input) {
@@ -409,8 +401,6 @@ export async function createCustomer(customerData: CustomerInput): Promise<Custo
 // Actualizar un cliente existente
 export async function updateCustomer(id: string, customerData: Partial<CustomerUpdateInput>): Promise<Customer> {
   try {
-    checkShopifyEnvVars()
-
     const graphqlQuery = `
       mutation customerUpdate($input: CustomerInput!) {
         customerUpdate(input: $input) {
@@ -494,8 +484,6 @@ export async function updateCustomer(id: string, customerData: Partial<CustomerU
 // Eliminar un cliente
 export async function deleteCustomer(id: string): Promise<boolean> {
   try {
-    checkShopifyEnvVars()
-
     const graphqlQuery = `
       mutation customerDelete($id: ID!) {
         customerDelete(input: { id: $id }) {
@@ -543,8 +531,6 @@ export async function addCustomerAddress(
   address: Omit<CustomerAddress, "id">,
 ): Promise<CustomerAddress> {
   try {
-    checkShopifyEnvVars()
-
     const graphqlQuery = `
       mutation customerAddressCreate($customerId: ID!, $address: MailingAddressInput!) {
         customerAddressCreate(customerId: $customerId, address: $address) {
@@ -621,8 +607,6 @@ export async function addCustomerAddress(
 // Eliminar una dirección de cliente
 export async function deleteCustomerAddress(addressId: string): Promise<boolean> {
   try {
-    checkShopifyEnvVars()
-
     const graphqlQuery = `
       mutation customerAddressDelete($id: ID!) {
         customerAddressDelete(id: $id) {
@@ -669,8 +653,6 @@ export async function deleteCustomerAddress(addressId: string): Promise<boolean>
 // Establecer una dirección como predeterminada
 export async function setDefaultCustomerAddress(customerId: string, addressId: string): Promise<boolean> {
   try {
-    checkShopifyEnvVars()
-
     const graphqlQuery = `
       mutation customerDefaultAddressUpdate($customerId: ID!, $addressId: ID!) {
         customerDefaultAddressUpdate(customerId: $customerId, addressId: $addressId) {

@@ -1,3 +1,24 @@
+export interface Customer {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string | null
+  ordersCount: number
+  totalSpent: {
+    amount: string
+    currencyCode: string
+  }
+  createdAt: string
+  updatedAt?: string
+  note?: string
+  tags: string[]
+  verifiedEmail: boolean
+  acceptsMarketing: boolean
+  addresses?: CustomerAddress[]
+  defaultAddress?: CustomerAddress
+}
+
 export interface CustomerAddress {
   id: string
   address1: string
@@ -5,97 +26,19 @@ export interface CustomerAddress {
   city: string
   company?: string
   country: string
-  countryCode?: string
   firstName?: string
   lastName?: string
   phone?: string
-  province?: string
-  provinceCode?: string
+  province: string
   zip: string
-  formattedArea?: string
-  latitude?: number
-  longitude?: number
-  name?: string
-}
-
-export interface CustomerDefaultAddress extends CustomerAddress {
-  formattedArea?: string
-}
-
-export interface CustomerImage {
-  src?: string
-  alt?: string
-}
-
-export interface CustomerAmountSpent {
-  amount: string
-  currencyCode: string
-}
-
-export interface Customer {
-  id: string
-  firstName: string
-  lastName: string
-  email: string
-  phone?: string
-  tags: string[]
-  note?: string
-  verifiedEmail: boolean
-  validEmailAddress?: boolean
-  addresses: CustomerAddress[]
-  defaultAddress?: CustomerDefaultAddress
-  image?: CustomerImage
-  createdAt: string
-  updatedAt?: string
-  ordersCount: number
-  totalSpent: CustomerAmountSpent
-  acceptsMarketing: boolean
-  canDelete?: boolean
-}
-
-export interface CustomerInput {
-  firstName?: string
-  lastName?: string
-  email: string
-  phone?: string
-  note?: string
-  tags?: string[]
-  addresses?: Omit<CustomerAddress, "id">[]
-  password?: string
-  acceptsMarketing?: boolean
-}
-
-export interface CustomerUpdateInput extends Partial<CustomerInput> {
-  id: string
-  defaultAddress?: string
-}
-
-export interface CustomerFilters {
-  query?: string
-  first?: number
-  after?: string
-  before?: string
-  last?: number
-  sortKey?: "CREATED_AT" | "UPDATED_AT" | "LAST_ORDER_DATE" | "NAME" | "TOTAL_SPENT"
-  reverse?: boolean
-}
-
-export interface CustomersResponse {
-  customers: Customer[]
-  pageInfo: {
-    hasNextPage: boolean
-    hasPreviousPage: boolean
-    startCursor?: string
-    endCursor?: string
-  }
 }
 
 export interface CustomerOrder {
   id: string
   name: string
   processedAt: string
-  fulfillmentStatus: string
-  financialStatus: string
+  fulfillmentStatus: string | null
+  financialStatus: string | null
   totalPrice: {
     amount: string
     currencyCode: string
@@ -111,4 +54,28 @@ export interface CustomerOrder {
       }
     }
   }[]
+}
+
+export interface CustomerInput {
+  firstName?: string
+  lastName?: string
+  email: string
+  phone?: string
+  note?: string
+  acceptsMarketing?: boolean
+  tags?: string[]
+}
+
+export interface CustomerUpdateInput extends CustomerInput {
+  id: string
+}
+
+export interface CustomersResponse {
+  customers: Customer[]
+  pageInfo: {
+    hasNextPage: boolean
+    hasPreviousPage: boolean
+    startCursor?: string
+    endCursor?: string
+  }
 }

@@ -8,6 +8,26 @@ export async function GET(request: Request) {
   try {
     console.log("Verificando conexión con Shopify...")
 
+    // Verificar que las variables de entorno estén definidas
+    const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
+    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
+
+    if (!shopDomain || !accessToken) {
+      console.error("Variables de entorno de Shopify no definidas", {
+        NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: shopDomain ? "defined" : "undefined",
+        SHOPIFY_ACCESS_TOKEN: accessToken ? "defined" : "undefined",
+      })
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Variables de entorno de Shopify no definidas. Verifica NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN y SHOPIFY_ACCESS_TOKEN.",
+        },
+        { status: 200 }, // Devolvemos 200 para manejar el error en el cliente
+      )
+    }
+
     // Obtener la URL de la solicitud para extraer parámetros
     const url = new URL(request.url)
     const retry = url.searchParams.get("retry") || "0"

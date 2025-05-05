@@ -62,7 +62,19 @@ export async function testShopifyConnection() {
       }
     }
 
-    const response = await fetch(`${getBaseUrl()}/api/shopify/proxy`, {
+    const query = `
+      {
+        shop {
+          name
+          url
+          primaryDomain {
+            url
+          }
+        }
+      }
+    `
+
+    const response = await fetch(`${getBaseUrl()}/api/shopify/check`, {
       method: "GET",
       headers: {
         "Cache-Control": "no-cache, no-store, must-revalidate",

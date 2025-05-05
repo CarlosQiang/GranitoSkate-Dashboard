@@ -17,6 +17,7 @@ import {
   ChevronRight,
   ChevronLeft,
   AlertCircle,
+  RefreshCw,
 } from "lucide-react"
 import { fetchCustomers, deleteCustomer } from "@/lib/api/customers"
 import { useToast } from "@/components/ui/use-toast"
@@ -33,6 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ShopifyConnectionChecker } from "@/components/shopify-connection-checker"
 import type { Customer } from "@/types/customers"
 
 export default function CustomersPage() {
@@ -50,6 +52,7 @@ export default function CustomersPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [customerToDelete, setCustomerToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [shopifyConnected, setShopifyConnected] = useState(false)
 
   // Debounce search query
   useEffect(() => {
@@ -72,6 +75,7 @@ export default function CustomersPage() {
         setHasNextPage(data.pageInfo.hasNextPage)
         setHasPreviousPage(data.pageInfo.hasPreviousPage)
         setCursor(data.pageInfo.hasNextPage ? data.pageInfo.endCursor : null)
+        setShopifyConnected(true)
       } catch (error: any) {
         console.error("Error fetching customers:", error)
         setIsError(true)
@@ -140,8 +144,20 @@ export default function CustomersPage() {
     getCustomers(debouncedSearchQuery)
   }
 
+  // Función para manejar el cambio en la conexión de Shopify
+  const handleShopifyConnectionChange = (connected: boolean) => {
+    setShopifyConnected(connected)
+    if (connected && isError) {
+      // Si se conecta y había un error, intentamos cargar los clientes de nuevo
+      getCustomers(debouncedSearchQuery)
+    }
+  }
+
   return (
     <div className="space-y-6">
+      {/* Verificador de conexión con Shopify */}
+      <ShopifyConnectionChecker onConnectionChange={handleShopifyConnectionChange} />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
@@ -176,7 +192,10 @@ export default function CustomersPage() {
             <CardDescription>{errorMessage}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={handleRetry}>Reintentar</Button>
+            <Button onClick={handleRetry} className="flex items-center">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Reintentar
+            </Button>
           </CardContent>
         </Card>
       ) : isLoading ? (
