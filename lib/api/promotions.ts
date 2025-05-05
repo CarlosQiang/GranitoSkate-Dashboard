@@ -616,10 +616,7 @@ export async function createPromotion(promotionData) {
       if (promotionData.minimumPurchase && Number.parseFloat(promotionData.minimumPurchase) > 0) {
         discountInput.minimumRequirement = {
           subtotal: {
-            greaterThanOrEqualToSubtotal: {
-              amount: promotionData.minimumPurchase,
-              currencyCode: "EUR",
-            },
+            greaterThanOrEqualToSubtotal: Number.parseFloat(promotionData.minimumPurchase),
           },
         }
       }
@@ -674,10 +671,7 @@ export async function createPromotion(promotionData) {
       if (promotionData.minimumPurchase && Number.parseFloat(promotionData.minimumPurchase) > 0) {
         discountInput.minimumRequirement = {
           subtotal: {
-            greaterThanOrEqualToSubtotal: {
-              amount: promotionData.minimumPurchase,
-              currencyCode: "EUR",
-            },
+            greaterThanOrEqualToSubtotal: Number.parseFloat(promotionData.minimumPurchase),
           },
         }
       }
