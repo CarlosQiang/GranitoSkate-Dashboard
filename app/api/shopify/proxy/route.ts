@@ -1,15 +1,20 @@
 import { NextResponse } from "next/server"
+import { getEnvVar } from "@/lib/env-check"
 
 export const maxDuration = 60 // 60 segundos de timeout
 
 export async function POST(request: Request) {
   try {
-    // Verificar que las variables de entorno estén definidas
-    const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
-    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
+    // Obtener las variables de entorno directamente
+    const shopDomain = getEnvVar("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN")
+    const accessToken = getEnvVar("SHOPIFY_ACCESS_TOKEN")
 
     if (!shopDomain || !accessToken) {
-      console.error("Variables de entorno de Shopify no definidas")
+      console.error("Variables de entorno de Shopify no definidas", {
+        NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: shopDomain ? "defined" : "undefined",
+        SHOPIFY_ACCESS_TOKEN: accessToken ? "defined" : "undefined",
+      })
+
       return NextResponse.json(
         {
           errors: [
@@ -28,6 +33,9 @@ export async function POST(request: Request) {
 
     // Construir la URL de la API de Shopify
     const shopifyApiUrl = `https://${shopDomain}/admin/api/2023-10/graphql.json`
+
+    console.log(`Realizando solicitud a Shopify API: ${shopifyApiUrl}`)
+    console.log(`Con token: ${accessToken.substring(0, 5)}...${accessToken.substring(accessToken.length - 5)}`)
 
     // Realizar la solicitud a la API de Shopify
     const shopifyResponse = await fetch(shopifyApiUrl, {
@@ -76,12 +84,16 @@ export async function POST(request: Request) {
 
 export async function GET() {
   try {
-    // Verificar que las variables de entorno estén definidas
-    const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
-    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
+    // Obtener las variables de entorno directamente
+    const shopDomain = getEnvVar("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN")
+    const accessToken = getEnvVar("SHOPIFY_ACCESS_TOKEN")
 
     if (!shopDomain || !accessToken) {
-      console.error("Variables de entorno de Shopify no definidas")
+      console.error("Variables de entorno de Shopify no definidas", {
+        NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: shopDomain ? "defined" : "undefined",
+        SHOPIFY_ACCESS_TOKEN: accessToken ? "defined" : "undefined",
+      })
+
       return NextResponse.json(
         {
           success: false,
@@ -107,6 +119,9 @@ export async function GET() {
 
     // Construir la URL de la API de Shopify
     const shopifyApiUrl = `https://${shopDomain}/admin/api/2023-10/graphql.json`
+
+    console.log(`Verificando conexión con Shopify API: ${shopifyApiUrl}`)
+    console.log(`Con token: ${accessToken.substring(0, 5)}...${accessToken.substring(accessToken.length - 5)}`)
 
     // Realizar la solicitud a la API de Shopify
     const shopifyResponse = await fetch(shopifyApiUrl, {

@@ -1,19 +1,5 @@
 import { GraphQLClient } from "graphql-request"
-
-// Función para verificar las variables de entorno de Shopify
-const checkShopifyEnvVars = () => {
-  const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
-  const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
-
-  if (!shopDomain || !accessToken) {
-    console.error("Shopify environment variables not defined", {
-      NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: shopDomain ? "defined" : "undefined",
-      SHOPIFY_ACCESS_TOKEN: accessToken ? "defined" : "undefined",
-    })
-    return false
-  }
-  return true
-}
+import { checkRequiredEnvVars } from "./env-check"
 
 // Función para obtener la URL base de la aplicación
 const getBaseUrl = () => {
@@ -39,7 +25,7 @@ const shopifyClient = new GraphQLClient(`${getBaseUrl()}/api/shopify/proxy`, {
 })
 
 // Verificar las variables de entorno al inicializar
-checkShopifyEnvVars()
+checkRequiredEnvVars()
 
 // Función para formatear correctamente los IDs de Shopify
 export function formatShopifyId(id: string, type = "Product") {
@@ -53,7 +39,7 @@ export function formatShopifyId(id: string, type = "Product") {
 export async function testShopifyConnection() {
   try {
     // Verificar las variables de entorno primero
-    if (!checkShopifyEnvVars()) {
+    if (!checkRequiredEnvVars()) {
       return {
         success: false,
         data: null,
