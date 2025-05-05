@@ -1,17 +1,17 @@
 export interface CustomerAddress {
-  id?: string
-  address1?: string
+  id: string
+  address1: string
   address2?: string
-  city?: string
+  city: string
   company?: string
-  country?: string
+  country: string
   countryCode?: string
   firstName?: string
   lastName?: string
   phone?: string
   province?: string
   provinceCode?: string
-  zip?: string
+  zip: string
   formattedArea?: string
   latitude?: number
   longitude?: number
@@ -28,28 +28,28 @@ export interface CustomerImage {
 }
 
 export interface CustomerAmountSpent {
-  amount?: string
-  currencyCode?: string
+  amount: string
+  currencyCode: string
 }
 
 export interface Customer {
   id: string
-  firstName?: string
-  lastName?: string
-  email?: string
+  firstName: string
+  lastName: string
+  email: string
   phone?: string
-  tags?: string[]
+  tags: string[]
   note?: string
-  verifiedEmail?: boolean
+  verifiedEmail: boolean
   validEmailAddress?: boolean
-  addresses?: CustomerAddress[]
+  addresses: CustomerAddress[]
   defaultAddress?: CustomerDefaultAddress
   image?: CustomerImage
-  createdAt?: string
+  createdAt: string
   updatedAt?: string
-  numberOfOrders?: number
-  amountSpent?: CustomerAmountSpent
-  lifetimeDuration?: string
+  ordersCount: number
+  totalSpent: CustomerAmountSpent
+  acceptsMarketing: boolean
   canDelete?: boolean
 }
 
@@ -67,6 +67,7 @@ export interface CustomerInput {
 
 export interface CustomerUpdateInput extends Partial<CustomerInput> {
   id: string
+  defaultAddress?: string
 }
 
 export interface CustomerFilters {
@@ -87,4 +88,27 @@ export interface CustomersResponse {
     startCursor?: string
     endCursor?: string
   }
+}
+
+export interface CustomerOrder {
+  id: string
+  name: string
+  processedAt: string
+  fulfillmentStatus: string
+  financialStatus: string
+  totalPrice: {
+    amount: string
+    currencyCode: string
+  }
+  lineItems?: {
+    title: string
+    quantity: number
+    variant?: {
+      title: string
+      price: {
+        amount: string
+        currencyCode: string
+      }
+    }
+  }[]
 }

@@ -6,7 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 
 export function ShopifyApiStatus() {
-  const [status, setStatus] = useState<"loading" | "connected" | "error" | "hidden">("loading")
+  const [status, setStatus] = useState<"loading" | "connected" | "error" | "hidden" | "env_missing">("loading")
   const [shopName, setShopName] = useState<string>("")
   const [error, setError] = useState<string>("")
   const [isChecking, setIsChecking] = useState(false)
@@ -47,6 +47,20 @@ export function ShopifyApiStatus() {
     setStatus("loading")
 
     try {
+      // Verificar si las variables de entorno están definidas
+      const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
+      const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
+
+      if (!shopDomain || !accessToken) {
+        console.error("Shopify environment variables not defined")
+        setStatus("env_missing")
+        setError(
+          "Variables de entorno de Shopify no definidas. Verifica NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN y SHOPIFY_ACCESS_TOKEN.",
+        )
+        setIsChecking(false)
+        return
+      }
+
       // Primero verificamos si hay datos en la página o mensaje de éxito
       if (checkForDataOrSuccessMessage()) {
         console.log("Se encontraron datos o mensaje de éxito, ocultando el estado de la API")
@@ -162,6 +176,32 @@ export function ShopifyApiStatus() {
         <AlertTitle>Error de conexión con Shopify</AlertTitle>
         <AlertDescription className="flex flex-col gap-2">
           <p>{error}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={checkConnection}
+            disabled={isChecking}
+            className="w-fit flex items-center gap-2"
+          >
+            {isChecking ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Reintentar conexión
+          </Button>
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
+  if (status === "env_missing") {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error de configuración</AlertTitle>
+        <AlertDescription className="flex flex-col gap-2">
+          <p>{error}</p>
+          <p className="text-sm">
+            Asegúrate de que las variables de entorno estén correctamente configuradas en tu archivo .env.local o en la
+            configuración de Vercel.
+          </p>
           <Button
             variant="outline"
             size="sm"

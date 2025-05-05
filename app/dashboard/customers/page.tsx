@@ -1,13 +1,23 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Search, MoreHorizontal, Pencil, ShoppingCart, UserPlus, Trash2, ChevronRight, ChevronLeft } from "lucide-react"
+import {
+  Search,
+  MoreHorizontal,
+  Pencil,
+  ShoppingCart,
+  UserPlus,
+  Trash2,
+  ChevronRight,
+  ChevronLeft,
+  AlertCircle,
+} from "lucide-react"
 import { fetchCustomers, deleteCustomer } from "@/lib/api/customers"
 import { useToast } from "@/components/ui/use-toast"
 import { formatDate, formatCurrency } from "@/lib/utils"
@@ -22,32 +32,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-
-interface Customer {
-  id: string
-  firstName: string
-  lastName: string
-  email: string
-  phone: string | null
-  ordersCount: number
-  totalSpent: {
-    amount: string
-    currencyCode: string
-  }
-  createdAt: string
-  tags: string[]
-  verifiedEmail: boolean
-}
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import type { Customer } from "@/types/customers"
 
 export default function CustomersPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isError, setIsError] = useState(false)
+  const [errorMessage, setErrorMessage] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
   const [cursor, setCursor] = useState<string | null>(null)
   const [hasNextPage, setHasNextPage] = useState(false)
+  const [hasPreviousPage, setHasPreviousPage] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [customerToDelete, setCustomerToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -61,68 +60,47 @@ export default function CustomersPage() {
     return () => clearTimeout(timer)
   }, [searchQuery])
 
-  // Fetch customers when search query changes
-  useEffect(() => {
-    const getCustomers = async () => {
+  // Fetch customers function
+  const getCustomers = useCallback(
+    async (searchQuery = "", cursor: string | null = null, direction: "next" | "prev" = "next") => {
       setIsLoading(true)
+      setIsError(false)
+
       try {
-        const data = await fetchCustomers(20, debouncedSearchQuery)
+        const data = await fetchCustomers(20, searchQuery, direction === "next" ? cursor : null)
         setCustomers(data.customers)
         setHasNextPage(data.pageInfo.hasNextPage)
+        setHasPreviousPage(data.pageInfo.hasPreviousPage)
         setCursor(data.pageInfo.hasNextPage ? data.pageInfo.endCursor : null)
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching customers:", error)
+        setIsError(true)
+        setErrorMessage(error.message || "No se pudieron cargar los clientes")
         toast({
           title: "Error",
-          description: "No se pudieron cargar los clientes",
+          description: error.message || "No se pudieron cargar los clientes",
           variant: "destructive",
         })
       } finally {
         setIsLoading(false)
       }
-    }
+    },
+    [toast],
+  )
 
-    getCustomers()
-  }, [debouncedSearchQuery, toast])
+  // Fetch customers when search query changes
+  useEffect(() => {
+    getCustomers(debouncedSearchQuery)
+  }, [debouncedSearchQuery, getCustomers])
 
-  const loadNextPage = async () => {
+  const loadNextPage = () => {
     if (!hasNextPage || !cursor) return
-
-    setIsLoading(true)
-    try {
-      const data = await fetchCustomers(20, debouncedSearchQuery, cursor)
-      setCustomers(data.customers)
-      setHasNextPage(data.pageInfo.hasNextPage)
-      setCursor(data.pageInfo.hasNextPage ? data.pageInfo.endCursor : null)
-    } catch (error) {
-      console.error("Error fetching next page:", error)
-      toast({
-        title: "Error",
-        description: "No se pudo cargar la siguiente página",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
+    getCustomers(debouncedSearchQuery, cursor, "next")
   }
 
-  const loadPreviousPage = async () => {
-    setIsLoading(true)
-    try {
-      const data = await fetchCustomers(20, debouncedSearchQuery)
-      setCustomers(data.customers)
-      setHasNextPage(data.pageInfo.hasNextPage)
-      setCursor(data.pageInfo.hasNextPage ? data.pageInfo.endCursor : null)
-    } catch (error) {
-      console.error("Error fetching previous page:", error)
-      toast({
-        title: "Error",
-        description: "No se pudo cargar la página anterior",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
+  const loadPreviousPage = () => {
+    if (!hasPreviousPage) return
+    getCustomers(debouncedSearchQuery, null, "prev")
   }
 
   const handleDeleteCustomer = async () => {
@@ -139,11 +117,11 @@ export default function CustomersPage() {
         title: "Cliente eliminado",
         description: "El cliente ha sido eliminado correctamente",
       })
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting customer:", error)
       toast({
         title: "Error",
-        description: "No se pudo eliminar el cliente",
+        description: error.message || "No se pudo eliminar el cliente",
         variant: "destructive",
       })
     } finally {
@@ -156,6 +134,10 @@ export default function CustomersPage() {
   const confirmDelete = (id: string) => {
     setCustomerToDelete(id)
     setIsDeleteDialogOpen(true)
+  }
+
+  const handleRetry = () => {
+    getCustomers(debouncedSearchQuery)
   }
 
   return (
@@ -184,7 +166,20 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      {isLoading ? (
+      {isError ? (
+        <Card className="border-red-200">
+          <CardHeader>
+            <CardTitle className="flex items-center text-red-600">
+              <AlertCircle className="h-5 w-5 mr-2" />
+              Error al cargar los clientes
+            </CardTitle>
+            <CardDescription>{errorMessage}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={handleRetry}>Reintentar</Button>
+          </CardContent>
+        </Card>
+      ) : isLoading ? (
         <div className="rounded-md border">
           <Table>
             <TableHeader>
@@ -313,9 +308,9 @@ export default function CustomersPage() {
             </TableBody>
           </Table>
 
-          {(hasNextPage || cursor) && (
+          {(hasNextPage || hasPreviousPage) && (
             <div className="flex items-center justify-end space-x-2 py-4 px-4 border-t">
-              <Button variant="outline" size="sm" onClick={loadPreviousPage} disabled={!cursor || isLoading}>
+              <Button variant="outline" size="sm" onClick={loadPreviousPage} disabled={!hasPreviousPage || isLoading}>
                 <ChevronLeft className="h-4 w-4 mr-1" />
                 Anterior
               </Button>

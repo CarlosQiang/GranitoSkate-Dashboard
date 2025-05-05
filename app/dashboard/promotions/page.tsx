@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { fetchPriceLists, deletePriceList } from "@/lib/api/promotions"
 import type { Promotion } from "@/types/promotions"
-import { Plus, Search, Tag, Percent, ShoppingBag, AlertCircle, Loader2 } from "lucide-react"
+import { Plus, Search, Tag, Percent, ShoppingBag, AlertCircle, Loader2, RefreshCw } from "lucide-react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -24,18 +24,26 @@ export default function PromotionsPage() {
   const [activeTab, setActiveTab] = useState("all")
   const [error, setError] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState<string | null>(null)
+  const [filteredPromotions, setFilteredPromotions] = useState<Promotion[]>([])
 
   useEffect(() => {
     async function loadPromotions() {
       try {
         setIsLoading(true)
         const data = await fetchPriceLists()
-        setPromotions(Array.isArray(data) ? data : [])
+
+        if (!data || !Array.isArray(data)) {
+          throw new Error("No se recibieron datos válidos de promociones")
+        }
+
+        setPromotions(data)
+        setFilteredPromotions(data)
         setError(null)
       } catch (err) {
         console.error("Error al cargar promociones:", err)
-        setError("No se pudieron cargar las promociones. Por favor, inténtalo de nuevo.")
+        setError(`No se pudieron cargar las promociones: ${(err as Error).message}`)
         setPromotions([])
+        setFilteredPromotions([])
       } finally {
         setIsLoading(false)
       }
@@ -85,7 +93,7 @@ export default function PromotionsPage() {
   }
 
   // Filtrar promociones según la pestaña activa y el término de búsqueda
-  const filteredPromotions = promotions.filter((promo) => {
+  const filteredPromotionsLocal = promotions.filter((promo) => {
     const matchesSearch = promo.title.toLowerCase().includes(searchTerm.toLowerCase())
 
     // Verificar fechas de manera segura
@@ -176,10 +184,21 @@ export default function PromotionsPage() {
       </div>
 
       {error && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="mb-4">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription className="flex flex-col gap-2">
+            <p>{error}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.location.reload()}
+              className="w-fit flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Reintentar
+            </Button>
+          </AlertDescription>
         </Alert>
       )}
 
@@ -217,7 +236,7 @@ export default function PromotionsPage() {
                 </Card>
               ))}
             </div>
-          ) : filteredPromotions.length === 0 ? (
+          ) : filteredPromotionsLocal.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-10">
                 <Tag className="h-12 w-12 text-muted-foreground mb-4" />
@@ -235,7 +254,7 @@ export default function PromotionsPage() {
             </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredPromotions.map((promotion) => {
+              {filteredPromotionsLocal.map((promotion) => {
                 const status = getPromotionStatus(promotion)
                 return (
                   <Card key={promotion.id} className="overflow-hidden hover:shadow-md transition-shadow">

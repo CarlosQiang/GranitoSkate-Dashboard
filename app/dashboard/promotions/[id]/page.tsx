@@ -53,7 +53,14 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
         setIsLoading(true)
         // El ID puede ser el ID completo o solo el número
         const id = params.id
+
+        // Verificar si el ID existe antes de intentar cargarlo
         const data = await fetchPriceListById(id)
+
+        if (!data) {
+          throw new Error("No se encontró la promoción")
+        }
+
         setPromotion(data)
         setError(null)
       } catch (err) {
@@ -226,8 +233,8 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
               <CardTitle className="text-destructive">Error al cargar la promoción</CardTitle>
             </div>
             <CardDescription>
-              No se pudo cargar la información de la promoción. Es posible que la promoción haya sido eliminada o que no
-              tengas permisos para acceder a ella.
+              No se pudo cargar la información de la promoción. Es posible que la promoción haya sido eliminada o que el
+              ID no sea válido.
             </CardDescription>
           </CardHeader>
           <CardContent>
