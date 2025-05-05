@@ -16,7 +16,6 @@ export async function fetchPromotions(limit = 20) {
                 __typename
                 ... on DiscountAutomaticApp {
                   title
-                  summary
                   startsAt
                   endsAt
                   status
@@ -97,7 +96,6 @@ export async function fetchPromotions(limit = 20) {
                 }
                 ... on DiscountCodeApp {
                   title
-                  summary
                   startsAt
                   endsAt
                   status
@@ -336,7 +334,6 @@ export async function fetchPromotionById(id) {
               __typename
               ... on DiscountAutomaticApp {
                 title
-                summary
                 startsAt
                 endsAt
                 status
@@ -385,6 +382,21 @@ export async function fetchPromotionById(id) {
                     }
                     ... on AllDiscountItems {
                       allItems
+                    }
+                  }
+                }
+              }
+              ... on DiscountCodeApp {
+                title
+                startsAt
+                endsAt
+                status
+                discountClass
+                usageLimit
+                codes(first: 1) {
+                  edges {
+                    node {
+                      code
                     }
                   }
                 }
