@@ -90,12 +90,12 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
 
     try {
       const now = new Date()
-      const isActive = promotion.active
+      const isActive = promotion.status === "ACTIVE"
 
       // Si está activa, la desactivamos poniendo la fecha de fin en el pasado
       // Si está inactiva, la activamos quitando la fecha de fin
       const updateData = {
-        endDate: isActive ? new Date(now.getTime() - 86400000).toISOString() : undefined,
+        endsAt: isActive ? new Date(now.getTime() - 86400000).toISOString() : undefined,
       }
 
       await updatePriceList(params.id, updateData)
@@ -110,8 +110,8 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
       // Actualizar el estado local
       setPromotion({
         ...promotion,
-        active: !isActive,
-        endDate: isActive ? new Date(now.getTime() - 86400000).toISOString() : undefined,
+        status: isActive ? "EXPIRED" : "ACTIVE",
+        endsAt: isActive ? new Date(now.getTime() - 86400000).toISOString() : undefined,
       })
     } catch (error) {
       console.error("Error updating promotion status:", error)
@@ -130,7 +130,8 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
     } else if (promotion.type === "FIXED_AMOUNT_DISCOUNT") {
       return `${promotion.value}€ de descuento`
     } else if (promotion.type === "BUY_X_GET_Y") {
-      return `Compra ${promotion.conditions[0]?.value} y llévate ${promotion.value}`
+      const minQuantity = promotion.minimumRequirement?.value || "X"
+      return `Compra ${minQuantity} y llévate ${promotion.value}`
     }
     return `${promotion.value}`
   }
@@ -149,20 +150,38 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
     }
   }
 
+  // Función para formatear fechas de manera segura
+  const formatDateSafe = (dateString: string | null | undefined) => {
+    if (!dateString) return "N/A"
+
+    try {
+      const date = new Date(dateString)
+      // Verificar si la fecha es válida
+      if (isNaN(date.getTime())) {
+        return "Fecha inválida"
+      }
+      return format(date, "dd MMM yyyy", { locale: es })
+    } catch (error) {
+      console.error("Error al formatear fecha:", error, dateString)
+      return "Fecha inválida"
+    }
+  }
+
   // Función para formatear el estado de la promoción
   const getPromotionStatus = (promotion: Promotion) => {
-    const now = new Date()
-    const startDate = new Date(promotion.startDate)
-    const endDate = promotion.endDate ? new Date(promotion.endDate) : null
-
-    if (startDate > now) {
-      return { label: "Próximamente", color: "bg-blue-100 text-blue-800" }
-    } else if (endDate && endDate < now) {
-      return { label: "Expirada", color: "bg-gray-100 text-gray-800" }
-    } else if (!promotion.active) {
-      return { label: "Inactiva", color: "bg-yellow-100 text-yellow-800" }
-    } else {
-      return { label: "Activa", color: "bg-green-100 text-green-800" }
+    try {
+      if (promotion.status === "ACTIVE") {
+        return { label: "Activa", color: "bg-green-100 text-green-800" }
+      } else if (promotion.status === "EXPIRED") {
+        return { label: "Expirada", color: "bg-gray-100 text-gray-800" }
+      } else if (promotion.status === "SCHEDULED") {
+        return { label: "Próximamente", color: "bg-blue-100 text-blue-800" }
+      } else {
+        return { label: "Inactiva", color: "bg-yellow-100 text-yellow-800" }
+      }
+    } catch (error) {
+      console.error("Error al determinar estado de promoción:", error, promotion)
+      return { label: "Estado desconocido", color: "bg-gray-100 text-gray-800" }
     }
   }
 
@@ -239,8 +258,8 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
           <h1 className="text-3xl font-bold tracking-tight">{promotion.title}</h1>
         </div>
         <div className="flex gap-2">
-          <Button variant={promotion.active ? "outline" : "default"} onClick={togglePromotionStatus}>
-            {promotion.active ? "Desactivar" : "Activar"}
+          <Button variant={promotion.status === "ACTIVE" ? "outline" : "default"} onClick={togglePromotionStatus}>
+            {promotion.status === "ACTIVE" ? "Desactivar" : "Activar"}
           </Button>
           <Button variant="outline" onClick={() => router.push(`/dashboard/promotions/${params.id}/edit`)}>
             <Edit className="mr-2 h-4 w-4" />
@@ -312,10 +331,8 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
             <div className="flex justify-between items-center">
               <span className="font-medium">Periodo:</span>
               <span>
-                {format(new Date(promotion.startDate), "dd MMM yyyy", { locale: es })}
-                {promotion.endDate
-                  ? ` - ${format(new Date(promotion.endDate), "dd MMM yyyy", { locale: es })}`
-                  : " - Sin fecha de fin"}
+                {formatDateSafe(promotion.startsAt)}
+                {promotion.endsAt ? ` - ${formatDateSafe(promotion.endsAt)}` : " - Sin fecha de fin"}
               </span>
             </div>
 
@@ -332,14 +349,14 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
               <div className="flex justify-between items-center">
                 <span className="font-medium">Límite de usos:</span>
                 <span>
-                  {promotion.usageCount} / {promotion.usageLimit}
+                  {promotion.usageCount || 0} / {promotion.usageLimit}
                 </span>
               </div>
             )}
 
-            {promotion.description && (
+            {promotion.summary && (
               <div className="pt-4 border-t">
-                <p className="text-sm text-muted-foreground">{promotion.description}</p>
+                <p className="text-sm text-muted-foreground">{promotion.summary}</p>
               </div>
             )}
           </CardContent>
@@ -371,30 +388,18 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
               </div>
             </div>
 
-            {promotion.conditions && promotion.conditions.length > 0 && (
+            {promotion.minimumRequirement && (
               <div>
-                <h3 className="text-sm font-medium mb-2">Condiciones:</h3>
-                <ul className="space-y-2">
-                  {promotion.conditions.map((condition, index) => (
-                    <li key={index} className="flex items-center gap-2 text-sm">
-                      <AlertCircle className="h-4 w-4 text-blue-500" />
-                      {condition.type === "MINIMUM_AMOUNT" && <span>Compra mínima de {condition.value}€</span>}
-                      {condition.type === "MINIMUM_QUANTITY" && (
-                        <span>Cantidad mínima de {condition.value} productos</span>
-                      )}
-                      {condition.type === "SPECIFIC_CUSTOMER_GROUP" && (
-                        <span>Solo para grupo de clientes específico</span>
-                      )}
-                      {condition.type === "DATE_RANGE" && (
-                        <span>
-                          Válido del {format(new Date(condition.value.start), "dd/MM/yyyy")} al{" "}
-                          {format(new Date(condition.value.end), "dd/MM/yyyy")}
-                        </span>
-                      )}
-                      {condition.type === "FIRST_PURCHASE" && <span>Solo para primera compra</span>}
-                    </li>
-                  ))}
-                </ul>
+                <h3 className="text-sm font-medium mb-2">Requisitos:</h3>
+                <div className="flex items-center gap-2 text-sm">
+                  <AlertCircle className="h-4 w-4 text-blue-500" />
+                  {promotion.minimumRequirement.type === "MINIMUM_AMOUNT" && (
+                    <span>Compra mínima de {promotion.minimumRequirement.value}€</span>
+                  )}
+                  {promotion.minimumRequirement.type === "MINIMUM_QUANTITY" && (
+                    <span>Cantidad mínima de {promotion.minimumRequirement.value} productos</span>
+                  )}
+                </div>
               </div>
             )}
 
@@ -402,7 +407,7 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
               <Calendar className="h-4 w-4" />
               <AlertTitle>Información de uso</AlertTitle>
               <AlertDescription>
-                Esta promoción ha sido utilizada {promotion.usageCount} veces desde su creación.
+                Esta promoción ha sido utilizada {promotion.usageCount || 0} veces desde su creación.
               </AlertDescription>
             </Alert>
           </CardContent>
@@ -423,31 +428,15 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
               <CardDescription>Lista de productos a los que se aplica esta promoción</CardDescription>
             </CardHeader>
             <CardContent>
-              {promotion.prices && promotion.prices.length > 0 ? (
-                <div className="space-y-2">
-                  {promotion.prices.map((price, index) => (
-                    <div key={index} className="flex justify-between items-center p-2 border-b">
-                      <span>{price.productTitle}</span>
-                      <span className="font-medium">
-                        {new Intl.NumberFormat("es-ES", {
-                          style: "currency",
-                          currency: price.price.currencyCode,
-                        }).format(Number(price.price.amount))}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <Package className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-lg font-medium mb-2">No hay productos específicos</p>
-                  <p className="text-muted-foreground max-w-md">
-                    {promotion.target === "CART"
-                      ? "Esta promoción se aplica a todos los productos de la tienda que cumplan las condiciones."
-                      : "No hay productos específicos asociados a esta promoción."}
-                  </p>
-                </div>
-              )}
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Package className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-lg font-medium mb-2">No hay productos específicos</p>
+                <p className="text-muted-foreground max-w-md">
+                  {promotion.target === "CART"
+                    ? "Esta promoción se aplica a todos los productos de la tienda que cumplan las condiciones."
+                    : "No hay productos específicos asociados a esta promoción."}
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -463,9 +452,7 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
                 <Users className="h-12 w-12 text-muted-foreground mb-4" />
                 <p className="text-lg font-medium mb-2">Disponible para todos los clientes</p>
                 <p className="text-muted-foreground max-w-md">
-                  {promotion.conditions.some((c) => c.type === "FIRST_PURCHASE")
-                    ? "Esta promoción está disponible solo para clientes que realizan su primera compra."
-                    : "Esta promoción está disponible para todos los clientes que cumplan con las condiciones establecidas."}
+                  Esta promoción está disponible para todos los clientes que cumplan con las condiciones establecidas.
                 </p>
               </div>
             </CardContent>

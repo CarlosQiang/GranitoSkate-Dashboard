@@ -7,6 +7,7 @@ export type PromotionConditionType =
   | "FIRST_PURCHASE"
   | "SPECIFIC_CUSTOMER_GROUP"
   | "MINIMUM_QUANTITY"
+  | "DATE_RANGE"
 
 export type PromotionCondition = {
   type: PromotionConditionType
@@ -22,18 +23,33 @@ export type PromotionPrice = {
   variantId: string
 }
 
+export type PromotionStatus = "ACTIVE" | "EXPIRED" | "SCHEDULED" | "INACTIVE"
+
+export type PromotionMinimumRequirement = {
+  type: "MINIMUM_AMOUNT" | "MINIMUM_QUANTITY"
+  value: number
+}
+
 export type Promotion = {
   id: string
   title: string
+  summary?: string
   type: PromotionType
   value: number
-  active: boolean
-  startDate: string
-  endDate?: string
-  conditions: PromotionCondition[]
-  usageCount: number
-  createdAt: string
-  updatedAt: string
+  status: PromotionStatus
+  startsAt: string
+  endsAt?: string
+  code?: string
+  usageCount?: number
+  usageLimit?: number
+  createdAt?: string
+  updatedAt?: string
   target: PromotionTarget
+  targetId?: string
+  minimumRequirement?: PromotionMinimumRequirement
+  conditions?: PromotionCondition[]
   prices?: PromotionPrice[]
+  active?: boolean
+  valueType?: string
+  discountClass?: string
 }

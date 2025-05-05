@@ -139,7 +139,7 @@ export default function PromotionsPage() {
     } else if (promotion.type === "FIXED_AMOUNT_DISCOUNT") {
       return `${promotion.value}€ de descuento`
     } else if (promotion.type === "BUY_X_GET_Y") {
-      return `Compra ${promotion.conditions?.[0]?.value || "X"} y llévate ${promotion.value}`
+      return `Compra ${promotion.minimumRequirement?.value || "X"} y llévate ${promotion.value}`
     }
     return `${promotion.value}`
   }
@@ -147,22 +147,14 @@ export default function PromotionsPage() {
   // Función para formatear el estado de la promoción
   const getPromotionStatus = (promotion: Promotion) => {
     try {
-      const now = new Date()
-      const startDate = promotion.startsAt ? new Date(promotion.startsAt) : null
-      const endDate = promotion.endsAt ? new Date(promotion.endsAt) : null
-
-      if (!startDate || isNaN(startDate.getTime())) {
-        return { label: "Estado desconocido", color: "bg-gray-100 text-gray-800" }
-      }
-
-      if (startDate > now) {
-        return { label: "Próximamente", color: "bg-blue-100 text-blue-800" }
-      } else if (endDate && !isNaN(endDate.getTime()) && endDate < now) {
-        return { label: "Expirada", color: "bg-gray-100 text-gray-800" }
-      } else if (!promotion.active) {
-        return { label: "Inactiva", color: "bg-yellow-100 text-yellow-800" }
-      } else {
+      if (promotion.status === "ACTIVE") {
         return { label: "Activa", color: "bg-green-100 text-green-800" }
+      } else if (promotion.status === "EXPIRED") {
+        return { label: "Expirada", color: "bg-gray-100 text-gray-800" }
+      } else if (promotion.status === "SCHEDULED") {
+        return { label: "Próximamente", color: "bg-blue-100 text-blue-800" }
+      } else {
+        return { label: "Inactiva", color: "bg-yellow-100 text-yellow-800" }
       }
     } catch (error) {
       console.error("Error al determinar estado de promoción:", error, promotion)
