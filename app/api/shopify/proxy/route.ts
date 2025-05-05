@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server"
-import { GraphQLClient } from "graphql-request"
 
-// Aumentar el tiempo de timeout para la solicitud
-export const maxDuration = 30 // 30 segundos
+export const maxDuration = 60 // 60 segundos de timeout
 
 export async function POST(request: Request) {
   try {
@@ -11,11 +9,7 @@ export async function POST(request: Request) {
     const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
 
     if (!shopDomain || !accessToken) {
-      console.error("Variables de entorno de Shopify no definidas", {
-        NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: shopDomain ? "defined" : "undefined",
-        SHOPIFY_ACCESS_TOKEN: accessToken ? "defined" : "undefined",
-      })
-
+      console.error("Variables de entorno de Shopify no definidas")
       return NextResponse.json(
         {
           errors: [
@@ -29,67 +23,57 @@ export async function POST(request: Request) {
       )
     }
 
+    // Obtener el cuerpo de la solicitud
+    const body = await request.json().catch(() => null)
+
     // Construir la URL de la API de Shopify
     const shopifyApiUrl = `https://${shopDomain}/admin/api/2023-10/graphql.json`
 
-    // Crear un cliente GraphQL para Shopify
-    const client = new GraphQLClient(shopifyApiUrl, {
+    // Realizar la solicitud a la API de Shopify
+    const shopifyResponse = await fetch(shopifyApiUrl, {
+      method: "POST",
       headers: {
-        "X-Shopify-Access-Token": accessToken,
         "Content-Type": "application/json",
+        "X-Shopify-Access-Token": accessToken,
       },
-      timeout: 25000, // 25 segundos de timeout
+      body: JSON.stringify(body),
     })
 
-    // Obtener el cuerpo de la solicitud
-    const body = await request.json()
-    const { query, variables } = body
-
-    // Realizar la consulta a Shopify
-    const data = await client.request(query, variables)
-
-    // Devolver la respuesta
-    return NextResponse.json({ data })
-  } catch (error) {
-    console.error("Error en el proxy de Shopify:", error)
-
-    // Extraer mensaje de error más detallado
-    let errorMessage = "Error desconocido al conectar con Shopify"
-    let statusCode = 500
-
-    if (error instanceof Error) {
-      errorMessage = error.message
-
-      // Detectar errores comunes y dar mensajes más útiles
-      if (errorMessage.includes("401")) {
-        errorMessage = "Error de autenticación: Verifica tu SHOPIFY_ACCESS_TOKEN"
-        statusCode = 401
-      } else if (errorMessage.includes("404")) {
-        errorMessage = "Error 404: Verifica tu NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN"
-        statusCode = 404
-      } else if (errorMessage.includes("429")) {
-        errorMessage = "Error 429: Has excedido el límite de solicitudes a la API"
-        statusCode = 429
-      } else if (errorMessage.includes("timeout")) {
-        errorMessage = "Timeout: La solicitud a Shopify ha tardado demasiado tiempo"
-        statusCode = 504
-      }
+    // Verificar si la respuesta es exitosa
+    if (!shopifyResponse.ok) {
+      const errorText = await shopifyResponse.text()
+      console.error(`Error en la respuesta de Shopify: ${shopifyResponse.status}`, errorText)
+      return NextResponse.json(
+        {
+          errors: [
+            {
+              message: `Error en la respuesta de Shopify: ${shopifyResponse.status}`,
+              details: errorText,
+            },
+          ],
+        },
+        { status: shopifyResponse.status },
+      )
     }
 
+    // Devolver la respuesta de Shopify
+    const data = await shopifyResponse.json()
+    return NextResponse.json(data)
+  } catch (error) {
+    console.error("Error en el proxy de Shopify:", error)
     return NextResponse.json(
       {
         errors: [
           {
-            message: errorMessage,
+            message: error instanceof Error ? error.message : "Error desconocido en el proxy de Shopify",
           },
         ],
       },
-      { status: statusCode },
+      { status: 500 },
     )
   }
 }
 
-// También permitimos GET para verificar la conexión
 export async function GET() {
   try {
     // Verificar que las variables de entorno estén definidas
@@ -97,6 +81,7 @@ export async function GET() {
     const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
 
     if (!shopDomain || !accessToken) {
+      console.error("Variables de entorno de Shopify no definidas")
       return NextResponse.json(
         {
           success: false,
@@ -107,63 +92,61 @@ export async function GET() {
       )
     }
 
-    // Construir la URL de la API de Shopify
-    const shopifyApiUrl = `https://${shopDomain}/admin/api/2023-10/graphql.json`
-
-    // Crear un cliente GraphQL para Shopify
-    const client = new GraphQLClient(shopifyApiUrl, {
-      headers: {
-        "X-Shopify-Access-Token": accessToken,
-        "Content-Type": "application/json",
-      },
-      timeout: 10000, // 10 segundos de timeout
-    })
-
     // Consulta simple para verificar la conexión
     const query = `
       {
         shop {
           name
           url
+          primaryDomain {
+            url
+          }
         }
       }
     `
 
-    const data = await client.request(query)
+    // Construir la URL de la API de Shopify
+    const shopifyApiUrl = `https://${shopDomain}/admin/api/2023-10/graphql.json`
 
+    // Realizar la solicitud a la API de Shopify
+    const shopifyResponse = await fetch(shopifyApiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": accessToken,
+      },
+      body: JSON.stringify({ query }),
+    })
+
+    // Verificar si la respuesta es exitosa
+    if (!shopifyResponse.ok) {
+      const errorText = await shopifyResponse.text()
+      console.error(`Error en la respuesta de Shopify: ${shopifyResponse.status}`, errorText)
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Error en la respuesta de Shopify: ${shopifyResponse.status}`,
+        },
+        { status: 200 },
+      )
+    }
+
+    // Devolver la respuesta de Shopify
+    const data = await shopifyResponse.json()
     return NextResponse.json({
       success: true,
-      shopName: data?.shop?.name || "Tienda Shopify",
-      shopUrl: data?.shop?.url,
+      shopName: data?.data?.shop?.name || "Tienda Shopify",
+      shopUrl: data?.data?.shop?.primaryDomain?.url || data?.data?.shop?.url,
       message: "Conexión establecida correctamente",
     })
   } catch (error) {
-    console.error("Error de conexión con Shopify:", error)
-
-    // Extraer mensaje de error más detallado
-    let errorMessage = "Error desconocido al conectar con Shopify"
-
-    if (error instanceof Error) {
-      errorMessage = error.message
-
-      // Detectar errores comunes y dar mensajes más útiles
-      if (errorMessage.includes("401")) {
-        errorMessage = "Error de autenticación: Verifica tu SHOPIFY_ACCESS_TOKEN"
-      } else if (errorMessage.includes("404")) {
-        errorMessage = "Error 404: Verifica tu NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN"
-      } else if (errorMessage.includes("429")) {
-        errorMessage = "Error 429: Has excedido el límite de solicitudes a la API"
-      } else if (errorMessage.includes("timeout")) {
-        errorMessage = "Timeout: La solicitud a Shopify ha tardado demasiado tiempo"
-      }
-    }
-
+    console.error("Error en el proxy de Shopify:", error)
     return NextResponse.json(
       {
         success: false,
-        error: errorMessage,
+        error: error instanceof Error ? error.message : "Error desconocido en el proxy de Shopify",
       },
-      { status: 200 }, // Devolvemos 200 para manejar el error en el cliente
+      { status: 200 },
     )
   }
 }
