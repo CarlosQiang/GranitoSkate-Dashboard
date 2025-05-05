@@ -7,10 +7,21 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Search, MoreHorizontal, Pencil, ShoppingCart } from "lucide-react"
-import { fetchCustomers } from "@/lib/api/customers"
+import { Search, MoreHorizontal, Pencil, ShoppingCart, UserPlus, Trash2, ChevronRight, ChevronLeft } from "lucide-react"
+import { fetchCustomers, deleteCustomer } from "@/lib/api/customers"
 import { useToast } from "@/components/ui/use-toast"
 import { formatDate, formatCurrency } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface Customer {
   id: string
@@ -24,6 +35,8 @@ interface Customer {
     currencyCode: string
   }
   createdAt: string
+  tags: string[]
+  verifiedEmail: boolean
 }
 
 export default function CustomersPage() {
@@ -32,12 +45,31 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
+  const [cursor, setCursor] = useState<string | null>(null)
+  const [hasNextPage, setHasNextPage] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [customerToDelete, setCustomerToDelete] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  // Fetch customers when search query changes
   useEffect(() => {
     const getCustomers = async () => {
+      setIsLoading(true)
       try {
-        const data = await fetchCustomers()
-        setCustomers(data)
+        const data = await fetchCustomers(20, debouncedSearchQuery)
+        setCustomers(data.customers)
+        setHasNextPage(data.pageInfo.hasNextPage)
+        setCursor(data.pageInfo.hasNextPage ? data.pageInfo.endCursor : null)
       } catch (error) {
         console.error("Error fetching customers:", error)
         toast({
@@ -51,13 +83,80 @@ export default function CustomersPage() {
     }
 
     getCustomers()
-  }, [toast])
+  }, [debouncedSearchQuery, toast])
 
-  const filteredCustomers = customers.filter(
-    (customer) =>
-      `${customer.firstName} ${customer.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      customer.email.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
+  const loadNextPage = async () => {
+    if (!hasNextPage || !cursor) return
+
+    setIsLoading(true)
+    try {
+      const data = await fetchCustomers(20, debouncedSearchQuery, cursor)
+      setCustomers(data.customers)
+      setHasNextPage(data.pageInfo.hasNextPage)
+      setCursor(data.pageInfo.hasNextPage ? data.pageInfo.endCursor : null)
+    } catch (error) {
+      console.error("Error fetching next page:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo cargar la siguiente página",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const loadPreviousPage = async () => {
+    setIsLoading(true)
+    try {
+      const data = await fetchCustomers(20, debouncedSearchQuery)
+      setCustomers(data.customers)
+      setHasNextPage(data.pageInfo.hasNextPage)
+      setCursor(data.pageInfo.hasNextPage ? data.pageInfo.endCursor : null)
+    } catch (error) {
+      console.error("Error fetching previous page:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo cargar la página anterior",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDeleteCustomer = async () => {
+    if (!customerToDelete) return
+
+    setIsDeleting(true)
+    try {
+      await deleteCustomer(customerToDelete)
+
+      // Remove customer from list
+      setCustomers(customers.filter((customer) => customer.id !== customerToDelete))
+
+      toast({
+        title: "Cliente eliminado",
+        description: "El cliente ha sido eliminado correctamente",
+      })
+    } catch (error) {
+      console.error("Error deleting customer:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar el cliente",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(false)
+      setIsDeleteDialogOpen(false)
+      setCustomerToDelete(null)
+    }
+  }
+
+  const confirmDelete = (id: string) => {
+    setCustomerToDelete(id)
+    setIsDeleteDialogOpen(true)
+  }
 
   return (
     <div className="space-y-6">
@@ -66,9 +165,13 @@ export default function CustomersPage() {
           <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
           <p className="text-muted-foreground">Gestiona los clientes de tu tienda</p>
         </div>
+        <Button onClick={() => router.push("/dashboard/customers/new")}>
+          <UserPlus className="mr-2 h-4 w-4" />
+          Nuevo cliente
+        </Button>
       </div>
 
-      <div className="flex items-center">
+      <div className="flex items-center justify-between">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -134,21 +237,44 @@ export default function CustomersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredCustomers.length === 0 ? (
+              {customers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-6">
                     No se encontraron clientes
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredCustomers.map((customer) => (
+                customers.map((customer) => (
                   <TableRow key={customer.id}>
                     <TableCell>
                       <div className="font-medium">
                         {customer.firstName} {customer.lastName}
                       </div>
+                      {customer.tags && customer.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {customer.tags.slice(0, 2).map((tag, index) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                          {customer.tags.length > 2 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{customer.tags.length - 2}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
                     </TableCell>
-                    <TableCell>{customer.email}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center">
+                        {customer.email}
+                        {customer.verifiedEmail && (
+                          <Badge className="ml-2 bg-green-100 text-green-800 hover:bg-green-100 text-xs">
+                            Verificado
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>{customer.ordersCount}</TableCell>
                     <TableCell>
                       {formatCurrency(customer.totalSpent.amount, customer.totalSpent.currencyCode)}
@@ -171,6 +297,13 @@ export default function CustomersPage() {
                             <ShoppingCart className="mr-2 h-4 w-4" />
                             Ver pedidos
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => confirmDelete(customer.id)}
+                            className="text-red-600 focus:text-red-600"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Eliminar
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -179,8 +312,42 @@ export default function CustomersPage() {
               )}
             </TableBody>
           </Table>
+
+          {(hasNextPage || cursor) && (
+            <div className="flex items-center justify-end space-x-2 py-4 px-4 border-t">
+              <Button variant="outline" size="sm" onClick={loadPreviousPage} disabled={!cursor || isLoading}>
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Anterior
+              </Button>
+              <Button variant="outline" size="sm" onClick={loadNextPage} disabled={!hasNextPage || isLoading}>
+                Siguiente
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          )}
         </div>
       )}
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. El cliente será eliminado permanentemente de tu tienda.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteCustomer}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {isDeleting ? "Eliminando..." : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
