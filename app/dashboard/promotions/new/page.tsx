@@ -104,27 +104,11 @@ export default function NewPromotionPage() {
         target: formData.target,
         targetId: formData.targetId || undefined,
         value: Number(formData.value),
-        conditions: [],
-        active: true,
+        minimumPurchase: formData.minimumPurchase,
+        code: formData.requiresCode ? formData.code : undefined,
         startDate: formData.startDate.toISOString(),
         endDate: formData.hasEndDate ? formData.endDate.toISOString() : undefined,
-        code: formData.requiresCode ? formData.code : undefined,
         usageLimit: formData.limitUses ? Number(formData.usageLimit) : undefined,
-        usageCount: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
-
-      // Añadir condición de compra mínima si se especifica
-      if (
-        formData.minimumPurchase &&
-        !isNaN(Number(formData.minimumPurchase)) &&
-        Number(formData.minimumPurchase) > 0
-      ) {
-        promotionData.conditions.push({
-          type: "MINIMUM_AMOUNT",
-          value: Number(formData.minimumPurchase),
-        })
       }
 
       console.log("Creando promoción:", promotionData)
