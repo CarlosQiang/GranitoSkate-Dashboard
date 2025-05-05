@@ -353,7 +353,9 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
                             {product.status === "ACTIVE" ? "Visible" : "Oculto"}
                           </span>
                           <Button variant="ghost" size="sm" asChild className="ml-auto">
-                            <Link href={`/dashboard/products/${product.id}`}>Ver</Link>
+                            <Link href={`/dashboard/products/${product.numericId || product.id.split("/").pop()}`}>
+                              Ver
+                            </Link>
                           </Button>
                         </div>
                       </div>

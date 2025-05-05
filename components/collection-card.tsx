@@ -7,10 +7,10 @@ import { Edit, Package } from "lucide-react"
 
 export function CollectionCard({ collection }) {
   // Asegurarse de que la colección tiene todas las propiedades necesarias
-  const { id = "", title = "Colección sin título", productsCount = 0, image = null } = collection || {}
+  const { id = "", numericId = "", title = "Colección sin título", productsCount = 0, image = null } = collection || {}
 
-  // Extraer el ID numérico si viene en formato gid://shopify/Collection/ID
-  const numericId = id.includes("/") ? id.split("/").pop() : id
+  // Extraer el ID numérico si no está ya disponible
+  const collectionId = numericId || (id && id.split("/").pop()) || id
 
   return (
     <Card className="overflow-hidden transition-all hover:shadow-md">
@@ -38,16 +38,16 @@ export function CollectionCard({ collection }) {
         </div>
       </CardContent>
       <CardFooter className="p-4 pt-0 flex justify-between">
-        <div className="text-xs text-muted-foreground">ID: {numericId}</div>
+        <div className="text-xs text-muted-foreground">ID: {collectionId}</div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" asChild>
-            <Link href={`/dashboard/collections/${numericId}`}>
+            <Link href={`/dashboard/collections/${collectionId}`}>
               <Edit className="h-4 w-4 mr-1" />
               Editar
             </Link>
           </Button>
           <Button variant="outline" size="sm" asChild>
-            <Link href={`/dashboard/collections/${numericId}/products`}>
+            <Link href={`/dashboard/collections/${collectionId}/products`}>
               <Package className="h-4 w-4 mr-1" />
               Productos
             </Link>

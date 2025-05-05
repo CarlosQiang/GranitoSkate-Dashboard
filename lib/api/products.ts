@@ -156,7 +156,10 @@ export async function fetchProductById(id) {
   }
 }
 
-// Función para crear un nuevo producto
+// Modificar la función createProduct para usar la estructura correcta para las imágenes
+
+// 1. Reemplazar la función createProduct con esta versión actualizada:
+
 export async function createProduct(productData) {
   try {
     const mutation = gql`
@@ -175,29 +178,36 @@ export async function createProduct(productData) {
       }
     `
 
-    const variables = {
-      input: {
-        title: productData.title,
-        descriptionHtml: productData.description || "",
-        vendor: productData.vendor || "",
-        productType: productData.productType || "",
-        status: productData.status || "ACTIVE",
-        images: productData.image ? [{ src: productData.image }] : [],
-        variants: [
-          {
-            price: productData.variants?.[0]?.price || productData.price || "0.00",
-            compareAtPrice: productData.variants?.[0]?.compareAtPrice || productData.compareAtPrice || null,
-            sku: productData.variants?.[0]?.sku || productData.sku || "",
-          },
-        ],
-        metafields: productData.metafields || [],
-      },
+    // Preparar el input sin el campo images
+    const input = {
+      title: productData.title,
+      descriptionHtml: productData.description || "",
+      vendor: productData.vendor || "",
+      productType: productData.productType || "",
+      status: productData.status || "ACTIVE",
+      variants: [
+        {
+          price: productData.variants?.[0]?.price || productData.price || "0.00",
+          compareAtPrice: productData.variants?.[0]?.compareAtPrice || productData.compareAtPrice || null,
+          sku: productData.variants?.[0]?.sku || productData.sku || "",
+        },
+      ],
+      metafields: productData.metafields || [],
     }
+
+    const variables = { input }
+
+    console.log("Enviando mutación con variables:", JSON.stringify(variables, null, 2))
 
     const data = await shopifyClient.request(mutation, variables)
 
     if (data.productCreate.userErrors && data.productCreate.userErrors.length > 0) {
       throw new Error(data.productCreate.userErrors[0].message)
+    }
+
+    // Si hay una imagen y el producto se creó correctamente, añadir la imagen en una segunda operación
+    if (productData.image && data.productCreate.product.id) {
+      await addProductImage(data.productCreate.product.id, productData.image)
     }
 
     return {
@@ -209,6 +219,47 @@ export async function createProduct(productData) {
   } catch (error) {
     console.error("Error al crear el producto:", error)
     throw new Error(`Error al crear el producto: ${error.message}`)
+  }
+}
+
+// Añadir esta nueva función para agregar imágenes a un producto existente
+export async function addProductImage(productId, imageUrl) {
+  try {
+    // Asegurarse de que el ID tenga el formato correcto
+    const formattedId = productId.includes("gid://shopify/Product/") ? productId : `gid://shopify/Product/${productId}`
+
+    const mutation = gql`
+      mutation ProductAddImage($productId: ID!, $image: ImageInput!) {
+        productImageCreate(productId: $productId, image: $image) {
+          image {
+            id
+            url
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const variables = {
+      productId: formattedId,
+      image: {
+        src: imageUrl,
+      },
+    }
+
+    const data = await shopifyClient.request(mutation, variables)
+
+    if (data.productImageCreate.userErrors && data.productImageCreate.userErrors.length > 0) {
+      throw new Error(data.productImageCreate.userErrors[0].message)
+    }
+
+    return data.productImageCreate.image
+  } catch (error) {
+    console.error(`Error al añadir imagen al producto ${productId}:`, error)
+    throw new Error(`Error al añadir imagen al producto: ${error.message}`)
   }
 }
 
