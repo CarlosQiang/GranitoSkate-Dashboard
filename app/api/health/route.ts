@@ -1,38 +1,41 @@
 import { NextResponse } from "next/server"
-import { checkSystemHealth } from "@/lib/system-check"
 
 export async function GET() {
   try {
-    const healthCheck = await checkSystemHealth()
-
-    // Si hay un problema con la salud del sistema, devolver un código de estado apropiado
-    if (healthCheck.status === "error") {
-      return NextResponse.json(healthCheck, { status: 500 })
-    } else if (healthCheck.status === "warning") {
-      return NextResponse.json(healthCheck, { status: 200 })
+    // Verificar variables de entorno críticas
+    const envVars = {
+      NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN ? "defined" : "undefined",
+      SHOPIFY_ACCESS_TOKEN: process.env.SHOPIFY_ACCESS_TOKEN ? "defined" : "undefined",
+      NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET ? "defined" : "undefined",
+      NEXTAUTH_URL: process.env.NEXTAUTH_URL ? "defined" : "undefined",
     }
 
-    return NextResponse.json(healthCheck, { status: 200 })
-  } catch (error) {
-    console.error("Error en la ruta de verificación de salud:", error)
+    const missingVars = Object.entries(envVars)
+      .filter(([_, value]) => value === "undefined")
+      .map(([key]) => key)
 
-    // Manejar específicamente el error de variables de entorno faltantes
-    if ((error as Error).message.includes("variables de entorno")) {
+    if (missingVars.length > 0) {
       return NextResponse.json(
         {
-          status: "warning",
-          message: "Advertencia: " + (error as Error).message,
-          timestamp: new Date().toISOString(),
+          success: false,
+          message: `Variables de entorno faltantes: ${missingVars.join(", ")}`,
+          details: envVars,
         },
-        { status: 200 },
-      ) // Devolver 200 para que no falle el despliegue
+        { status: 500 },
+      )
     }
 
+    return NextResponse.json({
+      success: true,
+      message: "API funcionando correctamente",
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+    })
+  } catch (error) {
     return NextResponse.json(
       {
-        status: "error",
-        message: "Error en la verificación de salud: " + (error as Error).message,
-        timestamp: new Date().toISOString(),
+        success: false,
+        message: `Error en el endpoint de salud: ${(error as Error).message}`,
       },
       { status: 500 },
     )
