@@ -1,84 +1,125 @@
-import { GraphQLClient } from "graphql-request"
+/**
+ * Cliente de Shopify para interactuar con la API de Shopify
+ */
 
-// Función para obtener la URL base de la aplicación
-const getBaseUrl = () => {
-  // En el navegador, usamos window.location.origin
-  if (typeof window !== "undefined") {
-    return window.location.origin
-  }
+// Verificar que las variables de entorno necesarias estén definidas
+const SHOPIFY_SHOP_DOMAIN = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
+const SHOPIFY_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN
+const SHOPIFY_API_URL = process.env.SHOPIFY_API_URL
 
-  // En el servidor, usamos la URL de Vercel o localhost
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`
-  }
-
-  return "http://localhost:3000"
+if (!SHOPIFY_SHOP_DOMAIN || !SHOPIFY_ACCESS_TOKEN || !SHOPIFY_API_URL) {
+  console.warn(
+    "⚠️ Faltan variables de entorno de Shopify. Asegúrate de configurar NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN, SHOPIFY_ACCESS_TOKEN y SHOPIFY_API_URL.",
+  )
 }
 
-// Crear el cliente GraphQL que usa nuestro proxy en lugar de conectarse directamente a Shopify
-const shopifyClient = new GraphQLClient(`${getBaseUrl()}/api/shopify/proxy`, {
-  headers: {
-    "Content-Type": "application/json",
-  },
-  timeout: 60000, // 60 segundos de timeout para operaciones largas
-})
-
-// Función para formatear correctamente los IDs de Shopify
-export function formatShopifyId(id: string, type = "Product") {
-  if (id.startsWith("gid://")) {
-    return id
-  }
-  return `gid://shopify/${type}/${id}`
-}
-
-// Función para realizar una consulta de prueba a Shopify
-export async function testShopifyConnection() {
+/**
+ * Función para realizar consultas GraphQL a la API de Shopify
+ */
+export async function shopifyFetch({
+  query,
+  variables = {},
+}: {
+  query: string
+  variables?: Record<string, any>
+}): Promise<any> {
   try {
-    const response = await fetch(`${getBaseUrl()}/api/shopify/check`, {
-      method: "GET",
+    if (!SHOPIFY_API_URL || !SHOPIFY_ACCESS_TOKEN) {
+      throw new Error("Faltan variables de entorno de Shopify")
+    }
+
+    const response = await fetch(SHOPIFY_API_URL, {
+      method: "POST",
       headers: {
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        Pragma: "no-cache",
-        Expires: "0",
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
       },
+      body: JSON.stringify({
+        query,
+        variables,
+      }),
+      cache: "no-store",
     })
 
-    if (!response.ok) {
-      throw new Error(`Error HTTP: ${response.status}`)
+    const result = await response.json()
+
+    if (result.errors) {
+      console.error("Error en la consulta GraphQL:", result.errors)
+      throw new Error(`Error en la consulta GraphQL: ${result.errors[0].message}`)
     }
 
-    const data = await response.json()
+    return result.data
+  } catch (error) {
+    console.error("Error al realizar la consulta a Shopify:", error)
+    throw error
+  }
+}
 
-    if (data.success) {
+/**
+ * Función para verificar la conexión con Shopify
+ */
+export async function checkShopifyConnection(): Promise<{
+  success: boolean
+  message?: string
+}> {
+  try {
+    // Consulta simple para verificar la conexión
+    const query = `
+      {
+        shop {
+          name
+          primaryDomain {
+            url
+          }
+        }
+      }
+    `
+
+    const data = await shopifyFetch({ query })
+
+    if (data && data.shop) {
       return {
         success: true,
-        data: { shop: { name: data.shopName } },
-        message: data.message,
+        message: `Conectado a ${data.shop.name}`,
       }
-    } else {
-      throw new Error(data.error || "Error desconocido")
     }
-  } catch (error) {
-    console.error("Error al probar la conexión con Shopify:", error)
+
     return {
       success: false,
-      data: null,
+      message: "No se pudo obtener información de la tienda",
+    }
+  } catch (error) {
+    return {
+      success: false,
       message: error instanceof Error ? error.message : "Error desconocido",
     }
   }
 }
 
-// Extraer el ID numérico de un ID de Shopify
-export function extractIdFromGid(gid: string): string {
-  if (!gid) return ""
-  const parts = gid.split("/")
-  return parts[parts.length - 1]
+/**
+ * Función para obtener la URL de la tienda Shopify
+ */
+export function getShopifyStoreUrl(): string {
+  if (!SHOPIFY_SHOP_DOMAIN) {
+    return "#"
+  }
+
+  // Asegurarse de que el dominio tenga el formato correcto
+  if (SHOPIFY_SHOP_DOMAIN.includes("myshopify.com")) {
+    return `https://${SHOPIFY_SHOP_DOMAIN}`
+  }
+
+  return `https://${SHOPIFY_SHOP_DOMAIN}.myshopify.com`
 }
 
-// Función para obtener el cliente de Shopify (para compatibilidad con código existente)
-export const getShopifyApi = async () => {
-  return shopifyClient
+/**
+ * Función para formatear el precio de Shopify
+ */
+export function formatShopifyPrice(amount: string | number): string {
+  const price = typeof amount === "string" ? Number.parseFloat(amount) : amount
+  return new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 2,
+  }).format(price)
 }
-
-// Exportar el cliente de Shopify
-export default shopifyClient

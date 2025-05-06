@@ -6,48 +6,71 @@ import { Button } from "@/components/ui/button"
 import { AlertCircle, RefreshCw } from "lucide-react"
 
 interface ErrorHandlerProps {
-  error: Error | null
-  resetError?: () => void
-  message?: string
+  error: Error
+  reset: () => void
 }
 
-export function ErrorHandler({ error, resetError, message }: ErrorHandlerProps) {
-  const [showDetails, setShowDetails] = useState(false)
+export function ErrorHandler({ error, reset }: ErrorHandlerProps) {
+  const [errorMessage, setErrorMessage] = useState<string>("")
+  const [showDetails, setShowDetails] = useState<boolean>(false)
 
   useEffect(() => {
-    // Registrar el error en la consola para depuración
-    if (error) {
-      console.error("Error capturado:", error)
+    // Personalizar mensajes de error comunes
+    if (error.message.includes("fetch")) {
+      setErrorMessage("Error de conexión. Por favor, verifica tu conexión a internet.")
+    } else if (error.message.includes("authentication")) {
+      setErrorMessage("Error de autenticación. Por favor, inicia sesión nuevamente.")
+    } else if (error.message.includes("permission")) {
+      setErrorMessage("No tienes permisos para acceder a este recurso.")
+    } else if (error.message.includes("Shopify")) {
+      setErrorMessage("Error al conectar con Shopify. Verifica tus credenciales.")
+    } else {
+      setErrorMessage("Ha ocurrido un error inesperado. Por favor, inténtalo de nuevo.")
     }
+
+    // Registrar el error en la consola para depuración
+    console.error("Error capturado:", error)
   }, [error])
 
-  if (!error) return null
+  const handleReset = () => {
+    // Intentar limpiar cualquier estado que pudiera estar causando el error
+    localStorage.removeItem("errorState")
+    sessionStorage.clear()
+
+    // Llamar a la función reset proporcionada por Next.js
+    reset()
+  }
 
   return (
-    <Alert variant="destructive" className="my-4">
-      <AlertCircle className="h-4 w-4" />
-      <AlertTitle>Error</AlertTitle>
-      <AlertDescription>
-        <p>{message || "Ha ocurrido un error al cargar los datos."}</p>
+    <div className="container mx-auto px-4 py-8 max-w-md">
+      <Alert variant="destructive" className="mb-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>{errorMessage}</AlertDescription>
+      </Alert>
+
+      <div className="flex flex-col gap-4">
+        <Button onClick={handleReset} className="w-full">
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Intentar de nuevo
+        </Button>
+
+        <Button variant="outline" onClick={() => setShowDetails(!showDetails)} className="w-full">
+          {showDetails ? "Ocultar detalles" : "Mostrar detalles"}
+        </Button>
 
         {showDetails && (
-          <div className="mt-2 p-2 bg-destructive/10 rounded text-sm font-mono overflow-auto max-h-32">
-            {error.message}
+          <div className="mt-4 p-4 bg-muted rounded-md overflow-auto">
+            <p className="font-mono text-xs">{error.stack}</p>
           </div>
         )}
 
-        <div className="mt-4 flex gap-2">
-          {resetError && (
-            <Button variant="outline" size="sm" onClick={resetError} className="flex items-center gap-1">
-              <RefreshCw className="h-3 w-3" /> Reintentar
-            </Button>
-          )}
-
-          <Button variant="link" size="sm" onClick={() => setShowDetails(!showDetails)}>
-            {showDetails ? "Ocultar detalles" : "Mostrar detalles"}
+        <div className="text-center mt-4">
+          <Button variant="link" asChild>
+            <a href="/dashboard">Volver al Dashboard</a>
           </Button>
         </div>
-      </AlertDescription>
-    </Alert>
+      </div>
+    </div>
   )
 }

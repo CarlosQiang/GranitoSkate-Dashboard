@@ -2,28 +2,27 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['cdn.shopify.com', 'placeholder.com', 'via.placeholder.com', 'burst.shopifycdn.com', 'plus.unsplash.com', 'images.unsplash.com'],
+    domains: ['cdn.shopify.com', 'placeholder.com', 'via.placeholder.com'],
     unoptimized: true,
   },
   experimental: {
-    serverActions: {
-      allowedOrigins: ["localhost:3000", "*.vercel.app"],
-    },
+    serverActions: true,
   },
   eslint: {
+    // Desactivar ESLint durante la construcción para evitar errores de despliegue
     ignoreDuringBuilds: true,
   },
   typescript: {
+    // Ignorar errores de TypeScript durante la construcción para evitar errores de despliegue
     ignoreBuildErrors: true,
   },
+  // Optimizaciones para mejorar el rendimiento
+  swcMinify: true,
   compiler: {
-    removeConsole: process.env.NODE_ENV === "production" 
-      ? {
-          exclude: ["error", "warn"],
-        } 
-      : false,
+    removeConsole: process.env.NODE_ENV === 'production',
   },
-  transpilePackages: ["graphql-request"],
+  // Configuración para mejorar el rendimiento en Vercel
+  poweredByHeader: false,
 };
 
 export default nextConfig;
