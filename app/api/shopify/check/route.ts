@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getEnvVar } from "@/lib/env-check"
+import { checkShopifyEnvVars, getShopifyCredentials } from "@/lib/server-shopify"
 
 // Aumentar el tiempo de timeout para la solicitud
 export const maxDuration = 30 // 30 segundos
@@ -8,16 +8,8 @@ export async function GET(request: Request) {
   try {
     console.log("Verificando conexión con Shopify...")
 
-    // Obtener las variables de entorno directamente
-    const shopDomain = getEnvVar("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN")
-    const accessToken = getEnvVar("SHOPIFY_ACCESS_TOKEN")
-
-    if (!shopDomain || !accessToken) {
-      console.error("Variables de entorno de Shopify no definidas", {
-        NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: shopDomain ? "defined" : "undefined",
-        SHOPIFY_ACCESS_TOKEN: accessToken ? "defined" : "undefined",
-      })
-
+    // Verificar las variables de entorno
+    if (!checkShopifyEnvVars()) {
       return NextResponse.json(
         {
           success: false,
@@ -27,6 +19,9 @@ export async function GET(request: Request) {
         { status: 200 }, // Devolvemos 200 para manejar el error en el cliente
       )
     }
+
+    // Obtener las credenciales
+    const { shopDomain, accessToken } = getShopifyCredentials()
 
     // Obtener la URL de la solicitud para extraer parámetros
     const url = new URL(request.url)
