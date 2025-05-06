@@ -6,23 +6,16 @@ const nextConfig = {
     unoptimized: true,
   },
   experimental: {
-    serverActions: true,
+    serverActions: {
+      allowedOrigins: ["localhost:3000", "granitoskate.vercel.app"],
+    },
   },
   eslint: {
-    // Desactivar ESLint durante la construcción para evitar errores de despliegue
     ignoreDuringBuilds: true,
   },
   typescript: {
-    // Ignorar errores de TypeScript durante la construcción para evitar errores de despliegue
     ignoreBuildErrors: true,
   },
-  // Optimizaciones para mejorar el rendimiento
-  swcMinify: true,
-  compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
-  },
-  // Configuración para mejorar el rendimiento en Vercel
-  poweredByHeader: false,
 };
 
 export default nextConfig;

@@ -25,11 +25,11 @@ const config: Config = {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: "#FF5733", // Color principal de Granito
+          DEFAULT: "#d29a43", // Color principal de Granito
           foreground: "hsl(var(--primary-foreground))",
         },
         secondary: {
-          DEFAULT: "#2D3748", // Color secundario de Granito
+          DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
         },
         destructive: {
@@ -41,7 +41,7 @@ const config: Config = {
           foreground: "hsl(var(--muted-foreground))",
         },
         accent: {
-          DEFAULT: "#F97316", // Color de acento de Granito
+          DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
         },
         popover: {
@@ -51,6 +51,11 @@ const config: Config = {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        granito: {
+          DEFAULT: "#d29a43",
+          light: "#e6b76a",
+          dark: "#b07e2c",
         },
       },
       borderRadius: {

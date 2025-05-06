@@ -60,7 +60,11 @@
     "zod": "^3.24.1",
     "@auth/core": "latest",
     "nodemailer": "latest",
-    "next-auth": "latest"
+    "chart.js": "latest",
+    "graphql": "latest",
+    "next-auth": "latest",
+    "react-chartjs-2": "latest",
+    "graphql-request": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
