@@ -3,7 +3,7 @@ export interface Customer {
   firstName: string
   lastName: string
   email: string
-  phone: string | null
+  phone: string
   ordersCount: number
   totalSpent: {
     amount: string
@@ -15,8 +15,38 @@ export interface Customer {
   tags: string[]
   verifiedEmail: boolean
   acceptsMarketing: boolean
-  addresses?: CustomerAddress[]
+  addresses: CustomerAddress[]
   defaultAddress?: CustomerAddress
+}
+
+export interface CustomersResponse {
+  customers: Customer[]
+  pageInfo: {
+    hasNextPage: boolean
+    hasPreviousPage: boolean
+    endCursor: string | null
+    startCursor: string | null
+  }
+}
+
+export interface CustomerInput {
+  firstName?: string
+  lastName?: string
+  email: string
+  phone?: string
+  note?: string
+  acceptsMarketing?: boolean
+  tags?: string[]
+}
+
+export interface CustomerUpdateInput {
+  firstName?: string
+  lastName?: string
+  email?: string
+  phone?: string
+  note?: string
+  acceptsMarketing?: boolean
+  tags?: string[]
 }
 
 export interface CustomerAddress {
@@ -37,13 +67,13 @@ export interface CustomerOrder {
   id: string
   name: string
   processedAt: string
-  fulfillmentStatus: string | null
-  financialStatus: string | null
+  fulfillmentStatus: string
+  financialStatus: string
   totalPrice: {
     amount: string
     currencyCode: string
   }
-  lineItems?: {
+  lineItems: {
     title: string
     quantity: number
     variant?: {
@@ -54,28 +84,4 @@ export interface CustomerOrder {
       }
     }
   }[]
-}
-
-export interface CustomerInput {
-  firstName?: string
-  lastName?: string
-  email: string
-  phone?: string
-  note?: string
-  acceptsMarketing?: boolean
-  tags?: string[]
-}
-
-export interface CustomerUpdateInput extends CustomerInput {
-  id: string
-}
-
-export interface CustomersResponse {
-  customers: Customer[]
-  pageInfo: {
-    hasNextPage: boolean
-    hasPreviousPage: boolean
-    startCursor?: string
-    endCursor?: string
-  }
 }

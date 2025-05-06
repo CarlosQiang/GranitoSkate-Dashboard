@@ -1,64 +1,75 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { CheckCircle2 } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { CheckCircle2, AlertCircle } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export function ShopifyConnectionStatus() {
-  const [isConnected, setIsConnected] = useState(false)
-  const [shopName, setShopName] = useState("")
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [status, setStatus] = useState<"loading" | "connected" | "error">("loading")
+  const [shopName, setShopName] = useState<string>("")
+  const [errorMessage, setErrorMessage] = useState<string>("")
+  const [isVisible, setIsVisible] = useState(true)
 
   useEffect(() => {
     const checkConnection = async () => {
       try {
-        setIsLoading(true)
         const response = await fetch("/api/shopify/check")
-
-        if (!response.ok) {
-          throw new Error("Error al verificar la conexión con Shopify")
-        }
-
         const data = await response.json()
 
         if (data.success) {
-          setIsConnected(true)
-          setShopName(data.shop || "QiangTheme")
+          setStatus("connected")
+          setShopName(data.shopName || "")
         } else {
-          setIsConnected(false)
-          setError(data.error || "No se pudo conectar con Shopify")
+          setStatus("error")
+          setErrorMessage(data.message || "Error al conectar con Shopify")
         }
-      } catch (err) {
-        console.error("Error al verificar la conexión:", err)
-        setIsConnected(false)
-        setError(err instanceof Error ? err.message : "Error desconocido")
-      } finally {
-        setIsLoading(false)
+      } catch (error) {
+        setStatus("error")
+        setErrorMessage("Error al verificar la conexión con Shopify")
       }
     }
 
     checkConnection()
-  }, [])
 
-  if (isLoading) {
-    return null // No mostrar nada mientras carga
+    // Ocultar después de 10 segundos si está conectado
+    const timer = setTimeout(() => {
+      if (status === "connected") {
+        setIsVisible(false)
+      }
+    }, 10000)
+
+    return () => clearTimeout(timer)
+  }, [status])
+
+  if (!isVisible) return null
+
+  if (status === "loading") {
+    return (
+      <Alert className="mb-4 bg-gray-100">
+        <div className="flex items-center">
+          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-orange-600"></div>
+          <AlertTitle>Verificando conexión con Shopify...</AlertTitle>
+        </div>
+      </Alert>
+    )
   }
 
-  if (!isConnected) {
+  if (status === "error") {
     return (
-      <Alert variant="destructive">
-        <AlertDescription>Error de conexión con Shopify: {error}</AlertDescription>
+      <Alert variant="destructive" className="mb-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error de conexión</AlertTitle>
+        <AlertDescription>{errorMessage}</AlertDescription>
       </Alert>
     )
   }
 
   return (
-    <Alert variant="success" className="bg-green-50 border-green-200">
+    <Alert className="mb-4 bg-green-50 border-green-200">
       <CheckCircle2 className="h-4 w-4 text-green-600" />
+      <AlertTitle className="text-green-800">Conectado a Shopify</AlertTitle>
       <AlertDescription className="text-green-700">
-        Conectado a Shopify
-        <span className="font-medium ml-1">Conexión establecida correctamente con la tienda: {shopName}</span>
+        Conexión establecida correctamente con la tienda: {shopName}
       </AlertDescription>
     </Alert>
   )

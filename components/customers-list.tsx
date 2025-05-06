@@ -2,146 +2,172 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { type Customer, getCustomers } from "@/lib/api/customers"
+import { useRouter } from "next/navigation"
+import { fetchCustomers } from "@/lib/api/customers"
+import { formatDate } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
-import { AlertCircle, RefreshCw, Search, User } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Skeleton } from "@/components/ui/skeleton"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { ReloadIcon, SearchIcon, PlusIcon, UserIcon } from "@radix-ui/react-icons"
 
-export function CustomersList() {
-  const [customers, setCustomers] = useState<Customer[]>([])
+export default function CustomersList() {
+  const [customers, setCustomers] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState(null)
   const [searchQuery, setSearchQuery] = useState("")
-  const [debouncedQuery, setDebouncedQuery] = useState("")
+  const router = useRouter()
 
-  // Efecto para manejar el debounce de la búsqueda
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedQuery(searchQuery)
-    }, 500)
-
-    return () => clearTimeout(timer)
-  }, [searchQuery])
-
-  // Efecto para cargar los clientes
-  useEffect(() => {
-    const fetchCustomers = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        const data = await getCustomers(debouncedQuery)
-        setCustomers(data)
-      } catch (err) {
-        console.error("Error al cargar clientes:", err)
-        setError(err instanceof Error ? err.message : "Error desconocido al cargar clientes")
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchCustomers()
-  }, [debouncedQuery])
-
-  const handleRetry = async () => {
+  const loadCustomers = async (query = "") => {
     try {
       setLoading(true)
       setError(null)
-      const data = await getCustomers(debouncedQuery)
-      setCustomers(data)
+      const response = await fetchCustomers(20, query)
+      setCustomers(response.customers)
     } catch (err) {
-      console.error("Error al reintentar cargar clientes:", err)
-      setError(err instanceof Error ? err.message : "Error desconocido al cargar clientes")
+      console.error("Error loading customers:", err)
+      setError(err.message || "Error al cargar los clientes")
     } finally {
       setLoading(false)
     }
   }
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Buscar clientes por nombre, email o teléfono..."
-            className="pl-8"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <Button asChild variant="outline">
-          <Link href="/dashboard/customers/new">
-            <User className="mr-2 h-4 w-4" />
-            Nuevo cliente
-          </Link>
-        </Button>
-      </div>
+  useEffect(() => {
+    loadCustomers()
+  }, [])
 
-      {error ? (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error al cargar los clientes</AlertTitle>
-          <AlertDescription>
-            {error}
-            <div className="mt-2">
-              <Button variant="outline" size="sm" onClick={handleRetry}>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Reintentar
-              </Button>
+  const handleSearch = (e) => {
+    setSearchQuery(e.target.value)
+    // Debounce para evitar demasiadas peticiones
+    const timeoutId = setTimeout(() => {
+      loadCustomers(e.target.value)
+    }, 500)
+    return () => clearTimeout(timeoutId)
+  }
+
+  const handleRetry = () => {
+    loadCustomers(searchQuery)
+  }
+
+  return (
+    <Card className="w-full">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>Clientes</CardTitle>
+        <div className="flex items-center gap-4">
+          <div className="relative w-64">
+            <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+            <Input
+              type="search"
+              placeholder="Buscar clientes..."
+              className="pl-8"
+              value={searchQuery}
+              onChange={handleSearch}
+            />
+          </div>
+          <Button onClick={() => router.push("/dashboard/customers/new")} className="bg-orange-600 hover:bg-orange-700">
+            <PlusIcon className="mr-2 h-4 w-4" />
+            Nuevo cliente
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {error ? (
+          <div className="flex flex-col items-center justify-center p-8 text-center">
+            <div className="mb-4 rounded-full bg-red-100 p-3 text-red-600">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-6 w-6"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
             </div>
-          </AlertDescription>
-        </Alert>
-      ) : loading ? (
-        <div className="space-y-3">
-          {[...Array(5)].map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-4">
-                <div className="flex justify-between items-center">
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-[250px]" />
-                    <Skeleton className="h-4 w-[200px]" />
-                  </div>
-                  <Skeleton className="h-10 w-[100px]" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : customers.length === 0 ? (
-        <Card>
-          <CardContent className="p-6 text-center">
-            <p className="text-muted-foreground">No se encontraron clientes.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {customers.map((customer) => (
-            <Card key={customer.id}>
-              <CardContent className="p-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="font-medium">
+            <h3 className="mb-2 text-xl font-bold">Error al cargar los clientes</h3>
+            <p className="mb-4 text-gray-500">{error}</p>
+            <Button onClick={handleRetry} variant="outline" className="gap-1">
+              <ReloadIcon className="h-4 w-4" />
+              Reintentar
+            </Button>
+          </div>
+        ) : loading ? (
+          <div className="flex items-center justify-center p-8">
+            <div className="flex items-center space-x-2">
+              <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-orange-600"></div>
+              <span>Cargando clientes...</span>
+            </div>
+          </div>
+        ) : customers.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-8 text-center">
+            <div className="mb-4 rounded-full bg-gray-100 p-3 text-gray-600">
+              <UserIcon className="h-6 w-6" />
+            </div>
+            <h3 className="mb-2 text-xl font-bold">No se encontraron clientes</h3>
+            <p className="mb-4 text-gray-500">
+              {searchQuery
+                ? `No hay resultados para "${searchQuery}"`
+                : "Aún no hay clientes registrados en tu tienda."}
+            </p>
+            <Button
+              onClick={() => router.push("/dashboard/customers/new")}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              <PlusIcon className="mr-2 h-4 w-4" />
+              Crear nuevo cliente
+            </Button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Teléfono</TableHead>
+                  <TableHead>Pedidos</TableHead>
+                  <TableHead>Fecha de registro</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {customers.map((customer) => (
+                  <TableRow key={customer.id}>
+                    <TableCell className="font-medium">
                       {customer.firstName} {customer.lastName}
-                    </h3>
-                    <div className="text-sm text-muted-foreground">
-                      {customer.email} {customer.phone && `• ${customer.phone}`}
-                    </div>
-                    <div className="text-sm text-muted-foreground mt-1">
-                      Pedidos: {customer.ordersCount} • Total gastado: {customer.totalSpent}
-                    </div>
-                  </div>
-                  <Button asChild variant="outline" size="sm">
-                    <Link href={`/dashboard/customers/${customer.id.split("/").pop()}`}>Ver detalles</Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-    </div>
+                    </TableCell>
+                    <TableCell>{customer.email}</TableCell>
+                    <TableCell>{customer.phone || "—"}</TableCell>
+                    <TableCell>{customer.ordersCount}</TableCell>
+                    <TableCell>{formatDate(customer.createdAt)}</TableCell>
+                    <TableCell>
+                      <Badge variant={customer.verifiedEmail ? "success" : "secondary"}>
+                        {customer.verifiedEmail ? "Verificado" : "Pendiente"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Link href={`/dashboard/customers/${customer.id}`}>
+                        <Button variant="outline" size="sm">
+                          Ver detalles
+                        </Button>
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }
