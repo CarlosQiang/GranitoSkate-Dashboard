@@ -1,171 +1,182 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { useToast } from "@/components/ui/use-toast"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
 import { addCustomerAddress } from "@/lib/api/customers"
-import { Save, X } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { toast } from "@/components/ui/use-toast"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+
+const addressSchema = z.object({
+  address1: z.string().min(1, "La dirección es obligatoria"),
+  address2: z.string().optional(),
+  city: z.string().min(1, "La ciudad es obligatoria"),
+  province: z.string().min(1, "La provincia es obligatoria"),
+  zip: z.string().min(1, "El código postal es obligatorio"),
+  country: z.string().min(1, "El país es obligatorio"),
+  phone: z.string().optional(),
+})
+
+type AddressFormValues = z.infer<typeof addressSchema>
 
 interface CustomerAddressFormProps {
   customerId: string
-  onSuccess?: () => void
-  onCancel?: () => void
+  onAddressAdded: () => void
 }
 
-export function CustomerAddressForm({ customerId, onSuccess, onCancel }: CustomerAddressFormProps) {
-  const { toast } = useToast()
-  const [isSaving, setIsSaving] = useState(false)
-  const [formData, setFormData] = useState({
-    address1: "",
-    address2: "",
-    city: "",
-    province: "",
-    zip: "",
-    country: "España",
-    phone: "",
+export function CustomerAddressForm({ customerId, onAddressAdded }: CustomerAddressFormProps) {
+  const [isLoading, setIsLoading] = useState(false)
+
+  const form = useForm<AddressFormValues>({
+    resolver: zodResolver(addressSchema),
+    defaultValues: {
+      address1: "",
+      address2: "",
+      city: "",
+      province: "",
+      zip: "",
+      country: "España",
+      phone: "",
+    },
   })
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSaving(true)
-
+  const onSubmit = async (data: AddressFormValues) => {
     try {
-      // Validate required fields
-      if (!formData.address1 || !formData.city || !formData.zip || !formData.country) {
-        throw new Error("Por favor, completa los campos obligatorios")
-      }
-
-      await addCustomerAddress(customerId, formData)
-
+      setIsLoading(true)
+      await addCustomerAddress(customerId, data)
       toast({
         title: "Dirección añadida",
-        description: "La dirección ha sido añadida correctamente",
+        description: "La dirección se ha añadido correctamente.",
       })
-
-      if (onSuccess) {
-        onSuccess()
-      }
-    } catch (error: any) {
+      form.reset()
+      onAddressAdded()
+    } catch (error) {
       console.error("Error adding address:", error)
       toast({
-        title: "Error",
-        description: error.message || "No se pudo añadir la dirección",
         variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Error al añadir la dirección",
       })
     } finally {
-      setIsSaving(false)
+      setIsLoading(false)
     }
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Nueva dirección</CardTitle>
-        <CardDescription>Añade una nueva dirección para este cliente</CardDescription>
+        <CardTitle>Añadir nueva dirección</CardTitle>
       </CardHeader>
-      <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="address1">
-              Dirección <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="address1"
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
               name="address1"
-              value={formData.address1}
-              onChange={handleChange}
-              placeholder="Calle, número, piso..."
-              required
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Dirección</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Calle y número" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="address2">Dirección (línea 2)</Label>
-            <Input
-              id="address2"
+            <FormField
+              control={form.control}
               name="address2"
-              value={formData.address2}
-              onChange={handleChange}
-              placeholder="Apartamento, suite, unidad, etc."
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Dirección (línea 2)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Apartamento, suite, etc. (opcional)" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="city">
-                Ciudad <span className="text-red-500">*</span>
-              </Label>
-              <Input id="city" name="city" value={formData.city} onChange={handleChange} required />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="city"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ciudad</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ciudad" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="province"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Provincia</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Provincia" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="province">Provincia</Label>
-              <Input id="province" name="province" value={formData.province} onChange={handleChange} />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="zip"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Código postal</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Código postal" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="country"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>País</FormLabel>
+                    <FormControl>
+                      <Input placeholder="País" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="zip">
-                Código postal <span className="text-red-500">*</span>
-              </Label>
-              <Input id="zip" name="zip" value={formData.zip} onChange={handleChange} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="country">
-                País <span className="text-red-500">*</span>
-              </Label>
-              <Select value={formData.country} onValueChange={(value) => handleSelectChange("country", value)}>
-                <SelectTrigger id="country">
-                  <SelectValue placeholder="Selecciona un país" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="España">España</SelectItem>
-                  <SelectItem value="Portugal">Portugal</SelectItem>
-                  <SelectItem value="Francia">Francia</SelectItem>
-                  <SelectItem value="Italia">Italia</SelectItem>
-                  <SelectItem value="Alemania">Alemania</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="phone">Teléfono</Label>
-            <Input id="phone" name="phone" value={formData.phone} onChange={handleChange} />
-          </div>
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            <X className="h-4 w-4 mr-2" />
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={isSaving}>
-            {isSaving ? (
-              <>Guardando...</>
-            ) : (
-              <>
-                <Save className="h-4 w-4 mr-2" />
-                Guardar dirección
-              </>
-            )}
-          </Button>
-        </CardFooter>
-      </form>
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Teléfono (opcional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Teléfono" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <CardFooter className="px-0 pt-4">
+              <Button type="submit" disabled={isLoading} className="bg-orange-600 hover:bg-orange-700">
+                {isLoading ? "Añadiendo..." : "Añadir dirección"}
+              </Button>
+            </CardFooter>
+          </form>
+        </Form>
+      </CardContent>
     </Card>
   )
 }

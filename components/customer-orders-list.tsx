@@ -1,146 +1,160 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import { fetchCustomerById } from "@/lib/api/customers"
-import { useToast } from "@/components/ui/use-toast"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
 import { formatDate, formatCurrency } from "@/lib/utils"
-import { ExternalLink } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { AlertCircle, RefreshCw } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface CustomerOrdersListProps {
   customerId: string
 }
 
 export function CustomerOrdersList({ customerId }: CustomerOrdersListProps) {
-  const router = useRouter()
-  const { toast } = useToast()
   const [orders, setOrders] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const getCustomerOrders = async () => {
-      setIsLoading(true)
+    const loadOrders = async () => {
       try {
-        const data = await fetchCustomerById(customerId)
-        setOrders(data.orders || [])
-      } catch (error) {
-        console.error("Error fetching customer orders:", error)
-        toast({
-          title: "Error",
-          description: "No se pudieron cargar los pedidos del cliente",
-          variant: "destructive",
-        })
+        setLoading(true)
+        setError(null)
+        const customer = await fetchCustomerById(customerId)
+        if (customer && customer.orders && customer.orders.edges) {
+          const ordersList = customer.orders.edges.map((edge: any) => edge.node)
+          setOrders(ordersList)
+        } else {
+          setOrders([])
+        }
+      } catch (err) {
+        console.error("Error loading customer orders:", err)
+        setError(err instanceof Error ? err.message : "Error desconocido al cargar los pedidos")
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
-    getCustomerOrders()
-  }, [customerId, toast])
+    loadOrders()
+  }, [customerId])
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "FULFILLED":
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Completado</Badge>
-      case "IN_PROGRESS":
-        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">En progreso</Badge>
-      case "PARTIALLY_FULFILLED":
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Parcialmente completado</Badge>
-      case "UNFULFILLED":
-        return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">Pendiente</Badge>
-      case "PAID":
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Pagado</Badge>
-      case "PARTIALLY_PAID":
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Parcialmente pagado</Badge>
-      case "UNPAID":
-        return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">No pagado</Badge>
+  const handleRetry = () => {
+    setLoading(true)
+    setError(null)
+    fetchCustomerById(customerId)
+      .then((customer) => {
+        if (customer && customer.orders && customer.orders.edges) {
+          const ordersList = customer.orders.edges.map((edge: any) => edge.node)
+          setOrders(ordersList)
+        } else {
+          setOrders([])
+        }
+      })
+      .catch((err) => {
+        console.error("Error retrying to load customer orders:", err)
+        setError(err instanceof Error ? err.message : "Error desconocido al cargar los pedidos")
+      })
+      .finally(() => {
+        setLoading(false)
+      })
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case "fulfilled":
+        return "success"
+      case "unfulfilled":
+        return "warning"
+      case "partially_fulfilled":
+        return "warning"
+      case "paid":
+        return "success"
+      case "pending":
+        return "warning"
+      case "refunded":
+        return "destructive"
       default:
-        return <Badge variant="outline">{status}</Badge>
+        return "secondary"
     }
   }
 
-  if (isLoading) {
-    return (
-      <div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Pedido</TableHead>
-              <TableHead>Fecha</TableHead>
-              <TableHead>Estado de envío</TableHead>
-              <TableHead>Estado de pago</TableHead>
-              <TableHead>Total</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {[...Array(3)].map((_, i) => (
-              <TableRow key={i}>
-                <TableCell>
-                  <Skeleton className="h-4 w-20" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-4 w-32" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-6 w-24" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-6 w-24" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-4 w-16" />
-                </TableCell>
-                <TableCell className="text-right">
-                  <Skeleton className="h-8 w-20 ml-auto" />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    )
-  }
-
-  if (orders.length === 0) {
-    return <div className="text-center py-8 text-muted-foreground">Este cliente no tiene pedidos</div>
-  }
-
   return (
-    <div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Pedido</TableHead>
-            <TableHead>Fecha</TableHead>
-            <TableHead>Estado de envío</TableHead>
-            <TableHead>Estado de pago</TableHead>
-            <TableHead>Total</TableHead>
-            <TableHead className="text-right">Acciones</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {orders.map((order) => (
-            <TableRow key={order.id}>
-              <TableCell className="font-medium">{order.name}</TableCell>
-              <TableCell>{formatDate(order.processedAt)}</TableCell>
-              <TableCell>{getStatusBadge(order.fulfillmentStatus)}</TableCell>
-              <TableCell>{getStatusBadge(order.financialStatus)}</TableCell>
-              <TableCell>{formatCurrency(order.totalPrice.amount, order.totalPrice.currencyCode)}</TableCell>
-              <TableCell className="text-right">
-                <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/orders/${order.id}`)}>
-                  <ExternalLink className="h-4 w-4 mr-1" />
-                  Ver pedido
+    <Card>
+      <CardHeader>
+        <CardTitle>Pedidos del cliente</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {error ? (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error al cargar los pedidos</AlertTitle>
+            <AlertDescription>
+              {error}
+              <div className="mt-2">
+                <Button variant="outline" size="sm" onClick={handleRetry}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Reintentar
                 </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+              </div>
+            </AlertDescription>
+          </Alert>
+        ) : loading ? (
+          <div className="space-y-3">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="flex flex-col space-y-3">
+                <Skeleton className="h-4 w-[250px]" />
+                <Skeleton className="h-4 w-[200px]" />
+                <Skeleton className="h-4 w-[150px]" />
+              </div>
+            ))}
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="text-center py-6">
+            <p className="text-muted-foreground">Este cliente aún no ha realizado ningún pedido.</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Pedido</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {orders.map((order) => (
+                <TableRow key={order.id}>
+                  <TableCell className="font-medium">{order.name}</TableCell>
+                  <TableCell>{formatDate(order.processedAt)}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      <Badge variant={getStatusColor(order.fulfillmentStatus)}>
+                        {order.fulfillmentStatus || "Pendiente"}
+                      </Badge>
+                      <Badge variant={getStatusColor(order.financialStatus)} className="mt-1">
+                        {order.financialStatus || "Pendiente"}
+                      </Badge>
+                    </div>
+                  </TableCell>
+                  <TableCell>{formatCurrency(order.totalPrice?.amount, order.totalPrice?.currencyCode)}</TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="outline" size="sm">
+                      Ver detalles
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
   )
 }

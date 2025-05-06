@@ -28,21 +28,3 @@ export function formatCurrency(amount: string | number, currencyCode = "EUR"): s
     minimumFractionDigits: 2,
   }).format(numAmount)
 }
-
-// Función para truncar texto
-export function truncateText(text: string, maxLength: number): string {
-  if (!text) return ""
-  if (text.length <= maxLength) return text
-  return text.slice(0, maxLength) + "..."
-}
-
-// Función para generar un ID único
-export function generateId(): string {
-  return Math.random().toString(36).substring(2, 9)
-}
-
-// Función para validar email
-export function isValidEmail(email: string): boolean {
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return re.test(email)
-}
