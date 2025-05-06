@@ -1,6 +1,11 @@
 // Función para verificar las variables de entorno necesarias
 export function checkRequiredEnvVars() {
-  const requiredVars = ["NEXTAUTH_URL", "NEXTAUTH_SECRET", "SHOPIFY_ACCESS_TOKEN", "NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN"]
+  const requiredVars = ["NEXTAUTH_SECRET", "SHOPIFY_ACCESS_TOKEN", "NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN"]
+
+  // En desarrollo necesitamos NEXTAUTH_URL, en producción Vercel lo configura automáticamente
+  if (process.env.NODE_ENV !== "production") {
+    requiredVars.push("NEXTAUTH_URL")
+  }
 
   const missingVars = requiredVars.filter((varName) => !process.env[varName])
 
@@ -40,5 +45,20 @@ export function isDevelopment(): boolean {
 
 // Función para verificar si estamos en Vercel
 export function isVercel(): boolean {
-  return !!process.env.VERCEL
+  return !!process.env.VERCEL || !!process.env.NEXT_PUBLIC_VERCEL_ENV
+}
+
+// Función para obtener la URL base de la aplicación
+export function getBaseUrl(): string {
+  if (process.env.NEXTAUTH_URL) {
+    return process.env.NEXTAUTH_URL
+  }
+
+  // En Vercel, usamos la URL generada automáticamente
+  if (isVercel()) {
+    return `https://${process.env.VERCEL_URL}`
+  }
+
+  // Fallback para desarrollo local
+  return "http://localhost:3000"
 }

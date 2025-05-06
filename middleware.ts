@@ -8,27 +8,33 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  })
+  try {
+    const token = await getToken({
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET,
+    })
 
-  // Si el usuario no está autenticado y está intentando acceder al dashboard o a la API
-  if (
-    !token &&
-    (request.nextUrl.pathname.startsWith("/dashboard") || request.nextUrl.pathname.startsWith("/api/shopify"))
-  ) {
-    const url = new URL("/login", request.url)
-    url.searchParams.set("callbackUrl", encodeURI(request.nextUrl.pathname))
-    return NextResponse.redirect(url)
+    // Si el usuario no está autenticado y está intentando acceder al dashboard o a la API
+    if (
+      !token &&
+      (request.nextUrl.pathname.startsWith("/dashboard") || request.nextUrl.pathname.startsWith("/api/shopify"))
+    ) {
+      const url = new URL("/login", request.url)
+      url.searchParams.set("callbackUrl", encodeURI(request.nextUrl.pathname))
+      return NextResponse.redirect(url)
+    }
+
+    // Si el usuario está autenticado y está intentando acceder a la página de login
+    if (token && request.nextUrl.pathname === "/login") {
+      return NextResponse.redirect(new URL("/dashboard", request.url))
+    }
+
+    return NextResponse.next()
+  } catch (error) {
+    console.error("Error en middleware:", error)
+    // En caso de error, permitir la solicitud para evitar bloqueos
+    return NextResponse.next()
   }
-
-  // Si el usuario está autenticado y está intentando acceder a la página de login
-  if (token && request.nextUrl.pathname === "/login") {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
-  }
-
-  return NextResponse.next()
 }
 
 export const config = {
