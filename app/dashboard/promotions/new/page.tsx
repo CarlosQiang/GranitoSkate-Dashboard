@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -14,12 +16,11 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { CalendarIcon, ArrowLeft, Save, Percent, Tag, ShoppingBag, Truck, AlertCircle } from 'lucide-react'
+import { CalendarIcon, ArrowLeft, Save, Percent, Tag, ShoppingBag, Truck, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createPriceList } from "@/lib/api/promotions"
 import { useToast } from "@/components/ui/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Tabs, TabsContent, TabsList  AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { PromotionType, PromotionTarget } from "@/types/promotions"
 
@@ -212,9 +213,7 @@ export default function NewPromotionPage() {
               </div>
 
               <div className="flex justify-end">
-                <Button onClick={() => setActiveTab("type")}>
-                  Siguiente: Tipo de promoción
-                </Button>
+                <Button onClick={() => setActiveTab("type")}>Siguiente: Tipo de promoción</Button>
               </div>
             </CardContent>
           </Card>
@@ -312,9 +311,7 @@ export default function NewPromotionPage() {
                   <Button variant="outline" onClick={() => setActiveTab("basic")}>
                     Anterior
                   </Button>
-                  <Button onClick={() => setActiveTab("conditions")}>
-                    Siguiente: Condiciones
-                  </Button>
+                  <Button onClick={() => setActiveTab("conditions")}>Siguiente: Condiciones</Button>
                 </div>
               </div>
             </CardContent>
@@ -348,7 +345,8 @@ export default function NewPromotionPage() {
               {formData.target !== "CART" && (
                 <div className="space-y-2">
                   <Label htmlFor="targetId">
-                    {formData.target === "COLLECTION" ? "Colección" : "Producto"} <span className="text-red-500">*</span>
+                    {formData.target === "COLLECTION" ? "Colección" : "Producto"}{" "}
+                    <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="targetId"
