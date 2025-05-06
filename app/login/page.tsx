@@ -5,23 +5,17 @@ import type React from "react"
 import { useState } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import Image from "next/image"
 
 export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
+    setLoading(true)
     setError("")
 
     try {
@@ -33,85 +27,73 @@ export default function LoginPage() {
 
       if (result?.error) {
         setError("Credenciales inválidas. Por favor, inténtalo de nuevo.")
-        setIsLoading(false)
+        setLoading(false)
         return
       }
 
       router.push("/dashboard")
     } catch (error) {
       setError("Ocurrió un error al iniciar sesión. Por favor, inténtalo de nuevo.")
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="relative w-24 h-24">
-              <Image
-                src="/placeholder.svg?key=hwcy9"
-                alt="Granito Skate Logo"
-                width={96}
-                height={96}
-                className="rounded-full granito-shadow"
-              />
-            </div>
-          </div>
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">Granito Skate Dashboard</h2>
-          <p className="mt-2 text-sm text-gray-600">Inicia sesión para administrar tu tienda</p>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4">
+      <div className="w-full max-w-md">
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-bold text-[#d29a43]">Granito Skate</h1>
+          <p className="mt-2 text-gray-600">Inicia sesión en tu cuenta</p>
         </div>
 
-        <Card className="border-2 border-primary/10 granito-shadow">
-          <CardHeader>
-            <CardTitle className="text-xl text-center">Iniciar Sesión</CardTitle>
-            <CardDescription className="text-center">Ingresa tus credenciales para acceder</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@example.com"
-                  required
-                  className="border-2 focus:border-primary"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Contraseña</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="border-2 focus:border-primary"
-                />
-              </div>
-              <Button
-                type="submit"
-                className="w-full granito-gradient hover:opacity-90 transition-opacity"
-                disabled={isLoading}
-              >
-                {isLoading ? "Iniciando sesión..." : "Iniciar Sesión"}
-              </Button>
-            </form>
-          </CardContent>
-          <CardFooter className="flex justify-center">
-            <p className="text-sm text-gray-500">¿Problemas para iniciar sesión? Contacta al administrador</p>
-          </CardFooter>
-        </Card>
+        <form onSubmit={handleSubmit} className="rounded-lg bg-white p-8 shadow-md">
+          {error && <div className="mb-4 rounded-md bg-red-50 p-4 text-sm text-red-700">{error}</div>}
+
+          <div className="mb-4">
+            <label htmlFor="email" className="mb-2 block text-sm font-medium text-gray-700">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-[#d29a43] focus:outline-none focus:ring-1 focus:ring-[#d29a43]"
+              required
+            />
+          </div>
+
+          <div className="mb-6">
+            <label htmlFor="password" className="mb-2 block text-sm font-medium text-gray-700">
+              Contraseña
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-[#d29a43] focus:outline-none focus:ring-1 focus:ring-[#d29a43]"
+              required
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-md bg-[#d29a43] py-2 px-4 font-medium text-white hover:bg-[#b88535] focus:outline-none focus:ring-2 focus:ring-[#d29a43] focus:ring-offset-2 disabled:opacity-70"
+          >
+            {loading ? "Iniciando sesión..." : "Iniciar sesión"}
+          </button>
+        </form>
+
+        <div className="mt-6 text-center text-sm text-gray-600">
+          <p>
+            ¿Problemas para iniciar sesión?{" "}
+            <a href="mailto:soporte@granitoskate.com" className="font-medium text-[#d29a43] hover:text-[#b88535]">
+              Contacta con soporte
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   )

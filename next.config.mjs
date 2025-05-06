@@ -6,9 +6,7 @@ const nextConfig = {
     unoptimized: true,
   },
   experimental: {
-    serverActions: {
-      allowedOrigins: ["localhost:3000", "granito-skate-dashboard.vercel.app"],
-    },
+    serverActions: true,
   },
   eslint: {
     ignoreDuringBuilds: true,
@@ -16,8 +14,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Asegurarse de que los recursos estáticos se sirvan correctamente
-  assetPrefix: process.env.NODE_ENV === 'production' ? undefined : undefined,
+  // Configuración para mejorar el rendimiento
+  poweredByHeader: false,
   // Configuración para el manejo de rutas
   trailingSlash: false,
 }

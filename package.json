@@ -58,13 +58,13 @@
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.6",
     "zod": "^3.24.1",
-    "@auth/core": "latest",
-    "nodemailer": "latest",
     "chart.js": "latest",
     "graphql": "latest",
-    "next-auth": "latest",
+    "@auth/core": "latest",
+    "nodemailer": "latest",
     "react-chartjs-2": "latest",
-    "graphql-request": "latest"
+    "graphql-request": "latest",
+    "next-auth": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
