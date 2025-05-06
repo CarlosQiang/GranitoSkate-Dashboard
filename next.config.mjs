@@ -17,15 +17,9 @@ const nextConfig = {
     unoptimized: true,
   },
   experimental: {
-    serverActions: true,
+    serverActions: true,  // Cambiado de boolean a true
   },
-  // Aumentar el tiempo de timeout para las rutas API
-  api: {
-    responseLimit: '8mb',
-    bodyParser: {
-      sizeLimit: '8mb',
-    },
-  },
+  // Eliminada la sección 'api' que no es reconocida
   // Configuración para mejorar el rendimiento
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production' ? {

@@ -1,158 +1,112 @@
 "use client"
 
-import { useTheme } from "next-themes"
+import { Bar, Line, Pie } from "react-chartjs-2"
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  BarElement,
+  ArcElement,
+} from "chart.js"
+
+// Registrar los componentes de ChartJS
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend)
+
+// Datos de ejemplo para los gráficos
+const lineChartData = {
+  labels: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"],
+  datasets: [
+    {
+      label: "Ventas 2023",
+      data: [65, 59, 80, 81, 56, 55, 40, 45, 60, 70, 85, 90],
+      fill: false,
+      borderColor: "rgb(75, 192, 192)",
+      tension: 0.1,
+    },
+    {
+      label: "Ventas 2022",
+      data: [45, 49, 60, 71, 46, 45, 30, 35, 50, 60, 75, 80],
+      fill: false,
+      borderColor: "rgb(153, 102, 255)",
+      tension: 0.1,
+    },
+  ],
+}
+
+const barChartData = {
+  labels: ["Skateboards", "Longboards", "Cruisers", "Accesorios", "Ropa"],
+  datasets: [
+    {
+      label: "Ventas por categoría",
+      data: [12, 19, 3, 5, 2],
+      backgroundColor: [
+        "rgba(255, 99, 132, 0.2)",
+        "rgba(54, 162, 235, 0.2)",
+        "rgba(255, 206, 86, 0.2)",
+        "rgba(75, 192, 192, 0.2)",
+        "rgba(153, 102, 255, 0.2)",
+      ],
+      borderColor: [
+        "rgba(255, 99, 132, 1)",
+        "rgba(54, 162, 235, 1)",
+        "rgba(255, 206, 86, 1)",
+        "rgba(75, 192, 192, 1)",
+        "rgba(153, 102, 255, 1)",
+      ],
+      borderWidth: 1,
+    },
+  ],
+}
+
+const pieChartData = {
+  labels: ["Directo", "Búsqueda orgánica", "Redes sociales", "Email", "Referidos"],
+  datasets: [
+    {
+      label: "Fuentes de tráfico",
+      data: [12, 19, 3, 5, 2],
+      backgroundColor: [
+        "rgba(255, 99, 132, 0.2)",
+        "rgba(54, 162, 235, 0.2)",
+        "rgba(255, 206, 86, 0.2)",
+        "rgba(75, 192, 192, 0.2)",
+        "rgba(153, 102, 255, 0.2)",
+      ],
+      borderColor: [
+        "rgba(255, 99, 132, 1)",
+        "rgba(54, 162, 235, 1)",
+        "rgba(255, 206, 86, 1)",
+        "rgba(75, 192, 192, 1)",
+        "rgba(153, 102, 255, 1)",
+      ],
+      borderWidth: 1,
+    },
+  ],
+}
+
+// Opciones comunes para los gráficos
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      position: "top" as const,
+    },
+  },
+}
 
 export function LineChart() {
-  const { theme } = useTheme()
-  const isDark = theme === "dark"
-  const textColor = isDark ? "#ffffff" : "#000000"
-  const gridColor = isDark ? "#333333" : "#e5e5e5"
-  const lineColor = "#d29a43"
-
-  return (
-    <div className="w-full h-full flex items-center justify-center">
-      <svg width="100%" height="100%" viewBox="0 0 800 400">
-        <rect width="800" height="400" fill="none" />
-
-        {/* Eje X */}
-        <line x1="50" y1="350" x2="750" y2="350" stroke={gridColor} strokeWidth="1" />
-
-        {/* Eje Y */}
-        <line x1="50" y1="50" x2="50" y2="350" stroke={gridColor} strokeWidth="1" />
-
-        {/* Líneas de cuadrícula horizontales */}
-        <line x1="50" y1="50" x2="750" y2="50" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-        <line x1="50" y1="125" x2="750" y2="125" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-        <line x1="50" y1="200" x2="750" y2="200" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-        <line x1="50" y1="275" x2="750" y2="275" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-
-        {/* Etiquetas del eje X */}
-        <text x="100" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Día 1
-        </text>
-        <text x="200" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Día 6
-        </text>
-        <text x="300" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Día 11
-        </text>
-        <text x="400" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Día 16
-        </text>
-        <text x="500" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Día 21
-        </text>
-        <text x="600" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Día 26
-        </text>
-        <text x="700" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Día 30
-        </text>
-
-        {/* Etiquetas del eje Y */}
-        <text x="40" y="350" fill={textColor} fontSize="12" textAnchor="end">
-          0€
-        </text>
-        <text x="40" y="275" fill={textColor} fontSize="12" textAnchor="end">
-          500€
-        </text>
-        <text x="40" y="200" fill={textColor} fontSize="12" textAnchor="end">
-          1000€
-        </text>
-        <text x="40" y="125" fill={textColor} fontSize="12" textAnchor="end">
-          1500€
-        </text>
-        <text x="40" y="50" fill={textColor} fontSize="12" textAnchor="end">
-          2000€
-        </text>
-
-        {/* Mensaje de datos no disponibles */}
-        <text x="400" y="200" fill={textColor} fontSize="14" textAnchor="middle">
-          Los datos de ventas estarán disponibles próximamente
-        </text>
-      </svg>
-    </div>
-  )
+  return <Line data={lineChartData} options={chartOptions} />
 }
 
 export function BarChart() {
-  const { theme } = useTheme()
-  const isDark = theme === "dark"
-  const textColor = isDark ? "#ffffff" : "#000000"
-  const gridColor = isDark ? "#333333" : "#e5e5e5"
-
-  return (
-    <div className="w-full h-full flex items-center justify-center">
-      <svg width="100%" height="100%" viewBox="0 0 800 400">
-        <rect width="800" height="400" fill="none" />
-
-        {/* Eje X */}
-        <line x1="50" y1="350" x2="750" y2="350" stroke={gridColor} strokeWidth="1" />
-
-        {/* Eje Y */}
-        <line x1="50" y1="50" x2="50" y2="350" stroke={gridColor} strokeWidth="1" />
-
-        {/* Líneas de cuadrícula horizontales */}
-        <line x1="50" y1="50" x2="750" y2="50" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-        <line x1="50" y1="125" x2="750" y2="125" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-        <line x1="50" y1="200" x2="750" y2="200" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-        <line x1="50" y1="275" x2="750" y2="275" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-
-        {/* Etiquetas del eje X */}
-        <text x="125" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Tablas
-        </text>
-        <text x="250" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Ruedas
-        </text>
-        <text x="375" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Ejes
-        </text>
-        <text x="500" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Ropa
-        </text>
-        <text x="625" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Accesorios
-        </text>
-
-        {/* Etiquetas del eje Y */}
-        <text x="40" y="350" fill={textColor} fontSize="12" textAnchor="end">
-          0€
-        </text>
-        <text x="40" y="275" fill={textColor} fontSize="12" textAnchor="end">
-          1000€
-        </text>
-        <text x="40" y="200" fill={textColor} fontSize="12" textAnchor="end">
-          2000€
-        </text>
-        <text x="40" y="125" fill={textColor} fontSize="12" textAnchor="end">
-          3000€
-        </text>
-        <text x="40" y="50" fill={textColor} fontSize="12" textAnchor="end">
-          4000€
-        </text>
-
-        {/* Mensaje de datos no disponibles */}
-        <text x="400" y="200" fill={textColor} fontSize="14" textAnchor="middle">
-          Los datos por categoría estarán disponibles próximamente
-        </text>
-      </svg>
-    </div>
-  )
+  return <Bar data={barChartData} options={chartOptions} />
 }
 
 export function PieChart() {
-  const { theme } = useTheme()
-  const isDark = theme === "dark"
-  const textColor = isDark ? "#ffffff" : "#000000"
-
-  return (
-    <div className="w-full h-full flex items-center justify-center">
-      <svg width="100%" height="100%" viewBox="0 0 400 400">
-        <text x="200" y="200" fill={textColor} fontSize="14" textAnchor="middle">
-          Los datos de tráfico estarán disponibles próximamente
-        </text>
-      </svg>
-    </div>
-  )
+  return <Pie data={pieChartData} options={chartOptions} />
 }

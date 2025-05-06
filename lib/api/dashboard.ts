@@ -1,78 +1,59 @@
-import shopifyClient from "@/lib/shopify"
-import { gql } from "graphql-request"
-
-export async function fetchDashboardStats() {
+// Función para obtener estadísticas de la tienda
+export async function fetchShopStats() {
   try {
-    // Consulta para obtener estadísticas básicas de la tienda
-    const query = gql`
-      query {
-        shop {
-          name
-          myshopifyDomain
-          primaryDomain {
-            url
-          }
-        }
-        products(first: 250) {
-          edges {
-            node {
-              id
-            }
-          }
-        }
-        customers(first: 250) {
-          edges {
-            node {
-              id
-            }
-          }
-        }
-        orders(first: 250) {
-          edges {
-            node {
-              id
-              totalPriceSet {
-                shopMoney {
-                  amount
-                }
-              }
-            }
-          }
-        }
-      }
-    `
-
-    const data = await shopifyClient.request(query)
-
-    // Calcular estadísticas
-    const totalProducts = data?.products?.edges?.length || 0
-    const totalCustomers = data?.customers?.edges?.length || 0
-    const totalOrders = data?.orders?.edges?.length || 0
-
-    // Calcular ingresos totales
-    let totalRevenue = 0
-    if (data?.orders?.edges) {
-      totalRevenue = data.orders.edges.reduce((sum, order) => {
-        const amount = Number.parseFloat(order.node.totalPriceSet?.shopMoney?.amount || "0")
-        return sum + amount
-      }, 0)
-    }
-
+    // En un entorno real, esto haría una llamada a la API de Shopify
+    // Por ahora, devolvemos datos de ejemplo
     return {
-      totalProducts,
-      totalCustomers,
-      totalOrders,
-      totalRevenue,
-      shopName: data?.shop?.name || "",
-      shopDomain: data?.shop?.myshopifyDomain || "",
-      shopUrl: data?.shop?.primaryDomain?.url || "",
+      totalRevenue: "€4,250.00",
+      totalOrders: 42,
+      averageOrderValue: "€101.19",
+      conversionRate: "2.4%",
+      topProducts: [
+        { id: 1, name: "Skateboard Completo", sales: 15 },
+        { id: 2, name: "Ruedas Pro", sales: 12 },
+        { id: 3, name: "Trucks Premium", sales: 8 },
+      ],
+      recentOrders: [
+        { id: "ORD-001", customer: "Juan Pérez", total: "€120.00", status: "Completado", date: "2023-04-01" },
+        { id: "ORD-002", customer: "María García", total: "€85.50", status: "Enviado", date: "2023-04-02" },
+        { id: "ORD-003", customer: "Carlos López", total: "€210.75", status: "Procesando", date: "2023-04-03" },
+      ],
     }
   } catch (error) {
     console.error("Error fetching shop stats:", error)
-    throw new Error(`Error al cargar estadísticas: ${(error as Error).message}`)
+    throw new Error("Failed to fetch shop statistics")
   }
 }
 
-export async function fetchShopStats() {
-  return fetchDashboardStats()
+// Función para obtener datos de ventas por período
+export async function fetchSalesByPeriod(period = "month") {
+  try {
+    // En un entorno real, esto haría una llamada a la API de Shopify con el período especificado
+    // Por ahora, devolvemos datos de ejemplo
+    return {
+      labels: ["Semana 1", "Semana 2", "Semana 3", "Semana 4"],
+      data: [1200, 1900, 1500, 1700],
+    }
+  } catch (error) {
+    console.error("Error fetching sales by period:", error)
+    throw new Error("Failed to fetch sales data")
+  }
+}
+
+// Función para obtener datos de tráfico
+export async function fetchTrafficSources() {
+  try {
+    // En un entorno real, esto haría una llamada a la API de Google Analytics o similar
+    // Por ahora, devolvemos datos de ejemplo
+    return {
+      direct: 35,
+      organic: 25,
+      social: 20,
+      email: 15,
+      referral: 5,
+    }
+  } catch (error) {
+    console.error("Error fetching traffic sources:", error)
+    throw new Error("Failed to fetch traffic data")
+  }
 }
