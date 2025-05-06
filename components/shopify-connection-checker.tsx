@@ -4,12 +4,12 @@ import { useState, useEffect } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { AlertCircle, RefreshCw, CheckCircle } from "lucide-react"
+import { testShopifyConnection } from "@/lib/shopify"
 
 interface ShopifyConnectionCheckerProps {
   onConnectionChange?: (connected: boolean) => void
 }
 
-// Exportamos tanto como función nombrada como por defecto para mantener compatibilidad
 export function ShopifyConnectionChecker({ onConnectionChange }: ShopifyConnectionCheckerProps = {}) {
   const [status, setStatus] = useState<"loading" | "connected" | "error">("loading")
   const [shopName, setShopName] = useState<string>("")
@@ -21,28 +21,15 @@ export function ShopifyConnectionChecker({ onConnectionChange }: ShopifyConnecti
     setStatus("loading")
 
     try {
-      const response = await fetch("/api/shopify/check", {
-        method: "GET",
-        headers: {
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
-        },
-      })
+      const result = await testShopifyConnection()
 
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`)
-      }
-
-      const data = await response.json()
-
-      if (data.success) {
+      if (result.success) {
         setStatus("connected")
-        setShopName(data.shopName || "")
+        setShopName(result.data?.shop?.name || "")
         onConnectionChange?.(true) // Notify parent component
       } else {
         setStatus("error")
-        setError(data.error || "Error desconocido al conectar con Shopify")
+        setError(result.message || "Error desconocido al conectar con Shopify")
         onConnectionChange?.(false) // Notify parent component
       }
     } catch (err) {
@@ -101,6 +88,3 @@ export function ShopifyConnectionChecker({ onConnectionChange }: ShopifyConnecti
     </>
   )
 }
-
-// También exportamos como default para mantener compatibilidad
-export default ShopifyConnectionChecker

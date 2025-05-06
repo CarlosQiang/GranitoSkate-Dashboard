@@ -1,31 +1,36 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
+import { getToken } from "next-auth/jwt"
 
-// Esta función se ejecuta antes de cada solicitud
-export function middleware(request: NextRequest) {
-  const path = request.nextUrl.pathname
-
-  // Definimos las rutas públicas (que no requieren autenticación)
-  const isPublicPath = path === "/login" || path === "/"
-
-  // Obtenemos el token de la cookie (si existe)
-  const token = request.cookies.get("next-auth.session-token")?.value || ""
-
-  // Si el usuario intenta acceder a una ruta protegida sin token, redirigimos al login
-  if (!isPublicPath && !token) {
-    return NextResponse.redirect(new URL("/login", request.url))
+export async function middleware(request: NextRequest) {
+  // Verificar si la ruta es /api/health, permitir acceso sin autenticación
+  if (request.nextUrl.pathname === "/api/health") {
+    return NextResponse.next()
   }
 
-  // Si el usuario ya está autenticado e intenta acceder al login, redirigimos al dashboard
-  if (isPublicPath && token) {
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  })
+
+  // Si el usuario no está autenticado y está intentando acceder al dashboard o a la API
+  if (
+    !token &&
+    (request.nextUrl.pathname.startsWith("/dashboard") || request.nextUrl.pathname.startsWith("/api/shopify"))
+  ) {
+    const url = new URL("/login", request.url)
+    url.searchParams.set("callbackUrl", encodeURI(request.nextUrl.pathname))
+    return NextResponse.redirect(url)
+  }
+
+  // Si el usuario está autenticado y está intentando acceder a la página de login
+  if (token && request.nextUrl.pathname === "/login") {
     return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
-  // En cualquier otro caso, continuamos con la solicitud
   return NextResponse.next()
 }
 
-// Configuramos las rutas a las que se aplicará el middleware
 export const config = {
-  matcher: ["/", "/login", "/dashboard/:path*"],
+  matcher: ["/dashboard/:path*", "/login", "/api/shopify/:path*", "/api/health"],
 }

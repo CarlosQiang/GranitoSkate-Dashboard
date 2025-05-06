@@ -8,12 +8,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Globe, Share2, Twitter, RefreshCw, AlertCircle } from "lucide-react"
+import { Search, Globe, Share2, Twitter } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { fetchSeoMetafields, saveSeoMetafields } from "@/lib/api/metafields"
-import { generateSeoTitle, generateSeoDescription, extractKeywords, generateShopStructuredData } from "@/lib/seo-utils"
 import type { SeoMetafields } from "@/types/metafields"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 interface SeoFormProps {
   ownerId: string
@@ -21,21 +19,12 @@ interface SeoFormProps {
   onSave?: () => void
   defaultTitle?: string
   defaultDescription?: string
-  shopInfo?: any
 }
 
-export function SeoForm({
-  ownerId,
-  ownerType,
-  onSave,
-  defaultTitle = "",
-  defaultDescription = "",
-  shopInfo,
-}: SeoFormProps) {
+export function SeoForm({ ownerId, ownerType, onSave, defaultTitle = "", defaultDescription = "" }: SeoFormProps) {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [isGenerating, setIsGenerating] = useState(false)
   const [seo, setSeo] = useState<SeoMetafields>({
     title: defaultTitle,
     description: defaultDescription,
@@ -47,7 +36,6 @@ export function SeoForm({
     twitterDescription: "",
     twitterImage: "",
     canonicalUrl: "",
-    structuredData: "",
   })
 
   useEffect(() => {
@@ -58,19 +46,11 @@ export function SeoForm({
 
         // Si no hay datos de SEO, usar los valores por defecto
         if (!seoData.title && defaultTitle) {
-          seoData.title = generateSeoTitle(defaultTitle)
+          seoData.title = defaultTitle
         }
 
         if (!seoData.description && defaultDescription) {
-          seoData.description = generateSeoDescription(defaultDescription, defaultTitle)
-        }
-
-        if (!seoData.keywords || seoData.keywords.length === 0) {
-          seoData.keywords = extractKeywords(defaultTitle, defaultDescription)
-        }
-
-        if (!seoData.structuredData && shopInfo) {
-          seoData.structuredData = generateShopStructuredData(shopInfo)
+          seoData.description = defaultDescription
         }
 
         setSeo(seoData)
@@ -87,7 +67,7 @@ export function SeoForm({
     }
 
     loadSeoData()
-  }, [ownerId, ownerType, defaultTitle, defaultDescription, shopInfo, toast])
+  }, [ownerId, ownerType, defaultTitle, defaultDescription, toast])
 
   // Modificar la función handleSave para incluir un indicador de éxito más visible
   const handleSave = async () => {
@@ -148,42 +128,6 @@ export function SeoForm({
     }))
   }
 
-  const handleGenerateAutoSeo = async () => {
-    setIsGenerating(true)
-    try {
-      // Generar automáticamente los datos de SEO
-      const autoSeo = {
-        title: generateSeoTitle(defaultTitle),
-        description: generateSeoDescription(defaultDescription, defaultTitle),
-        keywords: extractKeywords(defaultTitle, defaultDescription),
-        ogTitle: generateSeoTitle(defaultTitle),
-        ogDescription: generateSeoDescription(defaultDescription, defaultTitle),
-        ogImage: seo.ogImage || "",
-        twitterTitle: generateSeoTitle(defaultTitle),
-        twitterDescription: generateSeoDescription(defaultDescription, defaultTitle),
-        twitterImage: seo.twitterImage || "",
-        canonicalUrl: `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || ""}`,
-        structuredData: shopInfo ? generateShopStructuredData(shopInfo) : "",
-      }
-
-      setSeo(autoSeo)
-
-      toast({
-        title: "SEO generado automáticamente",
-        description: "Se ha generado la configuración de SEO basada en los datos de la tienda",
-      })
-    } catch (error) {
-      console.error("Error generating auto SEO:", error)
-      toast({
-        title: "Error",
-        description: "No se pudo generar automáticamente la configuración de SEO",
-        variant: "destructive",
-      })
-    } finally {
-      setIsGenerating(false)
-    }
-  }
-
   if (isLoading) {
     return (
       <Card>
@@ -212,26 +156,11 @@ export function SeoForm({
             Configura cómo aparecerá este contenido en los resultados de búsqueda y redes sociales
           </CardDescription>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleGenerateAutoSeo} disabled={isGenerating}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isGenerating ? "animate-spin" : ""}`} />
-            {isGenerating ? "Generando..." : "Generar automáticamente"}
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? "Guardando..." : "Guardar SEO"}
-          </Button>
-        </div>
+        <Button onClick={handleSave} disabled={isSaving}>
+          {isSaving ? "Guardando..." : "Guardar SEO"}
+        </Button>
       </CardHeader>
       <CardContent>
-        <Alert className="mb-6 bg-blue-50 border-blue-200">
-          <AlertCircle className="h-4 w-4 text-blue-600" />
-          <AlertTitle className="text-blue-800">SEO automático</AlertTitle>
-          <AlertDescription className="text-blue-700">
-            El sistema genera automáticamente metadatos SEO optimizados a partir del título y descripción de la tienda.
-            Puedes usar el botón "Generar automáticamente" para actualizar estos datos en cualquier momento.
-          </AlertDescription>
-        </Alert>
-
         <Tabs defaultValue="general">
           <TabsList>
             <TabsTrigger value="general">

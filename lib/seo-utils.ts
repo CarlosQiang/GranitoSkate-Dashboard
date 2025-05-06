@@ -18,7 +18,7 @@ export function generateSeoTitle(title: string, brandName = "GranitoSkate"): str
 
   // Añadir palabras clave relevantes para skate si no están ya incluidas
   let enhancedTitle = title
-  const skateKeywords = ["skate", "skateboard", "tabla", "patineta", "longboard", "cruiser"]
+  const skateKeywords = ["skate", "skateboard", "tabla", "patineta"]
   const hasSkateKeyword = skateKeywords.some((keyword) => title.toLowerCase().includes(keyword))
 
   if (!hasSkateKeyword && title.length < 40) {
@@ -31,14 +31,6 @@ export function generateSeoTitle(title: string, brandName = "GranitoSkate"): str
       enhancedTitle += " Skate"
     } else if (title.toLowerCase().includes("completa")) {
       enhancedTitle += " de Skateboard"
-    } else if (title.toLowerCase().includes("zapatilla") || title.toLowerCase().includes("zapato")) {
-      enhancedTitle += " de Skate"
-    } else if (
-      title.toLowerCase().includes("camiseta") ||
-      title.toLowerCase().includes("sudadera") ||
-      title.toLowerCase().includes("gorra")
-    ) {
-      enhancedTitle += " Skate"
     }
   }
 
@@ -68,14 +60,6 @@ export function generateSeoDescription(description: string, title: string): stri
       return `Descubre los ${title} en GranitoSkate. Rodamientos de alta calidad para mayor velocidad y suavidad. Envío rápido y seguro. ¡Compra ahora en nuestra tienda online!`
     } else if (title.toLowerCase().includes("completa")) {
       return `Descubre la ${title} en GranitoSkate. Skateboard completo de alta calidad, listo para usar. Ideal para principiantes y skaters experimentados. Envío rápido y seguro.`
-    } else if (title.toLowerCase().includes("zapatilla") || title.toLowerCase().includes("zapato")) {
-      return `Descubre las ${title} en GranitoSkate. Zapatillas diseñadas específicamente para skate con gran durabilidad y agarre. Envío rápido y seguro.`
-    } else if (
-      title.toLowerCase().includes("camiseta") ||
-      title.toLowerCase().includes("sudadera") ||
-      title.toLowerCase().includes("gorra")
-    ) {
-      return `Descubre ${title} en GranitoSkate. Ropa de skate con estilo urbano y la mejor calidad. Envío rápido y seguro. ¡Compra ahora en nuestra tienda online!`
     } else if (title.toLowerCase().includes("colección") || title.toLowerCase().includes("coleccion")) {
       return `Explora nuestra ${title} en GranitoSkate. Productos seleccionados de la mejor calidad para skaters exigentes. Envío rápido y seguro. ¡Compra ahora en nuestra tienda online!`
     } else {
@@ -85,11 +69,6 @@ export function generateSeoDescription(description: string, title: string): stri
 
   // Eliminar etiquetas HTML si las hay
   const plainText = description.replace(/<[^>]*>/g, "")
-
-  // Mejorar la descripción si es muy corta
-  if (plainText.length < 50) {
-    return `${plainText} Descubre este producto de skate en GranitoSkate. Calidad premium y envío rápido garantizado.`
-  }
 
   // Limitar a 160 caracteres (recomendado para SEO)
   return plainText.length > 160 ? plainText.substring(0, 157) + "..." : plainText
@@ -103,76 +82,44 @@ export function generateSeoDescription(description: string, title: string): stri
 export function generateSeoHandle(title: string): string {
   return title
     .toLowerCase()
-    .normalize("NFD") // Normalizar caracteres acentuados
-    .replace(/[\u0300-\u036f]/g, "") // Eliminar acentos
     .replace(/[^\w\s-]/g, "") // Eliminar caracteres especiales
     .replace(/\s+/g, "-") // Reemplazar espacios con guiones
     .replace(/--+/g, "-") // Reemplazar múltiples guiones con uno solo
     .trim() // Eliminar espacios al inicio y final
 }
 
-/**
- * Genera metafields para SEO a partir de título y descripción
- * @param title Título del producto o colección
- * @param description Descripción del producto o colección
- * @param image URL de la imagen (opcional)
- */
-export function generateSeoMetafields(title: string, description: string, image?: string) {
-  const seoTitle = generateSeoTitle(title)
-  const seoDescription = generateSeoDescription(description, title)
-  const keywords = extractKeywords(title, description)
-
+// Actualizar la función generateSeoMetafields para usar el nuevo sistema de metafields
+export function generateSeoMetafields(title: string, description: string) {
   return [
     {
       namespace: "seo",
       key: "title",
-      value: seoTitle,
+      value: title,
       type: "single_line_text_field",
     },
     {
       namespace: "seo",
       key: "description",
-      value: seoDescription,
+      value: description,
       type: "multi_line_text_field",
     },
     {
       namespace: "seo",
-      key: "keywords",
-      value: JSON.stringify(keywords),
+      key: "settings",
+      value: JSON.stringify({
+        title,
+        description,
+        keywords: extractKeywords(title, description),
+      }),
       type: "json",
     },
-    {
-      namespace: "og",
-      key: "title",
-      value: seoTitle,
-      type: "single_line_text_field",
-    },
-    {
-      namespace: "og",
-      key: "description",
-      value: seoDescription,
-      type: "multi_line_text_field",
-    },
-    ...(image
-      ? [
-          {
-            namespace: "og",
-            key: "image",
-            value: image,
-            type: "single_line_text_field",
-          },
-        ]
-      : []),
   ]
 }
 
-/**
- * Extrae palabras clave relevantes de un título y descripción
- * @param title Título del producto o colección
- * @param description Descripción del producto o colección
- * @returns Array de palabras clave
- */
-export function extractKeywords(title: string, description: string): string[] {
+// Mejorar la función extractKeywords para obtener palabras clave más relevantes
+
+// Reemplazar la función extractKeywords con esta versión mejorada
+function extractKeywords(title: string, description: string): string[] {
   // Combinar título y descripción
   const text = `${title} ${description}`.toLowerCase()
 
@@ -246,138 +193,6 @@ export function extractKeywords(title: string, description: string): string[] {
     "tantas",
     "tal",
     "tales",
-    "muy",
-    "mucho",
-    "mucha",
-    "muchos",
-    "muchas",
-    "poco",
-    "poca",
-    "pocos",
-    "pocas",
-    "bastante",
-    "demasiado",
-    "demasiada",
-    "demasiados",
-    "demasiadas",
-    "todo",
-    "toda",
-    "todos",
-    "todas",
-    "alguno",
-    "alguna",
-    "algunos",
-    "algunas",
-    "ninguno",
-    "ninguna",
-    "ningunos",
-    "ningunas",
-    "otro",
-    "otra",
-    "otros",
-    "otras",
-    "mismo",
-    "misma",
-    "mismos",
-    "mismas",
-    "tan",
-    "tanto",
-    "tanta",
-    "tantos",
-    "tantas",
-    "alguien",
-    "nadie",
-    "algo",
-    "nada",
-    "cada",
-    "cualquier",
-    "quienquiera",
-    "cualesquiera",
-    "demás",
-    "varios",
-    "varias",
-    "cierto",
-    "cierta",
-    "ciertos",
-    "ciertas",
-    "más",
-    "menos",
-    "mejor",
-    "peor",
-    "mayor",
-    "menor",
-    "superior",
-    "inferior",
-    "máximo",
-    "máxima",
-    "mínimo",
-    "mínima",
-    "óptimo",
-    "óptima",
-    "pésimo",
-    "pésima",
-    "último",
-    "última",
-    "primero",
-    "primera",
-    "segundo",
-    "segunda",
-    "tercero",
-    "tercera",
-    "cuarto",
-    "cuarta",
-    "quinto",
-    "quinta",
-    "sexto",
-    "sexta",
-    "séptimo",
-    "séptima",
-    "octavo",
-    "octava",
-    "noveno",
-    "novena",
-    "décimo",
-    "décima",
-    "vigésimo",
-    "vigésima",
-    "trigésimo",
-    "trigésima",
-    "cuadragésimo",
-    "cuadragésima",
-    "quincuagésimo",
-    "quincuagésima",
-    "sexagésimo",
-    "sexagésima",
-    "septuagésimo",
-    "septuagésima",
-    "octogésimo",
-    "octogésima",
-    "nonagésimo",
-    "nonagésima",
-    "centésimo",
-    "centésima",
-    "milésimo",
-    "milésima",
-    "millonésimo",
-    "millonésima",
-    "billonésimo",
-    "billonésima",
-    "trillonésimo",
-    "trillonésima",
-    "cuatrillonésimo",
-    "cuatrillonésima",
-    "quintillonésimo",
-    "quintillonésima",
-    "sextillonésimo",
-    "sextillonésima",
-    "septillonésimo",
-    "septillonésima",
-    "octillonésimo",
-    "octillonésima",
-    "nonillonésimo",
-    "nonillonésima",
-    "decillonésimo",
-    "decillonésima",
   ]
 
   // Palabras clave específicas del sector skate que queremos priorizar
@@ -406,169 +221,6 @@ export function extractKeywords(title: string, description: string): string[] {
     "freestyle",
     "downhill",
     "slide",
-    "flip",
-    "kickflip",
-    "heelflip",
-    "ollie",
-    "nollie",
-    "grind",
-    "slide",
-    "manual",
-    "nose",
-    "tail",
-    "concave",
-    "shape",
-    "wheels",
-    "urethane",
-    "durometer",
-    "abec",
-    "hardware",
-    "risers",
-    "pivot",
-    "bushings",
-    "kingpin",
-    "axle",
-    "hanger",
-    "baseplate",
-    "spacer",
-    "speed rings",
-    "washers",
-    "bolts",
-    "nuts",
-    "tool",
-    "skate tool",
-    "wax",
-    "skate wax",
-    "shoes",
-    "zapatillas",
-    "camiseta",
-    "t-shirt",
-    "hoodie",
-    "sudadera",
-    "gorra",
-    "cap",
-    "beanie",
-    "backpack",
-    "mochila",
-    "calcetines",
-    "socks",
-    "pantalones",
-    "pants",
-    "jeans",
-    "shorts",
-    "vans",
-    "dc",
-    "element",
-    "santa cruz",
-    "powell peralta",
-    "bones",
-    "independent",
-    "thunder",
-    "venture",
-    "tensor",
-    "spitfire",
-    "ricta",
-    "oj",
-    "girl",
-    "chocolate",
-    "baker",
-    "flip",
-    "zero",
-    "toy machine",
-    "alien workshop",
-    "blind",
-    "enjoi",
-    "almost",
-    "globe",
-    "etnies",
-    "emerica",
-    "és",
-    "fallen",
-    "lakai",
-    "dvs",
-    "dc shoes",
-    "adio",
-    "circa",
-    "osiris",
-    "supra",
-    "nike sb",
-    "adidas skateboarding",
-    "converse cons",
-    "new balance numeric",
-    "huf",
-    "thrasher",
-    "supreme",
-    "palace",
-    "diamond supply co",
-    "primitive",
-    "dgk",
-    "grizzly",
-    "shake junt",
-    "mob",
-    "jessup",
-    "black magic",
-    "bones swiss",
-    "bones reds",
-    "bronson",
-    "andale",
-    "mini logo",
-    "destructo",
-    "royal",
-    "ace",
-    "krux",
-    "orion",
-    "theeve",
-    "silver",
-    "phantom",
-    "fury",
-    "pig",
-    "bones wheels",
-    "mini logo wheels",
-    "oj wheels",
-    "ricta wheels",
-    "spitfire wheels",
-    "powell peralta wheels",
-    "santa cruz wheels",
-    "slime balls",
-    "speedlab",
-    "flip wheels",
-    "element wheels",
-    "girl wheels",
-    "chocolate wheels",
-    "blind wheels",
-    "enjoi wheels",
-    "almost wheels",
-    "zero wheels",
-    "toy machine wheels",
-    "alien workshop wheels",
-    "darkstar wheels",
-    "dgk wheels",
-    "primitive wheels",
-    "baker wheels",
-    "shake junt wheels",
-    "bones bearings",
-    "bronson bearings",
-    "andale bearings",
-    "mini logo bearings",
-    "independent bearings",
-    "spitfire bearings",
-    "powell peralta bearings",
-    "santa cruz bearings",
-    "flip bearings",
-    "element bearings",
-    "girl bearings",
-    "chocolate bearings",
-    "blind bearings",
-    "enjoi bearings",
-    "almost bearings",
-    "zero bearings",
-    "toy machine bearings",
-    "alien workshop bearings",
-    "darkstar bearings",
-    "dgk bearings",
-    "primitive bearings",
-    "baker bearings",
-    "shake junt bearings",
   ]
 
   // Eliminar caracteres especiales y dividir en palabras
@@ -587,9 +239,68 @@ export function extractKeywords(title: string, description: string): string[] {
     wordCount[word] = (wordCount[word] || 0) + 1 * titleWeight * skateWeight
   })
 
-  // Ordenar por frecuencia y tomar las 8 más comunes
+  // Ordenar por frecuencia y tomar las 5 más comunes
   return Object.entries(wordCount)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 8)
+    .slice(0, 5)
     .map(([word]) => word)
+}
+
+/**
+ * Genera una URL canónica a partir de un handle
+ * @param handle Handle del producto o colección
+ * @param type Tipo de recurso ('product' o 'collection')
+ * @returns URL canónica
+ */
+export function generateCanonicalUrl(handle: string, type: "product" | "collection"): string {
+  const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || ""
+  return `https://${shopDomain}/${type}s/${handle}`
+}
+
+/**
+ * Genera metadatos estructurados para un producto
+ * @param product Datos del producto
+ * @returns JSON-LD para el producto
+ */
+export function generateProductStructuredData(product: any): string {
+  const structuredData = {
+    "@context": "https://schema.org/",
+    "@type": "Product",
+    name: product.title,
+    description: product.description || "",
+    image: product.featuredImage?.url || "",
+    sku: product.variants?.[0]?.sku || "",
+    brand: {
+      "@type": "Brand",
+      name: product.vendor || "",
+    },
+    offers: {
+      "@type": "Offer",
+      url: generateCanonicalUrl(product.handle, "product"),
+      priceCurrency: product.variants?.[0]?.price?.currencyCode || "EUR",
+      price: product.variants?.[0]?.price?.amount || "0.00",
+      availability: product.totalInventory > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+    },
+  }
+
+  return JSON.stringify(structuredData)
+}
+
+/**
+ * Genera metadatos estructurados para una colección
+ * @param collection Datos de la colección
+ * @returns JSON-LD para la colección
+ */
+export function generateCollectionStructuredData(collection: any): string {
+  const structuredData = {
+    "@context": "https://schema.org/",
+    "@type": "CollectionPage",
+    name: collection.title,
+    description: collection.description || "",
+    image: collection.image?.url || "",
+    url: generateCanonicalUrl(collection.handle, "collection"),
+    numberOfItems: collection.productsCount || 0,
+  }
+
+  return JSON.stringify(structuredData)
 }

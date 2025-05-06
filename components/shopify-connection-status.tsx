@@ -1,100 +1,94 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { CheckCircle2, XCircle, AlertCircle, RefreshCw } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { cn } from "@/lib/utils"
+import { AlertCircle, RefreshCw, CheckCircle } from "lucide-react"
+import { LoadingState } from "@/components/loading-state"
 
-interface ShopifyConnectionStatusProps {
-  className?: string
-}
-
-export function ShopifyConnectionStatus({ className }: ShopifyConnectionStatusProps) {
-  const [status, setStatus] = useState<"loading" | "connected" | "error" | "warning">("loading")
-  const [message, setMessage] = useState<string>("Verificando conexión...")
-  const [isChecking, setIsChecking] = useState<boolean>(false)
+export function ShopifyConnectionStatus() {
+  const [status, setStatus] = useState<"loading" | "connected" | "error">("loading")
+  const [errorDetails, setErrorDetails] = useState<string | null>(null)
+  const [shopName, setShopName] = useState<string | null>(null)
 
   const checkConnection = async () => {
-    setIsChecking(true)
     setStatus("loading")
-    setMessage("Verificando conexión...")
-
     try {
       const response = await fetch("/api/shopify/check", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
         },
         cache: "no-store",
       })
 
       const data = await response.json()
 
-      if (response.ok && data.success) {
+      if (data.success) {
         setStatus("connected")
-        setMessage(`Conectado a ${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || "tu tienda Shopify"}`)
-      } else if (response.status === 401 || response.status === 403) {
-        setStatus("error")
-        setMessage("Error de autenticación. Verifica tus credenciales de Shopify.")
-      } else if (response.status >= 500) {
-        setStatus("warning")
-        setMessage("Shopify no está disponible en este momento. Inténtalo más tarde.")
+        setShopName(data.shopName)
+        setErrorDetails(null)
       } else {
-        setStatus("error")
-        setMessage(data.message || "Error al conectar con Shopify")
+        throw new Error(data.error || "Error desconocido al conectar con Shopify")
       }
     } catch (error) {
+      console.error("Error al verificar la conexión con Shopify:", error)
       setStatus("error")
-      setMessage("Error de conexión. Verifica tu conexión a internet.")
-    } finally {
-      setIsChecking(false)
+      setErrorDetails((error as Error).message)
     }
   }
 
   useEffect(() => {
     checkConnection()
-
-    // Verificar la conexión cada 5 minutos
-    const interval = setInterval(checkConnection, 5 * 60 * 1000)
-
-    return () => clearInterval(interval)
   }, [])
 
-  const getStatusIcon = () => {
-    switch (status) {
-      case "connected":
-        return <CheckCircle2 className="h-4 w-4 text-green-500" />
-      case "error":
-        return <XCircle className="h-4 w-4 text-red-500" />
-      case "warning":
-        return <AlertCircle className="h-4 w-4 text-amber-500" />
-      case "loading":
-      default:
-        return <RefreshCw className={`h-4 w-4 text-blue-500 ${isChecking ? "animate-spin" : ""}`} />
-    }
+  if (status === "loading") {
+    return (
+      <div className="mb-4">
+        <LoadingState message="Verificando conexión con Shopify..." />
+      </div>
+    )
   }
 
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            className={cn("h-8 gap-2 text-xs", className)}
-            onClick={checkConnection}
-            disabled={isChecking}
-          >
-            {getStatusIcon()}
-            <span className="hidden sm:inline">{status === "connected" ? "Shopify Conectado" : "Estado Shopify"}</span>
+  if (status === "error") {
+    return (
+      <Alert variant="destructive" className="my-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle className="text-sm sm:text-base">Error de conexión con Shopify</AlertTitle>
+        <AlertDescription className="text-xs sm:text-sm">
+          <p>No se pudo conectar con la API de Shopify. Por favor, verifica:</p>
+          <ul className="list-disc pl-5 mt-2 mb-4 space-y-1">
+            <li>Que el dominio de la tienda (NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN) sea correcto</li>
+            <li>Que el token de acceso (SHOPIFY_ACCESS_TOKEN) sea válido y tenga los permisos necesarios</li>
+            <li>Que la tienda esté activa y accesible</li>
+          </ul>
+          {errorDetails && (
+            <div className="mt-2 p-2 bg-destructive/10 rounded text-xs sm:text-sm font-mono overflow-auto max-h-32">
+              {errorDetails}
+            </div>
+          )}
+          <Button onClick={checkConnection} className="mt-4 w-full sm:w-auto" variant="outline" size="sm">
+            <RefreshCw className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Reintentar conexión
           </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>{message}</p>
-          {status !== "connected" && <p className="text-xs mt-1">Haz clic para verificar de nuevo</p>}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  )
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
+  if (status === "connected") {
+    return (
+      <div className="mb-4">
+        <Alert className="bg-green-50 border-green-200 text-green-800">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertTitle className="text-sm sm:text-base">Conectado a Shopify</AlertTitle>
+          <AlertDescription className="text-xs sm:text-sm">
+            Conexión establecida correctamente con la tienda: <strong>{shopName}</strong>
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
+  return null
 }
