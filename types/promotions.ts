@@ -1,6 +1,12 @@
-export type PromotionType = "PERCENTAGE_DISCOUNT" | "FIXED_AMOUNT_DISCOUNT" | "BUY_X_GET_Y" | "FREE_SHIPPING"
+export type PromotionType =
+  | "PERCENTAGE_DISCOUNT"
+  | "FIXED_AMOUNT_DISCOUNT"
+  | "BUY_X_GET_Y"
+  | "FREE_SHIPPING"
+  | "AUTOMATIC_DISCOUNT"
+  | "CODE_DISCOUNT"
 
-export type PromotionTarget = "CART" | "COLLECTION" | "PRODUCT" | "VARIANT"
+export type PromotionTarget = "CART" | "COLLECTION" | "PRODUCT" | "VARIANT" | "CUSTOMER_SEGMENT"
 
 export type PromotionConditionType =
   | "MINIMUM_AMOUNT"
@@ -8,6 +14,8 @@ export type PromotionConditionType =
   | "SPECIFIC_CUSTOMER_GROUP"
   | "MINIMUM_QUANTITY"
   | "DATE_RANGE"
+  | "CUSTOMER_SEGMENT"
+  | "USAGE_LIMIT"
 
 export type PromotionCondition = {
   type: PromotionConditionType
@@ -52,4 +60,35 @@ export type Promotion = {
   active?: boolean
   valueType?: string
   discountClass?: string
+  shortSummary?: string
+  customerSegments?: string[]
+  marketingChannel?: string
+}
+
+export type MarketingActivity = {
+  id: string
+  title: string
+  status: string
+  type: string
+  channel: string
+  startDate: string
+  endDate?: string
+  budget?: {
+    amount: number
+    currencyCode: string
+  }
+  targetAudience?: string
+  metrics?: {
+    impressions?: number
+    clicks?: number
+    conversions?: number
+  }
+}
+
+export type DiscountCode = {
+  id: string
+  code: string
+  discountId: string
+  usageCount: number
+  createdAt: string
 }

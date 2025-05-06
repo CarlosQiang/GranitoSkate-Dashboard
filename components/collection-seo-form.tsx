@@ -8,10 +8,17 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Globe, Share2, Twitter } from "lucide-react"
+import { Search, Globe, Share2, Twitter, RefreshCw, AlertCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { getCollectionSeoSettings, saveCollectionSeoSettings } from "@/lib/api/seo"
+import {
+  generateSeoTitle,
+  generateSeoDescription,
+  extractKeywords,
+  generateCollectionStructuredData,
+} from "@/lib/seo-utils"
 import type { SeoSettings } from "@/types/seo"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -41,6 +48,7 @@ const seoFormSchema = z.object({
     .optional()
     .or(z.literal("")),
   twitterImage: z.string().url("URL de imagen de Twitter inválida").optional().or(z.literal("")),
+  structuredData: z.string().optional().or(z.literal("")),
 })
 
 type SeoFormValues = z.infer<typeof seoFormSchema>
@@ -50,6 +58,8 @@ interface CollectionSeoFormProps {
   collectionTitle: string
   collectionDescription: string
   collectionImage?: string
+  collectionHandle?: string
+  collectionProducts?: any[]
   onSave?: () => void
 }
 
@@ -58,11 +68,14 @@ export function CollectionSeoForm({
   collectionTitle,
   collectionDescription,
   collectionImage,
+  collectionHandle,
+  collectionProducts,
   onSave,
 }: CollectionSeoFormProps) {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
   const [seo, setSeo] = useState<SeoSettings>({
     title: collectionTitle,
     description: collectionDescription,
@@ -107,18 +120,29 @@ export function CollectionSeoForm({
         } else {
           // Si no hay datos de SEO, usar los valores de la colección
           const defaultSeo = {
-            title: collectionTitle,
-            description: collectionDescription,
-            keywords: [],
+            title: generateSeoTitle(collectionTitle),
+            description: generateSeoDescription(collectionDescription, collectionTitle),
+            keywords: extractKeywords(collectionTitle, collectionDescription),
             ogTitle: "",
             ogDescription: "",
             ogImage: collectionImage || "",
-            twitterCard: "summary_large_image",
+            twitterCard: "summary_large_image" as const,
             twitterTitle: "",
             twitterDescription: "",
             twitterImage: collectionImage || "",
-            canonicalUrl: "",
-            structuredData: "",
+            canonicalUrl: collectionHandle
+              ? `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/collections/${collectionHandle}`
+              : "",
+            structuredData: collectionHandle
+              ? generateCollectionStructuredData({
+                  title: collectionTitle,
+                  description: collectionDescription,
+                  image: { url: collectionImage },
+                  handle: collectionHandle,
+                  products: collectionProducts || [],
+                  productsCount: collectionProducts?.length || 0,
+                })
+              : "",
           }
           setSeo(defaultSeo)
           form.reset(defaultSeo)
@@ -136,7 +160,16 @@ export function CollectionSeoForm({
     }
 
     loadSeoData()
-  }, [collectionId, collectionTitle, collectionDescription, collectionImage, toast, form])
+  }, [
+    collectionId,
+    collectionTitle,
+    collectionDescription,
+    collectionImage,
+    collectionHandle,
+    collectionProducts,
+    toast,
+    form,
+  ])
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -188,6 +221,55 @@ export function CollectionSeoForm({
     }))
   }
 
+  const handleGenerateAutoSeo = async () => {
+    setIsGenerating(true)
+    try {
+      // Generar automáticamente los datos de SEO
+      const autoSeo = {
+        title: generateSeoTitle(collectionTitle),
+        description: generateSeoDescription(collectionDescription, collectionTitle),
+        keywords: extractKeywords(collectionTitle, collectionDescription),
+        ogTitle: generateSeoTitle(collectionTitle),
+        ogDescription: generateSeoDescription(collectionDescription, collectionTitle),
+        ogImage: collectionImage || "",
+        twitterCard: "summary_large_image" as const,
+        twitterTitle: generateSeoTitle(collectionTitle),
+        twitterDescription: generateSeoDescription(collectionDescription, collectionTitle),
+        twitterImage: collectionImage || "",
+        canonicalUrl: collectionHandle
+          ? `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/collections/${collectionHandle}`
+          : "",
+        structuredData: collectionHandle
+          ? generateCollectionStructuredData({
+              title: collectionTitle,
+              description: collectionDescription,
+              image: { url: collectionImage },
+              handle: collectionHandle,
+              products: collectionProducts || [],
+              productsCount: collectionProducts?.length || 0,
+            })
+          : "",
+      }
+
+      setSeo(autoSeo)
+      form.reset(autoSeo)
+
+      toast({
+        title: "SEO generado automáticamente",
+        description: "Se ha generado la configuración de SEO basada en los datos de la colección",
+      })
+    } catch (error) {
+      console.error("Error generating auto SEO:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo generar automáticamente la configuración de SEO",
+        variant: "destructive",
+      })
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <Card>
@@ -216,11 +298,26 @@ export function CollectionSeoForm({
             Configura cómo aparecerá esta colección en los resultados de búsqueda y redes sociales
           </CardDescription>
         </div>
-        <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving ? "Guardando..." : "Guardar SEO"}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleGenerateAutoSeo} disabled={isGenerating}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isGenerating ? "animate-spin" : ""}`} />
+            {isGenerating ? "Generando..." : "Generar automáticamente"}
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? "Guardando..." : "Guardar SEO"}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
+        <Alert className="mb-6 bg-blue-50 border-blue-200">
+          <AlertCircle className="h-4 w-4 text-blue-600" />
+          <AlertTitle className="text-blue-800">SEO automático</AlertTitle>
+          <AlertDescription className="text-blue-700">
+            El sistema genera automáticamente metadatos SEO optimizados a partir del título y descripción de la
+            colección. Puedes usar el botón "Generar automáticamente" para actualizar estos datos en cualquier momento.
+          </AlertDescription>
+        </Alert>
+
         <Tabs defaultValue="general">
           <TabsList>
             <TabsTrigger value="general">

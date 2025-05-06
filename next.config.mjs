@@ -1,35 +1,39 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  images: {
-    domains: ['cdn.shopify.com'],
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**.shopify.com',
-      },
-    ],
-    unoptimized: true,
-  },
-  // Optimizaciones para producción
-  poweredByHeader: false,
-  // Configuración para Vercel
-  env: {
-    NEXT_PUBLIC_VERCEL_URL: process.env.VERCEL_URL,
-  },
-  // Ignorar errores de ESLint y TypeScript durante la compilación para evitar fallos en el despliegue
   eslint: {
     ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Optimización de compilación
+  images: {
+    domains: [
+      'cdn.shopify.com',
+      'burst.shopifycdn.com',
+      'plus.unsplash.com',
+      'images.unsplash.com',
+    ],
+    unoptimized: true,
+  },
+  experimental: {
+    serverActions: true,
+  },
+  // Aumentar el tiempo de timeout para las rutas API
+  api: {
+    responseLimit: '8mb',
+    bodyParser: {
+      sizeLimit: '8mb',
+    },
+  },
+  // Configuración para mejorar el rendimiento
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production' ? {
       exclude: ['error', 'warn'],
     } : false,
   },
-};
+  // Optimización para Vercel
+  transpilePackages: ['graphql-request'],
+}
 
-export default nextConfig;
+export default nextConfig

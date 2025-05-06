@@ -1,41 +1,43 @@
 import { NextResponse } from "next/server"
+import { testShopifyConnection } from "@/lib/shopify"
 
 export async function GET() {
   try {
-    // Verificar variables de entorno críticas
+    // Verificar la conexión con Shopify
+    const shopifyStatus = await testShopifyConnection()
+
+    // Verificar que las variables de entorno estén definidas
     const envVars = {
-      NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN ? "defined" : "undefined",
-      SHOPIFY_ACCESS_TOKEN: process.env.SHOPIFY_ACCESS_TOKEN ? "defined" : "undefined",
-      NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET ? "defined" : "undefined",
       NEXTAUTH_URL: process.env.NEXTAUTH_URL ? "defined" : "undefined",
+      NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET ? "defined" : "undefined",
+      SHOPIFY_ACCESS_TOKEN: process.env.SHOPIFY_ACCESS_TOKEN ? "defined" : "undefined",
+      NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN ? "defined" : "undefined",
     }
 
-    const missingVars = Object.entries(envVars)
-      .filter(([_, value]) => value === "undefined")
-      .map(([key]) => key)
-
-    if (missingVars.length > 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: `Variables de entorno faltantes: ${missingVars.join(", ")}`,
-          details: envVars,
-        },
-        { status: 500 },
-      )
-    }
+    // Verificar si todas las variables de entorno están definidas
+    const allEnvVarsDefined = Object.values(envVars).every((status) => status === "defined")
 
     return NextResponse.json({
       success: true,
       message: "API funcionando correctamente",
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV,
+      shopify: {
+        connected: shopifyStatus.success,
+        message: shopifyStatus.message,
+      },
+      environmentVariables: {
+        status: allEnvVarsDefined ? "complete" : "incomplete",
+        details: envVars,
+      },
     })
   } catch (error) {
+    console.error("Error en el endpoint de salud:", error)
     return NextResponse.json(
       {
         success: false,
-        message: `Error en el endpoint de salud: ${(error as Error).message}`,
+        message: `Error en el endpoint de salud: ${error instanceof Error ? error.message : "Error desconocido"}`,
+        timestamp: new Date().toISOString(),
       },
       { status: 500 },
     )

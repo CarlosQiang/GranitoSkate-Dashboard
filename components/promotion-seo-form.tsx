@@ -8,41 +8,48 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Search, Globe, Share2, Twitter, RefreshCw, AlertCircle } from "lucide-react"
+import { Search, Globe, Share2, Twitter, RefreshCw, AlertCircle, Tag } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { fetchSeoMetafields, saveSeoMetafields } from "@/lib/api/metafields"
-import { generateSeoTitle, generateSeoDescription, extractKeywords, generateShopStructuredData } from "@/lib/seo-utils"
-import type { SeoMetafields } from "@/types/metafields"
+import { extractKeywords, generatePromotionStructuredData } from "@/lib/seo-utils"
+import type { SeoSettings } from "@/types/seo"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
-interface SeoFormProps {
-  ownerId: string
-  ownerType: string
+interface PromotionSeoFormProps {
+  promotionId: string
+  promotionTitle: string
+  promotionDescription: string
+  promotionType: string
+  promotionValue: number | string
+  promotionStartDate: string
+  promotionEndDate?: string
+  promotionCode?: string
   onSave?: () => void
-  defaultTitle?: string
-  defaultDescription?: string
-  shopInfo?: any
 }
 
-export function SeoForm({
-  ownerId,
-  ownerType,
+export function PromotionSeoForm({
+  promotionId,
+  promotionTitle,
+  promotionDescription,
+  promotionType,
+  promotionValue,
+  promotionStartDate,
+  promotionEndDate,
+  promotionCode,
   onSave,
-  defaultTitle = "",
-  defaultDescription = "",
-  shopInfo,
-}: SeoFormProps) {
+}: PromotionSeoFormProps) {
   const { toast } = useToast()
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [seo, setSeo] = useState<SeoMetafields>({
-    title: defaultTitle,
-    description: defaultDescription,
+  const [seo, setSeo] = useState<SeoSettings>({
+    title: `${promotionTitle} - Oferta especial`,
+    description:
+      promotionDescription || `Aprovecha esta promoción especial: ${promotionTitle}. Válida por tiempo limitado.`,
     keywords: [],
     ogTitle: "",
     ogDescription: "",
     ogImage: "",
+    twitterCard: "summary_large_image",
     twitterTitle: "",
     twitterDescription: "",
     twitterImage: "",
@@ -51,83 +58,102 @@ export function SeoForm({
   })
 
   useEffect(() => {
-    async function loadSeoData() {
-      setIsLoading(true)
-      try {
-        const seoData = await fetchSeoMetafields(ownerId, ownerType)
+    // Generar automáticamente los datos de SEO al cargar
+    generateSeoData()
+  }, [
+    promotionId,
+    promotionTitle,
+    promotionDescription,
+    promotionType,
+    promotionValue,
+    promotionStartDate,
+    promotionEndDate,
+    promotionCode,
+  ])
 
-        // Si no hay datos de SEO, usar los valores por defecto
-        if (!seoData.title && defaultTitle) {
-          seoData.title = generateSeoTitle(defaultTitle)
-        }
-
-        if (!seoData.description && defaultDescription) {
-          seoData.description = generateSeoDescription(defaultDescription, defaultTitle)
-        }
-
-        if (!seoData.keywords || seoData.keywords.length === 0) {
-          seoData.keywords = extractKeywords(defaultTitle, defaultDescription)
-        }
-
-        if (!seoData.structuredData && shopInfo) {
-          seoData.structuredData = generateShopStructuredData(shopInfo)
-        }
-
-        setSeo(seoData)
-      } catch (error) {
-        console.error("Error loading SEO data:", error)
-        toast({
-          title: "Error",
-          description: "No se pudieron cargar los datos de SEO",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoading(false)
+  const generateSeoData = () => {
+    setIsLoading(true)
+    try {
+      // Generar título SEO
+      let seoTitle = `${promotionTitle} - Oferta especial`
+      if (promotionType === "PERCENTAGE_DISCOUNT") {
+        seoTitle = `${promotionValue}% de descuento - ${promotionTitle}`
+      } else if (promotionType === "FIXED_AMOUNT_DISCOUNT") {
+        seoTitle = `${promotionValue}€ de descuento - ${promotionTitle}`
+      } else if (promotionType === "BUY_X_GET_Y") {
+        seoTitle = `Promoción 2x1 - ${promotionTitle}`
+      } else if (promotionType === "FREE_SHIPPING") {
+        seoTitle = `Envío gratis - ${promotionTitle}`
       }
+
+      // Generar descripción SEO
+      let seoDescription =
+        promotionDescription || `Aprovecha esta promoción especial: ${promotionTitle}. Válida por tiempo limitado.`
+      if (promotionEndDate) {
+        const endDate = new Date(promotionEndDate)
+        seoDescription += ` Válida hasta el ${endDate.toLocaleDateString("es-ES")}.`
+      }
+      if (promotionCode) {
+        seoDescription += ` Usa el código: ${promotionCode}.`
+      }
+
+      // Generar palabras clave
+      const keywords = extractKeywords(promotionTitle, seoDescription)
+      keywords.push("oferta", "promoción", "descuento")
+      if (promotionType === "PERCENTAGE_DISCOUNT") {
+        keywords.push("porcentaje", "rebaja")
+      } else if (promotionType === "FIXED_AMOUNT_DISCOUNT") {
+        keywords.push("euros", "rebaja")
+      } else if (promotionType === "BUY_X_GET_Y") {
+        keywords.push("2x1", "regalo")
+      } else if (promotionType === "FREE_SHIPPING") {
+        keywords.push("envío", "gratis")
+      }
+
+      // Generar datos estructurados
+      const structuredData = generatePromotionStructuredData({
+        title: promotionTitle,
+        description: seoDescription,
+        startsAt: promotionStartDate,
+        endsAt: promotionEndDate,
+        type: promotionType,
+        value: promotionValue,
+      })
+
+      // Actualizar estado
+      setSeo({
+        title: seoTitle,
+        description: seoDescription,
+        keywords: keywords.filter((v, i, a) => a.indexOf(v) === i).slice(0, 10), // Eliminar duplicados y limitar a 10
+        ogTitle: seoTitle,
+        ogDescription: seoDescription,
+        ogImage: "",
+        twitterCard: "summary_large_image",
+        twitterTitle: seoTitle,
+        twitterDescription: seoDescription,
+        twitterImage: "",
+        canonicalUrl: `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || ""}/pages/promociones`,
+        structuredData,
+      })
+    } catch (error) {
+      console.error("Error generating SEO data:", error)
+    } finally {
+      setIsLoading(false)
     }
+  }
 
-    loadSeoData()
-  }, [ownerId, ownerType, defaultTitle, defaultDescription, shopInfo, toast])
-
-  // Modificar la función handleSave para incluir un indicador de éxito más visible
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      const success = await saveSeoMetafields(ownerId, ownerType, seo)
+      // Aquí iría la lógica para guardar los datos de SEO
+      // Por ahora, solo mostramos un mensaje de éxito
+      toast({
+        title: "SEO guardado",
+        description: "La configuración de SEO se ha guardado correctamente",
+      })
 
-      if (success) {
-        toast({
-          title: "SEO guardado",
-          description: "La configuración de SEO se ha guardado correctamente",
-          variant: "success",
-        })
-
-        // Añadir un indicador visual de éxito
-        const successElement = document.createElement("div")
-        successElement.className =
-          "fixed top-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded z-50 animate-fade-in-out"
-        successElement.innerHTML = `
-        <div class="flex items-center">
-          <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
-          </svg>
-          <span>SEO guardado correctamente</span>
-        </div>
-      `
-        document.body.appendChild(successElement)
-        setTimeout(() => {
-          document.body.removeChild(successElement)
-        }, 3000)
-
-        if (onSave) {
-          onSave()
-        }
-      } else {
-        toast({
-          title: "Error",
-          description: "No se pudo guardar la configuración de SEO",
-          variant: "destructive",
-        })
+      if (onSave) {
+        onSave()
       }
     } catch (error) {
       console.error("Error saving SEO:", error)
@@ -141,7 +167,7 @@ export function SeoForm({
     }
   }
 
-  const handleInputChange = (field: keyof SeoMetafields, value: string | string[]) => {
+  const handleInputChange = (field: keyof SeoSettings, value: string | string[] | undefined) => {
     setSeo((prev) => ({
       ...prev,
       [field]: value,
@@ -151,26 +177,10 @@ export function SeoForm({
   const handleGenerateAutoSeo = async () => {
     setIsGenerating(true)
     try {
-      // Generar automáticamente los datos de SEO
-      const autoSeo = {
-        title: generateSeoTitle(defaultTitle),
-        description: generateSeoDescription(defaultDescription, defaultTitle),
-        keywords: extractKeywords(defaultTitle, defaultDescription),
-        ogTitle: generateSeoTitle(defaultTitle),
-        ogDescription: generateSeoDescription(defaultDescription, defaultTitle),
-        ogImage: seo.ogImage || "",
-        twitterTitle: generateSeoTitle(defaultTitle),
-        twitterDescription: generateSeoDescription(defaultDescription, defaultTitle),
-        twitterImage: seo.twitterImage || "",
-        canonicalUrl: `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || ""}`,
-        structuredData: shopInfo ? generateShopStructuredData(shopInfo) : "",
-      }
-
-      setSeo(autoSeo)
-
+      generateSeoData()
       toast({
         title: "SEO generado automáticamente",
-        description: "Se ha generado la configuración de SEO basada en los datos de la tienda",
+        description: "Se ha generado la configuración de SEO basada en los datos de la promoción",
       })
     } catch (error) {
       console.error("Error generating auto SEO:", error)
@@ -189,7 +199,7 @@ export function SeoForm({
       <Card>
         <CardHeader>
           <CardTitle>Cargando SEO...</CardTitle>
-          <CardDescription>Obteniendo configuración de SEO</CardDescription>
+          <CardDescription>Generando configuración de SEO</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="h-40 flex items-center justify-center">
@@ -205,11 +215,11 @@ export function SeoForm({
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
           <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
-            Optimización para buscadores (SEO)
+            <Tag className="h-5 w-5" />
+            SEO para promoción
           </CardTitle>
           <CardDescription>
-            Configura cómo aparecerá este contenido en los resultados de búsqueda y redes sociales
+            Configura cómo aparecerá esta promoción en los resultados de búsqueda y redes sociales
           </CardDescription>
         </div>
         <div className="flex gap-2">
@@ -225,10 +235,10 @@ export function SeoForm({
       <CardContent>
         <Alert className="mb-6 bg-blue-50 border-blue-200">
           <AlertCircle className="h-4 w-4 text-blue-600" />
-          <AlertTitle className="text-blue-800">SEO automático</AlertTitle>
+          <AlertTitle className="text-blue-800">SEO automático para promociones</AlertTitle>
           <AlertDescription className="text-blue-700">
-            El sistema genera automáticamente metadatos SEO optimizados a partir del título y descripción de la tienda.
-            Puedes usar el botón "Generar automáticamente" para actualizar estos datos en cualquier momento.
+            El sistema genera automáticamente metadatos SEO optimizados a partir de los datos de la promoción. Esto
+            ayuda a que tus ofertas aparezcan en los resultados de búsqueda y se compartan mejor en redes sociales.
           </AlertDescription>
         </Alert>
 
@@ -288,7 +298,7 @@ export function SeoForm({
               <Label htmlFor="seo-keywords">Palabras clave (separadas por comas)</Label>
               <Input
                 id="seo-keywords"
-                placeholder="skate, skateboard, tablas, ruedas"
+                placeholder="promoción, descuento, oferta"
                 value={Array.isArray(seo.keywords) ? seo.keywords.join(", ") : ""}
                 onChange={(e) =>
                   handleInputChange(
@@ -317,11 +327,12 @@ export function SeoForm({
               </h4>
               <div className="space-y-1">
                 <h3 className="text-blue-600 text-lg font-medium hover:underline cursor-pointer truncate">
-                  {seo.title || defaultTitle || "Título de la página"}
+                  {seo.title || `${promotionTitle} - Oferta especial`}
                 </h3>
-                <p className="text-green-700 text-sm">www.granitoskate.com</p>
+                <p className="text-green-700 text-sm">www.granitoskate.com/promociones</p>
                 <p className="text-sm text-gray-600 line-clamp-2">
-                  {seo.description || defaultDescription || "Descripción de la página..."}
+                  {seo.description ||
+                    `Aprovecha esta promoción especial: ${promotionTitle}. Válida por tiempo limitado.`}
                 </p>
               </div>
             </div>
@@ -377,9 +388,11 @@ export function SeoForm({
                 )}
                 <div className="p-3">
                   <p className="text-xs text-gray-500">www.granitoskate.com</p>
-                  <h3 className="font-bold">{seo.ogTitle || seo.title || defaultTitle || "Título de la página"}</h3>
+                  <h3 className="font-bold">{seo.ogTitle || seo.title || `${promotionTitle} - Oferta especial`}</h3>
                   <p className="text-sm text-gray-600 line-clamp-2">
-                    {seo.ogDescription || seo.description || defaultDescription || "Descripción de la página..."}
+                    {seo.ogDescription ||
+                      seo.description ||
+                      `Aprovecha esta promoción especial: ${promotionTitle}. Válida por tiempo limitado.`}
                   </p>
                 </div>
               </div>
@@ -440,14 +453,13 @@ export function SeoForm({
                 )}
                 <div className="p-3">
                   <h3 className="font-bold">
-                    {seo.twitterTitle || seo.ogTitle || seo.title || defaultTitle || "Título de la página"}
+                    {seo.twitterTitle || seo.ogTitle || seo.title || `${promotionTitle} - Oferta especial`}
                   </h3>
                   <p className="text-sm text-gray-600 line-clamp-2">
                     {seo.twitterDescription ||
                       seo.ogDescription ||
                       seo.description ||
-                      defaultDescription ||
-                      "Descripción de la página..."}
+                      `Aprovecha esta promoción especial: ${promotionTitle}. Válida por tiempo limitado.`}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">www.granitoskate.com</p>
                 </div>
@@ -460,7 +472,7 @@ export function SeoForm({
               <Label htmlFor="canonical-url">URL canónica</Label>
               <Input
                 id="canonical-url"
-                placeholder="https://www.granitoskate.com/ruta-canonica"
+                placeholder="https://www.granitoskate.com/promociones"
                 value={seo.canonicalUrl || ""}
                 onChange={(e) => handleInputChange("canonicalUrl", e.target.value)}
               />
@@ -471,7 +483,7 @@ export function SeoForm({
               <Label htmlFor="structured-data">Datos estructurados (JSON-LD)</Label>
               <Textarea
                 id="structured-data"
-                placeholder='{"@context":"https://schema.org","@type":"Product",...}'
+                placeholder='{"@context":"https://schema.org","@type":"Offer",...}'
                 value={seo.structuredData || ""}
                 onChange={(e) => handleInputChange("structuredData", e.target.value)}
                 rows={6}

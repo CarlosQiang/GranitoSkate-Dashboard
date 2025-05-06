@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { AlertCircle, CheckCircle, RefreshCw } from "lucide-react"
-import ShopifyConnectionChecker from "./shopify-connection-checker"
+import { ShopifyConnectionChecker } from "@/components/shopify-connection-checker"
 
 export function SystemDiagnostics() {
   const [loading, setLoading] = useState(false)
@@ -18,6 +18,8 @@ export function SystemDiagnostics() {
         method: "GET",
         headers: {
           "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
         },
       })
 

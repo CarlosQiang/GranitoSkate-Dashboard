@@ -9,7 +9,8 @@ interface ShopifyConnectionCheckerProps {
   onConnectionChange?: (connected: boolean) => void
 }
 
-export default function ShopifyConnectionChecker({ onConnectionChange }: ShopifyConnectionCheckerProps = {}) {
+// Exportamos tanto como función nombrada como por defecto para mantener compatibilidad
+export function ShopifyConnectionChecker({ onConnectionChange }: ShopifyConnectionCheckerProps = {}) {
   const [status, setStatus] = useState<"loading" | "connected" | "error">("loading")
   const [shopName, setShopName] = useState<string>("")
   const [error, setError] = useState<string>("")
@@ -24,6 +25,8 @@ export default function ShopifyConnectionChecker({ onConnectionChange }: Shopify
         method: "GET",
         headers: {
           "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
         },
       })
 
@@ -35,11 +38,11 @@ export default function ShopifyConnectionChecker({ onConnectionChange }: Shopify
 
       if (data.success) {
         setStatus("connected")
-        setShopName(data.data?.shop?.name || "")
+        setShopName(data.shopName || "")
         onConnectionChange?.(true) // Notify parent component
       } else {
         setStatus("error")
-        setError(data.message || "Error desconocido al conectar con Shopify")
+        setError(data.error || "Error desconocido al conectar con Shopify")
         onConnectionChange?.(false) // Notify parent component
       }
     } catch (err) {
@@ -98,3 +101,6 @@ export default function ShopifyConnectionChecker({ onConnectionChange }: Shopify
     </>
   )
 }
+
+// También exportamos como default para mantener compatibilidad
+export default ShopifyConnectionChecker
