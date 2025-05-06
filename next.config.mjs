@@ -7,7 +7,7 @@ const nextConfig = {
   },
   experimental: {
     serverActions: {
-      allowedOrigins: ["localhost:3000", "granitoskate.vercel.app"],
+      allowedOrigins: ["localhost:3000", "granito-skate-dashboard.vercel.app"],
     },
   },
   eslint: {
@@ -16,6 +16,10 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-};
+  // Asegurarse de que los recursos estáticos se sirvan correctamente
+  assetPrefix: process.env.NODE_ENV === 'production' ? undefined : undefined,
+  // Configuración para el manejo de rutas
+  trailingSlash: false,
+}
 
-export default nextConfig;
+export default nextConfig
