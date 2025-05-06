@@ -1,112 +1,114 @@
 "use client"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-import { Bar, Line, Pie } from "react-chartjs-2"
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  BarElement,
-  ArcElement,
-} from "chart.js"
+export function BarChart({ data, title, description }) {
+  // Implementación simplificada de un gráfico de barras
+  const maxValue = Math.max(...data.map((item) => item.value || item.sales || 0))
 
-// Registrar los componentes de ChartJS
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend)
-
-// Datos de ejemplo para los gráficos
-const lineChartData = {
-  labels: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"],
-  datasets: [
-    {
-      label: "Ventas 2023",
-      data: [65, 59, 80, 81, 56, 55, 40, 45, 60, 70, 85, 90],
-      fill: false,
-      borderColor: "rgb(75, 192, 192)",
-      tension: 0.1,
-    },
-    {
-      label: "Ventas 2022",
-      data: [45, 49, 60, 71, 46, 45, 30, 35, 50, 60, 75, 80],
-      fill: false,
-      borderColor: "rgb(153, 102, 255)",
-      tension: 0.1,
-    },
-  ],
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle>{title}</CardTitle>
+        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          {data.map((item, index) => (
+            <div key={index} className="flex items-center">
+              <div className="w-24 text-sm">{item.label || item.month || item.name}</div>
+              <div className="flex-1">
+                <div className="h-4 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full bg-primary"
+                    style={{
+                      width: `${((item.value || item.sales || 0) / maxValue) * 100}%`,
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="w-12 text-right text-sm">{item.value || item.sales || 0}</div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
 }
 
-const barChartData = {
-  labels: ["Skateboards", "Longboards", "Cruisers", "Accesorios", "Ropa"],
-  datasets: [
-    {
-      label: "Ventas por categoría",
-      data: [12, 19, 3, 5, 2],
-      backgroundColor: [
-        "rgba(255, 99, 132, 0.2)",
-        "rgba(54, 162, 235, 0.2)",
-        "rgba(255, 206, 86, 0.2)",
-        "rgba(75, 192, 192, 0.2)",
-        "rgba(153, 102, 255, 0.2)",
-      ],
-      borderColor: [
-        "rgba(255, 99, 132, 1)",
-        "rgba(54, 162, 235, 1)",
-        "rgba(255, 206, 86, 1)",
-        "rgba(75, 192, 192, 1)",
-        "rgba(153, 102, 255, 1)",
-      ],
-      borderWidth: 1,
-    },
-  ],
+export function LineChart({ data, title, description }) {
+  // Implementación simplificada de un gráfico de líneas
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle>{title}</CardTitle>
+        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+      </CardHeader>
+      <CardContent>
+        <div className="h-[200px] flex items-end justify-between">
+          {data.map((item, index) => (
+            <div key={index} className="flex flex-col items-center">
+              <div
+                className="w-8 bg-primary rounded-t-sm"
+                style={{
+                  height: `${(item.value || item.sales || 0) / 100}px`,
+                }}
+              />
+              <div className="mt-2 text-xs">{item.label || item.month || item.name}</div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
 }
 
-const pieChartData = {
-  labels: ["Directo", "Búsqueda orgánica", "Redes sociales", "Email", "Referidos"],
-  datasets: [
-    {
-      label: "Fuentes de tráfico",
-      data: [12, 19, 3, 5, 2],
-      backgroundColor: [
-        "rgba(255, 99, 132, 0.2)",
-        "rgba(54, 162, 235, 0.2)",
-        "rgba(255, 206, 86, 0.2)",
-        "rgba(75, 192, 192, 0.2)",
-        "rgba(153, 102, 255, 0.2)",
-      ],
-      borderColor: [
-        "rgba(255, 99, 132, 1)",
-        "rgba(54, 162, 235, 1)",
-        "rgba(255, 206, 86, 1)",
-        "rgba(75, 192, 192, 1)",
-        "rgba(153, 102, 255, 1)",
-      ],
-      borderWidth: 1,
-    },
-  ],
+export function PieChart({ data, title, description }) {
+  // Implementación simplificada de un gráfico circular
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle>{title}</CardTitle>
+        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+      </CardHeader>
+      <CardContent className="flex justify-center">
+        <div className="w-40 h-40 rounded-full border-8 border-primary flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-2xl font-bold">
+              {data.reduce((sum, item) => sum + (item.value || item.sales || 0), 0)}
+            </div>
+            <div className="text-xs text-muted-foreground">Total</div>
+          </div>
+        </div>
+      </CardContent>
+      <div className="px-6 pb-6">
+        <div className="space-y-2">
+          {data.map((item, index) => (
+            <div key={index} className="flex items-center">
+              <div
+                className="w-3 h-3 rounded-full mr-2"
+                style={{
+                  backgroundColor: `hsl(${index * 40}, 70%, 50%)`,
+                }}
+              />
+              <div className="flex-1 text-sm">{item.label || item.name}</div>
+              <div className="text-sm font-medium">{item.value || item.sales || 0}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Card>
+  )
 }
 
-// Opciones comunes para los gráficos
-const chartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      position: "top" as const,
-    },
-  },
-}
-
-export function LineChart() {
-  return <Line data={lineChartData} options={chartOptions} />
-}
-
-export function BarChart() {
-  return <Bar data={barChartData} options={chartOptions} />
-}
-
-export function PieChart() {
-  return <Pie data={pieChartData} options={chartOptions} />
+export function DashboardChart({ type = "bar", ...props }) {
+  switch (type) {
+    case "bar":
+      return <BarChart {...props} />
+    case "line":
+      return <LineChart {...props} />
+    case "pie":
+      return <PieChart {...props} />
+    default:
+      return <BarChart {...props} />
+  }
 }
