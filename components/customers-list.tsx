@@ -65,7 +65,7 @@ export default function CustomersList() {
               onChange={handleSearch}
             />
           </div>
-          <Button onClick={() => router.push("/dashboard/customers/new")} className="bg-orange-600 hover:bg-orange-700">
+          <Button onClick={() => router.push("/dashboard/customers/new")} className="bg-brand hover:bg-brand-dark">
             <PlusIcon className="mr-2 h-4 w-4" />
             Nuevo cliente
           </Button>
@@ -102,7 +102,7 @@ export default function CustomersList() {
         ) : loading ? (
           <div className="flex items-center justify-center p-8">
             <div className="flex items-center space-x-2">
-              <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-orange-600"></div>
+              <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-brand"></div>
               <span>Cargando clientes...</span>
             </div>
           </div>
@@ -117,10 +117,7 @@ export default function CustomersList() {
                 ? `No hay resultados para "${searchQuery}"`
                 : "Aún no hay clientes registrados en tu tienda."}
             </p>
-            <Button
-              onClick={() => router.push("/dashboard/customers/new")}
-              className="bg-orange-600 hover:bg-orange-700"
-            >
+            <Button onClick={() => router.push("/dashboard/customers/new")} className="bg-brand hover:bg-brand-dark">
               <PlusIcon className="mr-2 h-4 w-4" />
               Crear nuevo cliente
             </Button>

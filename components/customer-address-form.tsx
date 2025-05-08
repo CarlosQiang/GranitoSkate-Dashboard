@@ -170,7 +170,7 @@ export function CustomerAddressForm({ customerId, onAddressAdded }: CustomerAddr
               )}
             />
             <CardFooter className="px-0 pt-4">
-              <Button type="submit" disabled={isLoading} className="bg-orange-600 hover:bg-orange-700">
+              <Button type="submit" disabled={isLoading} className="bg-brand hover:bg-brand-dark">
                 {isLoading ? "Añadiendo..." : "Añadir dirección"}
               </Button>
             </CardFooter>

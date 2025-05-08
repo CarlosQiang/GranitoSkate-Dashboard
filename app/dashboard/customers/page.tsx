@@ -19,7 +19,7 @@ export default function CustomersPage() {
           <p className="text-muted-foreground">Gestiona los clientes de tu tienda</p>
         </div>
         <Link href="/dashboard/customers/new">
-          <Button className="bg-orange-600 hover:bg-orange-700">
+          <Button className="bg-brand hover:bg-brand-dark">
             <PlusIcon className="mr-2 h-4 w-4" />
             Nuevo cliente
           </Button>

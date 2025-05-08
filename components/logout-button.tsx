@@ -1,30 +1,33 @@
 "use client"
 
-import { LogOut } from "lucide-react"
-import { signOut } from "next-auth/react"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import { LogOut } from "lucide-react"
 
-interface LogoutButtonProps {
-  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link"
-  className?: string
-  iconOnly?: boolean
-}
+export function LogoutButton() {
+  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
 
-export function LogoutButton({ variant = "outline", className = "", iconOnly = false }: LogoutButtonProps) {
   const handleLogout = async () => {
-    await signOut({ callbackUrl: "/login" })
+    setIsLoading(true)
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+      })
+      router.push("/login")
+      router.refresh()
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
-    <Button
-      variant={variant}
-      className={cn("flex items-center justify-center gap-2", iconOnly ? "p-2" : "", className)}
-      onClick={handleLogout}
-      aria-label="Cerrar sesión"
-    >
-      <LogOut className={cn("h-4 w-4", iconOnly ? "mr-0" : "mr-1")} />
-      {!iconOnly && "Cerrar sesión"}
+    <Button variant="ghost" size="sm" onClick={handleLogout} disabled={isLoading} className="w-full justify-start">
+      <LogOut className="mr-2 h-4 w-4" />
+      {isLoading ? "Cerrando sesión..." : "Cerrar sesión"}
     </Button>
   )
 }

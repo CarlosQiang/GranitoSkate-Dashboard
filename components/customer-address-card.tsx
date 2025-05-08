@@ -80,7 +80,7 @@ export function CustomerAddressCard({ customerId, address, isDefault, onAddressU
   }
 
   return (
-    <Card className={isDefault ? "border-orange-500" : ""}>
+    <Card className={isDefault ? "border-brand" : ""}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-2">
@@ -96,7 +96,7 @@ export function CustomerAddressCard({ customerId, address, isDefault, onAddressU
             </div>
           </div>
           {isDefault && (
-            <div className="flex items-center text-orange-500">
+            <div className="flex items-center text-brand">
               <Star className="h-4 w-4 mr-1" />
               <span className="text-xs font-medium">Predeterminada</span>
             </div>
@@ -110,7 +110,7 @@ export function CustomerAddressCard({ customerId, address, isDefault, onAddressU
             size="sm"
             onClick={handleSetDefault}
             disabled={isLoading}
-            className="text-orange-600 border-orange-600 hover:bg-orange-50"
+            className="text-brand border-brand hover:bg-brand/10"
           >
             <Star className="h-4 w-4 mr-2" />
             Establecer como predeterminada

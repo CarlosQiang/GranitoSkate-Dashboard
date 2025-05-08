@@ -47,7 +47,7 @@ export function ShopifyConnectionStatus() {
     return (
       <Alert className="mb-4 bg-gray-100">
         <div className="flex items-center">
-          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-orange-600"></div>
+          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-brand"></div>
           <AlertTitle>Verificando conexión con Shopify...</AlertTitle>
         </div>
       </Alert>
