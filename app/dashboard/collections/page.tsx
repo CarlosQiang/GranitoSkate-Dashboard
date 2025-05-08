@@ -1,23 +1,20 @@
-import { Suspense } from "react"
-import { LoadingState } from "@/components/loading-state"
-import { CollectionsList } from "@/components/collections-list"
-
-export const dynamic = "force-dynamic"
-export const revalidate = 0
-
 export default function CollectionsPage() {
   return (
-    <div className="flex flex-col gap-4 w-full">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Colecciones</h1>
-          <p className="text-muted-foreground">Gestiona las colecciones de tu tienda</p>
+          <h1 className="text-3xl font-bold tracking-tight">Colecciones</h1>
+          <p className="text-muted-foreground">Esta funcionalidad está temporalmente deshabilitada</p>
         </div>
       </div>
 
-      <Suspense fallback={<LoadingState message="Cargando colecciones..." />}>
-        <CollectionsList />
-      </Suspense>
+      <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-md">
+        <h2 className="text-lg font-medium text-yellow-800 mb-2">Funcionalidad en mantenimiento</h2>
+        <p className="text-yellow-700">
+          La gestión de colecciones está temporalmente deshabilitada mientras actualizamos nuestro sistema. Por favor,
+          inténtelo de nuevo más tarde.
+        </p>
+      </div>
     </div>
   )
 }
