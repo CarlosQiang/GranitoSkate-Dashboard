@@ -18,3 +18,14 @@ export async function updateProduct() {
 export async function deleteProduct() {
   return { success: true, message: "Función temporalmente deshabilitada" }
 }
+
+// Añadir las funciones faltantes
+export async function generateProductSeoMetafields(productData: any) {
+  return {
+    metafields: {
+      title: `${productData.title || "Producto"} | GranitoSkate`,
+      description: productData.description || "Descripción del producto no disponible",
+      keywords: "skate, skateboard, granito skate",
+    },
+  }
+}

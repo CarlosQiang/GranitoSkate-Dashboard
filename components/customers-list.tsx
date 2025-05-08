@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ReloadIcon, SearchIcon, PlusIcon, UserIcon } from "@radix-ui/react-icons"
+import { ReloadIcon, PlusIcon } from "@radix-ui/react-icons"
+import { SearchIcon, UserIcon } from "lucide-react"
 
 export default function CustomersList() {
   const [customers, setCustomers] = useState([])

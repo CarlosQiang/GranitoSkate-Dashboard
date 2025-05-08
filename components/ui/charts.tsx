@@ -138,3 +138,102 @@ export function BarChart(props: Omit<SimpleChartProps, "type">) {
 export function LineChart(props: Omit<SimpleChartProps, "type">) {
   return <SimpleChart {...props} type="line" />
 }
+
+// Añadir el componente PieChart al final del archivo
+export function PieChart({ title, data, labels, height = 300, className }: Omit<SimpleChartProps, "type">) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    if (!canvasRef.current) return
+
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    // Limpiar el canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+    // Configuración básica
+    const centerX = canvas.width / 2
+    const centerY = canvas.height / 2
+    const radius = Math.min(centerX, centerY) - 40
+
+    // Calcular el total para los porcentajes
+    const total = data.reduce((sum, value) => sum + value, 0)
+
+    // Colores para las secciones del pie
+    const colors = [
+      "#d29a43", // Color principal de la marca
+      "#e0b46a", // Versión más clara
+      "#b37e2e", // Versión más oscura
+      "#f0d9a8", // Muy claro
+      "#8c6218", // Muy oscuro
+    ]
+
+    // Dibujar el pie
+    let startAngle = 0
+    data.forEach((value, i) => {
+      const sliceAngle = (value / total) * 2 * Math.PI
+
+      ctx.beginPath()
+      ctx.moveTo(centerX, centerY)
+      ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle)
+      ctx.closePath()
+
+      ctx.fillStyle = colors[i % colors.length]
+      ctx.fill()
+
+      // Borde
+      ctx.strokeStyle = "white"
+      ctx.lineWidth = 2
+      ctx.stroke()
+
+      // Calcular posición para la etiqueta
+      const midAngle = startAngle + sliceAngle / 2
+      const labelRadius = radius * 0.7
+      const labelX = centerX + labelRadius * Math.cos(midAngle)
+      const labelY = centerY + labelRadius * Math.sin(midAngle)
+
+      // Dibujar etiqueta
+      ctx.fillStyle = "white"
+      ctx.font = "bold 12px Arial"
+      ctx.textAlign = "center"
+      ctx.textBaseline = "middle"
+
+      // Calcular porcentaje
+      const percentage = Math.round((value / total) * 100)
+      ctx.fillText(`${percentage}%`, labelX, labelY)
+
+      startAngle += sliceAngle
+    })
+
+    // Dibujar leyenda
+    const legendY = canvas.height - 20
+    const itemWidth = canvas.width / labels.length
+
+    labels.forEach((label, i) => {
+      const legendX = (i + 0.5) * itemWidth
+
+      // Cuadrado de color
+      ctx.fillStyle = colors[i % colors.length]
+      ctx.fillRect(legendX - 40, legendY, 10, 10)
+
+      // Texto
+      ctx.fillStyle = "#666"
+      ctx.font = "10px Arial"
+      ctx.textAlign = "left"
+      ctx.fillText(label, legendX - 25, legendY + 5)
+    })
+  }, [data, labels, height])
+
+  return (
+    <Card className={className}>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <canvas ref={canvasRef} height={height} width={500} style={{ width: "100%", height: `${height}px` }} />
+      </CardContent>
+    </Card>
+  )
+}
