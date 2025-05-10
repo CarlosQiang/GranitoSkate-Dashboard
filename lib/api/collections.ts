@@ -136,3 +136,42 @@ export async function createCollection(collection: Partial<Collection>): Promise
     return null
   }
 }
+
+// Añadir funciones faltantes
+export async function addProductsToCollection(collectionId: string, productIds: string[]): Promise<any> {
+  try {
+    // Si estamos en un entorno de desarrollo o prueba, devolvemos datos de ejemplo
+    if (process.env.NODE_ENV === "development" || !process.env.SHOPIFY_API_URL) {
+      return {
+        id: collectionId,
+        title: "Colección actualizada",
+        productsAdded: productIds.length,
+      }
+    }
+
+    // Implementar la mutación real aquí
+    return null
+  } catch (error) {
+    console.error("Error al añadir productos a la colección:", error)
+    return null
+  }
+}
+
+export async function removeProductsFromCollection(collectionId: string, productIds: string[]): Promise<any> {
+  try {
+    // Si estamos en un entorno de desarrollo o prueba, devolvemos datos de ejemplo
+    if (process.env.NODE_ENV === "development" || !process.env.SHOPIFY_API_URL) {
+      return {
+        id: collectionId,
+        title: "Colección actualizada",
+        productsRemoved: productIds.length,
+      }
+    }
+
+    // Implementar la mutación real aquí
+    return null
+  } catch (error) {
+    console.error("Error al eliminar productos de la colección:", error)
+    return null
+  }
+}

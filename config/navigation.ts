@@ -1,105 +1,159 @@
-export type NavItem = {
-  title: string
-  href: string
-  icon?: string
-  disabled?: boolean
-}
+import {
+  LayoutDashboard,
+  ShoppingBag,
+  Users,
+  FileText,
+  Settings,
+  Package,
+  BarChart3,
+  Percent,
+  Globe,
+  Search,
+  AlertTriangle,
+} from "lucide-react"
 
-export type MainNavItem = NavItem
+// Exportamos navigationItems para mantener compatibilidad con el código existente
+export const navigationItems = [
+  {
+    name: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    name: "Productos",
+    href: "/dashboard/products",
+    icon: ShoppingBag,
+  },
+  {
+    name: "Colecciones",
+    href: "/dashboard/collections",
+    icon: Package,
+  },
+  {
+    name: "Promociones",
+    href: "/dashboard/promotions",
+    icon: Percent,
+  },
+  {
+    name: "SEO",
+    href: "/dashboard/seo",
+    icon: Search,
+    isNew: true,
+  },
+  {
+    name: "Mercados",
+    href: "/dashboard/seo-markets",
+    icon: Globe,
+  },
+  {
+    name: "Pedidos",
+    href: "/dashboard/orders",
+    icon: FileText,
+  },
+  {
+    name: "Clientes",
+    href: "/dashboard/customers",
+    icon: Users,
+  },
+  {
+    name: "Analíticas",
+    href: "/dashboard/analytics",
+    icon: BarChart3,
+  },
+  {
+    name: "Configuración",
+    href: "/dashboard/settings",
+    icon: Settings,
+  },
+  {
+    title: "Monitorización SEO",
+    href: "/dashboard/seo/monitoring",
+    icon: "barChart2",
+    description: "Monitoriza el rendimiento SEO de tu tienda",
+  },
+]
 
-export type SidebarNavItem = {
-  title: string
-  disabled?: boolean
-  external?: boolean
-  icon?: string
-} & (
-  | {
-      href: string
-      items?: never
-    }
-  | {
-      href?: string
-      items: NavItem[]
-    }
-)
+// Exportamos también las nuevas estructuras de navegación
+export const mainNav = [
+  {
+    title: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+    color: "text-sky-500",
+  },
+  {
+    title: "Productos",
+    href: "/dashboard/products",
+    icon: Package,
+    color: "text-violet-500",
+  },
+  {
+    title: "Colecciones",
+    href: "/dashboard/collections",
+    icon: Package,
+    color: "text-pink-500",
+  },
+  {
+    title: "Pedidos",
+    href: "/dashboard/orders",
+    icon: ShoppingBag,
+    color: "text-orange-500",
+  },
+  {
+    title: "Clientes",
+    href: "/dashboard/customers",
+    icon: Users,
+    color: "text-emerald-500",
+  },
+  {
+    title: "Promociones",
+    href: "/dashboard/promotions",
+    icon: Percent,
+    color: "text-yellow-500",
+  },
+  {
+    title: "SEO",
+    href: "/dashboard/seo",
+    icon: Search,
+    color: "text-blue-500",
+  },
+  {
+    title: "Mercados",
+    href: "/dashboard/seo-markets",
+    icon: Globe,
+    color: "text-green-500",
+  },
+  {
+    title: "Contenido",
+    href: "/dashboard/content",
+    icon: FileText,
+    color: "text-purple-500",
+  },
+  {
+    title: "Analíticas",
+    href: "/dashboard/analytics",
+    icon: BarChart3,
+    color: "text-indigo-500",
+  },
+]
 
-interface DashboardConfig {
-  mainNav: MainNavItem[]
-  sidebarNav: SidebarNavItem[]
-}
+export const settingsNav = [
+  {
+    title: "Configuración",
+    href: "/dashboard/settings",
+    icon: Settings,
+    color: "text-gray-500",
+  },
+  {
+    title: "Diagnóstico",
+    href: "/dashboard/diagnostics",
+    icon: AlertTriangle,
+    color: "text-amber-500",
+  },
+]
 
-export const dashboardConfig: DashboardConfig = {
-  mainNav: [
-    {
-      title: "Dashboard",
-      href: "/dashboard",
-    },
-    {
-      title: "Soporte",
-      href: "https://granito.com/support",
-      disabled: true,
-    },
-  ],
-  sidebarNav: [
-    {
-      title: "Dashboard",
-      href: "/dashboard",
-      icon: "dashboard",
-    },
-    {
-      title: "Productos",
-      href: "/dashboard/products",
-      icon: "package",
-    },
-    {
-      title: "Colecciones",
-      href: "/dashboard/collections",
-      icon: "layers",
-    },
-    {
-      title: "Clientes",
-      href: "/dashboard/customers",
-      icon: "users",
-    },
-    {
-      title: "Pedidos",
-      href: "/dashboard/orders",
-      icon: "shopping-cart",
-    },
-    {
-      title: "Promociones",
-      href: "/dashboard/promotions",
-      icon: "tag",
-    },
-    {
-      title: "SEO",
-      href: "/dashboard/seo",
-      icon: "search",
-    },
-    {
-      title: "Mercados SEO",
-      href: "/dashboard/seo-markets",
-      icon: "globe",
-    },
-    {
-      title: "Contenido",
-      href: "/dashboard/content",
-      icon: "file-text",
-    },
-    {
-      title: "Analíticas",
-      href: "/dashboard/analytics",
-      icon: "bar-chart",
-    },
-    {
-      title: "Diagnósticos",
-      href: "/dashboard/diagnostics",
-      icon: "activity",
-    },
-    {
-      title: "Configuración",
-      href: "/dashboard/settings",
-      icon: "settings",
-    },
-  ],
+// Exportar navigationConfig para el dashboard-nav.tsx
+export const navigationConfig = {
+  mainNav,
+  settingsNav,
 }

@@ -7,8 +7,8 @@ const nextConfig = {
   },
   experimental: {
     serverActions: {
-      allowedOrigins: ["localhost:3000", "granito-skate-dashboard.vercel.app"]
-    }
+      allowedOrigins: ["localhost:3000", "*.vercel.app"],
+    },
   },
   eslint: {
     ignoreDuringBuilds: true,
@@ -16,7 +16,6 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  poweredByHeader: false,
-}
+};
 
-export default nextConfig
+export default nextConfig;
