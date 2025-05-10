@@ -1,3 +1,6 @@
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4 text-center">
@@ -6,12 +9,9 @@ export default function Home() {
         <p className="mb-6 text-gray-600">
           Bienvenido al panel de administración de GranitoSkate. Por favor, inicia sesión para continuar.
         </p>
-        <a
-          href="/login"
-          className="inline-flex items-center justify-center rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
-        >
-          Iniciar sesión
-        </a>
+        <Button asChild className="bg-brand hover:bg-brand-dark">
+          <Link href="/login">Iniciar sesión</Link>
+        </Button>
       </div>
     </div>
   )

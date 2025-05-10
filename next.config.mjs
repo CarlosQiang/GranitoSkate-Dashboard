@@ -11,9 +11,9 @@ const nextConfig = {
     domains: ['cdn.shopify.com', 'example.com'],
     unoptimized: true,
   },
+  // Corregido: experimental.serverActions debe ser un objeto o eliminado
   experimental: {
-    // Desactivar características experimentales que podrían causar problemas
-    serverActions: true,
+    // Eliminamos serverActions ya que es estable en Next.js 15
   },
   // Proporcionar valores predeterminados para las variables de entorno
   env: {

@@ -4,35 +4,35 @@ import type { NextRequest } from "next/server"
 export function middleware(request: NextRequest) {
   try {
     const { pathname } = request.nextUrl
-    const isAuthenticated = request.cookies.has("session")
-
-    // Rutas públicas que no requieren autenticación
-    const publicRoutes = ["/login", "/api/auth/login"]
-    const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route))
 
     // Ignorar rutas de recursos estáticos
     if (
-      pathname.includes("_next") ||
-      pathname.includes("favicon.ico") ||
-      pathname.includes("logo.svg") ||
+      pathname.includes("/_next") ||
+      pathname.includes("/favicon.ico") ||
+      pathname.includes("/logo.svg") ||
       pathname.includes(".png") ||
       pathname.includes(".jpg") ||
-      pathname.includes(".svg")
+      pathname.includes(".svg") ||
+      pathname.startsWith("/api/")
     ) {
       return NextResponse.next()
     }
 
+    const isAuthenticated = request.cookies.has("session")
+
+    // Rutas públicas que no requieren autenticación
+    const publicRoutes = ["/login"]
+    const isPublicRoute = publicRoutes.some((route) => pathname === route || pathname === route + "/")
+
     // Redirigir a login si no está autenticado y no es una ruta pública
-    if (!isAuthenticated && !isPublicRoute) {
-      console.log(`Redirigiendo a /login desde ${pathname} (no autenticado)`)
+    if (!isAuthenticated && !isPublicRoute && pathname !== "/") {
       const url = request.nextUrl.clone()
       url.pathname = "/login"
       return NextResponse.redirect(url)
     }
 
     // Redirigir al dashboard si ya está autenticado e intenta acceder a login
-    if (isAuthenticated && pathname === "/login") {
-      console.log("Redirigiendo a /dashboard desde /login (ya autenticado)")
+    if (isAuthenticated && (pathname === "/login" || pathname === "/")) {
       const url = request.nextUrl.clone()
       url.pathname = "/dashboard"
       return NextResponse.redirect(url)
@@ -46,6 +46,16 @@ export function middleware(request: NextRequest) {
   }
 }
 
+// Modificamos el matcher para excluir correctamente los recursos estáticos
 export const config = {
-  matcher: ["/((?!api/auth/login|_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    "/((?!_next/static|_next/image|favicon.ico|logo.svg|.*\\.png|.*\\.jpg|.*\\.svg).*)",
+  ],
 }

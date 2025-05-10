@@ -12,7 +12,7 @@ export default function Error({
   reset: () => void
 }) {
   useEffect(() => {
-    // Opcionalmente, registra el error en un servicio de informes de errores
+    // Registrar el error en la consola
     console.error("Error en la aplicación:", error)
   }, [error])
 
