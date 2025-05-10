@@ -1,3 +1,5 @@
+"use client"
+
 import { SimpleChart, PieChart } from "@/components/ui/charts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -154,3 +156,6 @@ export function SEOMonitoringDashboard() {
     </div>
   )
 }
+
+// Exportación por defecto para compatibilidad
+export default SEOMonitoringDashboard
