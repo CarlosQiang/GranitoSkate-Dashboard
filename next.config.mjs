@@ -6,6 +6,7 @@ const nextConfig = {
     unoptimized: true,
   },
   experimental: {
+    // Fix the serverActions format
     serverActions: {
       allowedOrigins: ["localhost:3000", "*.vercel.app"],
     },
@@ -16,9 +17,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Configuración para manejar la prerenderización
   output: 'standalone',
-  // Evitar problemas con las variables de entorno
   env: {
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
   },
