@@ -98,8 +98,16 @@ export async function getOrders(
     })
 
     // Verificar si data.orders y data.orders.edges existen
-    if (!data.orders || !data.orders.edges) {
-      console.error("Error al obtener pedidos: datos incompletos", data)
+    if (!data.orders) {
+      console.error("Error al obtener pedidos: datos incompletos", JSON.stringify(data, null, 2))
+      return {
+        orders: [],
+        pageInfo: { hasNextPage: false, endCursor: "" },
+      }
+    }
+
+    if (!data.orders.edges) {
+      console.error("Error al obtener pedidos: edges no encontrado", JSON.stringify(data.orders, null, 2))
       return {
         orders: [],
         pageInfo: { hasNextPage: false, endCursor: "" },

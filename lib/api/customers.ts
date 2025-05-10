@@ -74,8 +74,16 @@ export async function getCustomers(
     })
 
     // Verificar si data.customers y data.customers.edges existen
-    if (!data.customers || !data.customers.edges) {
-      console.error("Error al obtener clientes: datos incompletos", data)
+    if (!data.customers) {
+      console.error("Error al obtener clientes: datos incompletos", JSON.stringify(data, null, 2))
+      return {
+        customers: [],
+        pageInfo: { hasNextPage: false, endCursor: "" },
+      }
+    }
+
+    if (!data.customers.edges) {
+      console.error("Error al obtener clientes: edges no encontrado", JSON.stringify(data.customers, null, 2))
       return {
         customers: [],
         pageInfo: { hasNextPage: false, endCursor: "" },

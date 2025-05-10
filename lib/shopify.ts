@@ -173,18 +173,103 @@ export function formatShopifyPrice(amount: string | number): string {
   }).format(price)
 }
 
-/**
- * Función para obtener datos simulados cuando la API de Shopify no está disponible
- */
+// Update the getMockData function to better match query strings
+
 function getMockData(query: string): any {
-  // Determinar qué tipo de datos devolver basado en la consulta
-  if (query.includes("shop")) {
+  // Use more specific query matching to ensure correct data is returned
+  if (query.includes("shop {")) {
     return {
       shop: {
         name: "Granito Skate (Demo)",
         primaryDomain: {
           url: "https://granitoskate.com",
         },
+      },
+    }
+  }
+
+  if (query.includes("GetCustomers") || query.includes("customers(")) {
+    return {
+      customers: {
+        pageInfo: {
+          hasNextPage: false,
+          endCursor: null,
+        },
+        edges: Array.from({ length: 5 }, (_, i) => ({
+          node: {
+            id: `gid://shopify/Customer/${i + 1}`,
+            firstName: ["Juan", "María", "Carlos", "Ana", "Pedro"][i % 5],
+            lastName: ["Pérez", "García", "Rodríguez", "Martínez", "Sánchez"][i % 5],
+            email: `cliente${i + 1}@example.com`,
+            phone: `+34 6${Math.floor(Math.random() * 10000000)
+              .toString()
+              .padStart(8, "0")}`,
+            ordersCount: Math.floor(Math.random() * 10),
+            totalSpent: (Math.random() * 500 + 100).toFixed(2),
+            addresses: {
+              edges: [
+                {
+                  node: {
+                    id: `gid://shopify/MailingAddress/${i + 1}`,
+                    address1: `Calle Principal ${i + 1}`,
+                    address2: "",
+                    city: "Madrid",
+                    province: "Madrid",
+                    country: "España",
+                    zip: `280${(i % 10) + 1}`,
+                  },
+                },
+              ],
+            },
+          },
+        })),
+      },
+    }
+  }
+
+  if (query.includes("GetOrders") || query.includes("orders(")) {
+    return {
+      orders: {
+        pageInfo: {
+          hasNextPage: false,
+          endCursor: null,
+        },
+        edges: Array.from({ length: 5 }, (_, i) => ({
+          node: {
+            id: `gid://shopify/Order/${i + 1}`,
+            name: `#${1000 + i}`,
+            createdAt: new Date(Date.now() - i * 86400000).toISOString(),
+            displayFinancialStatus: ["PAID", "PENDING", "PAID", "PAID", "REFUNDED"][i % 5],
+            displayFulfillmentStatus: ["FULFILLED", "UNFULFILLED", "IN_PROGRESS", "FULFILLED", "FULFILLED"][i % 5],
+            totalPriceSet: {
+              shopMoney: {
+                amount: (Math.random() * 200 + 50).toFixed(2),
+                currencyCode: "EUR",
+              },
+            },
+            customer: {
+              firstName: ["Juan", "María", "Carlos", "Ana", "Pedro"][i % 5],
+              lastName: ["Pérez", "García", "Rodríguez", "Martínez", "Sánchez"][i % 5],
+              email: `cliente${i + 1}@example.com`,
+            },
+            lineItems: {
+              edges: Array.from({ length: Math.floor(Math.random() * 3) + 1 }, (_, j) => ({
+                node: {
+                  id: `gid://shopify/LineItem/${i * 10 + j + 1}`,
+                  title: `Producto en pedido ${j + 1}`,
+                  quantity: Math.floor(Math.random() * 3) + 1,
+                  variant: {
+                    price: (Math.random() * 100 + 20).toFixed(2),
+                    product: {
+                      id: `gid://shopify/Product/${j + 1}`,
+                      title: `Producto ${j + 1}`,
+                    },
+                  },
+                },
+              })),
+            },
+          },
+        })),
       },
     }
   }
@@ -274,89 +359,8 @@ function getMockData(query: string): any {
     }
   }
 
-  if (query.includes("orders")) {
+  if (query.includes("GetCustomerById") || query.includes("customer(")) {
     return {
-      orders: {
-        pageInfo: {
-          hasNextPage: false,
-          endCursor: null,
-        },
-        edges: Array.from({ length: 5 }, (_, i) => ({
-          node: {
-            id: `gid://shopify/Order/${i + 1}`,
-            name: `#${1000 + i}`,
-            createdAt: new Date(Date.now() - i * 86400000).toISOString(),
-            displayFinancialStatus: ["PAID", "PENDING", "PAID", "PAID", "REFUNDED"][i % 5],
-            displayFulfillmentStatus: ["FULFILLED", "UNFULFILLED", "IN_PROGRESS", "FULFILLED", "FULFILLED"][i % 5],
-            totalPriceSet: {
-              shopMoney: {
-                amount: (Math.random() * 200 + 50).toFixed(2),
-                currencyCode: "EUR",
-              },
-            },
-            customer: {
-              firstName: ["Juan", "María", "Carlos", "Ana", "Pedro"][i % 5],
-              lastName: ["Pérez", "García", "Rodríguez", "Martínez", "Sánchez"][i % 5],
-              email: `cliente${i + 1}@example.com`,
-            },
-            lineItems: {
-              edges: Array.from({ length: Math.floor(Math.random() * 3) + 1 }, (_, j) => ({
-                node: {
-                  id: `gid://shopify/LineItem/${i * 10 + j + 1}`,
-                  title: `Producto en pedido ${j + 1}`,
-                  quantity: Math.floor(Math.random() * 3) + 1,
-                  variant: {
-                    price: (Math.random() * 100 + 20).toFixed(2),
-                    product: {
-                      id: `gid://shopify/Product/${j + 1}`,
-                      title: `Producto ${j + 1}`,
-                    },
-                  },
-                },
-              })),
-            },
-          },
-        })),
-      },
-    }
-  }
-
-  if (query.includes("customers")) {
-    return {
-      customers: {
-        pageInfo: {
-          hasNextPage: false,
-          endCursor: null,
-        },
-        edges: Array.from({ length: 5 }, (_, i) => ({
-          node: {
-            id: `gid://shopify/Customer/${i + 1}`,
-            firstName: ["Juan", "María", "Carlos", "Ana", "Pedro"][i % 5],
-            lastName: ["Pérez", "García", "Rodríguez", "Martínez", "Sánchez"][i % 5],
-            email: `cliente${i + 1}@example.com`,
-            phone: `+34 6${Math.floor(Math.random() * 10000000)
-              .toString()
-              .padStart(8, "0")}`,
-            ordersCount: Math.floor(Math.random() * 10),
-            totalSpent: (Math.random() * 500 + 100).toFixed(2),
-            addresses: {
-              edges: [
-                {
-                  node: {
-                    id: `gid://shopify/MailingAddress/${i + 1}`,
-                    address1: `Calle Principal ${i + 1}`,
-                    address2: "",
-                    city: "Madrid",
-                    province: "Madrid",
-                    country: "España",
-                    zip: `280${(i % 10) + 1}`,
-                  },
-                },
-              ],
-            },
-          },
-        })),
-      },
       customer: {
         id: "gid://shopify/Customer/1",
         firstName: "Juan",
@@ -403,92 +407,75 @@ function getMockData(query: string): any {
     }
   }
 
-  if (query.includes("GetCustomers")) {
+  if (query.includes("GetOrderById") || query.includes("order(")) {
     return {
-      customers: {
-        pageInfo: {
-          hasNextPage: false,
-          endCursor: null,
-        },
-        edges: Array.from({ length: 5 }, (_, i) => ({
-          node: {
-            id: `gid://shopify/Customer/${i + 1}`,
-            firstName: ["Juan", "María", "Carlos", "Ana", "Pedro"][i % 5],
-            lastName: ["Pérez", "García", "Rodríguez", "Martínez", "Sánchez"][i % 5],
-            email: `cliente${i + 1}@example.com`,
-            phone: `+34 6${Math.floor(Math.random() * 10000000)
-              .toString()
-              .padStart(8, "0")}`,
-            ordersCount: Math.floor(Math.random() * 10),
-            totalSpent: (Math.random() * 500 + 100).toFixed(2),
-            addresses: {
-              edges: [
-                {
-                  node: {
-                    id: `gid://shopify/MailingAddress/${i + 1}`,
-                    address1: `Calle Principal ${i + 1}`,
-                    address2: "",
-                    city: "Madrid",
-                    province: "Madrid",
-                    country: "España",
-                    zip: `280${(i % 10) + 1}`,
-                  },
-                },
-              ],
-            },
+      order: {
+        id: "gid://shopify/Order/1",
+        name: "#1001",
+        createdAt: new Date().toISOString(),
+        displayFinancialStatus: "PAID",
+        displayFulfillmentStatus: "FULFILLED",
+        totalPriceSet: {
+          shopMoney: {
+            amount: "125.50",
+            currencyCode: "EUR",
           },
-        })),
-      },
-    }
-  }
-
-  if (query.includes("GetOrders")) {
-    return {
-      orders: {
-        pageInfo: {
-          hasNextPage: false,
-          endCursor: null,
         },
-        edges: Array.from({ length: 5 }, (_, i) => ({
-          node: {
-            id: `gid://shopify/Order/${i + 1}`,
-            name: `#${1000 + i}`,
-            createdAt: new Date(Date.now() - i * 86400000).toISOString(),
-            displayFinancialStatus: ["PAID", "PENDING", "PAID", "PAID", "REFUNDED"][i % 5],
-            displayFulfillmentStatus: ["FULFILLED", "UNFULFILLED", "IN_PROGRESS", "FULFILLED", "FULFILLED"][i % 5],
-            totalPriceSet: {
-              shopMoney: {
-                amount: (Math.random() * 200 + 50).toFixed(2),
-                currencyCode: "EUR",
-              },
-            },
-            customer: {
-              firstName: ["Juan", "María", "Carlos", "Ana", "Pedro"][i % 5],
-              lastName: ["Pérez", "García", "Rodríguez", "Martínez", "Sánchez"][i % 5],
-              email: `cliente${i + 1}@example.com`,
-            },
-            lineItems: {
-              edges: Array.from({ length: Math.floor(Math.random() * 3) + 1 }, (_, j) => ({
-                node: {
-                  id: `gid://shopify/LineItem/${i * 10 + j + 1}`,
-                  title: `Producto en pedido ${j + 1}`,
-                  quantity: Math.floor(Math.random() * 3) + 1,
-                  variant: {
-                    price: (Math.random() * 100 + 20).toFixed(2),
-                    product: {
-                      id: `gid://shopify/Product/${j + 1}`,
-                      title: `Producto ${j + 1}`,
+        customer: {
+          firstName: "Juan",
+          lastName: "Pérez",
+          email: "cliente1@example.com",
+          phone: "+34 612345678",
+          defaultAddress: {
+            address1: "Calle Principal 1",
+            address2: "",
+            city: "Madrid",
+            province: "Madrid",
+            country: "España",
+            zip: "28001",
+          },
+        },
+        shippingAddress: {
+          address1: "Calle Principal 1",
+          address2: "",
+          city: "Madrid",
+          province: "Madrid",
+          country: "España",
+          zip: "28001",
+        },
+        lineItems: {
+          edges: [
+            {
+              node: {
+                id: "gid://shopify/LineItem/1",
+                title: "Producto en pedido 1",
+                quantity: 2,
+                variant: {
+                  price: "59.99",
+                  title: "Default",
+                  product: {
+                    id: "gid://shopify/Product/1",
+                    title: "Producto 1",
+                    images: {
+                      edges: [
+                        {
+                          node: {
+                            url: "/producto-uno.png",
+                          },
+                        },
+                      ],
                     },
                   },
                 },
-              })),
+              },
             },
-          },
-        })),
+          ],
+        },
       },
     }
   }
 
   // Datos genéricos por defecto
+  console.warn("No se encontró un tipo de datos adecuado para la consulta:", query.substring(0, 100) + "...")
   return {}
 }
