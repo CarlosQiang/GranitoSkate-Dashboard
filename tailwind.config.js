@@ -1,6 +1,5 @@
-import type { Config } from "tailwindcss"
-
-const config: Config = {
+/** @type {import('tailwindcss').Config} */
+module.exports = {
   darkMode: ["class"],
   content: [
     "./pages/**/*.{ts,tsx}",
@@ -27,6 +26,17 @@ const config: Config = {
         primary: {
           DEFAULT: "#d29a43", // Color principal de Granito
           foreground: "hsl(var(--primary-foreground))",
+          50: "#fdf6eb",
+          100: "#f9e8cc",
+          200: "#f2d19a",
+          300: "#e9b968",
+          400: "#e0a245",
+          500: "#d29a43", // Color principal
+          600: "#b37e2f",
+          700: "#8f6424",
+          800: "#6c4b1c",
+          900: "#483214",
+          950: "#241a0a",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -52,11 +62,6 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        granito: {
-          DEFAULT: "#d29a43",
-          light: "#e6b76a",
-          dark: "#b07e2c",
-        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -65,12 +70,12 @@ const config: Config = {
       },
       keyframes: {
         "accordion-down": {
-          from: { height: "0" },
+          from: { height: 0 },
           to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
           from: { height: "var(--radix-accordion-content-height)" },
-          to: { height: "0" },
+          to: { height: 0 },
         },
       },
       animation: {
@@ -81,5 +86,3 @@ const config: Config = {
   },
   plugins: [require("tailwindcss-animate")],
 }
-
-export default config

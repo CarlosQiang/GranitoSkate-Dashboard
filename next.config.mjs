@@ -6,7 +6,10 @@ const nextConfig = {
     unoptimized: true,
   },
   experimental: {
-    serverActions: true,
+    // Corregido: debe ser un objeto, no un booleano
+    serverActions: {
+      allowedOrigins: ["localhost:3000", "granito-skate-dashboard.vercel.app"]
+    }
   },
   eslint: {
     ignoreDuringBuilds: true,
@@ -16,8 +19,6 @@ const nextConfig = {
   },
   // Configuración para mejorar el rendimiento
   poweredByHeader: false,
-  // Configuración para el manejo de rutas
-  trailingSlash: false,
 }
 
 export default nextConfig
