@@ -97,13 +97,25 @@ export async function getOrders(
       variables: { first, after },
     })
 
+    // Verificar si data.orders y data.orders.edges existen
+    if (!data.orders || !data.orders.edges) {
+      console.error("Error al obtener pedidos: datos incompletos", data)
+      return {
+        orders: [],
+        pageInfo: { hasNextPage: false, endCursor: "" },
+      }
+    }
+
     const orders = data.orders.edges.map((edge: any) => edge.node)
-    const pageInfo = data.orders.pageInfo
+    const pageInfo = data.orders.pageInfo || { hasNextPage: false, endCursor: "" }
 
     return { orders, pageInfo }
   } catch (error) {
     console.error("Error al obtener pedidos:", error)
-    throw error
+    return {
+      orders: [],
+      pageInfo: { hasNextPage: false, endCursor: "" },
+    }
   }
 }
 
@@ -180,9 +192,9 @@ export async function getOrderById(id: string): Promise<Order | null> {
       variables: { id },
     })
 
-    return data.order
+    return data.order || null
   } catch (error) {
     console.error("Error al obtener el pedido:", error)
-    throw error
+    return null
   }
 }

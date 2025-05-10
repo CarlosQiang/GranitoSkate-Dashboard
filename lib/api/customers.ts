@@ -73,13 +73,25 @@ export async function getCustomers(
       variables: { first, after },
     })
 
+    // Verificar si data.customers y data.customers.edges existen
+    if (!data.customers || !data.customers.edges) {
+      console.error("Error al obtener clientes: datos incompletos", data)
+      return {
+        customers: [],
+        pageInfo: { hasNextPage: false, endCursor: "" },
+      }
+    }
+
     const customers = data.customers.edges.map((edge: any) => edge.node)
-    const pageInfo = data.customers.pageInfo
+    const pageInfo = data.customers.pageInfo || { hasNextPage: false, endCursor: "" }
 
     return { customers, pageInfo }
   } catch (error) {
     console.error("Error al obtener clientes:", error)
-    return { customers: [], pageInfo: { hasNextPage: false, endCursor: "" } }
+    return {
+      customers: [],
+      pageInfo: { hasNextPage: false, endCursor: "" },
+    }
   }
 }
 
@@ -136,10 +148,10 @@ export async function getCustomerById(id: string): Promise<Customer | null> {
       variables: { id },
     })
 
-    return data.customer
+    return data.customer || null
   } catch (error) {
     console.error("Error al obtener el cliente:", error)
-    throw error
+    return null
   }
 }
 

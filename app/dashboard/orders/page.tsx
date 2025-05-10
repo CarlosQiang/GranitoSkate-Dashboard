@@ -10,72 +10,97 @@ import { formatDate } from "@/lib/utils"
 
 // Componente para cargar los pedidos
 async function OrdersList() {
-  const { orders } = await getOrders(10)
+  try {
+    const { orders } = await getOrders(10)
 
-  return (
-    <div className="space-y-4">
-      {orders.map((order) => (
-        <Card key={order.id} className="overflow-hidden">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">{order.name}</CardTitle>
-              <div className="flex items-center gap-2">
-                <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    order.displayFinancialStatus === "PAID"
-                      ? "bg-green-100 text-green-800"
-                      : order.displayFinancialStatus === "PENDING"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-red-100 text-red-800"
-                  }`}
-                >
-                  {order.displayFinancialStatus}
-                </span>
-                <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    order.displayFulfillmentStatus === "FULFILLED"
-                      ? "bg-green-100 text-green-800"
-                      : order.displayFulfillmentStatus === "IN_PROGRESS"
-                        ? "bg-blue-100 text-blue-800"
-                        : "bg-gray-100 text-gray-800"
-                  }`}
-                >
-                  {order.displayFulfillmentStatus}
-                </span>
+    if (!orders || orders.length === 0) {
+      return (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground mb-4">No hay pedidos disponibles</p>
+          <Button asChild variant="outline">
+            <Link href="/dashboard">Volver al Dashboard</Link>
+          </Button>
+        </div>
+      )
+    }
+
+    return (
+      <div className="space-y-4">
+        {orders.map((order) => (
+          <Card key={order.id} className="overflow-hidden">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">{order.name}</CardTitle>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      order.displayFinancialStatus === "PAID"
+                        ? "bg-green-100 text-green-800"
+                        : order.displayFinancialStatus === "PENDING"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {order.displayFinancialStatus}
+                  </span>
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      order.displayFulfillmentStatus === "FULFILLED"
+                        ? "bg-green-100 text-green-800"
+                        : order.displayFulfillmentStatus === "IN_PROGRESS"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-gray-100 text-gray-800"
+                    }`}
+                  >
+                    {order.displayFulfillmentStatus}
+                  </span>
+                </div>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Cliente</p>
-                <p className="text-sm">
-                  {order.customer ? `${order.customer.firstName} ${order.customer.lastName}` : "Cliente no registrado"}
-                </p>
-                {order.customer && <p className="text-sm text-muted-foreground">{order.customer.email}</p>}
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Cliente</p>
+                  <p className="text-sm">
+                    {order.customer
+                      ? `${order.customer.firstName} ${order.customer.lastName}`
+                      : "Cliente no registrado"}
+                  </p>
+                  {order.customer && <p className="text-sm text-muted-foreground">{order.customer.email}</p>}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Fecha</p>
+                  <p className="text-sm">{formatDate(order.createdAt)}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total</p>
+                  <p className="text-sm font-medium">{formatShopifyPrice(order.totalPriceSet.shopMoney.amount)}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Fecha</p>
-                <p className="text-sm">{formatDate(order.createdAt)}</p>
+              <div className="mt-4 flex justify-end">
+                <Button asChild size="sm" variant="outline">
+                  <Link href={`/dashboard/orders/${order.id.split("/").pop()}`}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    Ver detalles
+                  </Link>
+                </Button>
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total</p>
-                <p className="text-sm font-medium">{formatShopifyPrice(order.totalPriceSet.shopMoney.amount)}</p>
-              </div>
-            </div>
-            <div className="mt-4 flex justify-end">
-              <Button asChild size="sm" variant="outline">
-                <Link href={`/dashboard/orders/${order.id.split("/").pop()}`}>
-                  <Eye className="mr-2 h-4 w-4" />
-                  Ver detalles
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  )
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )
+  } catch (error) {
+    console.error("Error al cargar la lista de pedidos:", error)
+    return (
+      <div className="text-center py-8">
+        <p className="text-red-500 mb-4">Error al cargar los pedidos. Por favor, inténtalo de nuevo.</p>
+        <Button asChild variant="outline">
+          <Link href="/dashboard">Volver al Dashboard</Link>
+        </Button>
+      </div>
+    )
+  }
 }
 
 // Componente de carga
