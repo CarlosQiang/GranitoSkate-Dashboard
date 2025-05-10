@@ -2,6 +2,9 @@
 
 import { useEffect } from "react"
 import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { AlertCircle, Home, RefreshCw } from "lucide-react"
 
 export default function Error({
   error,
@@ -11,30 +14,41 @@ export default function Error({
   reset: () => void
 }) {
   useEffect(() => {
-    // Registrar el error en un servicio de análisis
-    console.error(error)
+    // Registrar el error para depuración
+    console.error("Error en la aplicación:", error)
   }, [error])
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center">
-        <h1 className="text-4xl font-bold text-red-500 mb-4">¡Algo salió mal!</h1>
-        <p className="text-gray-600 mb-6">{error.message || "Ha ocurrido un error inesperado."}</p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <button
-            onClick={reset}
-            className="bg-[#d29a43] hover:bg-[#b88535] text-white font-bold py-2 px-6 rounded-md transition-colors"
-          >
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+            <AlertCircle className="h-6 w-6 text-red-600" />
+          </div>
+          <CardTitle className="text-2xl">Ha ocurrido un error</CardTitle>
+          <CardDescription>{error.message || "Se ha producido un error inesperado en la aplicación."}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md bg-gray-50 p-4 text-sm text-gray-700">
+            <p className="font-medium">Información de diagnóstico:</p>
+            <p className="mt-1 break-words font-mono text-xs">
+              {error.digest ? `Digest: ${error.digest}` : "No hay información adicional disponible."}
+            </p>
+          </div>
+        </CardContent>
+        <CardFooter className="flex flex-col gap-2 sm:flex-row">
+          <Button onClick={reset} className="w-full" variant="default">
+            <RefreshCw className="mr-2 h-4 w-4" />
             Intentar de nuevo
-          </button>
-          <Link
-            href="/dashboard"
-            className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-md transition-colors"
-          >
-            Volver al Dashboard
-          </Link>
-        </div>
-      </div>
+          </Button>
+          <Button asChild variant="outline" className="w-full">
+            <Link href="/dashboard">
+              <Home className="mr-2 h-4 w-4" />
+              Volver al Dashboard
+            </Link>
+          </Button>
+        </CardFooter>
+      </Card>
     </div>
   )
 }

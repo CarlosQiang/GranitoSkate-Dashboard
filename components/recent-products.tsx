@@ -44,7 +44,7 @@ const mockProducts = [
     category: "Accesorios",
     price: 12.5,
     stock: 45,
-    image: "/placeholder.svg?key=rmc7g",
+    image: "/hand-gripping-rock.png",
   },
 ]
 
@@ -70,9 +70,11 @@ export function RecentProducts() {
                 <div className="flex items-center p-4">
                   <div className="flex-shrink-0 mr-4">
                     <img
-                      src={product.image || "/placeholder.svg"}
+                      src={product.image || "/placeholder.svg?height=40&width=40"}
                       alt={product.name}
                       className="h-10 w-10 rounded-md object-cover"
+                      width={40}
+                      height={40}
                     />
                   </div>
                   <div className="flex-1 min-w-0">

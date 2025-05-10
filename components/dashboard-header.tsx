@@ -16,6 +16,16 @@ export function DashboardHeader() {
     setIsMobileMenuOpen(!isMobileMenuOpen)
   }
 
+  // Rutas principales del dashboard
+  const mainRoutes = [
+    { href: "/dashboard/products", label: "Productos" },
+    { href: "/dashboard/collections", label: "Colecciones" },
+    { href: "/dashboard/orders", label: "Pedidos" },
+    { href: "/dashboard/customers", label: "Clientes" },
+    { href: "/dashboard/seo", label: "SEO" },
+    { href: "/dashboard/promotions", label: "Promociones" },
+  ]
+
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background">
       <div className="container flex h-16 items-center justify-between py-4">
@@ -36,61 +46,31 @@ export function DashboardHeader() {
         </div>
 
         <nav
-          className={`${isMobileMenuOpen ? "block" : "hidden"} absolute top-16 left-0 w-full bg-background border-b p-4 md:static md:block md:w-auto md:border-0 md:p-0 transition-all duration-300 ease-in-out`}
+          className={`${
+            isMobileMenuOpen ? "block" : "hidden"
+          } absolute top-16 left-0 z-20 w-full border-b bg-background p-4 transition-all duration-300 ease-in-out md:static md:block md:w-auto md:border-0 md:p-0`}
         >
           <ul className="flex flex-col space-y-4 md:flex-row md:items-center md:space-x-8 md:space-y-0">
-            <li>
-              <Link
-                href="/dashboard/products"
-                className={`text-sm font-medium transition-colors hover:text-primary ${pathname?.startsWith("/dashboard/products") ? "text-primary" : "text-muted-foreground"}`}
-              >
-                Productos
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/dashboard/collections"
-                className={`text-sm font-medium transition-colors hover:text-primary ${pathname?.startsWith("/dashboard/collections") ? "text-primary" : "text-muted-foreground"}`}
-              >
-                Colecciones
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/dashboard/orders"
-                className={`text-sm font-medium transition-colors hover:text-primary ${pathname?.startsWith("/dashboard/orders") ? "text-primary" : "text-muted-foreground"}`}
-              >
-                Pedidos
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/dashboard/customers"
-                className={`text-sm font-medium transition-colors hover:text-primary ${pathname?.startsWith("/dashboard/customers") ? "text-primary" : "text-muted-foreground"}`}
-              >
-                Clientes
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/dashboard/seo"
-                className={`text-sm font-medium transition-colors hover:text-primary ${pathname?.startsWith("/dashboard/seo") ? "text-primary" : "text-muted-foreground"}`}
-              >
-                SEO
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/dashboard/promotions"
-                className={`text-sm font-medium transition-colors hover:text-primary ${pathname?.startsWith("/dashboard/promotions") ? "text-primary" : "text-muted-foreground"}`}
-              >
-                Promociones
-              </Link>
-            </li>
+            {mainRoutes.map((route) => (
+              <li key={route.href}>
+                <Link
+                  href={route.href}
+                  className={`text-sm font-medium transition-colors hover:text-primary ${
+                    pathname?.startsWith(route.href) ? "text-primary" : "text-muted-foreground"
+                  }`}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {route.label}
+                </Link>
+              </li>
+            ))}
             <li className="md:hidden">
               <Link
                 href="/dashboard/settings"
-                className={`text-sm font-medium transition-colors hover:text-primary ${pathname?.startsWith("/dashboard/settings") ? "text-primary" : "text-muted-foreground"}`}
+                className={`text-sm font-medium transition-colors hover:text-primary ${
+                  pathname?.startsWith("/dashboard/settings") ? "text-primary" : "text-muted-foreground"
+                }`}
+                onClick={() => setIsMobileMenuOpen(false)}
               >
                 Configuración
               </Link>
@@ -105,7 +85,7 @@ export function DashboardHeader() {
           <ShopifyConnectionStatus className="hidden md:flex" />
           <div className="hidden md:flex items-center gap-2">
             <Button variant="ghost" size="icon" asChild>
-              <Link href="/dashboard/notifications">
+              <Link href="/dashboard">
                 <Bell className="h-5 w-5" />
                 <span className="sr-only">Notificaciones</span>
               </Link>
@@ -117,7 +97,7 @@ export function DashboardHeader() {
               </Link>
             </Button>
             <Button variant="ghost" size="icon" asChild>
-              <Link href="/dashboard/profile">
+              <Link href="/dashboard">
                 <User className="h-5 w-5" />
                 <span className="sr-only">Perfil</span>
               </Link>
@@ -126,6 +106,15 @@ export function DashboardHeader() {
           </div>
         </div>
       </div>
+
+      {/* Overlay para cerrar el menú móvil */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-10 bg-black/50 md:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
     </header>
   )
 }

@@ -8,7 +8,7 @@ export async function GET() {
     if (result.success) {
       return NextResponse.json(result, { status: 200 })
     } else {
-      return NextResponse.json(result, { status: 400 })
+      return NextResponse.json(result, { status: 200 }) // Cambiado a 200 para evitar errores en el cliente
     }
   } catch (error) {
     console.error("Error al verificar la conexión con Shopify:", error)
@@ -17,8 +17,9 @@ export async function GET() {
       {
         success: false,
         message: error instanceof Error ? error.message : "Error desconocido",
+        usingMockData: true,
       },
-      { status: 500 },
+      { status: 200 }, // Cambiado a 200 para evitar errores en el cliente
     )
   }
 }

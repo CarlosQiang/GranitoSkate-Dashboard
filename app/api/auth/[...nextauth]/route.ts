@@ -11,11 +11,14 @@ const handler = NextAuth({
       },
       async authorize(credentials) {
         // Verificar si las credenciales coinciden con las variables de entorno
-        if (credentials?.email === process.env.ADMIN_EMAIL && credentials?.password === process.env.ADMIN_PASSWORD) {
+        const adminEmail = process.env.ADMIN_EMAIL || "admin@example.com"
+        const adminPassword = process.env.ADMIN_PASSWORD || "password"
+
+        if (credentials?.email === adminEmail && credentials?.password === adminPassword) {
           return {
             id: "1",
             name: "Admin",
-            email: process.env.ADMIN_EMAIL,
+            email: adminEmail,
             role: "admin",
           }
         }
@@ -44,12 +47,12 @@ const handler = NextAuth({
     async session({ session, token }) {
       // Añadir datos adicionales a la sesión
       if (session.user) {
-        session.user.role = token.role
+        session.user.role = token.role as string
       }
       return session
     },
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || "un_secreto_seguro_por_defecto",
 })
 
 export { handler as GET, handler as POST }

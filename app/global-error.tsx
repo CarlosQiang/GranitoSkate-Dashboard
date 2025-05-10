@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { AlertCircle, RefreshCw } from "lucide-react"
 
 export default function GlobalError({
   error,
@@ -10,23 +12,26 @@ export default function GlobalError({
   reset: () => void
 }) {
   useEffect(() => {
-    // Registrar el error en un servicio de análisis
-    console.error(error)
+    // Registrar el error para depuración
+    console.error("Error global en la aplicación:", error)
   }, [error])
 
   return (
     <html>
       <body>
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-          <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center">
-            <h1 className="text-4xl font-bold text-red-500 mb-4">Error Crítico</h1>
-            <p className="text-gray-600 mb-6">La aplicación ha encontrado un error crítico y no puede continuar.</p>
-            <button
-              onClick={reset}
-              className="bg-[#d29a43] hover:bg-[#b88535] text-white font-bold py-2 px-6 rounded-md transition-colors"
-            >
-              Reiniciar aplicación
-            </button>
+        <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
+            <div className="text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+                <AlertCircle className="h-6 w-6 text-red-600" />
+              </div>
+              <h1 className="mb-2 text-2xl font-bold text-gray-900">Error Crítico</h1>
+              <p className="mb-6 text-gray-600">La aplicación ha encontrado un error crítico y no puede continuar.</p>
+              <Button onClick={reset} className="w-full" variant="default">
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Reiniciar aplicación
+              </Button>
+            </div>
           </div>
         </div>
       </body>

@@ -6,9 +6,7 @@ const nextConfig = {
     unoptimized: true,
   },
   experimental: {
-    serverActions: {
-      allowedOrigins: ["localhost:3000", "*.vercel.app"],
-    },
+    serverActions: true,
   },
   eslint: {
     ignoreDuringBuilds: true,
@@ -18,13 +16,9 @@ const nextConfig = {
   },
   // Configuración para manejar la prerenderización
   output: 'standalone',
+  // Evitar problemas con las variables de entorno
   env: {
-    NEXT_PUBLIC_SHOPIFY_SHOP_DOM: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOM,
-    SHOPIFY_ACCESS_TOKEN: process.env.SHOPIFY_ACCESS_TOKEN,
-    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
-    ADMIN_EMAIL: process.env.ADMIN_EMAIL,
-    ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
   },
 };
 

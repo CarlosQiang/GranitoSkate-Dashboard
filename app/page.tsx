@@ -1,6 +1,6 @@
 import Link from "next/link"
-import Image from "next/image"
 import { ArrowRight, Package2, FileText, Settings } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 export default function HomePage() {
   return (
@@ -37,23 +37,9 @@ export default function HomePage() {
             </ul>
           </nav>
           <div className="md:hidden">
-            <button className="rounded-md p-2 text-gray-600 hover:bg-gray-100">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <line x1="4" x2="20" y1="12" y2="12" />
-                <line x1="4" x2="20" y1="6" y2="6" />
-                <line x1="4" x2="20" y1="18" y2="18" />
-              </svg>
-            </button>
+            <Button variant="ghost" size="icon" className="text-gray-600">
+              <Package2 className="h-5 w-5" />
+            </Button>
           </div>
         </div>
       </header>
@@ -69,30 +55,30 @@ export default function HomePage() {
               Gestiona tu tienda de skate de manera eficiente. Controla inventario, ventas y más desde un solo lugar.
             </p>
             <div className="flex flex-col gap-4 sm:flex-row">
-              <Link
-                href="/login"
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-[#d29a43] px-5 py-2.5 text-center font-medium text-white shadow-md transition-all hover:bg-[#c08a3a] focus:outline-none focus:ring-2 focus:ring-[#d29a43] focus:ring-offset-2"
-              >
-                Iniciar Sesión
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="#"
-                className="inline-flex items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-5 py-2.5 text-center font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2"
-              >
-                Ver Documentación
-                <FileText className="h-4 w-4" />
-              </Link>
+              <Button asChild className="gap-2">
+                <Link href="/login">
+                  Iniciar Sesión
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="gap-2">
+                <Link href="#">
+                  Ver Documentación
+                  <FileText className="h-4 w-4" />
+                </Link>
+              </Button>
             </div>
           </div>
           <div className="relative hidden h-[400px] md:block">
-            <Image
-              src="/skateboard-shop-dashboard.png"
-              alt="Dashboard Preview"
-              fill
-              className="rounded-lg object-cover shadow-xl"
-              priority
-            />
+            <div className="rounded-lg bg-gray-200 h-full w-full flex items-center justify-center">
+              <img
+                src="/skateboard-shop-dashboard.png"
+                alt="Dashboard Preview"
+                className="rounded-lg object-cover shadow-xl"
+                width={600}
+                height={400}
+              />
+            </div>
           </div>
         </div>
       </section>
@@ -111,25 +97,7 @@ export default function HomePage() {
             </div>
             <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-all hover:shadow-md">
               <div className="mb-4 inline-flex rounded-full bg-[#d29a43]/10 p-3">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-6 w-6 text-[#d29a43]"
-                >
-                  <path d="M19 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Z" />
-                  <path d="M17 2h-4a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1Z" />
-                  <path d="M11 2H7a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1Z" />
-                  <path d="M12 14v3" />
-                  <path d="M8 14v3" />
-                  <path d="M16 14v3" />
-                </svg>
+                <FileText className="h-6 w-6 text-[#d29a43]" />
               </div>
               <h3 className="mb-2 text-xl font-bold">Análisis de Ventas</h3>
               <p className="text-gray-600">Visualiza y analiza tus ventas con gráficos intuitivos.</p>
@@ -152,13 +120,12 @@ export default function HomePage() {
           <p className="mx-auto mb-8 max-w-2xl text-lg text-gray-600">
             Accede al panel de administración y comienza a gestionar tu tienda de manera eficiente.
           </p>
-          <Link
-            href="/login"
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-[#d29a43] px-6 py-3 text-center font-medium text-white shadow-md transition-all hover:bg-[#c08a3a] focus:outline-none focus:ring-2 focus:ring-[#d29a43] focus:ring-offset-2"
-          >
-            Iniciar Sesión
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+          <Button asChild size="lg" className="gap-2">
+            <Link href="/login">
+              Iniciar Sesión
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
         </div>
       </section>
 
@@ -174,58 +141,6 @@ export default function HomePage() {
             </div>
             <div className="text-sm text-gray-600">
               © {new Date().getFullYear()} GranitoSkate. Todos los derechos reservados.
-            </div>
-            <div className="flex gap-4">
-              <Link href="#" className="text-gray-600 hover:text-[#d29a43]">
-                <span className="sr-only">Twitter</span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z" />
-                </svg>
-              </Link>
-              <Link href="#" className="text-gray-600 hover:text-[#d29a43]">
-                <span className="sr-only">Instagram</span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
-                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-                  <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
-                </svg>
-              </Link>
-              <Link href="#" className="text-gray-600 hover:text-[#d29a43]">
-                <span className="sr-only">Facebook</span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
-                </svg>
-              </Link>
             </div>
           </div>
         </div>

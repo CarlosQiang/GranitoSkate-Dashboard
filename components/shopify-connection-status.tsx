@@ -11,7 +11,7 @@ interface ShopifyConnectionStatusProps {
 }
 
 export function ShopifyConnectionStatus({ className }: ShopifyConnectionStatusProps) {
-  const [status, setStatus] = useState<"loading" | "connected" | "error" | "warning">("loading")
+  const [status, setStatus] = useState<"loading" | "connected" | "error" | "warning" | "demo">("loading")
   const [message, setMessage] = useState<string>("Verificando conexión...")
   const [isChecking, setIsChecking] = useState<boolean>(false)
 
@@ -29,24 +29,31 @@ export function ShopifyConnectionStatus({ className }: ShopifyConnectionStatusPr
         cache: "no-store",
       })
 
+      if (!response.ok) {
+        setStatus("warning")
+        setMessage("No se pudo verificar la conexión. Usando datos de demostración.")
+        setIsChecking(false)
+        return
+      }
+
       const data = await response.json()
 
-      if (response.ok && data.success) {
+      if (data.success) {
         setStatus("connected")
-        setMessage(`Conectado a ${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOM || "tu tienda Shopify"}`)
-      } else if (response.status === 401 || response.status === 403) {
+        setMessage(`Conectado a ${data.shop?.name || "Shopify"}`)
+      } else if (data.usingMockData) {
+        setStatus("demo")
+        setMessage("Usando datos de demostración")
+      } else if (data.message?.includes("autenticación") || data.message?.includes("token")) {
         setStatus("error")
         setMessage("Error de autenticación. Verifica tus credenciales de Shopify.")
-      } else if (response.status >= 500) {
-        setStatus("warning")
-        setMessage("Shopify no está disponible en este momento. Inténtalo más tarde.")
       } else {
-        setStatus("error")
-        setMessage(data.message || "Error al conectar con Shopify")
+        setStatus("warning")
+        setMessage(data.message || "No se pudo conectar con Shopify. Usando datos de demostración.")
       }
     } catch (error) {
-      setStatus("error")
-      setMessage("Error de conexión. Verifica tu conexión a internet.")
+      setStatus("warning")
+      setMessage("Error de conexión. Usando datos de demostración.")
     } finally {
       setIsChecking(false)
     }
@@ -68,6 +75,7 @@ export function ShopifyConnectionStatus({ className }: ShopifyConnectionStatusPr
       case "error":
         return <XCircle className="h-4 w-4 text-red-500" />
       case "warning":
+      case "demo":
         return <AlertCircle className="h-4 w-4 text-amber-500" />
       case "loading":
       default:
@@ -87,12 +95,19 @@ export function ShopifyConnectionStatus({ className }: ShopifyConnectionStatusPr
             disabled={isChecking}
           >
             {getStatusIcon()}
-            <span className="hidden sm:inline">{status === "connected" ? "Shopify Conectado" : "Estado Shopify"}</span>
+            <span className="hidden sm:inline">
+              {status === "connected" ? "Shopify Conectado" : status === "demo" ? "Modo Demo" : "Estado Shopify"}
+            </span>
           </Button>
         </TooltipTrigger>
         <TooltipContent>
           <p>{message}</p>
           {status !== "connected" && <p className="text-xs mt-1">Haz clic para verificar de nuevo</p>}
+          {status === "demo" && (
+            <p className="text-xs mt-1">
+              Los datos mostrados son de demostración y no reflejan información real de Shopify.
+            </p>
+          )}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

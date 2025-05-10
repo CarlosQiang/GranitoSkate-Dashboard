@@ -67,6 +67,22 @@ export function RecentOrders() {
     }
   }
 
+  // Función para traducir el estado
+  const translateStatus = (status: string) => {
+    switch (status) {
+      case "completed":
+        return "Completado"
+      case "processing":
+        return "Procesando"
+      case "shipped":
+        return "Enviado"
+      case "cancelled":
+        return "Cancelado"
+      default:
+        return status
+    }
+  }
+
   return (
     <div className="space-y-4">
       {orders.length === 0 ? (
@@ -87,15 +103,7 @@ export function RecentOrders() {
                         order.status,
                       )}`}
                     >
-                      {order.status === "completed"
-                        ? "Completado"
-                        : order.status === "processing"
-                          ? "Procesando"
-                          : order.status === "shipped"
-                            ? "Enviado"
-                            : order.status === "cancelled"
-                              ? "Cancelado"
-                              : order.status}
+                      {translateStatus(order.status)}
                     </span>
                   </div>
                 </div>

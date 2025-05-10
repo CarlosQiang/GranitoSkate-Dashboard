@@ -1,13 +1,20 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { ShoppingBag, AlertCircle } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const callbackUrl = searchParams?.get("callbackUrl") || "/dashboard"
+
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -31,7 +38,7 @@ export default function LoginPage() {
         return
       }
 
-      router.push("/dashboard")
+      router.push(callbackUrl)
     } catch (error) {
       setError("Ocurrió un error al iniciar sesión. Por favor, inténtalo de nuevo.")
       setLoading(false)
@@ -39,62 +46,62 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-[#d29a43]">Granito Skate</h1>
-          <p className="mt-2 text-gray-600">Inicia sesión en tu cuenta</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="rounded-lg bg-white p-8 shadow-md">
-          {error && <div className="mb-4 rounded-md bg-red-50 p-4 text-sm text-red-700">{error}</div>}
-
-          <div className="mb-4">
-            <label htmlFor="email" className="mb-2 block text-sm font-medium text-gray-700">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-[#d29a43] focus:outline-none focus:ring-1 focus:ring-[#d29a43]"
-              required
-            />
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1 text-center">
+          <div className="flex justify-center">
+            <div className="rounded-full bg-primary/10 p-2">
+              <ShoppingBag className="h-6 w-6 text-primary" />
+            </div>
           </div>
-
-          <div className="mb-6">
-            <label htmlFor="password" className="mb-2 block text-sm font-medium text-gray-700">
-              Contraseña
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-[#d29a43] focus:outline-none focus:ring-1 focus:ring-[#d29a43]"
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-md bg-[#d29a43] py-2 px-4 font-medium text-white hover:bg-[#b88535] focus:outline-none focus:ring-2 focus:ring-[#d29a43] focus:ring-offset-2 disabled:opacity-70"
-          >
-            {loading ? "Iniciando sesión..." : "Iniciar sesión"}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center text-sm text-gray-600">
-          <p>
-            ¿Problemas para iniciar sesión?{" "}
-            <a href="mailto:soporte@granitoskate.com" className="font-medium text-[#d29a43] hover:text-[#b88535]">
-              Contacta con soporte
-            </a>
+          <CardTitle className="text-2xl font-bold">Granito Skate</CardTitle>
+          <CardDescription>Inicia sesión en tu cuenta para acceder al dashboard</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {error && (
+            <div className="mb-4 flex items-center gap-2 rounded-md bg-red-50 p-3 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              <p>{error}</p>
+            </div>
+          )}
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="admin@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Contraseña</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Iniciando sesión..." : "Iniciar sesión"}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+        <CardFooter className="text-center text-sm text-muted-foreground">
+          <p className="w-full">
+            Para acceder en modo demo, usa: <br />
+            <span className="font-medium">Email: admin@example.com</span> <br />
+            <span className="font-medium">Contraseña: password</span>
           </p>
-        </div>
-      </div>
+        </CardFooter>
+      </Card>
     </div>
   )
 }

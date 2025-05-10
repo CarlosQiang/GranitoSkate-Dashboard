@@ -2,13 +2,13 @@
 
 import { signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
-import { Power } from "lucide-react"
+import { LogOut } from "lucide-react"
 
 export function LogoutButton() {
   return (
-    <Button variant="ghost" onClick={() => signOut({ callbackUrl: "/" })}>
-      <Power className="mr-2 h-4 w-4" />
-      Cerrar sesión
+    <Button variant="ghost" onClick={() => signOut({ callbackUrl: "/" })} className="flex items-center gap-2">
+      <LogOut className="h-4 w-4" />
+      <span>Cerrar sesión</span>
     </Button>
   )
 }
