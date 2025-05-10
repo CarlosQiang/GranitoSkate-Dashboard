@@ -1,20 +1,10 @@
-export default function SeoPage() {
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">SEO</h1>
-          <p className="text-muted-foreground">Esta funcionalidad está temporalmente deshabilitada</p>
-        </div>
-      </div>
+export const dynamic = "force-dynamic"
 
-      <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-md">
-        <h2 className="text-lg font-medium text-yellow-800 mb-2">Funcionalidad en mantenimiento</h2>
-        <p className="text-yellow-700">
-          La gestión de SEO está temporalmente deshabilitada mientras actualizamos nuestro sistema. Por favor, inténtelo
-          de nuevo más tarde.
-        </p>
-      </div>
+export default function SEOPage() {
+  return (
+    <div className="container mx-auto py-10">
+      <h1 className="text-3xl font-bold mb-6">SEO</h1>
+      <p className="text-muted-foreground">Esta página está en desarrollo. Estará disponible próximamente.</p>
     </div>
   )
 }

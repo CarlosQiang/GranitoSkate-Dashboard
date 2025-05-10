@@ -16,8 +16,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Configuración para manejar la página de analytics
-  // Nota: No usamos exportPathMap ya que no es compatible con el directorio app
+  // Configuración para manejar la prerenderización
   output: 'standalone',
 };
 
