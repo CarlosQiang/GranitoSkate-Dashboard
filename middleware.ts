@@ -1,28 +1,31 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-// Middleware extremadamente simplificado para diagnosticar el problema
+// Esta función se ejecuta antes de cada solicitud
 export function middleware(request: NextRequest) {
-  // Solo verificamos si es una ruta de API o un recurso estático
-  const { pathname } = request.nextUrl
+  const path = request.nextUrl.pathname
 
-  // Permitir todas las solicitudes a recursos estáticos y APIs
-  if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
-    pathname.includes(".") // Cualquier archivo con extensión
-  ) {
-    return NextResponse.next()
+  // Definimos las rutas públicas (que no requieren autenticación)
+  const isPublicPath = path === "/login" || path === "/"
+
+  // Obtenemos el token de la cookie (si existe)
+  const token = request.cookies.get("next-auth.session-token")?.value || ""
+
+  // Si el usuario intenta acceder a una ruta protegida sin token, redirigimos al login
+  if (!isPublicPath && !token) {
+    return NextResponse.redirect(new URL("/login", request.url))
   }
 
-  // Para rutas de páginas, simplemente permitimos todo por ahora
+  // Si el usuario ya está autenticado e intenta acceder al login, redirigimos al dashboard
+  if (isPublicPath && token) {
+    return NextResponse.redirect(new URL("/dashboard", request.url))
+  }
+
+  // En cualquier otro caso, continuamos con la solicitud
   return NextResponse.next()
 }
 
-// Matcher simplificado
+// Configuramos las rutas a las que se aplicará el middleware
 export const config = {
-  matcher: [
-    // Excluir explícitamente rutas estáticas y API
-    "/((?!_next/|api/|.*\\.[^/]*$).*)",
-  ],
+  matcher: ["/", "/login", "/dashboard/:path*"],
 }

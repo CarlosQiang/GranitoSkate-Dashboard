@@ -25,13 +25,8 @@ const config: Config = {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: "#d29a43", // Color original de la marca
+          DEFAULT: "#d29a43", // Color principal de Granito
           foreground: "hsl(var(--primary-foreground))",
-        },
-        brand: {
-          DEFAULT: "#d29a43", // Color original de la marca
-          light: "#e0b46a",
-          dark: "#b37e2e",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -56,6 +51,11 @@ const config: Config = {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        granito: {
+          DEFAULT: "#d29a43",
+          light: "#e6b76a",
+          dark: "#b07e2c",
         },
       },
       borderRadius: {

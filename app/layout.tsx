@@ -1,9 +1,18 @@
 import type React from "react"
-import type { Metadata } from "next"
+import { Inter } from "next/font/google"
+import "./globals.css"
+import { AuthProvider } from "@/components/auth-provider"
 
-export const metadata: Metadata = {
-  title: "GranitoSkate Dashboard",
-  description: "Panel de administración para GranitoSkate",
+const inter = Inter({ subsets: ["latin"] })
+
+export const metadata = {
+  title: "Granito Skate Dashboard",
+  description: "Panel de administración para Granito Skate",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
+  },
     generator: 'v0.dev'
 }
 
@@ -14,10 +23,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <head>
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+      </head>
+      <body className={inter.className}>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   )
 }
-
-
-import './globals.css'
