@@ -33,7 +33,7 @@ export function ShopifyConnectionStatus({ className }: ShopifyConnectionStatusPr
 
       if (response.ok && data.success) {
         setStatus("connected")
-        setMessage(`Conectado a ${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || "tu tienda Shopify"}`)
+        setMessage(`Conectado a ${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOM || "tu tienda Shopify"}`)
       } else if (response.status === 401 || response.status === 403) {
         setStatus("error")
         setMessage("Error de autenticación. Verifica tus credenciales de Shopify.")

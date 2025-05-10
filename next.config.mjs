@@ -18,6 +18,14 @@ const nextConfig = {
   },
   // Configuración para manejar la prerenderización
   output: 'standalone',
+  env: {
+    NEXT_PUBLIC_SHOPIFY_SHOP_DOM: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOM,
+    SHOPIFY_ACCESS_TOKEN: process.env.SHOPIFY_ACCESS_TOKEN,
+    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+    ADMIN_EMAIL: process.env.ADMIN_EMAIL,
+    ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
+  },
 };
 
 export default nextConfig;

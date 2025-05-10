@@ -2,15 +2,17 @@
  * Cliente de Shopify para interactuar con la API de Shopify
  */
 
-// Modificar las primeras líneas para asegurar que SHOPIFY_API_URL se maneje correctamente
-const SHOPIFY_SHOP_DOMAIN = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || "demo-store.myshopify.com"
-const SHOPIFY_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN || "demo-token"
-const SHOPIFY_API_URL = process.env.SHOPIFY_API_URL || `https://${SHOPIFY_SHOP_DOMAIN}/admin/api/2023-01/graphql.json`
+// Configuración de la API de Shopify
+const SHOPIFY_SHOP_DOMAIN = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOM || ""
+const SHOPIFY_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN || ""
 
-// Advertir si estamos usando valores de demostración
-if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
-  console.warn(
-    "⚠️ Usando valores de demostración para Shopify. Asegúrate de configurar NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN y SHOPIFY_ACCESS_TOKEN en producción.",
+// Construir la URL de la API de Shopify basada en el dominio de la tienda
+const SHOPIFY_API_URL = `https://${SHOPIFY_SHOP_DOMAIN}/admin/api/2023-07/graphql.json`
+
+// Verificar que las variables de entorno estén configuradas
+if (!SHOPIFY_SHOP_DOMAIN || !SHOPIFY_ACCESS_TOKEN) {
+  console.error(
+    "⚠️ Error: Variables de entorno de Shopify no configuradas. Por favor, configura NEXT_PUBLIC_SHOPIFY_SHOP_DOM y SHOPIFY_ACCESS_TOKEN.",
   )
 }
 
@@ -25,10 +27,8 @@ export async function shopifyFetch({
   variables?: Record<string, any>
 }): Promise<any> {
   try {
-    // En modo de desarrollo o si faltan variables de entorno, devolvemos datos simulados
-    if (process.env.NODE_ENV === "development" || !process.env.SHOPIFY_ACCESS_TOKEN) {
-      console.log("Usando datos simulados para la consulta Shopify")
-      return { shop: { name: "Tienda Demo" } }
+    if (!SHOPIFY_API_URL || !SHOPIFY_ACCESS_TOKEN) {
+      throw new Error("Configuración de Shopify incompleta. Verifica las variables de entorno.")
     }
 
     const response = await fetch(SHOPIFY_API_URL, {
@@ -44,6 +44,10 @@ export async function shopifyFetch({
       cache: "no-store",
     })
 
+    if (!response.ok) {
+      throw new Error(`Error en la respuesta de Shopify: ${response.status} ${response.statusText}`)
+    }
+
     const result = await response.json()
 
     if (result.errors) {
@@ -54,8 +58,7 @@ export async function shopifyFetch({
     return result.data
   } catch (error) {
     console.error("Error al realizar la consulta a Shopify:", error)
-    // Devolver datos simulados en caso de error
-    return { shop: { name: "Tienda Demo (Error)" } }
+    throw error
   }
 }
 
@@ -65,16 +68,9 @@ export async function shopifyFetch({
 export async function checkShopifyConnection(): Promise<{
   success: boolean
   message?: string
+  shop?: any
 }> {
   try {
-    // En modo de desarrollo o si faltan variables de entorno, simulamos una conexión exitosa
-    if (process.env.NODE_ENV === "development" || !process.env.SHOPIFY_ACCESS_TOKEN) {
-      return {
-        success: true,
-        message: "Conectado a Tienda Demo (Simulado)",
-      }
-    }
-
     // Consulta simple para verificar la conexión
     const query = `
       {
@@ -93,6 +89,7 @@ export async function checkShopifyConnection(): Promise<{
       return {
         success: true,
         message: `Conectado a ${data.shop.name}`,
+        shop: data.shop,
       }
     }
 
@@ -112,9 +109,8 @@ export async function checkShopifyConnection(): Promise<{
  * Función para obtener la URL de la tienda Shopify
  */
 export function getShopifyStoreUrl(): string {
-  // Si estamos en desarrollo o no hay dominio configurado, devolvemos un valor por defecto
-  if (process.env.NODE_ENV === "development" || !SHOPIFY_SHOP_DOMAIN) {
-    return "https://demo-store.myshopify.com"
+  if (!SHOPIFY_SHOP_DOMAIN) {
+    throw new Error("NEXT_PUBLIC_SHOPIFY_SHOP_DOM no está configurado")
   }
 
   // Asegurarse de que el dominio tenga el formato correcto

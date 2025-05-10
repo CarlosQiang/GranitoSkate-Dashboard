@@ -1,7 +1,5 @@
-// Importación de GraphQL Request
-import { gql, GraphQLClient } from "graphql-request"
+import { shopifyFetch } from "@/lib/shopify"
 
-// Definición de tipos
 export interface Collection {
   id: string
   title: string
@@ -9,6 +7,7 @@ export interface Collection {
   handle: string
   image?: {
     url: string
+    altText: string
   }
   products?: {
     edges: {
@@ -18,26 +17,20 @@ export interface Collection {
       }
     }[]
   }
-}
-
-// Cliente GraphQL
-const getGraphQLClient = () => {
-  const endpoint = process.env.SHOPIFY_API_URL || ""
-  const token = process.env.SHOPIFY_ACCESS_TOKEN || ""
-
-  const client = new GraphQLClient(endpoint, {
-    headers: {
-      "X-Shopify-Access-Token": token,
-    },
-  })
-
-  return client
+  seo: {
+    title: string
+    description: string
+  }
 }
 
 // Consulta para obtener colecciones
-const GET_COLLECTIONS = gql`
-  query GetCollections($first: Int!) {
-    collections(first: $first) {
+const GET_COLLECTIONS = `
+  query GetCollections($first: Int!, $after: String) {
+    collections(first: $first, after: $after) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
       edges {
         node {
           id
@@ -46,6 +39,11 @@ const GET_COLLECTIONS = gql`
           handle
           image {
             url
+            altText
+          }
+          seo {
+            title
+            description
           }
         }
       }
@@ -54,124 +52,248 @@ const GET_COLLECTIONS = gql`
 `
 
 // Función para obtener colecciones
-export async function getCollections(first = 10): Promise<Collection[]> {
+export async function getCollections(
+  first = 10,
+  after?: string,
+): Promise<{
+  collections: Collection[]
+  pageInfo: { hasNextPage: boolean; endCursor: string }
+}> {
   try {
-    // Si estamos en un entorno de desarrollo o prueba, devolvemos datos de ejemplo
-    if (process.env.NODE_ENV === "development" || !process.env.SHOPIFY_API_URL) {
-      return Array(first)
-        .fill(null)
-        .map((_, i) => ({
-          id: `gid://shopify/Collection/${i + 1}`,
-          title: `Colección de ejemplo ${i + 1}`,
-          description: "Esta es una colección de ejemplo para desarrollo",
-          handle: `coleccion-ejemplo-${i + 1}`,
-          image: {
-            url: `https://placeholder.com/600x400?text=Colección+${i + 1}`,
-          },
-        }))
-    }
+    const data = await shopifyFetch({
+      query: GET_COLLECTIONS,
+      variables: { first, after },
+    })
 
-    const client = getGraphQLClient()
-    const data = await client.request(GET_COLLECTIONS, { first })
+    const collections = data.collections.edges.map((edge: any) => edge.node)
+    const pageInfo = data.collections.pageInfo
 
-    return data.collections.edges.map((edge: any) => edge.node)
+    return { collections, pageInfo }
   } catch (error) {
     console.error("Error al obtener colecciones:", error)
-    return []
+    throw error
   }
 }
+
+// Consulta para obtener una colección por ID
+const GET_COLLECTION_BY_ID = `
+  query GetCollectionById($id: ID!) {
+    collection(id: $id) {
+      id
+      title
+      description
+      handle
+      image {
+        url
+        altText
+      }
+      products(first: 10) {
+        edges {
+          node {
+            id
+            title
+            images(first: 1) {
+              edges {
+                node {
+                  url
+                  altText
+                }
+              }
+            }
+            priceRange {
+              minVariantPrice {
+                amount
+                currencyCode
+              }
+            }
+          }
+        }
+      }
+      seo {
+        title
+        description
+      }
+    }
+  }
+`
 
 // Función para obtener una colección por ID
 export async function getCollectionById(id: string): Promise<Collection | null> {
   try {
-    // Si estamos en un entorno de desarrollo o prueba, devolvemos datos de ejemplo
-    if (process.env.NODE_ENV === "development" || !process.env.SHOPIFY_API_URL) {
-      return {
-        id: id,
-        title: "Colección de ejemplo",
-        description: "Esta es una colección de ejemplo para desarrollo",
-        handle: "coleccion-ejemplo",
-        image: {
-          url: "https://placeholder.com/600x400?text=Colección",
-        },
-        products: {
-          edges: Array(5)
-            .fill(null)
-            .map((_, i) => ({
-              node: {
-                id: `gid://shopify/Product/${i + 1}`,
-                title: `Producto de ejemplo ${i + 1}`,
-              },
-            })),
-        },
-      }
-    }
+    const data = await shopifyFetch({
+      query: GET_COLLECTION_BY_ID,
+      variables: { id },
+    })
 
-    // Implementar la consulta real aquí
-    return null
+    return data.collection
   } catch (error) {
     console.error("Error al obtener la colección:", error)
-    return null
+    throw error
   }
 }
+
+// Consulta para crear una colección
+const CREATE_COLLECTION = `
+  mutation collectionCreate($input: CollectionInput!) {
+    collectionCreate(input: $input) {
+      collection {
+        id
+        title
+        handle
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`
 
 // Función para crear una colección
-export async function createCollection(collection: Partial<Collection>): Promise<Collection | null> {
+export async function createCollection(collectionData: {
+  title: string
+  description: string
+  seo?: { title?: string; description?: string }
+}): Promise<any> {
   try {
-    // Si estamos en un entorno de desarrollo o prueba, devolvemos datos de ejemplo
-    if (process.env.NODE_ENV === "development" || !process.env.SHOPIFY_API_URL) {
-      return {
-        id: "new-id",
-        title: collection.title || "Nueva colección",
-        description: collection.description || "",
-        handle: collection.handle || "nueva-coleccion",
-        image: collection.image,
-      }
+    const data = await shopifyFetch({
+      query: CREATE_COLLECTION,
+      variables: {
+        input: collectionData,
+      },
+    })
+
+    if (data.collectionCreate.userErrors.length > 0) {
+      throw new Error(data.collectionCreate.userErrors[0].message)
     }
 
-    // Implementar la mutación real aquí
-    return null
+    return data.collectionCreate.collection
   } catch (error) {
     console.error("Error al crear la colección:", error)
-    return null
+    throw error
   }
 }
 
-// Añadir funciones faltantes
+// Consulta para actualizar una colección
+const UPDATE_COLLECTION = `
+  mutation collectionUpdate($input: CollectionInput!) {
+    collectionUpdate(input: $input) {
+      collection {
+        id
+        title
+        handle
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`
+
+// Función para actualizar una colección
+export async function updateCollection(
+  id: string,
+  collectionData: {
+    title?: string
+    description?: string
+    seo?: { title?: string; description?: string }
+  },
+): Promise<any> {
+  try {
+    const data = await shopifyFetch({
+      query: UPDATE_COLLECTION,
+      variables: {
+        input: {
+          id,
+          ...collectionData,
+        },
+      },
+    })
+
+    if (data.collectionUpdate.userErrors.length > 0) {
+      throw new Error(data.collectionUpdate.userErrors[0].message)
+    }
+
+    return data.collectionUpdate.collection
+  } catch (error) {
+    console.error("Error al actualizar la colección:", error)
+    throw error
+  }
+}
+
+// Consulta para añadir productos a una colección
+const ADD_PRODUCTS_TO_COLLECTION = `
+  mutation collectionAddProducts($id: ID!, $productIds: [ID!]!) {
+    collectionAddProducts(collectionId: $id, productIds: $productIds) {
+      collection {
+        id
+        title
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`
+
+// Función para añadir productos a una colección
 export async function addProductsToCollection(collectionId: string, productIds: string[]): Promise<any> {
   try {
-    // Si estamos en un entorno de desarrollo o prueba, devolvemos datos de ejemplo
-    if (process.env.NODE_ENV === "development" || !process.env.SHOPIFY_API_URL) {
-      return {
+    const data = await shopifyFetch({
+      query: ADD_PRODUCTS_TO_COLLECTION,
+      variables: {
         id: collectionId,
-        title: "Colección actualizada",
-        productsAdded: productIds.length,
-      }
+        productIds,
+      },
+    })
+
+    if (data.collectionAddProducts.userErrors.length > 0) {
+      throw new Error(data.collectionAddProducts.userErrors[0].message)
     }
 
-    // Implementar la mutación real aquí
-    return null
+    return data.collectionAddProducts.collection
   } catch (error) {
     console.error("Error al añadir productos a la colección:", error)
-    return null
+    throw error
   }
 }
 
-export async function removeProductsFromCollection(collectionId: string, productIds: string[]): Promise<any> {
-  try {
-    // Si estamos en un entorno de desarrollo o prueba, devolvemos datos de ejemplo
-    if (process.env.NODE_ENV === "development" || !process.env.SHOPIFY_API_URL) {
-      return {
-        id: collectionId,
-        title: "Colección actualizada",
-        productsRemoved: productIds.length,
+// Consulta para eliminar productos de una colección
+const REMOVE_PRODUCTS_FROM_COLLECTION = `
+  mutation collectionRemoveProducts($id: ID!, $productIds: [ID!]!) {
+    collectionRemoveProducts(collectionId: $id, productIds: $productIds) {
+      collection {
+        id
+        title
+      }
+      userErrors {
+        field
+        message
       }
     }
+  }
+`
 
-    // Implementar la mutación real aquí
-    return null
+// Función para eliminar productos de una colección
+export async function removeProductsFromCollection(collectionId: string, productIds: string[]): Promise<any> {
+  try {
+    const data = await shopifyFetch({
+      query: REMOVE_PRODUCTS_FROM_COLLECTION,
+      variables: {
+        id: collectionId,
+        productIds,
+      },
+    })
+
+    if (data.collectionRemoveProducts.userErrors.length > 0) {
+      throw new Error(data.collectionRemoveProducts.userErrors[0].message)
+    }
+
+    return data.collectionRemoveProducts.collection
   } catch (error) {
     console.error("Error al eliminar productos de la colección:", error)
-    return null
+    throw error
   }
 }
