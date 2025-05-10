@@ -1,3 +1,6 @@
+// Marcar esta página como dinámica para evitar la prerenderización estática
+export const dynamic = "force-dynamic"
+
 export default function AnalyticsPage() {
   return (
     <div className="container mx-auto py-10">

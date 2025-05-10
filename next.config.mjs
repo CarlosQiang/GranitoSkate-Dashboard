@@ -16,11 +16,9 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Deshabilitar la prerenderización estática para la página de analytics
-  exportPathMap: async function (defaultPathMap) {
-    delete defaultPathMap['/dashboard/analytics'];
-    return defaultPathMap;
-  },
+  // Configuración para manejar la página de analytics
+  // Nota: No usamos exportPathMap ya que no es compatible con el directorio app
+  output: 'standalone',
 };
 
 export default nextConfig;
