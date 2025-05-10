@@ -11,6 +11,11 @@ const nextConfig = {
     domains: ['cdn.shopify.com', 'example.com'],
     unoptimized: true,
   },
+  experimental: {
+    // Desactivar características experimentales que podrían causar problemas
+    serverActions: true,
+  },
+  // Proporcionar valores predeterminados para las variables de entorno
   env: {
     ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@example.com',
     ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'password123',

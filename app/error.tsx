@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
 export default function Error({
@@ -11,28 +12,25 @@ export default function Error({
   reset: () => void
 }) {
   useEffect(() => {
-    // Registrar el error en un servicio de análisis
-    console.error(error)
+    // Opcionalmente, registra el error en un servicio de informes de errores
+    console.error("Error en la aplicación:", error)
   }, [error])
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center">
-        <h1 className="text-4xl font-bold text-red-500 mb-4">¡Algo salió mal!</h1>
-        <p className="text-gray-600 mb-6">{error.message || "Ha ocurrido un error inesperado."}</p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <button
-            onClick={reset}
-            className="bg-[#d29a43] hover:bg-[#b88535] text-white font-bold py-2 px-6 rounded-md transition-colors"
-          >
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4 text-center">
+      <div className="max-w-md">
+        <h1 className="mb-4 text-3xl font-bold text-gray-900">Algo salió mal</h1>
+        <p className="mb-6 text-gray-600">
+          Estamos experimentando algunos problemas técnicos. Nuestro equipo ha sido notificado y está trabajando para
+          resolverlo lo antes posible.
+        </p>
+        <div className="flex flex-col space-y-3 sm:flex-row sm:space-x-3 sm:space-y-0">
+          <Button onClick={reset} className="bg-brand hover:bg-brand-dark">
             Intentar de nuevo
-          </button>
-          <Link
-            href="/dashboard"
-            className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-md transition-colors"
-          >
-            Volver al Dashboard
-          </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/login">Volver al inicio</Link>
+          </Button>
         </div>
       </div>
     </div>
