@@ -6,7 +6,6 @@ const nextConfig = {
     unoptimized: true,
   },
   experimental: {
-    // Corregido: debe ser un objeto, no un booleano
     serverActions: {
       allowedOrigins: ["localhost:3000", "granito-skate-dashboard.vercel.app"]
     }
@@ -17,7 +16,6 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Configuración para mejorar el rendimiento
   poweredByHeader: false,
 }
 
