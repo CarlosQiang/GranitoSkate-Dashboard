@@ -1,66 +1,52 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { addCustomerAddress } from "@/lib/api/customers"
 import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { toast } from "@/components/ui/use-toast"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-
-const addressSchema = z.object({
-  address1: z.string().min(1, "La dirección es obligatoria"),
-  address2: z.string().optional(),
-  city: z.string().min(1, "La ciudad es obligatoria"),
-  province: z.string().min(1, "La provincia es obligatoria"),
-  zip: z.string().min(1, "El código postal es obligatorio"),
-  country: z.string().min(1, "El país es obligatorio"),
-  phone: z.string().optional(),
-})
-
-type AddressFormValues = z.infer<typeof addressSchema>
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { addCustomerAddress } from "@/lib/api/customers"
 
 interface CustomerAddressFormProps {
   customerId: string
-  onAddressAdded: () => void
+  onAddressAdded?: () => void
 }
 
 export function CustomerAddressForm({ customerId, onAddressAdded }: CustomerAddressFormProps) {
   const [isLoading, setIsLoading] = useState(false)
-
-  const form = useForm<AddressFormValues>({
-    resolver: zodResolver(addressSchema),
-    defaultValues: {
-      address1: "",
-      address2: "",
-      city: "",
-      province: "",
-      zip: "",
-      country: "España",
-      phone: "",
-    },
+  const [formData, setFormData] = useState({
+    address1: "",
+    address2: "",
+    city: "",
+    province: "",
+    country: "España",
+    zip: "",
   })
 
-  const onSubmit = async (data: AddressFormValues) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+
     try {
-      setIsLoading(true)
-      await addCustomerAddress(customerId, data)
-      toast({
-        title: "Dirección añadida",
-        description: "La dirección se ha añadido correctamente.",
+      await addCustomerAddress(customerId, formData)
+      setFormData({
+        address1: "",
+        address2: "",
+        city: "",
+        province: "",
+        country: "España",
+        zip: "",
       })
-      form.reset()
-      onAddressAdded()
+      if (onAddressAdded) onAddressAdded()
     } catch (error) {
-      console.error("Error adding address:", error)
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error instanceof Error ? error.message : "Error al añadir la dirección",
-      })
+      console.error("Error al añadir dirección:", error)
     } finally {
       setIsLoading(false)
     }
@@ -69,114 +55,45 @@ export function CustomerAddressForm({ customerId, onAddressAdded }: CustomerAddr
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Añadir nueva dirección</CardTitle>
+        <CardTitle>Añadir Nueva Dirección</CardTitle>
       </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="address1"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Dirección</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Calle y número" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="address2"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Dirección (línea 2)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Apartamento, suite, etc. (opcional)" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="city"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ciudad</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ciudad" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="province"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Provincia</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Provincia" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+      <form onSubmit={handleSubmit}>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="address1">Dirección</Label>
+            <Input id="address1" name="address1" value={formData.address1} onChange={handleChange} required />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="address2">Dirección (línea 2)</Label>
+            <Input id="address2" name="address2" value={formData.address2} onChange={handleChange} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="city">Ciudad</Label>
+              <Input id="city" name="city" value={formData.city} onChange={handleChange} required />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="zip"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Código postal</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Código postal" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="country"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>País</FormLabel>
-                    <FormControl>
-                      <Input placeholder="País" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <div className="space-y-2">
+              <Label htmlFor="province">Provincia</Label>
+              <Input id="province" name="province" value={formData.province} onChange={handleChange} required />
             </div>
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Teléfono (opcional)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Teléfono" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <CardFooter className="px-0 pt-4">
-              <Button type="submit" disabled={isLoading} className="bg-brand hover:bg-brand-dark">
-                {isLoading ? "Añadiendo..." : "Añadir dirección"}
-              </Button>
-            </CardFooter>
-          </form>
-        </Form>
-      </CardContent>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="country">País</Label>
+              <Input id="country" name="country" value={formData.country} onChange={handleChange} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="zip">Código Postal</Label>
+              <Input id="zip" name="zip" value={formData.zip} onChange={handleChange} required />
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? "Añadiendo..." : "Añadir Dirección"}
+          </Button>
+        </CardFooter>
+      </form>
     </Card>
   )
 }

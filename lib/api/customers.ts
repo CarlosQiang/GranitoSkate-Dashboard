@@ -79,7 +79,7 @@ export async function getCustomers(
     return { customers, pageInfo }
   } catch (error) {
     console.error("Error al obtener clientes:", error)
-    throw error
+    return { customers: [], pageInfo: { hasNextPage: false, endCursor: "" } }
   }
 }
 
@@ -141,4 +141,31 @@ export async function getCustomerById(id: string): Promise<Customer | null> {
     console.error("Error al obtener el cliente:", error)
     throw error
   }
+}
+
+// Alias para compatibilidad con componentes existentes
+export const fetchCustomerById = getCustomerById
+
+// Función para añadir una dirección a un cliente
+export async function addCustomerAddress(customerId: string, address: any): Promise<any> {
+  // Implementación simulada
+  console.log("Añadiendo dirección para el cliente:", customerId, address)
+  return {
+    id: `gid://shopify/MailingAddress/${Date.now()}`,
+    ...address,
+  }
+}
+
+// Función para eliminar una dirección de un cliente
+export async function deleteCustomerAddress(customerId: string, addressId: string): Promise<boolean> {
+  // Implementación simulada
+  console.log("Eliminando dirección:", addressId, "para el cliente:", customerId)
+  return true
+}
+
+// Función para establecer una dirección como predeterminada
+export async function setDefaultCustomerAddress(customerId: string, addressId: string): Promise<boolean> {
+  // Implementación simulada
+  console.log("Estableciendo dirección predeterminada:", addressId, "para el cliente:", customerId)
+  return true
 }

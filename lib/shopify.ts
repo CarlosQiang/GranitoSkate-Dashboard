@@ -357,6 +357,49 @@ function getMockData(query: string): any {
           },
         })),
       },
+      customer: {
+        id: "gid://shopify/Customer/1",
+        firstName: "Juan",
+        lastName: "Pérez",
+        email: "cliente1@example.com",
+        phone: "+34 612345678",
+        ordersCount: 5,
+        totalSpent: "350.75",
+        addresses: {
+          edges: [
+            {
+              node: {
+                id: "gid://shopify/MailingAddress/1",
+                address1: "Calle Principal 1",
+                address2: "",
+                city: "Madrid",
+                province: "Madrid",
+                country: "España",
+                zip: "28001",
+              },
+            },
+          ],
+        },
+        orders: {
+          edges: [
+            {
+              node: {
+                id: "gid://shopify/Order/1",
+                name: "#1001",
+                createdAt: new Date().toISOString(),
+                totalPriceSet: {
+                  shopMoney: {
+                    amount: "125.50",
+                    currencyCode: "EUR",
+                  },
+                },
+                displayFinancialStatus: "PAID",
+                displayFulfillmentStatus: "FULFILLED",
+              },
+            },
+          ],
+        },
+      },
     }
   }
 

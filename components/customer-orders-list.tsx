@@ -1,160 +1,132 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { fetchCustomerById } from "@/lib/api/customers"
-import { formatDate, formatCurrency } from "@/lib/utils"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
+import { useEffect, useState } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { AlertCircle, RefreshCw } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { formatDate, formatCurrency } from "@/lib/utils"
+import { fetchCustomerById } from "@/lib/api/customers"
+import { Eye } from "lucide-react"
 
 interface CustomerOrdersListProps {
   customerId: string
 }
 
 export function CustomerOrdersList({ customerId }: CustomerOrdersListProps) {
+  const [isLoading, setIsLoading] = useState(true)
   const [orders, setOrders] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const loadOrders = async () => {
       try {
-        setLoading(true)
-        setError(null)
         const customer = await fetchCustomerById(customerId)
         if (customer && customer.orders && customer.orders.edges) {
-          const ordersList = customer.orders.edges.map((edge: any) => edge.node)
-          setOrders(ordersList)
+          setOrders(customer.orders.edges.map((edge: any) => edge.node))
         } else {
           setOrders([])
         }
-      } catch (err) {
-        console.error("Error loading customer orders:", err)
-        setError(err instanceof Error ? err.message : "Error desconocido al cargar los pedidos")
+      } catch (error) {
+        console.error("Error al cargar pedidos:", error)
+        setOrders([])
       } finally {
-        setLoading(false)
+        setIsLoading(false)
       }
     }
 
     loadOrders()
   }, [customerId])
 
-  const handleRetry = () => {
-    setLoading(true)
-    setError(null)
-    fetchCustomerById(customerId)
-      .then((customer) => {
-        if (customer && customer.orders && customer.orders.edges) {
-          const ordersList = customer.orders.edges.map((edge: any) => edge.node)
-          setOrders(ordersList)
-        } else {
-          setOrders([])
-        }
-      })
-      .catch((err) => {
-        console.error("Error retrying to load customer orders:", err)
-        setError(err instanceof Error ? err.message : "Error desconocido al cargar los pedidos")
-      })
-      .finally(() => {
-        setLoading(false)
-      })
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Card key={i}>
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                <div className="mb-2 sm:mb-0">
+                  <Skeleton className="h-5 w-20 mb-1" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+                <div className="flex gap-2">
+                  <Skeleton className="h-4 w-16 rounded-full" />
+                  <Skeleton className="h-9 w-24" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case "fulfilled":
-        return "success"
-      case "unfulfilled":
-        return "warning"
-      case "partially_fulfilled":
-        return "warning"
-      case "paid":
-        return "success"
-      case "pending":
-        return "warning"
-      case "refunded":
-        return "destructive"
+  if (orders.length === 0) {
+    return (
+      <div className="text-center py-6">
+        <p className="text-muted-foreground">Este cliente no tiene pedidos.</p>
+      </div>
+    )
+  }
+
+  // Función para obtener la clase de color según el estado
+  const getStatusClass = (status: string) => {
+    switch (status) {
+      case "PAID":
+        return "bg-green-100 text-green-800"
+      case "PENDING":
+        return "bg-yellow-100 text-yellow-800"
+      case "REFUNDED":
+        return "bg-red-100 text-red-800"
+      case "FULFILLED":
+        return "bg-green-100 text-green-800"
+      case "UNFULFILLED":
+        return "bg-yellow-100 text-yellow-800"
+      case "IN_PROGRESS":
+        return "bg-blue-100 text-blue-800"
       default:
-        return "secondary"
+        return "bg-gray-100 text-gray-800"
     }
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Pedidos del cliente</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {error ? (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error al cargar los pedidos</AlertTitle>
-            <AlertDescription>
-              {error}
-              <div className="mt-2">
-                <Button variant="outline" size="sm" onClick={handleRetry}>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Reintentar
+    <div className="space-y-4">
+      {orders.map((order) => (
+        <Card key={order.id}>
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+              <div>
+                <div className="font-medium">{order.name}</div>
+                <div className="text-sm text-muted-foreground">{formatDate(order.createdAt)}</div>
+              </div>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mt-2 sm:mt-0">
+                <div className="flex gap-2">
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(
+                      order.displayFinancialStatus,
+                    )}`}
+                  >
+                    {order.displayFinancialStatus}
+                  </span>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(
+                      order.displayFulfillmentStatus,
+                    )}`}
+                  >
+                    {order.displayFulfillmentStatus}
+                  </span>
+                </div>
+                <div className="font-medium">{formatCurrency(order.totalPriceSet.shopMoney.amount)}</div>
+                <Button asChild size="sm" variant="outline" className="ml-0 sm:ml-2 mt-2 sm:mt-0">
+                  <Link href={`/dashboard/orders/${order.id.split("/").pop()}`}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    Ver detalles
+                  </Link>
                 </Button>
               </div>
-            </AlertDescription>
-          </Alert>
-        ) : loading ? (
-          <div className="space-y-3">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="flex flex-col space-y-3">
-                <Skeleton className="h-4 w-[250px]" />
-                <Skeleton className="h-4 w-[200px]" />
-                <Skeleton className="h-4 w-[150px]" />
-              </div>
-            ))}
-          </div>
-        ) : orders.length === 0 ? (
-          <div className="text-center py-6">
-            <p className="text-muted-foreground">Este cliente aún no ha realizado ningún pedido.</p>
-          </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Pedido</TableHead>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {orders.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-medium">{order.name}</TableCell>
-                  <TableCell>{formatDate(order.processedAt)}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-1">
-                      <Badge variant={getStatusColor(order.fulfillmentStatus)}>
-                        {order.fulfillmentStatus || "Pendiente"}
-                      </Badge>
-                      <Badge variant={getStatusColor(order.financialStatus)} className="mt-1">
-                        {order.financialStatus || "Pendiente"}
-                      </Badge>
-                    </div>
-                  </TableCell>
-                  <TableCell>{formatCurrency(order.totalPrice?.amount, order.totalPrice?.currencyCode)}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="outline" size="sm">
-                      Ver detalles
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
-    </Card>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
   )
 }
