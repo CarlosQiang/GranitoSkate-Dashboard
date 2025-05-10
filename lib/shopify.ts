@@ -2,15 +2,15 @@
  * Cliente de Shopify para interactuar con la API de Shopify
  */
 
-// Verificar que las variables de entorno necesarias estén definidas
+// Modificar las primeras líneas para asegurar que SHOPIFY_API_URL se maneje correctamente
 const SHOPIFY_SHOP_DOMAIN = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || "demo-store.myshopify.com"
 const SHOPIFY_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN || "demo-token"
-const SHOPIFY_API_URL = process.env.SHOPIFY_API_URL || "https://demo-store.myshopify.com/admin/api/2023-01/graphql.json"
+const SHOPIFY_API_URL = process.env.SHOPIFY_API_URL || `https://${SHOPIFY_SHOP_DOMAIN}/admin/api/2023-01/graphql.json`
 
 // Advertir si estamos usando valores de demostración
-if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN || !process.env.SHOPIFY_API_URL) {
+if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
   console.warn(
-    "⚠️ Usando valores de demostración para Shopify. Asegúrate de configurar NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN, SHOPIFY_ACCESS_TOKEN y SHOPIFY_API_URL en producción.",
+    "⚠️ Usando valores de demostración para Shopify. Asegúrate de configurar NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN y SHOPIFY_ACCESS_TOKEN en producción.",
   )
 }
 

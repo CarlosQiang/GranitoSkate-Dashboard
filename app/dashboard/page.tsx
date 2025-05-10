@@ -13,32 +13,6 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
         <Card>
           <CardHeader>
-            <CardTitle>Ventas Mensuales</CardTitle>
-            <CardDescription>Ventas totales por mes</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80 flex items-center justify-center bg-muted/20 rounded-md">
-              <p className="text-muted-foreground">Gráfico de ventas mensuales</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Productos Más Vendidos</CardTitle>
-            <CardDescription>Top productos por ventas</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80 flex items-center justify-center bg-muted/20 rounded-md">
-              <p className="text-muted-foreground">Gráfico de productos más vendidos</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-        <Card>
-          <CardHeader>
             <CardTitle>Pedidos Recientes</CardTitle>
             <CardDescription>Últimos pedidos recibidos</CardDescription>
           </CardHeader>
