@@ -18,10 +18,29 @@ export interface Promocion {
   limiteUso?: number
   contadorUso: number
   codigo?: string
-  condiciones: any[]
+  condiciones?: any[]
   precios?: any[]
   fechaCreacion: string
   fechaActualizacion: string
+  // Campos para compatibilidad con la interfaz en inglés
+  title?: string
+  summary?: string
+  startsAt?: string
+  endsAt?: string
+  status?: string
+  target?: string
+  targetId?: string
+  valueType?: string
+  value?: string
+  usageLimit?: number
+  usageCount?: number
+  code?: string
+  conditions?: any[]
+  prices?: any[]
+  createdAt?: string
+  updatedAt?: string
+  type?: string
+  error?: boolean
 }
 
 /**
@@ -73,16 +92,16 @@ export async function obtenerPromociones(limit = 50): Promise<Promocion[]> {
       const node = edge.node
       const discountCode = node.discountCodes.edges[0]?.node.code || null
 
-      return {
-        id: node.id,
+      const promocion = {
+        id: node.id.split("/").pop(),
         titulo: node.title || "",
         resumen: node.summary || "",
         fechaInicio: node.startsAt || new Date().toISOString(),
         fechaFin: node.endsAt || null,
         estado: node.status || "EXPIRED",
         objetivo: node.target || "",
-        tipoValor: node.valueType || "percentage",
-        valor: node.value || "0",
+        tipoValor: node.valueType?.toLowerCase() || "percentage",
+        valor: Math.abs(Number.parseFloat(node.value || "0")).toString(),
         limiteUso: node.usageLimit || null,
         contadorUso: node.usageCount || 0,
         codigo: discountCode,
@@ -90,7 +109,25 @@ export async function obtenerPromociones(limit = 50): Promise<Promocion[]> {
         precios: [],
         fechaCreacion: node.createdAt || new Date().toISOString(),
         fechaActualizacion: node.updatedAt || new Date().toISOString(),
+        // Campos para compatibilidad con la interfaz en inglés
+        title: node.title || "",
+        summary: node.summary || "",
+        startsAt: node.startsAt || new Date().toISOString(),
+        endsAt: node.endsAt || null,
+        status: node.status || "EXPIRED",
+        target: node.target || "",
+        valueType: node.valueType?.toLowerCase() || "percentage",
+        value: Math.abs(Number.parseFloat(node.value || "0")).toString(),
+        usageLimit: node.usageLimit || null,
+        usageCount: node.usageCount || 0,
+        code: discountCode,
+        conditions: [],
+        prices: [],
+        createdAt: node.createdAt || new Date().toISOString(),
+        updatedAt: node.updatedAt || new Date().toISOString(),
       }
+
+      return promocion
     })
   } catch (error) {
     console.error("Error al obtener promociones:", error)
@@ -105,6 +142,12 @@ export async function obtenerPromociones(limit = 50): Promise<Promocion[]> {
  */
 export async function obtenerPromocionPorId(id: string): Promise<Promocion | null> {
   try {
+    // Formatear el ID correctamente para PriceRule
+    let idFormateado = id
+    if (!id.includes("gid://shopify/")) {
+      idFormateado = `gid://shopify/PriceRule/${id}`
+    }
+
     const query = gql`
       query GetPriceRule($id: ID!) {
         priceRule(id: $id) {
@@ -132,7 +175,7 @@ export async function obtenerPromocionPorId(id: string): Promise<Promocion | nul
       }
     `
 
-    const data = await shopifyClient.request(query, { id })
+    const data = await shopifyClient.request(query, { id: idFormateado })
 
     if (!data || !data.priceRule) {
       console.warn(`Promoción no encontrada: ${id}`)
@@ -142,16 +185,16 @@ export async function obtenerPromocionPorId(id: string): Promise<Promocion | nul
     const node = data.priceRule
     const discountCode = node.discountCodes.edges[0]?.node.code || null
 
-    return {
-      id: node.id,
+    const promocion = {
+      id: node.id.split("/").pop(),
       titulo: node.title || "",
       resumen: node.summary || "",
       fechaInicio: node.startsAt || new Date().toISOString(),
       fechaFin: node.endsAt || null,
       estado: node.status || "INACTIVE",
       objetivo: node.target || "",
-      tipoValor: node.valueType || "percentage",
-      valor: node.value || "0",
+      tipoValor: node.valueType?.toLowerCase() || "percentage",
+      valor: Math.abs(Number.parseFloat(node.value || "0")).toString(),
       limiteUso: node.usageLimit || null,
       contadorUso: node.usageCount || 0,
       codigo: discountCode,
@@ -159,7 +202,25 @@ export async function obtenerPromocionPorId(id: string): Promise<Promocion | nul
       precios: [],
       fechaCreacion: node.createdAt || new Date().toISOString(),
       fechaActualizacion: node.updatedAt || new Date().toISOString(),
+      // Campos para compatibilidad con la interfaz en inglés
+      title: node.title || "",
+      summary: node.summary || "",
+      startsAt: node.startsAt || new Date().toISOString(),
+      endsAt: node.endsAt || null,
+      status: node.status || "INACTIVE",
+      target: node.target || "",
+      valueType: node.valueType?.toLowerCase() || "percentage",
+      value: Math.abs(Number.parseFloat(node.value || "0")).toString(),
+      usageLimit: node.usageLimit || null,
+      usageCount: node.usageCount || 0,
+      code: discountCode,
+      conditions: [],
+      prices: [],
+      createdAt: node.createdAt || new Date().toISOString(),
+      updatedAt: node.updatedAt || new Date().toISOString(),
     }
+
+    return promocion
   } catch (error) {
     console.error(`Error al obtener promoción ${id}:`, error)
     return null
@@ -191,14 +252,14 @@ export async function crearPromocion(data: any): Promise<any> {
     // Preparar variables para la mutación
     const variables = {
       priceRule: {
-        title: data.titulo,
-        target: data.objetivo || "LINE_ITEM",
-        valueType: data.tipoValor === "percentage" ? "PERCENTAGE" : "FIXED_AMOUNT",
-        value: data.valor,
+        title: data.titulo || data.title,
+        target: data.objetivo || data.target || "LINE_ITEM",
+        valueType: (data.tipoValor || data.valueType) === "percentage" ? "PERCENTAGE" : "FIXED_AMOUNT",
+        value: `-${Math.abs(Number.parseFloat(data.valor || data.value || "0"))}`,
         customerSelection: { all: true },
-        startsAt: data.fechaInicio || new Date().toISOString(),
-        endsAt: data.fechaFin || null,
-        usageLimit: data.limiteUso || null,
+        startsAt: data.fechaInicio || data.startsAt || new Date().toISOString(),
+        endsAt: data.fechaFin || data.endsAt || null,
+        usageLimit: data.limiteUso || data.usageLimit || null,
       },
     }
 
@@ -209,7 +270,7 @@ export async function crearPromocion(data: any): Promise<any> {
     }
 
     // Si es un código de descuento, crear el código
-    if (data.codigo) {
+    if (data.codigo || data.code) {
       const discountCodeMutation = gql`
         mutation discountCodeCreate($discountCode: DiscountCodeInput!) {
           discountCodeCreate(discountCode: $discountCode) {
@@ -228,7 +289,7 @@ export async function crearPromocion(data: any): Promise<any> {
       const discountCodeVariables = {
         discountCode: {
           priceRuleId: responseData.priceRuleCreate.priceRule.id,
-          code: data.codigo,
+          code: data.codigo || data.code,
         },
       }
 
@@ -240,8 +301,9 @@ export async function crearPromocion(data: any): Promise<any> {
     }
 
     return {
-      id: responseData.priceRuleCreate.priceRule.id,
+      id: responseData.priceRuleCreate.priceRule.id.split("/").pop(),
       titulo: responseData.priceRuleCreate.priceRule.title,
+      title: responseData.priceRuleCreate.priceRule.title,
       ...data,
     }
   } catch (error) {
@@ -258,6 +320,12 @@ export async function crearPromocion(data: any): Promise<any> {
  */
 export async function actualizarPromocion(id: string, data: any): Promise<any> {
   try {
+    // Formatear el ID correctamente para PriceRule
+    let idFormateado = id
+    if (!id.includes("gid://shopify/")) {
+      idFormateado = `gid://shopify/PriceRule/${id}`
+    }
+
     const mutation = gql`
       mutation priceRuleUpdate($id: ID!, $priceRule: PriceRuleInput!) {
         priceRuleUpdate(id: $id, priceRule: $priceRule) {
@@ -276,15 +344,18 @@ export async function actualizarPromocion(id: string, data: any): Promise<any> {
     // Preparar los datos para la actualización
     const priceRuleInput: any = {}
 
-    if (data.titulo) priceRuleInput.title = data.titulo
-    if (data.fechaInicio) priceRuleInput.startsAt = data.fechaInicio
-    if (data.fechaFin !== undefined) priceRuleInput.endsAt = data.fechaFin
-    if (data.valor) priceRuleInput.value = data.valor
-    if (data.tipoValor) priceRuleInput.valueType = data.tipoValor === "percentage" ? "PERCENTAGE" : "FIXED_AMOUNT"
-    if (data.limiteUso !== undefined) priceRuleInput.usageLimit = data.limiteUso
+    if (data.titulo || data.title) priceRuleInput.title = data.titulo || data.title
+    if (data.fechaInicio || data.startsAt) priceRuleInput.startsAt = data.fechaInicio || data.startsAt
+    if (data.fechaFin !== undefined || data.endsAt !== undefined) priceRuleInput.endsAt = data.fechaFin || data.endsAt
+
+    if ((data.valor || data.value) && (data.tipoValor || data.valueType)) {
+      const valor = Number.parseFloat(data.valor || data.value)
+      priceRuleInput.valueType = (data.tipoValor || data.valueType) === "percentage" ? "PERCENTAGE" : "FIXED_AMOUNT"
+      priceRuleInput.value = `-${Math.abs(valor)}`
+    }
 
     const variables = {
-      id: id,
+      id: idFormateado,
       priceRule: priceRuleInput,
     }
 
@@ -295,8 +366,9 @@ export async function actualizarPromocion(id: string, data: any): Promise<any> {
     }
 
     return {
-      id: responseData.priceRuleUpdate.priceRule.id,
+      id: responseData.priceRuleUpdate.priceRule.id.split("/").pop(),
       titulo: responseData.priceRuleUpdate.priceRule.title,
+      title: responseData.priceRuleUpdate.priceRule.title,
       ...data,
     }
   } catch (error) {
@@ -312,6 +384,12 @@ export async function actualizarPromocion(id: string, data: any): Promise<any> {
  */
 export async function eliminarPromocion(id: string): Promise<any> {
   try {
+    // Formatear el ID correctamente para PriceRule
+    let idFormateado = id
+    if (!id.includes("gid://shopify/")) {
+      idFormateado = `gid://shopify/PriceRule/${id}`
+    }
+
     const mutation = gql`
       mutation priceRuleDelete($id: ID!) {
         priceRuleDelete(id: $id) {
@@ -325,7 +403,7 @@ export async function eliminarPromocion(id: string): Promise<any> {
     `
 
     const variables = {
-      id: id,
+      id: idFormateado,
     }
 
     const data = await shopifyClient.request(mutation, variables)
