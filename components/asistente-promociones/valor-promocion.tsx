@@ -16,6 +16,7 @@ interface FormularioValorPromocionProps {
 
 export function FormularioValorPromocion({ tipo, valor, onChange }: FormularioValorPromocionProps) {
   const [valorSlider, setValorSlider] = useState<number>(Number(valor) || 0)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     // Actualizar slider cuando el valor cambia externamente
@@ -23,14 +24,31 @@ export function FormularioValorPromocion({ tipo, valor, onChange }: FormularioVa
   }, [valor])
 
   const handleSliderChange = (nuevoValor: number[]) => {
-    setValorSlider(nuevoValor[0])
-    onChange(nuevoValor[0].toString())
+    const value = nuevoValor[0]
+    setValorSlider(value)
+
+    // Validar que el valor sea mayor que cero
+    if (value <= 0) {
+      setError("El valor debe ser mayor que cero")
+    } else {
+      setError(null)
+      onChange(value.toString())
+    }
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const nuevoValor = e.target.value
+    const numericValue = Number(nuevoValor)
+
+    // Validar que el valor sea mayor que cero
+    if (numericValue <= 0) {
+      setError("El valor debe ser mayor que cero")
+    } else {
+      setError(null)
+    }
+
     onChange(nuevoValor)
-    setValorSlider(Number(nuevoValor) || 0)
+    setValorSlider(numericValue || 0)
   }
 
   const getValorMaximo = () => {
@@ -135,7 +153,7 @@ export function FormularioValorPromocion({ tipo, valor, onChange }: FormularioVa
             <div className="flex-1">
               <Slider
                 value={[valorSlider]}
-                min={0}
+                min={1} // Mínimo valor es 1 para evitar errores
                 max={getValorMaximo()}
                 step={getValorPaso()}
                 onValueChange={handleSliderChange}
@@ -148,15 +166,19 @@ export function FormularioValorPromocion({ tipo, valor, onChange }: FormularioVa
                 type="number"
                 value={valor}
                 onChange={handleInputChange}
-                min={0}
+                min={1} // Mínimo valor es 1 para evitar errores
                 max={getValorMaximo()}
                 step={tipo === "CANTIDAD_FIJA" ? "0.01" : "1"}
-                className="w-full"
+                className={`w-full ${error ? "border-red-500" : ""}`}
               />
               <span className="ml-2">{getSufijoValor()}</span>
             </div>
           </div>
-          <p className="text-sm text-muted-foreground">{getDescripcionValor()}</p>
+          {error ? (
+            <p className="text-sm text-red-500">{error}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">{getDescripcionValor()}</p>
+          )}
         </div>
 
         <div className="p-4 bg-granito-light/10 border border-granito-light/20 rounded-md">
