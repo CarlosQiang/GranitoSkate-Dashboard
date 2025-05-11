@@ -28,18 +28,3 @@ export interface SocialMediaMetafields {
   linkedin: string
   tiktok: string
 }
-
-export interface SeoMetafields {
-  title: string
-  description: string
-  keywords: string[]
-  canonicalUrl?: string
-  ogTitle?: string
-  ogDescription?: string
-  ogImage?: string
-  twitterCard?: "summary" | "summary_large_image" | "app" | "player"
-  twitterTitle?: string
-  twitterDescription?: string
-  twitterImage?: string
-  structuredData?: string
-}

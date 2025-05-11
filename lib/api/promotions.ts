@@ -479,3 +479,45 @@ export async function deletePromotion(id) {
     throw new Error(`Error al eliminar la promoción: ${error.message}`)
   }
 }
+
+// Add the missing function that was causing build errors
+export async function createMarketingActivity(activityData: any) {
+  try {
+    const mutation = gql`
+      mutation MarketingActivityCreate($input: MarketingActivityCreateInput!) {
+        marketingActivityCreate(input: $input) {
+          marketingActivity {
+            id
+            title
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const variables = {
+      input: {
+        marketingChannel: "EMAIL",
+        title: activityData.title,
+        status: "SCHEDULED",
+        formData: JSON.stringify(activityData.formData || {}),
+        scheduledAt: activityData.scheduledAt || new Date().toISOString(),
+        // Add other required fields based on your needs
+      },
+    }
+
+    const data = await shopifyClient.request(mutation, variables)
+
+    if (data.marketingActivityCreate.userErrors && data.marketingActivityCreate.userErrors.length > 0) {
+      throw new Error(data.marketingActivityCreate.userErrors[0].message)
+    }
+
+    return data.marketingActivityCreate.marketingActivity
+  } catch (error) {
+    console.error("Error creating marketing activity:", error)
+    throw new Error(`Error al crear actividad de marketing: ${error.message}`)
+  }
+}

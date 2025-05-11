@@ -37,3 +37,20 @@ export type Promotion = {
   target: PromotionTarget
   prices?: PromotionPrice[]
 }
+
+export type PromotionWizardData = {
+  title: string
+  description: string
+  type: PromotionType
+  target: PromotionTarget
+  targetId: string
+  value: string
+  minimumPurchase: string
+  requiresCode: boolean
+  code: string
+  hasEndDate: boolean
+  startDate: Date
+  endDate: Date
+  limitUses: boolean
+  usageLimit: string
+}
