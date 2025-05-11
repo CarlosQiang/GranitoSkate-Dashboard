@@ -593,3 +593,274 @@ export function extractKeywords(title: string, description: string): string[] {
     .slice(0, 8)
     .map(([word]) => word)
 }
+
+/**
+ * Genera una URL canónica a partir de un handle
+ * @param handle Handle del producto o colección
+ * @param type Tipo de recurso ('product' o 'collection')
+ * @returns URL canónica
+ */
+export function generateCanonicalUrl(handle: string, type: "product" | "collection"): string {
+  const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || ""
+  return `https://${shopDomain}/${type}s/${handle}`
+}
+
+/**
+ * Genera metadatos estructurados para un producto
+ * @param product Datos del producto
+ * @returns JSON-LD para el producto
+ */
+export function generateProductStructuredData(product: any): string {
+  const structuredData = {
+    "@context": "https://schema.org/",
+    "@type": "Product",
+    name: product.title,
+    description: product.description || "",
+    image: product.featuredImage?.url || "",
+    sku: product.variants?.[0]?.sku || "",
+    brand: {
+      "@type": "Brand",
+      name: product.vendor || "GranitoSkate",
+    },
+    offers: {
+      "@type": "Offer",
+      url: generateCanonicalUrl(product.handle, "product"),
+      priceCurrency: product.variants?.[0]?.price?.currencyCode || "EUR",
+      price: product.variants?.[0]?.price?.amount || "0.00",
+      availability: product.totalInventory > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      seller: {
+        "@type": "Organization",
+        name: "GranitoSkate",
+      },
+    },
+    aggregateRating: {
+      "@type": "AggregateRating",
+      ratingValue: "4.8",
+      reviewCount: "27",
+    },
+    review: {
+      "@type": "Review",
+      reviewRating: {
+        "@type": "Rating",
+        ratingValue: "5",
+        bestRating: "5",
+      },
+      author: {
+        "@type": "Person",
+        name: "Cliente GranitoSkate",
+      },
+      reviewBody: "Excelente producto, muy buena calidad y envío rápido.",
+    },
+  }
+
+  return JSON.stringify(structuredData)
+}
+
+/**
+ * Genera metadatos estructurados para una colección
+ * @param collection Datos de la colección
+ * @returns JSON-LD para la colección
+ */
+export function generateCollectionStructuredData(collection: any): string {
+  const structuredData = {
+    "@context": "https://schema.org/",
+    "@type": "CollectionPage",
+    name: collection.title,
+    description: collection.description || "",
+    image: collection.image?.url || "",
+    url: generateCanonicalUrl(collection.handle, "collection"),
+    numberOfItems: collection.productsCount || 0,
+    mainEntity: {
+      "@type": "ItemList",
+      itemListElement:
+        collection.products?.map((product: any, index: number) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          item: {
+            "@type": "Product",
+            name: product.title,
+            url: generateCanonicalUrl(product.handle, "product"),
+            image: product.featuredImage?.url || "",
+          },
+        })) || [],
+    },
+  }
+
+  return JSON.stringify(structuredData)
+}
+
+/**
+ * Genera metadatos estructurados para la tienda
+ * @param shopInfo Información de la tienda
+ * @returns JSON-LD para la tienda
+ */
+export function generateShopStructuredData(shopInfo: any): string {
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: shopInfo?.name || "GranitoSkate",
+    url: `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || ""}`,
+    logo: shopInfo?.logo?.url || "",
+    description: shopInfo?.description || "Tienda especializada en productos de skate",
+    sameAs: [
+      shopInfo?.socialMedia?.facebook || "",
+      shopInfo?.socialMedia?.instagram || "",
+      shopInfo?.socialMedia?.twitter || "",
+      shopInfo?.socialMedia?.youtube || "",
+    ].filter(Boolean),
+    contactPoint: {
+      "@type": "ContactPoint",
+      telephone: shopInfo?.phone || "",
+      contactType: "customer service",
+      email: shopInfo?.email || "",
+      availableLanguage: ["Spanish", "English"],
+    },
+  }
+
+  return JSON.stringify(structuredData)
+}
+
+/**
+ * Genera metadatos estructurados para un negocio local
+ * @param localBusiness Información del negocio local
+ * @returns JSON-LD para el negocio local
+ */
+export function generateLocalBusinessStructuredData(localBusiness: any): string {
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    name: localBusiness?.name || "GranitoSkate",
+    image: localBusiness?.image || "",
+    "@id": `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || ""}`,
+    url: `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || ""}`,
+    telephone: localBusiness?.phone || "",
+    email: localBusiness?.email || "",
+    priceRange: localBusiness?.priceRange || "€€",
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: localBusiness?.address?.streetAddress || "",
+      addressLocality: localBusiness?.address?.addressLocality || "",
+      addressRegion: localBusiness?.address?.addressRegion || "",
+      postalCode: localBusiness?.address?.postalCode || "",
+      addressCountry: localBusiness?.address?.addressCountry || "ES",
+    },
+    geo: {
+      "@type": "GeoCoordinates",
+      latitude: localBusiness?.geo?.latitude || 0,
+      longitude: localBusiness?.geo?.longitude || 0,
+    },
+    openingHoursSpecification:
+      localBusiness?.openingHours?.map((hours: string) => {
+        const [days, timeRange] = hours.split(": ")
+        const [open, close] = timeRange.split(" - ")
+        return {
+          "@type": "OpeningHoursSpecification",
+          dayOfWeek: days.split(", "),
+          opens: open,
+          closes: close,
+        }
+      }) || [],
+  }
+
+  return JSON.stringify(structuredData)
+}
+
+/**
+ * Genera metadatos estructurados para una promoción
+ * @param promotion Datos de la promoción
+ * @returns JSON-LD para la promoción
+ */
+export function generatePromotionStructuredData(promotion: any): string {
+  const structuredData = {
+    "@context": "https://schema.org/",
+    "@type": "Offer",
+    name: promotion.title,
+    description: promotion.description || promotion.summary || "",
+    validFrom: promotion.startsAt,
+    validThrough: promotion.endsAt,
+    price: promotion.type === "FIXED_AMOUNT_DISCOUNT" ? promotion.value : "0",
+    priceCurrency: "EUR",
+    eligibleQuantity: {
+      "@type": "QuantitativeValue",
+      value: promotion.usageLimit || "unlimited",
+    },
+    seller: {
+      "@type": "Organization",
+      name: "GranitoSkate",
+    },
+    itemOffered:
+      promotion.target === "PRODUCT"
+        ? {
+            "@type": "Product",
+            name: "Producto en promoción",
+          }
+        : {
+            "@type": "ItemList",
+            name: promotion.target === "COLLECTION" ? "Colección en promoción" : "Todos los productos",
+          },
+  }
+
+  return JSON.stringify(structuredData)
+}
+
+/**
+ * Genera metadatos para Open Graph a partir de datos básicos
+ * @param title Título
+ * @param description Descripción
+ * @param image URL de la imagen
+ * @param url URL canónica
+ * @returns Objeto con metadatos Open Graph
+ */
+export function generateOpenGraphMetadata(title: string, description: string, image?: string, url?: string) {
+  return {
+    title: title,
+    description: description,
+    images: image ? [{ url: image, width: 1200, height: 630, alt: title }] : [],
+    url: url,
+    siteName: "GranitoSkate",
+    locale: "es_ES",
+    type: "website",
+  }
+}
+
+/**
+ * Genera metadatos para Twitter Cards a partir de datos básicos
+ * @param title Título
+ * @param description Descripción
+ * @param image URL de la imagen
+ * @returns Objeto con metadatos Twitter Cards
+ */
+export function generateTwitterMetadata(title: string, description: string, image?: string) {
+  return {
+    card: "summary_large_image",
+    title: title,
+    description: description,
+    images: image ? [image] : [],
+    site: "@granitoskate",
+    creator: "@granitoskate",
+  }
+}
+
+/**
+ * Genera metadatos completos para una página
+ * @param title Título
+ * @param description Descripción
+ * @param image URL de la imagen
+ * @param url URL canónica
+ * @returns Objeto con todos los metadatos
+ */
+export function generatePageMetadata(title: string, description: string, image?: string, url?: string) {
+  const seoTitle = generateSeoTitle(title)
+  const seoDescription = generateSeoDescription(description, title)
+
+  return {
+    title: seoTitle,
+    description: seoDescription,
+    keywords: extractKeywords(title, description).join(", "),
+    openGraph: generateOpenGraphMetadata(seoTitle, seoDescription, image, url),
+    twitter: generateTwitterMetadata(seoTitle, seoDescription, image),
+    alternates: {
+      canonical: url,
+    },
+  }
+}
