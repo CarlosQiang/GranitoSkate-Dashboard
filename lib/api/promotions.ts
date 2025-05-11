@@ -47,7 +47,7 @@ function convertToPromotion(promocion: Promocion): Promotion {
   return {
     id: promocion.id,
     title: promocion.titulo,
-    summary: promocion.resumen,
+    summary: promocion.resumen || "",
     startsAt: promocion.fechaInicio,
     endsAt: promocion.fechaFin,
     status: promocion.estado,
@@ -59,6 +59,12 @@ function convertToPromotion(promocion: Promocion): Promotion {
     code: promocion.codigo,
     createdAt: promocion.fechaCreacion,
     updatedAt: promocion.fechaActualizacion,
+    description: promocion.descripcion,
+    targetId: promocion.objetivoId,
+    conditions: promocion.condiciones,
+    prices: promocion.precios,
+    active: promocion.active,
+    type: promocion.type,
   }
 }
 
@@ -80,6 +86,12 @@ function convertToPromocion(promotion: Partial<Promotion>): Partial<Promocion> {
   if (promotion.code !== undefined) result.codigo = promotion.code
   if (promotion.createdAt !== undefined) result.fechaCreacion = promotion.createdAt
   if (promotion.updatedAt !== undefined) result.fechaActualizacion = promotion.updatedAt
+  if (promotion.description !== undefined) result.descripcion = promotion.description
+  if (promotion.targetId !== undefined) result.objetivoId = promotion.targetId
+  if (promotion.conditions !== undefined) result.condiciones = promotion.conditions
+  if (promotion.prices !== undefined) result.precios = promotion.precios
+  if (promotion.active !== undefined) result.active = promotion.active
+  if (promotion.type !== undefined) result.type = promotion.type
 
   return result
 }
@@ -175,9 +187,8 @@ export const updatePriceList = updatePromotion
 export const deletePriceList = deletePromotion
 export const getPriceListById = fetchPromotionById
 
-// Añadir la función createMarketingActivity si no existe
-
-export async function createMarketingActivity(data) {
+// Añadir la función createMarketingActivity
+export async function createMarketingActivity(data: any): Promise<any> {
   try {
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "/api"}/shopify/proxy`, {
       method: "POST",
