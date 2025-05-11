@@ -22,20 +22,31 @@ export async function fetchCustomers(limit = 50) {
 
     console.log(`Fetching ${limit} customers from Shopify...`)
 
-    // Consulta para la API de Shopify
+    // Consulta actualizada según la documentación actual de Shopify
     const query = gql`
-      query {
+      query CustomerList {
         customers(first: ${limit}) {
-          edges {
-            node {
+          nodes {
+            id
+            firstName
+            lastName
+            email
+            phone
+            numberOfOrders
+            amountSpent {
+              amount
+              currencyCode
+            }
+            createdAt
+            updatedAt
+            defaultAddress {
               id
-              firstName
-              lastName
-              email
+              address1
+              city
+              province
+              country
+              zip
               phone
-              ordersCount
-              totalSpent
-              createdAt
             }
           }
         }
@@ -44,23 +55,23 @@ export async function fetchCustomers(limit = 50) {
 
     const data = await shopifyClient.request(query)
 
-    if (!data || !data.customers || !data.customers.edges) {
+    if (!data || !data.customers || !data.customers.nodes) {
       console.warn("No se encontraron clientes o la respuesta está incompleta")
       return []
     }
 
-    const customers = data.customers.edges.map((edge: any) => ({
-      id: edge.node.id.split("/").pop(),
-      firstName: edge.node.firstName || "",
-      lastName: edge.node.lastName || "",
-      email: edge.node.email || "",
-      phone: edge.node.phone || null,
-      ordersCount: edge.node.ordersCount || 0,
+    const customers = data.customers.nodes.map((node: any) => ({
+      id: node.id.split("/").pop(),
+      firstName: node.firstName || "",
+      lastName: node.lastName || "",
+      email: node.email || "",
+      phone: node.phone || null,
+      ordersCount: node.numberOfOrders || 0,
       totalSpent: {
-        amount: edge.node.totalSpent || "0",
-        currencyCode: "EUR",
+        amount: node.amountSpent?.amount || "0",
+        currencyCode: node.amountSpent?.currencyCode || "EUR",
       },
-      createdAt: edge.node.createdAt || new Date().toISOString(),
+      createdAt: node.createdAt || new Date().toISOString(),
     }))
 
     // Update cache
@@ -94,7 +105,13 @@ export async function fetchCustomerById(id: string) {
           phone
           acceptsMarketing
           createdAt
+          numberOfOrders
+          amountSpent {
+            amount
+            currencyCode
+          }
           defaultAddress {
+            id
             address1
             address2
             city
@@ -103,15 +120,15 @@ export async function fetchCustomerById(id: string) {
             country
             phone
           }
-          orders(first: 5) {
-            edges {
-              node {
-                id
-                name
-                processedAt
-                totalPrice
-              }
-            }
+          addresses {
+            id
+            address1
+            address2
+            city
+            province
+            zip
+            country
+            phone
           }
         }
       }
@@ -126,11 +143,11 @@ export async function fetchCustomerById(id: string) {
     return {
       ...data.customer,
       id: data.customer.id.split("/").pop(),
-      orders:
-        data.customer.orders?.edges?.map((edge: any) => ({
-          ...edge.node,
-          id: edge.node.id.split("/").pop(),
-        })) || [],
+      ordersCount: data.customer.numberOfOrders || 0,
+      totalSpent: {
+        amount: data.customer.amountSpent?.amount || "0",
+        currencyCode: data.customer.amountSpent?.currencyCode || "EUR",
+      },
     }
   } catch (error) {
     console.error(`Error fetching customer ${id}:`, error)
@@ -144,17 +161,18 @@ export async function searchCustomers(searchTerm: string, limit = 20) {
     const query = gql`
       query {
         customers(first: ${limit}, query: "${searchTerm}") {
-          edges {
-            node {
-              id
-              firstName
-              lastName
-              email
-              phone
-              ordersCount
-              totalSpent
-              createdAt
+          nodes {
+            id
+            firstName
+            lastName
+            email
+            phone
+            numberOfOrders
+            amountSpent {
+              amount
+              currencyCode
             }
+            createdAt
           }
         }
       }
@@ -162,22 +180,22 @@ export async function searchCustomers(searchTerm: string, limit = 20) {
 
     const data = await shopifyClient.request(query)
 
-    if (!data || !data.customers || !data.customers.edges) {
+    if (!data || !data.customers || !data.customers.nodes) {
       return []
     }
 
-    return data.customers.edges.map((edge: any) => ({
-      id: edge.node.id.split("/").pop(),
-      firstName: edge.node.firstName || "",
-      lastName: edge.node.lastName || "",
-      email: edge.node.email || "",
-      phone: edge.node.phone || null,
-      ordersCount: edge.node.ordersCount || 0,
+    return data.customers.nodes.map((node: any) => ({
+      id: node.id.split("/").pop(),
+      firstName: node.firstName || "",
+      lastName: node.lastName || "",
+      email: node.email || "",
+      phone: node.phone || null,
+      ordersCount: node.numberOfOrders || 0,
       totalSpent: {
-        amount: edge.node.totalSpent || "0",
-        currencyCode: "EUR",
+        amount: node.amountSpent?.amount || "0",
+        currencyCode: node.amountSpent?.currencyCode || "EUR",
       },
-      createdAt: edge.node.createdAt || new Date().toISOString(),
+      createdAt: node.createdAt || new Date().toISOString(),
     }))
   } catch (error) {
     console.error("Error searching customers:", error)
