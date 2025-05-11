@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { LoadingState } from "@/components/loading-state"
-import { getPromotionById, updatePromotion } from "@/lib/api/promotions"
+import { fetchPromotionById, updatePromotion } from "@/lib/api/promotions"
 import { formatDate } from "@/lib/utils"
 import { ArrowLeft, ExternalLink, Edit, Trash, Copy } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
@@ -30,7 +30,7 @@ export default function PromocionDetailPage({ params }) {
 
       setLoading(true)
       try {
-        const promotionData = await getPromotionById(id)
+        const promotionData = await fetchPromotionById(id)
         if (promotionData) {
           setPromotion(promotionData)
         } else {
@@ -214,12 +214,14 @@ export default function PromocionDetailPage({ params }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Fecha de inicio</p>
-                    <p className="font-medium">{formatDate(promotion.startsAt)}</p>
+                    <p className="font-medium">{formatDate(promotion.startsAt || promotion.startDate)}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Fecha de fin</p>
                     <p className="font-medium">
-                      {promotion.endsAt ? formatDate(promotion.endsAt) : "Sin fecha de fin"}
+                      {promotion.endsAt || promotion.endDate
+                        ? formatDate(promotion.endsAt || promotion.endDate)
+                        : "Sin fecha de fin"}
                     </p>
                   </div>
                 </div>
@@ -260,11 +262,11 @@ export default function PromocionDetailPage({ params }) {
             <CardFooter className="flex justify-between">
               <div className="flex items-center gap-2">
                 <Switch
-                  checked={promotion.status === "active"}
+                  checked={promotion.status === "active" || promotion.active}
                   onCheckedChange={handleToggleStatus}
                   disabled={updating || promotion.status === "expired"}
                 />
-                <span>{promotion.status === "active" ? "Activa" : "Inactiva"}</span>
+                <span>{promotion.status === "active" || promotion.active ? "Activa" : "Inactiva"}</span>
               </div>
             </CardFooter>
           </Card>
@@ -283,10 +285,20 @@ export default function PromocionDetailPage({ params }) {
                   </div>
                 )}
 
-                {promotion.conditions && (
+                {promotion.conditions && promotion.conditions.length > 0 && (
                   <div>
                     <h3 className="text-sm font-medium text-muted-foreground mb-1">Condiciones</h3>
-                    <p>{promotion.conditions}</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      {promotion.conditions.map((condition, index) => (
+                        <li key={index}>
+                          {condition.type === "MINIMUM_AMOUNT"
+                            ? `Pedido mínimo: ${condition.value}€`
+                            : condition.type === "MINIMUM_QUANTITY"
+                              ? `Cantidad mínima: ${condition.value} productos`
+                              : JSON.stringify(condition)}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
               </CardContent>

@@ -11,7 +11,8 @@ import { formatCurrency, formatDate } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
-export default function RecentOrders() {
+// Cambiamos la exportación para que coincida con la importación en dashboard/page.tsx
+export function RecentOrders() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -149,3 +150,6 @@ export default function RecentOrders() {
     </Card>
   )
 }
+
+// Añadimos una exportación por defecto para mantener compatibilidad
+export default RecentOrders

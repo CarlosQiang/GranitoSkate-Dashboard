@@ -191,7 +191,7 @@ export async function fetchOrders(filters: OrderFilter = {}) {
 }
 
 // Función para obtener un pedido por ID
-export async function fetchOrderById(id) {
+export async function fetchOrderById(id: string) {
   try {
     // Asegurarse de que el ID tenga el formato correcto
     const isFullShopifyId = id.includes("gid://shopify/Order/")
@@ -351,8 +351,11 @@ export async function fetchOrderById(id) {
   }
 }
 
+// Añadir alias para getOrderById
+export const getOrderById = fetchOrderById
+
 // Función para actualizar un pedido
-export async function updateOrder(id, data) {
+export async function updateOrder(id: string, data: any) {
   try {
     // Asegurarse de que el ID tenga el formato correcto
     const isFullShopifyId = id.includes("gid://shopify/Order/")

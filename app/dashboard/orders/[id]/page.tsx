@@ -9,8 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { LoadingState } from "@/components/loading-state"
-import { getOrderById } from "@/lib/api/orders"
-import { formatDate } from "@/lib/utils"
+import { fetchOrderById } from "@/lib/api/orders"
+import { formatDate, formatCurrency } from "@/lib/utils"
 import { ArrowLeft, Printer, Mail, ExternalLink } from "lucide-react"
 
 export default function OrderDetailPage({ params }) {
@@ -27,7 +27,7 @@ export default function OrderDetailPage({ params }) {
 
       setLoading(true)
       try {
-        const orderData = await getOrderById(id)
+        const orderData = await fetchOrderById(id)
         if (orderData) {
           setOrder(orderData)
         } else {
@@ -95,13 +95,6 @@ export default function OrderDetailPage({ params }) {
     )
   }
 
-  const formatCurrency = (amount, currency = "EUR") => {
-    return new Intl.NumberFormat("es-ES", {
-      style: "currency",
-      currency: currency,
-    }).format(amount || 0)
-  }
-
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -136,7 +129,7 @@ export default function OrderDetailPage({ params }) {
           <Card>
             <CardHeader>
               <CardTitle>Detalles del pedido</CardTitle>
-              <CardDescription>Realizado el {formatDate(order.createdAt)}</CardDescription>
+              <CardDescription>Realizado el {formatDate(order.createdAt || order.processedAt)}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="rounded-md border overflow-hidden">

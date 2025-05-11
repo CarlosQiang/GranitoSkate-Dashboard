@@ -200,7 +200,7 @@ export async function fetchPromotions(limit = 50) {
  * @param id ID de la promoción
  * @returns Datos de la promoción
  */
-export async function fetchPromotionById(id) {
+export async function fetchPromotionById(id: string) {
   try {
     // Formatear el ID correctamente
     let formattedId = id
@@ -342,12 +342,15 @@ export async function fetchPromotionById(id) {
   }
 }
 
+// Añadir alias para getPromotionById
+export const getPromotionById = fetchPromotionById
+
 /**
  * Crea una nueva promoción (price rule)
  * @param data Datos de la promoción
  * @returns La promoción creada
  */
-export async function createPromotion(data) {
+export async function createPromotion(data: any) {
   try {
     console.log("Creating promotion:", data)
 
@@ -458,7 +461,7 @@ export async function createPromotion(data) {
  * @param data Datos a actualizar
  * @returns La promoción actualizada
  */
-export async function updatePromotion(id, data) {
+export async function updatePromotion(id: string, data: any) {
   try {
     // Formatear el ID correctamente
     let formattedId = id
@@ -563,7 +566,7 @@ export async function updatePromotion(id, data) {
  * @param id ID de la promoción
  * @returns Success status and ID
  */
-export async function deletePromotion(id) {
+export async function deletePromotion(id: string) {
   try {
     // Formatear el ID correctamente
     let formattedId = id
@@ -608,7 +611,7 @@ export async function deletePromotion(id) {
  * @param code Código de descuento
  * @returns El código de descuento creado
  */
-async function createDiscountCode(priceRuleId, code) {
+async function createDiscountCode(priceRuleId: string, code: string) {
   try {
     const mutation = gql`
       mutation discountCodeBasicCreate($priceRuleId: ID!, $code: String!) {
