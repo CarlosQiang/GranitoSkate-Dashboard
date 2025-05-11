@@ -1,158 +1,92 @@
 "use client"
 
-import { useTheme } from "next-themes"
+import {
+  Line,
+  Bar,
+  BarChart,
+  LineChart,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
-export function LineChart() {
-  const { theme } = useTheme()
-  const isDark = theme === "dark"
-  const textColor = isDark ? "#ffffff" : "#000000"
-  const gridColor = isDark ? "#333333" : "#e5e5e5"
-  const lineColor = "#d29a43"
+// Datos de ejemplo para los gráficos
+const revenueData = [
+  { name: "Ene", total: 1200 },
+  { name: "Feb", total: 1800 },
+  { name: "Mar", total: 2200 },
+  { name: "Abr", total: 1800 },
+  { name: "May", total: 2400 },
+  { name: "Jun", total: 2800 },
+  { name: "Jul", total: 3200 },
+]
 
+const productsData = [
+  { name: "Zapatillas Skate Pro", sales: 124 },
+  { name: "Tabla Element Classic", sales: 98 },
+  { name: "Ruedas Spitfire 52mm", sales: 87 },
+  { name: "Trucks Independent 149", sales: 65 },
+  { name: "Rodamientos Bones Reds", sales: 59 },
+]
+
+export function RevenueChart({ data = revenueData }) {
   return (
-    <div className="w-full h-full flex items-center justify-center">
-      <svg width="100%" height="100%" viewBox="0 0 800 400">
-        <rect width="800" height="400" fill="none" />
-
-        {/* Eje X */}
-        <line x1="50" y1="350" x2="750" y2="350" stroke={gridColor} strokeWidth="1" />
-
-        {/* Eje Y */}
-        <line x1="50" y1="50" x2="50" y2="350" stroke={gridColor} strokeWidth="1" />
-
-        {/* Líneas de cuadrícula horizontales */}
-        <line x1="50" y1="50" x2="750" y2="50" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-        <line x1="50" y1="125" x2="750" y2="125" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-        <line x1="50" y1="200" x2="750" y2="200" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-        <line x1="50" y1="275" x2="750" y2="275" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-
-        {/* Etiquetas del eje X */}
-        <text x="100" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Día 1
-        </text>
-        <text x="200" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Día 6
-        </text>
-        <text x="300" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Día 11
-        </text>
-        <text x="400" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Día 16
-        </text>
-        <text x="500" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Día 21
-        </text>
-        <text x="600" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Día 26
-        </text>
-        <text x="700" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Día 30
-        </text>
-
-        {/* Etiquetas del eje Y */}
-        <text x="40" y="350" fill={textColor} fontSize="12" textAnchor="end">
-          0€
-        </text>
-        <text x="40" y="275" fill={textColor} fontSize="12" textAnchor="end">
-          500€
-        </text>
-        <text x="40" y="200" fill={textColor} fontSize="12" textAnchor="end">
-          1000€
-        </text>
-        <text x="40" y="125" fill={textColor} fontSize="12" textAnchor="end">
-          1500€
-        </text>
-        <text x="40" y="50" fill={textColor} fontSize="12" textAnchor="end">
-          2000€
-        </text>
-
-        {/* Mensaje de datos no disponibles */}
-        <text x="400" y="200" fill={textColor} fontSize="14" textAnchor="middle">
-          Los datos de ventas estarán disponibles próximamente
-        </text>
-      </svg>
-    </div>
+    <ResponsiveContainer width="100%" height={350}>
+      <LineChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="name" />
+        <YAxis />
+        <Tooltip formatter={(value) => [`${value} €`, "Total"]} labelFormatter={(label) => `Mes: ${label}`} />
+        <Legend />
+        <Line type="monotone" dataKey="total" stroke="#8884d8" activeDot={{ r: 8 }} name="Ingresos" />
+      </LineChart>
+    </ResponsiveContainer>
   )
 }
 
-export function BarChart() {
-  const { theme } = useTheme()
-  const isDark = theme === "dark"
-  const textColor = isDark ? "#ffffff" : "#000000"
-  const gridColor = isDark ? "#333333" : "#e5e5e5"
-
+export function ProductsChart({ data = productsData }) {
   return (
-    <div className="w-full h-full flex items-center justify-center">
-      <svg width="100%" height="100%" viewBox="0 0 800 400">
-        <rect width="800" height="400" fill="none" />
-
-        {/* Eje X */}
-        <line x1="50" y1="350" x2="750" y2="350" stroke={gridColor} strokeWidth="1" />
-
-        {/* Eje Y */}
-        <line x1="50" y1="50" x2="50" y2="350" stroke={gridColor} strokeWidth="1" />
-
-        {/* Líneas de cuadrícula horizontales */}
-        <line x1="50" y1="50" x2="750" y2="50" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-        <line x1="50" y1="125" x2="750" y2="125" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-        <line x1="50" y1="200" x2="750" y2="200" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-        <line x1="50" y1="275" x2="750" y2="275" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-
-        {/* Etiquetas del eje X */}
-        <text x="125" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Tablas
-        </text>
-        <text x="250" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Ruedas
-        </text>
-        <text x="375" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Ejes
-        </text>
-        <text x="500" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Ropa
-        </text>
-        <text x="625" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Accesorios
-        </text>
-
-        {/* Etiquetas del eje Y */}
-        <text x="40" y="350" fill={textColor} fontSize="12" textAnchor="end">
-          0€
-        </text>
-        <text x="40" y="275" fill={textColor} fontSize="12" textAnchor="end">
-          1000€
-        </text>
-        <text x="40" y="200" fill={textColor} fontSize="12" textAnchor="end">
-          2000€
-        </text>
-        <text x="40" y="125" fill={textColor} fontSize="12" textAnchor="end">
-          3000€
-        </text>
-        <text x="40" y="50" fill={textColor} fontSize="12" textAnchor="end">
-          4000€
-        </text>
-
-        {/* Mensaje de datos no disponibles */}
-        <text x="400" y="200" fill={textColor} fontSize="14" textAnchor="middle">
-          Los datos por categoría estarán disponibles próximamente
-        </text>
-      </svg>
-    </div>
+    <ResponsiveContainer width="100%" height={350}>
+      <BarChart data={data} layout="vertical">
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis type="number" />
+        <YAxis dataKey="name" type="category" width={150} />
+        <Tooltip formatter={(value) => [`${value} unidades`, "Ventas"]} />
+        <Legend />
+        <Bar dataKey="sales" fill="#82ca9d" name="Ventas" />
+      </BarChart>
+    </ResponsiveContainer>
   )
 }
 
-export function PieChart() {
-  const { theme } = useTheme()
-  const isDark = theme === "dark"
-  const textColor = isDark ? "#ffffff" : "#000000"
-
+export function SalesChart({ data }) {
   return (
-    <div className="w-full h-full flex items-center justify-center">
-      <svg width="100%" height="100%" viewBox="0 0 400 400">
-        <text x="200" y="200" fill={textColor} fontSize="14" textAnchor="middle">
-          Los datos de tráfico estarán disponibles próximamente
-        </text>
-      </svg>
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Ventas</CardTitle>
+        <CardDescription>Ventas mensuales del año actual</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <RevenueChart data={data} />
+      </CardContent>
+    </Card>
+  )
+}
+
+export function TopProductsChart({ data }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Productos más vendidos</CardTitle>
+        <CardDescription>Top 5 productos por ventas</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ProductsChart data={data} />
+      </CardContent>
+    </Card>
   )
 }

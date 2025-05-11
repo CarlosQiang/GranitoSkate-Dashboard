@@ -11,7 +11,75 @@ import { Search, MoreHorizontal, Pencil, ShoppingCart } from "lucide-react"
 import { fetchCustomers } from "@/lib/api/customers"
 import { useToast } from "@/components/ui/use-toast"
 import { formatDate, formatCurrency } from "@/lib/utils"
-import { fallbackCustomers } from "@/components/fallback-data-provider"
+
+// Datos de fallback para cuando la API falla
+const fallbackCustomers = [
+  {
+    id: "gid://shopify/Customer/1",
+    firstName: "Juan",
+    lastName: "Pérez",
+    email: "juan.perez@example.com",
+    phone: "+34612345678",
+    ordersCount: 5,
+    totalSpent: {
+      amount: "450.00",
+      currencyCode: "EUR",
+    },
+    createdAt: "2023-01-15T10:00:00Z",
+  },
+  {
+    id: "gid://shopify/Customer/2",
+    firstName: "María",
+    lastName: "García",
+    email: "maria.garcia@example.com",
+    phone: "+34623456789",
+    ordersCount: 3,
+    totalSpent: {
+      amount: "320.50",
+      currencyCode: "EUR",
+    },
+    createdAt: "2023-02-20T15:30:00Z",
+  },
+  {
+    id: "gid://shopify/Customer/3",
+    firstName: "Carlos",
+    lastName: "Rodríguez",
+    email: "carlos.rodriguez@example.com",
+    phone: "+34634567890",
+    ordersCount: 8,
+    totalSpent: {
+      amount: "780.25",
+      currencyCode: "EUR",
+    },
+    createdAt: "2022-11-05T09:15:00Z",
+  },
+  {
+    id: "gid://shopify/Customer/4",
+    firstName: "Laura",
+    lastName: "Martínez",
+    email: "laura.martinez@example.com",
+    phone: "+34645678901",
+    ordersCount: 2,
+    totalSpent: {
+      amount: "150.75",
+      currencyCode: "EUR",
+    },
+    createdAt: "2023-03-10T12:45:00Z",
+  },
+  {
+    id: "gid://shopify/Customer/5",
+    firstName: "David",
+    lastName: "López",
+    email: "david.lopez@example.com",
+    phone: "+34656789012",
+    ordersCount: 6,
+    totalSpent: {
+      amount: "520.00",
+      currencyCode: "EUR",
+    },
+    createdAt: "2022-12-18T14:20:00Z",
+  },
+]
 
 interface Customer {
   id: string
@@ -34,18 +102,11 @@ export default function CustomersPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const { useFallbackData } = useFallbackData()
 
   useEffect(() => {
     const getCustomers = async () => {
       try {
-        if (useFallbackData) {
-          // Usar datos de fallback si es necesario
-          setCustomers(fallbackCustomers as Customer[])
-          setIsLoading(false)
-          return
-        }
-
+        setIsLoading(true)
         const data = await fetchCustomers()
 
         if (data && data.length > 0) {
@@ -71,7 +132,7 @@ export default function CustomersPage() {
     }
 
     getCustomers()
-  }, [toast, useFallbackData])
+  }, [toast])
 
   const filteredCustomers = customers.filter(
     (customer) =>

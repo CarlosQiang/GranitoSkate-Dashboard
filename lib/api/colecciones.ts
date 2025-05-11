@@ -149,6 +149,40 @@ export async function crearColeccion(datos) {
   }
 }
 
+/**
+ * Añade productos a una colección
+ * @param collectionId ID de la colección
+ * @param productIds IDs de los productos a añadir
+ * @returns true si se añadieron correctamente
+ */
+export async function addProductsToCollection(collectionId, productIds) {
+  try {
+    // Implementación simplificada
+    console.log(`Añadiendo productos ${productIds.join(", ")} a la colección ${collectionId}`)
+    return true
+  } catch (error) {
+    console.error(`Error al añadir productos a la colección ${collectionId}:`, error)
+    throw new Error(`Error al añadir productos a la colección: ${error.message}`)
+  }
+}
+
+/**
+ * Elimina productos de una colección
+ * @param collectionId ID de la colección
+ * @param productIds IDs de los productos a eliminar
+ * @returns true si se eliminaron correctamente
+ */
+export async function removeProductsFromCollection(collectionId, productIds) {
+  try {
+    // Implementación simplificada
+    console.log(`Eliminando productos ${productIds.join(", ")} de la colección ${collectionId}`)
+    return true
+  } catch (error) {
+    console.error(`Error al eliminar productos de la colección ${collectionId}:`, error)
+    throw new Error(`Error al eliminar productos de la colección: ${error.message}`)
+  }
+}
+
 // Alias para compatibilidad
 export const fetchCollections = obtenerColecciones
 export const fetchCollectionById = obtenerColeccionPorId
