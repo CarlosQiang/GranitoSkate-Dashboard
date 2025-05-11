@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
+export const maxDuration = 60 // 60 segundos
+
 export async function POST(request: Request) {
   try {
     // Verificar autenticación
@@ -37,7 +39,7 @@ export async function POST(request: Request) {
     console.log("Enviando consulta a Shopify:", query.substring(0, 100) + "...")
 
     // Hacer la solicitud a la API de Shopify
-    const response = await fetch(`https://${shopDomain}/admin/api/2023-10/graphql.json`, {
+    const response = await fetch(`https://${shopDomain}/admin/api/2023-07/graphql.json`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
