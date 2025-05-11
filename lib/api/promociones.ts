@@ -6,6 +6,7 @@ import {
   updatePromotion,
   fetchPriceListById,
   deletePriceList,
+  createMarketingActivity,
 } from "./promotions"
 
 // Exportar funciones con nombres en español
@@ -20,4 +21,4 @@ export const obtenerListasPrecios = fetchPromotions
 export const eliminarListaPrecio = deletePromotion
 
 // Re-exportar para compatibilidad con código existente
-export { fetchPromotionById, deletePriceList, fetchPriceListById }
+export { fetchPromotionById, fetchPriceListById, deletePriceList, createMarketingActivity }

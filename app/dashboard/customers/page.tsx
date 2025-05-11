@@ -7,79 +7,10 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Search, MoreHorizontal, Pencil, ShoppingCart } from "lucide-react"
+import { Search, MoreHorizontal, Pencil, ShoppingCart, AlertTriangle } from "lucide-react"
 import { fetchCustomers } from "@/lib/api/customers"
 import { useToast } from "@/components/ui/use-toast"
 import { formatDate, formatCurrency } from "@/lib/utils"
-
-// Datos de fallback para cuando la API falla
-const fallbackCustomers = [
-  {
-    id: "gid://shopify/Customer/1",
-    firstName: "Juan",
-    lastName: "Pérez",
-    email: "juan.perez@example.com",
-    phone: "+34612345678",
-    ordersCount: 5,
-    totalSpent: {
-      amount: "450.00",
-      currencyCode: "EUR",
-    },
-    createdAt: "2023-01-15T10:00:00Z",
-  },
-  {
-    id: "gid://shopify/Customer/2",
-    firstName: "María",
-    lastName: "García",
-    email: "maria.garcia@example.com",
-    phone: "+34623456789",
-    ordersCount: 3,
-    totalSpent: {
-      amount: "320.50",
-      currencyCode: "EUR",
-    },
-    createdAt: "2023-02-20T15:30:00Z",
-  },
-  {
-    id: "gid://shopify/Customer/3",
-    firstName: "Carlos",
-    lastName: "Rodríguez",
-    email: "carlos.rodriguez@example.com",
-    phone: "+34634567890",
-    ordersCount: 8,
-    totalSpent: {
-      amount: "780.25",
-      currencyCode: "EUR",
-    },
-    createdAt: "2022-11-05T09:15:00Z",
-  },
-  {
-    id: "gid://shopify/Customer/4",
-    firstName: "Laura",
-    lastName: "Martínez",
-    email: "laura.martinez@example.com",
-    phone: "+34645678901",
-    ordersCount: 2,
-    totalSpent: {
-      amount: "150.75",
-      currencyCode: "EUR",
-    },
-    createdAt: "2023-03-10T12:45:00Z",
-  },
-  {
-    id: "gid://shopify/Customer/5",
-    firstName: "David",
-    lastName: "López",
-    email: "david.lopez@example.com",
-    phone: "+34656789012",
-    ordersCount: 6,
-    totalSpent: {
-      amount: "520.00",
-      currencyCode: "EUR",
-    },
-    createdAt: "2022-12-18T14:20:00Z",
-  },
-]
 
 interface Customer {
   id: string
@@ -113,17 +44,16 @@ export default function CustomersPage() {
           setCustomers(data)
           setError(null)
         } else {
-          // Si no hay datos, mostrar un mensaje y usar datos de fallback
-          setError("No se pudieron cargar los clientes. Mostrando datos de ejemplo.")
-          setCustomers(fallbackCustomers as Customer[])
+          setError("No se encontraron clientes. Por favor, verifica tu conexión con Shopify.")
+          setCustomers([])
         }
       } catch (error) {
         console.error("Error fetching customers:", error)
-        setError("Error al cargar los clientes. Mostrando datos de ejemplo.")
-        setCustomers(fallbackCustomers as Customer[])
+        setError("Error al cargar los clientes. Por favor, verifica tu conexión con Shopify.")
+        setCustomers([])
         toast({
           title: "Error",
-          description: "No se pudieron cargar los clientes. Mostrando datos de ejemplo.",
+          description: "No se pudieron cargar los clientes. Por favor, verifica tu conexión con Shopify.",
           variant: "destructive",
         })
       } finally {
@@ -152,7 +82,10 @@ export default function CustomersPage() {
       {error && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
           <div className="flex">
-            <div>
+            <div className="flex-shrink-0">
+              <AlertTriangle className="h-5 w-5 text-yellow-400" />
+            </div>
+            <div className="ml-3">
               <p className="text-sm text-yellow-700">{error}</p>
             </div>
           </div>
