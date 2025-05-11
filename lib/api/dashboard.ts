@@ -1,5 +1,3 @@
-import { gql } from "graphql-request"
-
 // Caché para mejorar rendimiento
 let statsCache = null
 let lastStatsUpdate = null
@@ -21,7 +19,7 @@ export async function fetchDashboardStats() {
     console.log("Obteniendo estadísticas del dashboard...")
 
     // Consulta para obtener estadísticas generales
-    const query = gql`
+    const query = `
       query {
         shop {
           name
@@ -53,13 +51,22 @@ export async function fetchDashboardStats() {
       body: JSON.stringify({
         query,
       }),
+      cache: "no-store",
     })
 
     if (!response.ok) {
-      throw new Error(`Error ${response.status}: ${response.statusText}`)
+      const errorText = await response.text()
+      console.error(`Error en la respuesta del proxy (${response.status}): ${errorText}`)
+      throw new Error(`Error ${response.status}: ${errorText}`)
     }
 
     const result = await response.json()
+
+    if (result.errors) {
+      console.error("Errores GraphQL:", result.errors)
+      throw new Error(result.errors[0]?.message || "Error en la consulta GraphQL")
+    }
+
     const data = result.data
 
     if (!data || !data.shop) {
@@ -69,6 +76,7 @@ export async function fetchDashboardStats() {
         totalCustomers: 0,
         totalProducts: 0,
         totalRevenue: 0,
+        error: "No se pudieron obtener estadísticas de la tienda",
       }
     }
 
@@ -101,7 +109,7 @@ export async function fetchDashboardStats() {
       totalCustomers: 0,
       totalProducts: 0,
       totalRevenue: 0,
-      error: (error as Error).message,
+      error: error.message || "Error desconocido",
     }
   }
 }
@@ -119,8 +127,8 @@ export async function fetchSalesChartData() {
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
     const sixMonthsAgoISO = sixMonthsAgo.toISOString()
 
-    const query = gql`
-      query GetOrdersForChart($date: DateTime!) {
+    const query = `
+      query {
         orders(first: 250, query: "created_at:>=${sixMonthsAgoISO}", sortKey: PROCESSED_AT) {
           edges {
             node {
@@ -147,6 +155,7 @@ export async function fetchSalesChartData() {
         query,
         variables: { date: sixMonthsAgoISO },
       }),
+      cache: "no-store",
     })
 
     if (!response.ok) {
@@ -154,6 +163,12 @@ export async function fetchSalesChartData() {
     }
 
     const result = await response.json()
+
+    if (result.errors) {
+      console.error("Errores GraphQL:", result.errors)
+      throw new Error(result.errors[0]?.message || "Error en la consulta GraphQL")
+    }
+
     const data = result.data
 
     if (!data || !data.orders || !data.orders.edges) {
@@ -207,7 +222,7 @@ export async function fetchTopProductsChartData() {
   try {
     console.log("Obteniendo datos de productos más vendidos...")
 
-    const query = gql`
+    const query = `
       query {
         products(first: 250, sortKey: BEST_SELLING) {
           edges {
@@ -233,6 +248,7 @@ export async function fetchTopProductsChartData() {
       body: JSON.stringify({
         query,
       }),
+      cache: "no-store",
     })
 
     if (!response.ok) {
@@ -240,6 +256,12 @@ export async function fetchTopProductsChartData() {
     }
 
     const result = await response.json()
+
+    if (result.errors) {
+      console.error("Errores GraphQL:", result.errors)
+      throw new Error(result.errors[0]?.message || "Error en la consulta GraphQL")
+    }
+
     const data = result.data
 
     if (!data || !data.products || !data.products.edges) {

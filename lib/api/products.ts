@@ -96,15 +96,19 @@ export async function fetchRecentProducts(limit = 5) {
   }
 }
 
-// Función para obtener todos los productos
+/**
+ * Obtiene todos los productos
+ * @param options Opciones de filtrado
+ * @returns Lista de productos
+ */
 export async function fetchProducts(options = {}) {
   try {
     const { limit = 20 } = options
     console.log(`Fetching products with limit: ${limit}`)
 
-    const query = gql`
-      query GetProducts($first: Int!) {
-        products(first: $first) {
+    const query = `
+      query {
+        products(first: ${limit}) {
           edges {
             node {
               id
@@ -139,8 +143,33 @@ export async function fetchProducts(options = {}) {
     `
 
     console.log("Enviando consulta a Shopify...")
-    const data = await shopifyClient.request(query, { first: limit })
-    console.log("Respuesta recibida de Shopify")
+
+    // Usar el proxy en lugar de shopifyClient directamente
+    const response = await fetch("/api/shopify/proxy", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query,
+      }),
+      cache: "no-store",
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`Error en la respuesta del proxy (${response.status}): ${errorText}`)
+      throw new Error(`Error ${response.status}: ${errorText}`)
+    }
+
+    const result = await response.json()
+
+    if (result.errors) {
+      console.error("Errores GraphQL:", result.errors)
+      throw new Error(result.errors[0]?.message || "Error en la consulta GraphQL")
+    }
+
+    const data = result.data
 
     // Verificar si la respuesta tiene la estructura esperada
     if (!data || !data.products || !data.products.edges) {
@@ -154,7 +183,7 @@ export async function fetchProducts(options = {}) {
       const variant = node.variants.edges[0]?.node || {}
 
       return {
-        id: node.id.split("/").pop(), // Extraer el ID numérico
+        id: extractIdFromGid(node.id),
         title: node.title,
         handle: node.handle,
         description: node.description,

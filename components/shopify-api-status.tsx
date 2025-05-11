@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { CheckCircle2, AlertCircle, RefreshCw } from "lucide-react"
+import { CheckCircle2, AlertCircle, RefreshCw, ChevronDown, ChevronUp } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 export function ShopifyApiStatus() {
   const [status, setStatus] = useState<"loading" | "connected" | "error" | "hidden">("loading")
@@ -12,6 +13,7 @@ export function ShopifyApiStatus() {
   const [isChecking, setIsChecking] = useState(false)
   const [hasData, setHasData] = useState(false)
   const [debugInfo, setDebugInfo] = useState<any>(null)
+  const [isDebugOpen, setIsDebugOpen] = useState(false)
 
   // Verificar si hay datos en la página o si existe el mensaje de conexión exitosa
   const checkForDataOrSuccessMessage = () => {
@@ -58,7 +60,8 @@ export function ShopifyApiStatus() {
       }
 
       console.log("Verificando conexión con Shopify...")
-      const response = await fetch("/api/shopify/check?timestamp=" + Date.now(), {
+      const timestamp = new Date().getTime()
+      const response = await fetch(`/api/shopify/check?timestamp=${timestamp}`, {
         method: "GET",
         headers: {
           "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -170,24 +173,36 @@ export function ShopifyApiStatus() {
         <AlertTitle>Error de conexión con Shopify</AlertTitle>
         <AlertDescription className="flex flex-col gap-2">
           <p>{error}</p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={checkConnection}
-            disabled={isChecking}
-            className="w-fit flex items-center gap-2"
-          >
-            {isChecking ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Reintentar conexión
-          </Button>
-          {debugInfo && (
-            <details className="mt-2 text-xs">
-              <summary>Información de depuración</summary>
-              <pre className="mt-2 p-2 bg-gray-100 rounded overflow-auto max-h-40">
-                {JSON.stringify(debugInfo, null, 2)}
-              </pre>
-            </details>
-          )}
+          <div className="flex flex-wrap gap-2 mt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={checkConnection}
+              disabled={isChecking}
+              className="flex items-center gap-2"
+            >
+              {isChecking ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Reintentar conexión
+            </Button>
+
+            <Collapsible open={isDebugOpen} onOpenChange={setIsDebugOpen} className="w-full">
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" size="sm" className="flex items-center gap-2">
+                  {isDebugOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  {isDebugOpen ? "Ocultar información de depuración" : "Mostrar información de depuración"}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2">
+                <div className="bg-gray-100 p-3 rounded-md text-xs overflow-auto max-h-60">
+                  <pre>{JSON.stringify(debugInfo || { error }, null, 2)}</pre>
+                </div>
+                <p className="text-xs mt-2">
+                  Verifica que las variables de entorno NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN y SHOPIFY_ACCESS_TOKEN estén
+                  configuradas correctamente.
+                </p>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
         </AlertDescription>
       </Alert>
     )

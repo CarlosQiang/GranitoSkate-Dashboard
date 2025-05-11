@@ -443,9 +443,9 @@ export async function fetchRecentOrders(limit = 5) {
   try {
     console.log(`Fetching ${limit} recent orders...`)
 
-    const query = gql`
-      query GetRecentOrders($limit: Int!) {
-        orders(first: $limit, sortKey: CREATED_AT, reverse: true) {
+    const query = `
+      query {
+        orders(first: ${limit}, sortKey: CREATED_AT, reverse: true) {
           edges {
             node {
               id
@@ -478,17 +478,20 @@ export async function fetchRecentOrders(limit = 5) {
       },
       body: JSON.stringify({
         query,
-        variables: { limit },
       }),
+      cache: "no-store",
     })
 
     if (!response.ok) {
-      throw new Error(`Error ${response.status}: ${response.statusText}`)
+      const errorText = await response.text()
+      console.error(`Error en la respuesta del proxy (${response.status}): ${errorText}`)
+      throw new Error(`Error ${response.status}: ${errorText}`)
     }
 
     const result = await response.json()
 
     if (result.errors) {
+      console.error("Errores GraphQL:", result.errors)
       throw new Error(result.errors[0]?.message || "Error en la consulta GraphQL")
     }
 
