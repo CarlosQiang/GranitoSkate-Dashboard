@@ -50,7 +50,7 @@ export function DashboardStats() {
           ) : (
             <>
               <div className="text-2xl font-bold">{stats.totalOrders}</div>
-              <p className="text-xs text-muted-foreground">+0% desde el último mes</p>
+              <p className="text-xs text-muted-foreground">Datos reales de Shopify</p>
             </>
           )}
         </CardContent>
@@ -69,7 +69,7 @@ export function DashboardStats() {
           ) : (
             <>
               <div className="text-2xl font-bold">{stats.totalCustomers}</div>
-              <p className="text-xs text-muted-foreground">+0% desde el último mes</p>
+              <p className="text-xs text-muted-foreground">Datos reales de Shopify</p>
             </>
           )}
         </CardContent>
@@ -88,7 +88,7 @@ export function DashboardStats() {
           ) : (
             <>
               <div className="text-2xl font-bold">{stats.totalProducts}</div>
-              <p className="text-xs text-muted-foreground">+0% desde el último mes</p>
+              <p className="text-xs text-muted-foreground">Datos reales de Shopify</p>
             </>
           )}
         </CardContent>
@@ -107,7 +107,7 @@ export function DashboardStats() {
           ) : (
             <>
               <div className="text-2xl font-bold">€{stats.totalRevenue.toFixed(2)}</div>
-              <p className="text-xs text-muted-foreground">+0% desde el último mes</p>
+              <p className="text-xs text-muted-foreground">Datos reales de Shopify</p>
             </>
           )}
         </CardContent>

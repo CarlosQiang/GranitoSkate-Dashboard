@@ -38,8 +38,8 @@ export async function POST(request: Request) {
 
     console.log("Enviando consulta a Shopify:", query.substring(0, 100) + "...")
 
-    // Usar la versión 2023-01 de la API que es más estable para estas consultas
-    const apiVersion = "2023-01"
+    // Usar la versión 2023-07 de la API que es más compatible con las consultas actuales
+    const apiVersion = "2023-07"
 
     // Hacer la solicitud a la API de Shopify
     const response = await fetch(`https://${shopDomain}/admin/api/${apiVersion}/graphql.json`, {

@@ -13,27 +13,34 @@ import {
   ResponsiveContainer,
 } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { RefreshCw } from "lucide-react"
+import { useState, useEffect } from "react"
+import { fetchSalesChartData, fetchTopProductsChartData } from "@/lib/api/dashboard"
 
-// Datos de ejemplo para los gráficos
-const revenueData = [
-  { name: "Ene", total: 1200 },
-  { name: "Feb", total: 1800 },
-  { name: "Mar", total: 2200 },
-  { name: "Abr", total: 1800 },
-  { name: "May", total: 2400 },
-  { name: "Jun", total: 2800 },
-  { name: "Jul", total: 3200 },
-]
+export function RevenueChart({ data = [], isLoading = false, onRefresh = null }) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[350px] bg-gray-50 rounded-md">
+        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
-const productsData = [
-  { name: "Zapatillas Skate Pro", sales: 124 },
-  { name: "Tabla Element Classic", sales: 98 },
-  { name: "Ruedas Spitfire 52mm", sales: 87 },
-  { name: "Trucks Independent 149", sales: 65 },
-  { name: "Rodamientos Bones Reds", sales: 59 },
-]
+  if (data.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[350px] bg-gray-50 rounded-md">
+        <p className="text-muted-foreground mb-4">No hay datos de ventas disponibles</p>
+        {onRefresh && (
+          <Button variant="outline" size="sm" onClick={onRefresh}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Intentar de nuevo
+          </Button>
+        )}
+      </div>
+    )
+  }
 
-export function RevenueChart({ data = revenueData }) {
   return (
     <ResponsiveContainer width="100%" height={350}>
       <LineChart data={data}>
@@ -48,7 +55,29 @@ export function RevenueChart({ data = revenueData }) {
   )
 }
 
-export function ProductsChart({ data = productsData }) {
+export function ProductsChart({ data = [], isLoading = false, onRefresh = null }) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[350px] bg-gray-50 rounded-md">
+        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (data.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[350px] bg-gray-50 rounded-md">
+        <p className="text-muted-foreground mb-4">No hay datos de productos disponibles</p>
+        {onRefresh && (
+          <Button variant="outline" size="sm" onClick={onRefresh}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Intentar de nuevo
+          </Button>
+        )}
+      </div>
+    )
+  }
+
   return (
     <ResponsiveContainer width="100%" height={350}>
       <BarChart data={data} layout="vertical">
@@ -63,29 +92,87 @@ export function ProductsChart({ data = productsData }) {
   )
 }
 
-export function SalesChart({ data }) {
+export function SalesChart() {
+  const [data, setData] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const chartData = await fetchSalesChartData()
+      setData(chartData)
+    } catch (err) {
+      console.error("Error al cargar datos de ventas:", err)
+      setError(err.message || "Error al cargar datos")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Ventas</CardTitle>
-        <CardDescription>Ventas mensuales del año actual</CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <div>
+          <CardTitle>Ventas</CardTitle>
+          <CardDescription>Ventas mensuales del año actual</CardDescription>
+        </div>
+        <Button variant="outline" size="sm" onClick={loadData} disabled={isLoading}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+          Actualizar
+        </Button>
       </CardHeader>
       <CardContent>
-        <RevenueChart data={data} />
+        <RevenueChart data={data} isLoading={isLoading} onRefresh={loadData} />
+        {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
       </CardContent>
     </Card>
   )
 }
 
-export function TopProductsChart({ data }) {
+export function TopProductsChart() {
+  const [data, setData] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const chartData = await fetchTopProductsChartData()
+      setData(chartData)
+    } catch (err) {
+      console.error("Error al cargar datos de productos:", err)
+      setError(err.message || "Error al cargar datos")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Productos más vendidos</CardTitle>
-        <CardDescription>Top 5 productos por ventas</CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <div>
+          <CardTitle>Productos más vendidos</CardTitle>
+          <CardDescription>Top 5 productos por ventas</CardDescription>
+        </div>
+        <Button variant="outline" size="sm" onClick={loadData} disabled={isLoading}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+          Actualizar
+        </Button>
       </CardHeader>
       <CardContent>
-        <ProductsChart data={data} />
+        <ProductsChart data={data} isLoading={isLoading} onRefresh={loadData} />
+        {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
       </CardContent>
     </Card>
   )
