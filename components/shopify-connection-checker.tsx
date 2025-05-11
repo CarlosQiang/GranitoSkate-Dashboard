@@ -1,83 +1,68 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { CheckCircle2, AlertCircle, RefreshCw } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
+import { useEffect, useState } from "react"
+import { testShopifyConnection } from "@/lib/shopify"
+import { CheckCircle, AlertCircle } from "lucide-react"
 
-export default function ShopifyConnectionChecker() {
+export function ShopifyConnectionChecker() {
   const [status, setStatus] = useState<"loading" | "connected" | "error">("loading")
   const [shopName, setShopName] = useState<string>("")
-  const [error, setError] = useState<string>("")
-  const [isChecking, setIsChecking] = useState(false)
-
-  const checkConnection = async () => {
-    setIsChecking(true)
-    setStatus("loading")
-
-    try {
-      const response = await fetch("/api/shopify/check", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        setStatus("connected")
-        setShopName(data.shopName || "")
-      } else {
-        setStatus("error")
-        setError(data.error || "Error desconocido al conectar con Shopify")
-      }
-    } catch (err) {
-      console.error("Error al verificar la conexión con Shopify:", err)
-      setStatus("error")
-      setError(`Error al verificar la conexión con Shopify: ${(err as Error).message}`)
-    } finally {
-      setIsChecking(false)
-    }
-  }
+  const [errorMessage, setErrorMessage] = useState<string>("")
 
   useEffect(() => {
+    async function checkConnection() {
+      try {
+        const result = await testShopifyConnection()
+        if (result.success) {
+          setStatus("connected")
+          setShopName(result.data?.shop?.name || "")
+        } else {
+          setStatus("error")
+          setErrorMessage(result.message || "Error desconocido")
+        }
+      } catch (error) {
+        setStatus("error")
+        setErrorMessage(error instanceof Error ? error.message : "Error desconocido")
+      }
+    }
+
     checkConnection()
   }, [])
 
   if (status === "loading") {
     return (
-      <Alert>
-        <RefreshCw className="h-4 w-4 animate-spin" />
-        <AlertTitle>Verificando conexión con Shopify</AlertTitle>
-        <AlertDescription>Estamos verificando la conexión con tu tienda Shopify...</AlertDescription>
-      </Alert>
+      <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
+        <div className="flex items-center">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-700 mr-2"></div>
+          <p className="text-yellow-700">Verificando conexión con Shopify...</p>
+        </div>
+      </div>
     )
   }
 
   if (status === "error") {
     return (
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Error de conexión con Shopify</AlertTitle>
-        <AlertDescription>
-          <p>{error}</p>
-          <Button variant="outline" size="sm" onClick={checkConnection} disabled={isChecking}>
-            {isChecking ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Reintentar conexión
-          </Button>
-        </AlertDescription>
-      </Alert>
+      <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+        <div className="flex items-center">
+          <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+          <div>
+            <p className="text-red-700 font-medium">Error de conexión con Shopify</p>
+            <p className="text-red-600 text-sm">{errorMessage}</p>
+          </div>
+        </div>
+      </div>
     )
   }
 
   return (
-    <Alert variant="default" className="bg-green-50 border-green-200">
-      <CheckCircle2 className="h-4 w-4 text-green-600" />
-      <AlertTitle>Conectado a Shopify</AlertTitle>
-      <AlertDescription>
-        Conexión establecida correctamente con la tienda: <strong>{shopName}</strong>
-      </AlertDescription>
-    </Alert>
+    <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-4">
+      <div className="flex items-center">
+        <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+        <div>
+          <p className="text-green-700 font-medium">Conectado a Shopify</p>
+          <p className="text-green-600 text-sm">Conexión establecida correctamente con la tienda: {shopName}</p>
+        </div>
+      </div>
+    </div>
   )
 }
