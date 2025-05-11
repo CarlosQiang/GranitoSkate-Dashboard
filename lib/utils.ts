@@ -49,15 +49,30 @@ export function truncateText(text: string, maxLength: number): string {
   return text.substring(0, maxLength) + "..."
 }
 
-// Función para obtener URL de imagen con fallback
-export function getImageUrl(url) {
-  if (!url) return null
+// Modificar la función getImageUrl para manejar correctamente valores nulos o no string
+export function getImageUrl(image) {
+  // Si no hay imagen o url, devolver null
+  if (!image) return null
 
-  // Si la URL ya es absoluta, devolverla tal cual
-  if (url.startsWith("http")) return url
+  // Si image es un objeto con propiedad url, usar esa propiedad
+  if (typeof image === "object" && image.url) {
+    const url = image.url
+    // Si la URL ya es absoluta, devolverla tal cual
+    if (typeof url === "string" && url.startsWith("http")) return url
+    // Si es una URL relativa, convertirla a absoluta
+    if (typeof url === "string") return `https:${url}`
+  }
 
-  // Si es una URL relativa, convertirla a absoluta
-  return `https:${url}`
+  // Si image es directamente una string (url)
+  if (typeof image === "string") {
+    // Si la URL ya es absoluta, devolverla tal cual
+    if (image.startsWith("http")) return image
+    // Si es una URL relativa, convertirla a absoluta
+    return `https:${image}`
+  }
+
+  // Si no se puede determinar la URL, devolver null
+  return null
 }
 
 // Función para generar un slug

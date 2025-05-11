@@ -4,105 +4,113 @@ import { useState, useEffect } from "react"
 import { fetchProducts } from "@/lib/api/products"
 import { ProductCard } from "@/components/product-card"
 import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Search, RefreshCw, AlertCircle } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { ShopifyApiStatus } from "@/components/shopify-api-status"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertCircle } from "lucide-react"
 
 export function ProductsList() {
   const [products, setProducts] = useState([])
   const [filteredProducts, setFilteredProducts] = useState([])
   const [searchTerm, setSearchTerm] = useState("")
+  const [filter, setFilter] = useState("all")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const loadProducts = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const data = await fetchProducts({ limit: 50 })
-      setProducts(data)
-      setFilteredProducts(data)
-    } catch (err) {
-      console.error("Error al cargar productos:", err)
-      setError(err.message || "Error al cargar productos")
-    } finally {
-      setLoading(false)
-    }
-  }
-
   useEffect(() => {
+    async function loadProducts() {
+      try {
+        setLoading(true)
+        setError(null)
+        const data = await fetchProducts({ limit: 50 })
+
+        // Verificar que los datos sean válidos
+        if (!Array.isArray(data)) {
+          throw new Error("Los datos recibidos no son un array válido")
+        }
+
+        // Asegurarse de que cada producto tenga un ID
+        const validProducts = data.filter((product) => product && product.id)
+
+        setProducts(validProducts)
+        setFilteredProducts(validProducts)
+      } catch (err) {
+        console.error("Error al cargar productos:", err)
+        setError(err.message || "Error al cargar los productos")
+      } finally {
+        setLoading(false)
+      }
+    }
+
     loadProducts()
   }, [])
 
   useEffect(() => {
-    if (searchTerm.trim() === "") {
-      setFilteredProducts(products)
-    } else {
-      const term = searchTerm.toLowerCase()
-      const filtered = products.filter(
+    let result = [...products]
+
+    // Filtrar por término de búsqueda
+    if (searchTerm) {
+      result = result.filter(
         (product) =>
-          product.title.toLowerCase().includes(term) ||
-          product.vendor?.toLowerCase().includes(term) ||
-          product.productType?.toLowerCase().includes(term),
+          product.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          product.vendor?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          product.productType?.toLowerCase().includes(searchTerm.toLowerCase()),
       )
-      setFilteredProducts(filtered)
     }
-  }, [searchTerm, products])
+
+    // Filtrar por estado
+    if (filter !== "all") {
+      result = result.filter((product) => product.status === filter)
+    }
+
+    setFilteredProducts(result)
+  }, [searchTerm, filter, products])
 
   if (error) {
     return (
-      <div className="space-y-4">
-        <ShopifyApiStatus />
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error al cargar productos</AlertTitle>
-          <AlertDescription className="flex flex-col gap-2">
-            <p>{error}</p>
-            <Button variant="outline" size="sm" onClick={loadProducts} className="w-fit">
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Reintentar
-            </Button>
-          </AlertDescription>
-        </Alert>
-      </div>
+      <Alert variant="destructive" className="mb-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>Error: {error}</AlertDescription>
+      </Alert>
     )
   }
 
   if (loading) {
-    return (
-      <div className="space-y-4">
-        <ShopifyApiStatus />
-        <div className="flex items-center justify-center h-32">
-          <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      </div>
-    )
+    return <div className="text-center py-8">Cargando productos...</div>
+  }
+
+  if (products.length === 0) {
+    return <div className="text-center py-8">No se encontraron productos.</div>
   }
 
   return (
     <div className="space-y-4">
-      <ShopifyApiStatus />
-
-      <div className="relative">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+      <div className="flex flex-col sm:flex-row gap-4">
         <Input
-          type="search"
           placeholder="Buscar productos..."
-          className="pl-8"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+          className="sm:max-w-xs"
         />
+        <Select value={filter} onValueChange={setFilter}>
+          <SelectTrigger className="sm:max-w-xs">
+            <SelectValue placeholder="Filtrar por estado" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los estados</SelectItem>
+            <SelectItem value="ACTIVE">Activos</SelectItem>
+            <SelectItem value="DRAFT">Borradores</SelectItem>
+            <SelectItem value="ARCHIVED">Archivados</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {filteredProducts.length === 0 ? (
-        <div className="text-center py-10">
-          <p className="text-muted-foreground">No se encontraron productos</p>
-        </div>
+        <div className="text-center py-8">No se encontraron productos con los filtros aplicados.</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} data-product-item />
+            <ProductCard key={product.id} product={product} />
           ))}
         </div>
       )}

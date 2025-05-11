@@ -4,7 +4,7 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Pencil, Tag, Package } from "lucide-react"
-import { formatCurrency, getImageUrl } from "@/lib/utils"
+import { formatCurrency } from "@/lib/utils"
 
 export function ProductCard({ product }) {
   if (!product) return null
@@ -21,13 +21,36 @@ export function ProductCard({ product }) {
     ARCHIVED: "Archivado",
   }
 
+  // Función segura para obtener la URL de la imagen
+  const getImageUrl = (image) => {
+    if (!image) return null
+
+    // Si image es un objeto con propiedad url
+    if (typeof image === "object" && image.url) {
+      const url = image.url
+      if (typeof url === "string") {
+        return url.startsWith("http") ? url : `https:${url}`
+      }
+    }
+
+    // Si image es directamente una string (url)
+    if (typeof image === "string") {
+      return image.startsWith("http") ? image : `https:${image}`
+    }
+
+    return null
+  }
+
+  // Obtener la URL de la imagen de manera segura
+  const imageUrl = product.featuredImage ? getImageUrl(product.featuredImage) : null
+
   return (
     <Card className="overflow-hidden h-full flex flex-col">
       <div className="relative h-48 bg-gray-100">
-        {product.featuredImage ? (
+        {imageUrl ? (
           <Image
-            src={getImageUrl(product.featuredImage, "/placeholder.svg") || "/placeholder.svg"}
-            alt={product.featuredImage.altText || product.title}
+            src={imageUrl || "/placeholder.svg"}
+            alt={product.featuredImage?.altText || product.title || "Producto"}
             fill
             className="object-cover"
           />
@@ -38,12 +61,12 @@ export function ProductCard({ product }) {
         )}
         <div className="absolute top-2 right-2">
           <Badge variant="outline" className={`${statusColors[product.status] || "bg-gray-100 text-gray-800"}`}>
-            {statusText[product.status] || product.status}
+            {statusText[product.status] || product.status || "Desconocido"}
           </Badge>
         </div>
       </div>
       <CardContent className="p-4 flex-grow">
-        <h3 className="font-medium text-lg mb-1 line-clamp-1">{product.title}</h3>
+        <h3 className="font-medium text-lg mb-1 line-clamp-1">{product.title || "Sin título"}</h3>
         <div className="flex items-center gap-2 mb-2">
           {product.vendor && (
             <Badge variant="outline" className="text-xs">
@@ -61,10 +84,10 @@ export function ProductCard({ product }) {
       <CardFooter className="p-4 pt-0 flex justify-between items-center">
         <div className="flex items-center gap-1">
           <Tag className="h-4 w-4 text-muted-foreground" />
-          <span className="font-medium">{formatCurrency(product.price, product.currencyCode)}</span>
+          <span className="font-medium">{formatCurrency(product.price || 0, product.currencyCode || "EUR")}</span>
           {product.compareAtPrice && (
             <span className="text-sm text-muted-foreground line-through ml-1">
-              {formatCurrency(product.compareAtPrice, product.currencyCode)}
+              {formatCurrency(product.compareAtPrice, product.currencyCode || "EUR")}
             </span>
           )}
         </div>
