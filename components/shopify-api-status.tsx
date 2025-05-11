@@ -11,6 +11,7 @@ export function ShopifyApiStatus() {
   const [error, setError] = useState<string>("")
   const [isChecking, setIsChecking] = useState(false)
   const [hasData, setHasData] = useState(false)
+  const [debugInfo, setDebugInfo] = useState<any>(null)
 
   // Verificar si hay datos en la página o si existe el mensaje de conexión exitosa
   const checkForDataOrSuccessMessage = () => {
@@ -45,6 +46,7 @@ export function ShopifyApiStatus() {
   const checkConnection = async () => {
     setIsChecking(true)
     setStatus("loading")
+    setDebugInfo(null)
 
     try {
       // Primero verificamos si hay datos en la página o mensaje de éxito
@@ -55,13 +57,17 @@ export function ShopifyApiStatus() {
         return
       }
 
-      const response = await fetch("/api/shopify/check", {
+      console.log("Verificando conexión con Shopify...")
+      const response = await fetch("/api/shopify/check?timestamp=" + Date.now(), {
         method: "GET",
         headers: {
-          "Cache-Control": "no-cache",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
           Pragma: "no-cache",
+          Expires: "0",
         },
       })
+
+      console.log("Respuesta recibida:", response.status)
 
       if (!response.ok) {
         throw new Error(`Error ${response.status}: ${response.statusText}`)
@@ -71,6 +77,7 @@ export function ShopifyApiStatus() {
       let data
       try {
         const text = await response.text()
+        console.log("Respuesta texto:", text.substring(0, 200))
 
         if (!text) {
           // Si no hay respuesta pero hay datos, ocultamos el estado
@@ -84,6 +91,7 @@ export function ShopifyApiStatus() {
         }
 
         data = JSON.parse(text)
+        setDebugInfo(data)
       } catch (parseError) {
         console.error("Error al parsear la respuesta:", parseError)
 
@@ -172,6 +180,14 @@ export function ShopifyApiStatus() {
             {isChecking ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Reintentar conexión
           </Button>
+          {debugInfo && (
+            <details className="mt-2 text-xs">
+              <summary>Información de depuración</summary>
+              <pre className="mt-2 p-2 bg-gray-100 rounded overflow-auto max-h-40">
+                {JSON.stringify(debugInfo, null, 2)}
+              </pre>
+            </details>
+          )}
         </AlertDescription>
       </Alert>
     )

@@ -10,8 +10,11 @@ export async function fetchRecentProducts(limit = 5) {
 }
 
 // Función para obtener todos los productos
-export async function fetchProducts(limit = 20) {
+export async function fetchProducts(options = {}) {
   try {
+    const { limit = 20 } = options
+    console.log(`Fetching products with limit: ${limit}`)
+
     const query = gql`
       query GetProducts($first: Int!) {
         products(first: $first) {
@@ -48,7 +51,15 @@ export async function fetchProducts(limit = 20) {
       }
     `
 
+    console.log("Enviando consulta a Shopify...")
     const data = await shopifyClient.request(query, { first: limit })
+    console.log("Respuesta recibida de Shopify")
+
+    // Verificar si la respuesta tiene la estructura esperada
+    if (!data || !data.products || !data.products.edges) {
+      console.error("Respuesta de productos incompleta:", data)
+      return []
+    }
 
     // Transformar los datos para un formato más fácil de usar
     const products = data.products.edges.map((edge) => {
@@ -74,6 +85,7 @@ export async function fetchProducts(limit = 20) {
       }
     })
 
+    console.log(`Successfully fetched ${products.length} products`)
     return products
   } catch (error) {
     console.error("Error al cargar productos:", error)
@@ -153,6 +165,9 @@ export async function fetchProductById(id) {
     throw new Error(`Error al cargar el producto: ${error.message}`)
   }
 }
+
+// Alias para compatibilidad
+export const getProductById = fetchProductById
 
 // Función para crear un nuevo producto
 export async function createProduct(productData) {

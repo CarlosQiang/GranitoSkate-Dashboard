@@ -1,96 +1,80 @@
-"use client"
-
 import Link from "next/link"
 import Image from "next/image"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { formatCurrency } from "@/lib/utils"
-import { useState } from "react"
-import { Package } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Pencil, Tag, Package } from "lucide-react"
+import { formatCurrency, getImageUrl } from "@/lib/utils"
 
 export function ProductCard({ product }) {
-  const [imageError, setImageError] = useState(false)
+  if (!product) return null
 
-  // Asegurarse de que el producto tiene todas las propiedades necesarias
-  const {
-    id,
-    title = "Producto sin título",
-    titulo = title, // Soporte para ambos nombres de propiedad
-    price = 0,
-    precio = price, // Soporte para ambos nombres de propiedad
-    currencyCode = "EUR",
-    status = "ACTIVE",
-    estado = status, // Soporte para ambos nombres de propiedad
-  } = product || {}
+  const statusColors = {
+    ACTIVE: "bg-green-100 text-green-800",
+    DRAFT: "bg-gray-100 text-gray-800",
+    ARCHIVED: "bg-red-100 text-red-800",
+  }
 
-  // Intentar obtener la URL de la imagen de diferentes propiedades
-  const imageUrl = getImageUrl(product)
-
-  // Función para extraer el ID limpio
-  const cleanId = (id) => {
-    if (!id) return ""
-    if (typeof id === "string" && id.includes("/")) {
-      return id.split("/").pop()
-    }
-    return id
+  const statusText = {
+    ACTIVE: "Activo",
+    DRAFT: "Borrador",
+    ARCHIVED: "Archivado",
   }
 
   return (
-    <Link href={`/dashboard/products/${cleanId(id)}`} className="block">
-      <Card className="overflow-hidden transition-all hover:shadow-md">
-        <div className="aspect-square relative bg-muted">
-          {!imageError && imageUrl ? (
-            <Image
-              src={imageUrl || "/placeholder.svg"}
-              alt={titulo || title}
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              onError={() => setImageError(true)}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-100">
-              <Package className="h-12 w-12 text-muted-foreground" />
-            </div>
+    <Card className="overflow-hidden h-full flex flex-col">
+      <div className="relative h-48 bg-gray-100">
+        {product.featuredImage ? (
+          <Image
+            src={getImageUrl(product.featuredImage, "/placeholder.svg") || "/placeholder.svg"}
+            alt={product.featuredImage.altText || product.title}
+            fill
+            className="object-cover"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full text-gray-400">
+            <Package size={48} />
+          </div>
+        )}
+        <div className="absolute top-2 right-2">
+          <Badge variant="outline" className={`${statusColors[product.status] || "bg-gray-100 text-gray-800"}`}>
+            {statusText[product.status] || product.status}
+          </Badge>
+        </div>
+      </div>
+      <CardContent className="p-4 flex-grow">
+        <h3 className="font-medium text-lg mb-1 line-clamp-1">{product.title}</h3>
+        <div className="flex items-center gap-2 mb-2">
+          {product.vendor && (
+            <Badge variant="outline" className="text-xs">
+              {product.vendor}
+            </Badge>
+          )}
+          {product.productType && (
+            <Badge variant="outline" className="text-xs">
+              {product.productType}
+            </Badge>
           )}
         </div>
-        <CardContent className="p-4">
-          <h3 className="font-medium line-clamp-1">{titulo || title}</h3>
-          <div className="flex items-center justify-between mt-2">
-            <span className="font-bold">{formatCurrency(precio || price, currencyCode)}</span>
-            <Badge variant={(estado || status) === "ACTIVE" ? "default" : "secondary"}>
-              {(estado || status) === "ACTIVE" ? "Activo" : "Borrador"}
-            </Badge>
-          </div>
-        </CardContent>
-        <CardFooter className="p-4 pt-0 text-xs text-muted-foreground">ID: {cleanId(id)}</CardFooter>
-      </Card>
-    </Link>
+        <p className="text-sm text-muted-foreground line-clamp-2">{product.description || "Sin descripción"}</p>
+      </CardContent>
+      <CardFooter className="p-4 pt-0 flex justify-between items-center">
+        <div className="flex items-center gap-1">
+          <Tag className="h-4 w-4 text-muted-foreground" />
+          <span className="font-medium">{formatCurrency(product.price, product.currencyCode)}</span>
+          {product.compareAtPrice && (
+            <span className="text-sm text-muted-foreground line-through ml-1">
+              {formatCurrency(product.compareAtPrice, product.currencyCode)}
+            </span>
+          )}
+        </div>
+        <Button asChild size="sm" variant="outline">
+          <Link href={`/dashboard/products/${product.id}`}>
+            <Pencil className="h-4 w-4 mr-1" />
+            Editar
+          </Link>
+        </Button>
+      </CardFooter>
+    </Card>
   )
-}
-
-// Función auxiliar para obtener la URL de la imagen
-function getImageUrl(product) {
-  if (!product) return null
-
-  // Intentar obtener la imagen de diferentes propiedades
-  if (product.imagen) return product.imagen
-  if (product.image) return typeof product.image === "string" ? product.image : product.image?.url || product.image?.src
-
-  if (product.featuredImage) return product.featuredImage.url || product.featuredImage.src
-
-  if (product.imagenes && product.imagenes.length > 0) {
-    return product.imagenes[0].src || product.imagenes[0].url
-  }
-
-  if (product.images && product.images.length > 0) {
-    return typeof product.images[0] === "string" ? product.images[0] : product.images[0]?.url || product.images[0]?.src
-  }
-
-  // Si hay edges en las imágenes (formato GraphQL)
-  if (product.images && product.images.edges && product.images.edges.length > 0) {
-    return product.images.edges[0].node.url || product.images.edges[0].node.src
-  }
-
-  return null
 }

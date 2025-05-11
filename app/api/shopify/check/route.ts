@@ -5,7 +5,7 @@ import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 
 // Aumentar el tiempo de timeout para la solicitud
-export const maxDuration = 30 // 30 segundos
+export const maxDuration = 60 // 60 segundos
 
 export async function GET(request: Request) {
   try {
@@ -26,11 +26,20 @@ export async function GET(request: Request) {
     // Verificar variables de entorno
     const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
     const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
+    const apiUrl = process.env.SHOPIFY_API_URL
 
-    if (!shopDomain) {
-      console.error("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está configurado")
+    if (!shopDomain && !apiUrl) {
+      console.error("Ni NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN ni SHOPIFY_API_URL están configurados")
       return NextResponse.json(
-        { success: false, error: "Falta el dominio de la tienda Shopify" },
+        {
+          success: false,
+          error: "Falta la configuración de Shopify",
+          details: {
+            shopDomain: !!shopDomain,
+            apiUrl: !!apiUrl,
+            accessToken: !!accessToken,
+          },
+        },
         { status: 200 }, // Devolvemos 200 para manejar el error en el cliente
       )
     }
@@ -54,7 +63,9 @@ export async function GET(request: Request) {
         }
       `
 
+      console.log("Enviando consulta GraphQL a Shopify...")
       const data = await shopifyClient.request(query)
+      console.log("Respuesta recibida de Shopify:", data)
 
       if (data && data.shop) {
         return NextResponse.json({
@@ -70,7 +81,10 @@ export async function GET(request: Request) {
     }
 
     // Método alternativo: hacer la solicitud directamente
-    const response = await fetch(`https://${shopDomain}/admin/api/2023-10/graphql.json`, {
+    const apiEndpoint = apiUrl || `https://${shopDomain}/admin/api/2023-10/graphql.json`
+    console.log(`Intentando conexión alternativa a: ${apiEndpoint}`)
+
+    const response = await fetch(apiEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

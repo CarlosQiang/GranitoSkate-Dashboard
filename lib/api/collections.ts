@@ -4,6 +4,8 @@ import { gql } from "graphql-request"
 // Función para obtener todas las colecciones
 export async function fetchCollections(first = 20) {
   try {
+    console.log(`Fetching collections with limit: ${first}`)
+
     const query = gql`
       query GetCollections($first: Int!) {
         collections(first: $first) {
@@ -12,9 +14,8 @@ export async function fetchCollections(first = 20) {
               id
               title
               handle
-              productsCount {
-                count
-              }
+              descriptionHtml
+              productsCount
               image {
                 url
                 altText
@@ -33,7 +34,15 @@ export async function fetchCollections(first = 20) {
       }
     `
 
+    console.log("Enviando consulta a Shopify...")
     const data = await shopifyClient.request(query, { first })
+    console.log("Respuesta recibida de Shopify")
+
+    // Verificar si la respuesta tiene la estructura esperada
+    if (!data || !data.collections || !data.collections.edges) {
+      console.error("Respuesta de colecciones incompleta:", data)
+      return []
+    }
 
     // Transformar los datos para un formato más fácil de usar
     const collections = data.collections.edges.map((edge) => {
@@ -42,7 +51,8 @@ export async function fetchCollections(first = 20) {
         id: node.id.split("/").pop(), // Extraer el ID numérico
         title: node.title,
         handle: node.handle,
-        productsCount: node.productsCount?.count || 0,
+        description: node.descriptionHtml,
+        productsCount: node.productsCount || 0,
         image: node.image,
         products: node.products.edges.map((productEdge) => ({
           id: productEdge.node.id.split("/").pop(),
@@ -51,6 +61,7 @@ export async function fetchCollections(first = 20) {
       }
     })
 
+    console.log(`Successfully fetched ${collections.length} collections`)
     return collections
   } catch (error) {
     console.error("Error al cargar colecciones:", error)
@@ -71,9 +82,7 @@ export async function fetchCollectionById(id) {
           title
           handle
           descriptionHtml
-          productsCount {
-            count
-          }
+          productsCount
           image {
             url
             altText
@@ -114,7 +123,7 @@ export async function fetchCollectionById(id) {
       title: data.collection.title,
       handle: data.collection.handle,
       description: data.collection.descriptionHtml,
-      productsCount: data.collection.productsCount?.count || 0,
+      productsCount: data.collection.productsCount || 0,
       image: data.collection.image,
       products: data.collection.products.edges.map((edge) => ({
         id: edge.node.id.split("/").pop(),
@@ -131,6 +140,9 @@ export async function fetchCollectionById(id) {
     throw new Error(`Error al cargar la colección: ${error.message}`)
   }
 }
+
+// Alias para compatibilidad
+export const getCollectionById = fetchCollectionById
 
 // Función para crear una nueva colección
 export async function createCollection(collectionData) {
