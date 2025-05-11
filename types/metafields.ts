@@ -20,11 +20,11 @@ export interface LocalBusinessMetafields {
 }
 
 export interface SocialMediaMetafields {
-  facebook: string
-  instagram: string
-  twitter: string
-  youtube: string
-  pinterest: string
-  linkedin: string
-  tiktok: string
+  facebook?: string
+  instagram?: string
+  twitter?: string
+  youtube?: string
+  pinterest?: string
+  linkedin?: string
+  tiktok?: string
 }

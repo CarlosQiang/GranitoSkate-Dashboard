@@ -1,74 +1,184 @@
-import type { Promocion, PromocionInput } from "@/types/promociones"
+import shopifyClient from "@/lib/shopify"
+import { gql } from "graphql-request"
 
-// Caché local para mejorar rendimiento
-let cachePromociones: Promocion[] | null = null
-let cacheTiempoExpiracion: number | null = null
+// Caché para mejorar rendimiento
+let promocionesCache = null
+let ultimaActualizacion = null
 const CACHE_DURACION = 5 * 60 * 1000 // 5 minutos
+
+/**
+ * Obtiene todas las promociones (alias para compatibilidad)
+ * @returns Lista de promociones
+ */
+export const obtenerListasPrecios = obtenerPromociones
 
 /**
  * Obtiene todas las promociones
  * @returns Lista de promociones
  */
-export async function obtenerPromociones(): Promise<Promocion[]> {
+export async function obtenerPromociones(limit = 20) {
   try {
-    // Verificar si tenemos datos en caché válidos
-    const ahora = Date.now()
-    if (cachePromociones && cacheTiempoExpiracion && ahora < cacheTiempoExpiracion) {
-      console.log("Usando promociones en caché")
-      return cachePromociones
+    // Usar caché si existe y tiene menos de 5 minutos
+    const ahora = new Date()
+    if (promocionesCache && ultimaActualizacion && ahora.getTime() - ultimaActualizacion.getTime() < CACHE_DURACION) {
+      console.log("Usando caché de promociones")
+      return promocionesCache
     }
 
-    // Si no hay caché o expiró, hacer petición a la API
-    console.log("Obteniendo promociones desde API")
+    console.log(`Obteniendo ${limit} promociones de Shopify...`)
 
-    // TODO: Implementar integración real con Shopify Price Rules API
-    // Por ahora usamos datos de ejemplo
-    const promociones: Promocion[] = [
-      {
-        id: "1",
-        titulo: "20% de descuento en toda la tienda",
-        descripcion: "Descuento de temporada",
-        tipo: "PORCENTAJE_DESCUENTO",
-        objetivo: "CARRITO",
-        valor: 20,
-        condiciones: [],
-        activa: true,
-        fechaInicio: new Date().toISOString(),
-        fechaFin: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
-        fechaCreacion: new Date().toISOString(),
-        fechaActualizacion: new Date().toISOString(),
-        contadorUsos: 0,
-      },
-      {
-        id: "2",
-        titulo: "5€ de descuento en pedidos superiores a 50€",
-        descripcion: "Promoción para aumentar el valor del carrito",
-        tipo: "CANTIDAD_FIJA",
-        objetivo: "CARRITO",
-        valor: 5,
-        condiciones: [
-          {
-            tipo: "CANTIDAD_MINIMA",
-            valor: 50,
-          },
-        ],
-        activa: true,
-        codigo: "AHORRA5",
-        fechaInicio: new Date().toISOString(),
-        fechaCreacion: new Date().toISOString(),
-        fechaActualizacion: new Date().toISOString(),
-        contadorUsos: 12,
-      },
-    ]
+    // Consulta para la API de Shopify 2023-07
+    const query = gql`
+      query GetDiscountNodes($limit: Int!) {
+        discountNodes(first: $limit) {
+          edges {
+            node {
+              id
+              discount {
+                __typename
+                ... on DiscountAutomatic {
+                  title
+                  summary
+                  startsAt
+                  endsAt
+                  status
+                  minimumRequirement {
+                    __typename
+                    ... on DiscountMinimumSubtotal {
+                      greaterThanOrEqualToSubtotal {
+                        amount
+                        currencyCode
+                      }
+                    }
+                  }
+                  customerGets {
+                    value {
+                      __typename
+                      ... on DiscountPercentage {
+                        percentage
+                      }
+                      ... on DiscountAmount {
+                        amount {
+                          amount
+                          currencyCode
+                        }
+                      }
+                    }
+                  }
+                }
+                ... on DiscountCode {
+                  title
+                  codeCount
+                  codes(first: 1) {
+                    edges {
+                      node {
+                        code
+                      }
+                    }
+                  }
+                  startsAt
+                  endsAt
+                  status
+                  usageLimit
+                  customerSelection {
+                    __typename
+                    ... on DiscountCustomerAll {
+                      allCustomers
+                    }
+                  }
+                  customerGets {
+                    value {
+                      __typename
+                      ... on DiscountPercentage {
+                        percentage
+                      }
+                      ... on DiscountAmount {
+                        amount {
+                          amount
+                          currencyCode
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `
 
-    // Guardar en caché
-    cachePromociones = promociones
-    cacheTiempoExpiracion = ahora + CACHE_DURACION
+    const data = await shopifyClient.request(query, { limit })
 
-    return promociones
+    if (!data || !data.discountNodes || !data.discountNodes.edges) {
+      console.error("Respuesta de promociones incompleta:", data)
+      return []
+    }
+
+    const promotions = data.discountNodes.edges
+      .map((edge) => {
+        const node = edge.node
+        const discount = node.discount
+        const discountType = discount.__typename
+
+        // Determinar si es un descuento automático o un código de descuento
+        const isAutomatic = discountType === "DiscountAutomatic"
+        const discountData = isAutomatic ? discount : discount
+
+        if (!discountData) return null
+
+        // Extraer el código si es un código de descuento
+        const code = !isAutomatic && discount.codes?.edges?.[0]?.node?.code
+
+        // Extraer el valor del descuento
+        let value = "0"
+        let valueType = "percentage"
+        const currencyCode = "EUR"
+
+        if (discountData.customerGets?.value?.percentage) {
+          value = discountData.customerGets.value.percentage
+          valueType = "percentage"
+        } else if (discountData.customerGets?.value?.amount?.amount) {
+          value = discountData.customerGets.value.amount.amount
+          valueType = "fixed_amount"
+        }
+
+        // Extraer el requisito mínimo si existe
+        let minimumRequirement = null
+        if (discountData.minimumRequirement?.greaterThanOrEqualToSubtotal?.amount) {
+          minimumRequirement = {
+            type: "subtotal",
+            value: discountData.minimumRequirement.greaterThanOrEqualToSubtotal.amount,
+          }
+        }
+
+        return {
+          id: node.id.split("/").pop(),
+          title: discountData.title,
+          code: code || null,
+          isAutomatic: isAutomatic,
+          startsAt: discountData.startsAt,
+          endsAt: discountData.endsAt,
+          status: discountData.status,
+          valueType: valueType,
+          value: value,
+          currencyCode: currencyCode,
+          minimumRequirement: minimumRequirement,
+          usageLimit: discountData.usageLimit || null,
+          summary: discountData.summary || null,
+        }
+      })
+      .filter(Boolean) // Eliminar posibles valores nulos
+
+    // Actualizar caché
+    promocionesCache = promotions
+    ultimaActualizacion = new Date()
+
+    console.log(`Se obtuvieron ${promotions.length} promociones correctamente`)
+    return promotions
   } catch (error) {
     console.error("Error al obtener promociones:", error)
-    return []
+    throw new Error(`Error al cargar promociones: ${error.message}`)
   }
 }
 
@@ -77,13 +187,142 @@ export async function obtenerPromociones(): Promise<Promocion[]> {
  * @param id ID de la promoción
  * @returns Datos de la promoción o null si no existe
  */
-export async function obtenerPromocionPorId(id: string): Promise<Promocion | null> {
+export async function obtenerPromocionPorId(id) {
   try {
-    const promociones = await obtenerPromociones()
-    return promociones.find((p) => p.id === id) || null
+    // Consulta para obtener una promoción específica
+    const query = gql`
+      query GetDiscountNode($id: ID!) {
+        discountNode(id: $id) {
+          id
+          discount {
+            __typename
+            ... on DiscountAutomatic {
+              title
+              summary
+              startsAt
+              endsAt
+              status
+              minimumRequirement {
+                __typename
+                ... on DiscountMinimumSubtotal {
+                  greaterThanOrEqualToSubtotal {
+                    amount
+                    currencyCode
+                  }
+                }
+              }
+              customerGets {
+                value {
+                  __typename
+                  ... on DiscountPercentage {
+                    percentage
+                  }
+                  ... on DiscountAmount {
+                    amount {
+                      amount
+                      currencyCode
+                    }
+                  }
+                }
+              }
+            }
+            ... on DiscountCode {
+              title
+              codeCount
+              codes(first: 1) {
+                edges {
+                  node {
+                    code
+                  }
+                }
+              }
+              startsAt
+              endsAt
+              status
+              usageLimit
+              customerSelection {
+                __typename
+                ... on DiscountCustomerAll {
+                  allCustomers
+                }
+              }
+              customerGets {
+                value {
+                  __typename
+                  ... on DiscountPercentage {
+                    percentage
+                  }
+                  ... on DiscountAmount {
+                    amount {
+                      amount
+                      currencyCode
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const data = await shopifyClient.request(query, { id: `gid://shopify/DiscountNode/${id}` })
+
+    if (!data || !data.discountNode) {
+      throw new Error(`Promoción no encontrada: ${id}`)
+    }
+
+    const node = data.discountNode
+    const discount = node.discount
+    const discountType = discount.__typename
+
+    // Determinar si es un descuento automático o un código de descuento
+    const isAutomatic = discountType === "DiscountAutomatic"
+    const discountData = isAutomatic ? discount : discount
+
+    // Extraer el código si es un código de descuento
+    const code = !isAutomatic && discount.codes?.edges?.[0]?.node?.code
+
+    // Extraer el valor del descuento
+    let value = "0"
+    let valueType = "percentage"
+    const currencyCode = "EUR"
+
+    if (discountData.customerGets?.value?.percentage) {
+      value = discountData.customerGets.value.percentage
+      valueType = "percentage"
+    } else if (discountData.customerGets?.value?.amount?.amount) {
+      value = discountData.customerGets.value.amount.amount
+      valueType = "fixed_amount"
+    }
+
+    // Extraer el requisito mínimo si existe
+    let minimumRequirement = null
+    if (discountData.minimumRequirement?.greaterThanOrEqualToSubtotal?.amount) {
+      minimumRequirement = {
+        type: "subtotal",
+        value: discountData.minimumRequirement.greaterThanOrEqualToSubtotal.amount,
+      }
+    }
+
+    return {
+      id: node.id.split("/").pop(),
+      title: discountData.title,
+      code: code || null,
+      isAutomatic: isAutomatic,
+      startsAt: discountData.startsAt,
+      endsAt: discountData.endsAt,
+      status: discountData.status,
+      valueType: valueType,
+      value: value,
+      currencyCode: currencyCode,
+      minimumRequirement: minimumRequirement,
+      usageLimit: discountData.usageLimit || null,
+      summary: discountData.summary || null,
+    }
   } catch (error) {
     console.error(`Error al obtener promoción ${id}:`, error)
-    return null
+    throw new Error(`Error al cargar la promoción: ${error.message}`)
   }
 }
 
@@ -92,26 +331,122 @@ export async function obtenerPromocionPorId(id: string): Promise<Promocion | nul
  * @param datos Datos de la promoción a crear
  * @returns La promoción creada
  */
-export async function crearPromocion(datos: PromocionInput): Promise<Promocion> {
+export async function crearPromocion(promotionData) {
   try {
-    // TODO: Implementar integración real con Shopify Price Rules API
-    // Por ahora simulamos la creación
+    // Determinar si es un código de descuento o un descuento automático
+    const isCodeDiscount = !!promotionData.code
+
+    let mutation
+    let variables
+
+    if (isCodeDiscount) {
+      // Crear un código de descuento
+      mutation = gql`
+        mutation DiscountCodeBasicCreate($basicCodeDiscount: DiscountCodeBasicInput!) {
+          discountCodeBasicCreate(basicCodeDiscount: $basicCodeDiscount) {
+            codeDiscountNode {
+              id
+              codeDiscount {
+                title
+                codes(first: 1) {
+                  edges {
+                    node {
+                      code
+                    }
+                  }
+                }
+              }
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `
+
+      variables = {
+        basicCodeDiscount: {
+          title: promotionData.title,
+          code: promotionData.code,
+          startsAt: promotionData.startsAt || new Date().toISOString(),
+          endsAt: promotionData.endsAt,
+          customerSelection: {
+            all: true,
+          },
+          customerGets: {
+            value: {
+              percentage: Number.parseFloat(promotionData.value),
+            },
+          },
+          // Añadir más campos según sea necesario
+        },
+      }
+    } else {
+      // Crear un descuento automático
+      mutation = gql`
+        mutation DiscountAutomaticBasicCreate($automaticBasicDiscount: DiscountAutomaticBasicInput!) {
+          discountAutomaticBasicCreate(automaticBasicDiscount: $automaticBasicDiscount) {
+            automaticDiscountNode {
+              id
+              automaticDiscount {
+                title
+              }
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `
+
+      variables = {
+        automaticBasicDiscount: {
+          title: promotionData.title,
+          startsAt: promotionData.startsAt || new Date().toISOString(),
+          endsAt: promotionData.endsAt,
+          customerSelection: {
+            all: true,
+          },
+          customerGets: {
+            value: {
+              percentage: Number.parseFloat(promotionData.value),
+            },
+          },
+          // Añadir más campos según sea necesario
+        },
+      }
+    }
+
+    const data = await shopifyClient.request(mutation, variables)
+
+    // Verificar errores
+    const userErrors = isCodeDiscount
+      ? data.discountCodeBasicCreate.userErrors
+      : data.discountAutomaticBasicCreate.userErrors
+
+    if (userErrors && userErrors.length > 0) {
+      throw new Error(`Error al crear promoción: ${userErrors[0].message}`)
+    }
+
+    // Obtener el ID de la promoción creada
+    const discountNode = isCodeDiscount
+      ? data.discountCodeBasicCreate.codeDiscountNode
+      : data.discountAutomaticBasicCreate.automaticDiscountNode
 
     // Invalidar caché
-    cachePromociones = null
-    cacheTiempoExpiracion = null
+    promocionesCache = null
+    ultimaActualizacion = null
 
-    // Simular respuesta
     return {
-      id: Math.random().toString(36).substring(2, 9),
-      ...datos,
-      fechaCreacion: new Date().toISOString(),
-      fechaActualizacion: new Date().toISOString(),
-      contadorUsos: 0,
+      id: discountNode.id.split("/").pop(),
+      title: promotionData.title,
+      // Otros campos según sea necesario
     }
   } catch (error) {
     console.error("Error al crear promoción:", error)
-    throw error
+    throw new Error(`Error al crear promoción: ${error.message}`)
   }
 }
 
@@ -121,49 +456,172 @@ export async function crearPromocion(datos: PromocionInput): Promise<Promocion> 
  * @param datos Datos a actualizar
  * @returns La promoción actualizada
  */
-export async function actualizarPromocion(id: string, datos: Partial<PromocionInput>): Promise<Promocion | null> {
+export async function actualizarPromocion(id, promotionData) {
   try {
+    // Obtener la promoción actual para determinar su tipo
     const promocion = await obtenerPromocionPorId(id)
-    if (!promocion) {
-      return null
+    const isCodeDiscount = !promocion.isAutomatic
+
+    let mutation
+    let variables
+
+    if (isCodeDiscount) {
+      // Actualizar un código de descuento
+      mutation = gql`
+        mutation DiscountCodeBasicUpdate($id: ID!, $basicCodeDiscount: DiscountCodeBasicInput!) {
+          discountCodeBasicUpdate(id: $id, basicCodeDiscount: $basicCodeDiscount) {
+            codeDiscountNode {
+              id
+              codeDiscount {
+                title
+              }
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `
+
+      variables = {
+        id: `gid://shopify/DiscountNode/${id}`,
+        basicCodeDiscount: {
+          title: promotionData.title,
+          // Otros campos a actualizar
+        },
+      }
+    } else {
+      // Actualizar un descuento automático
+      mutation = gql`
+        mutation DiscountAutomaticBasicUpdate($id: ID!, $automaticBasicDiscount: DiscountAutomaticBasicInput!) {
+          discountAutomaticBasicUpdate(id: $id, automaticBasicDiscount: $automaticBasicDiscount) {
+            automaticDiscountNode {
+              id
+              automaticDiscount {
+                title
+              }
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `
+
+      variables = {
+        id: `gid://shopify/DiscountNode/${id}`,
+        automaticBasicDiscount: {
+          title: promotionData.title,
+          // Otros campos a actualizar
+        },
+      }
     }
 
-    // TODO: Implementar integración real con Shopify Price Rules API
-    // Por ahora simulamos la actualización
+    const data = await shopifyClient.request(mutation, variables)
+
+    // Verificar errores
+    const userErrors = isCodeDiscount
+      ? data.discountCodeBasicUpdate.userErrors
+      : data.discountAutomaticBasicUpdate.userErrors
+
+    if (userErrors && userErrors.length > 0) {
+      throw new Error(`Error al actualizar promoción: ${userErrors[0].message}`)
+    }
 
     // Invalidar caché
-    cachePromociones = null
-    cacheTiempoExpiracion = null
+    promocionesCache = null
+    ultimaActualizacion = null
 
-    // Simular respuesta
     return {
-      ...promocion,
-      ...datos,
-      fechaActualizacion: new Date().toISOString(),
+      id: id,
+      title: promotionData.title,
+      // Otros campos según sea necesario
     }
   } catch (error) {
     console.error(`Error al actualizar promoción ${id}:`, error)
-    throw error
+    throw new Error(`Error al actualizar la promoción: ${error.message}`)
   }
 }
+
+/**
+ * Elimina una promoción (alias para compatibilidad)
+ * @param id ID de la promoción
+ * @returns true si se eliminó correctamente
+ */
+export const eliminarListaPrecio = eliminarPromocion
 
 /**
  * Elimina una promoción
  * @param id ID de la promoción
  * @returns true si se eliminó correctamente
  */
-export async function eliminarPromocion(id: string): Promise<boolean> {
+export async function eliminarPromocion(id) {
   try {
-    // TODO: Implementar integración real con Shopify Price Rules API
-    // Por ahora simulamos la eliminación
+    // Obtener la promoción actual para determinar su tipo
+    const promocion = await obtenerPromocionPorId(id)
+    const isCodeDiscount = !promocion.isAutomatic
+
+    let mutation
+    let variables
+
+    if (isCodeDiscount) {
+      // Eliminar un código de descuento
+      mutation = gql`
+        mutation DiscountCodeDelete($id: ID!) {
+          discountCodeDelete(id: $id) {
+            deletedDiscountId
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `
+    } else {
+      // Eliminar un descuento automático
+      mutation = gql`
+        mutation DiscountAutomaticDelete($id: ID!) {
+          discountAutomaticDelete(id: $id) {
+            deletedAutomaticDiscountId
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `
+    }
+
+    variables = {
+      id: `gid://shopify/DiscountNode/${id}`,
+    }
+
+    const data = await shopifyClient.request(mutation, variables)
+
+    // Verificar errores
+    const userErrors = isCodeDiscount ? data.discountCodeDelete.userErrors : data.discountAutomaticDelete.userErrors
+
+    if (userErrors && userErrors.length > 0) {
+      throw new Error(`Error al eliminar promoción: ${userErrors[0].message}`)
+    }
 
     // Invalidar caché
-    cachePromociones = null
-    cacheTiempoExpiracion = null
+    promocionesCache = null
+    ultimaActualizacion = null
 
-    return true
+    return { success: true, id: id }
   } catch (error) {
     console.error(`Error al eliminar promoción ${id}:`, error)
-    return false
+    throw new Error(`Error al eliminar la promoción: ${error.message}`)
   }
 }
+
+// Alias para compatibilidad
+export const fetchPromotionById = obtenerPromocionPorId
+export const fetchPriceListById = obtenerPromocionPorId
+export const deletePromotion = eliminarPromocion
+export const createPriceList = crearPromocion
+export const updatePriceList = actualizarPromocion
+export const fetchPromotions = obtenerPromociones

@@ -1,4 +1,5 @@
-import { SHOPIFY_API_URL, SHOPIFY_ACCESS_TOKEN } from "@/lib/utils"
+import shopifyClient from "@/lib/shopify"
+import { gql } from "graphql-request"
 
 /**
  * Interfaz para los parámetros de búsqueda de productos
@@ -18,68 +19,111 @@ interface ParametrosBusquedaProducto {
  */
 export async function obtenerProductos(params: ParametrosBusquedaProducto = {}) {
   try {
-    // Construir URL con parámetros de consulta
-    const url = new URL(`${SHOPIFY_API_URL}/products.json`)
+    // Construir la consulta GraphQL
+    const query = gql`
+      query GetProducts($first: Int!, $query: String, $sortKey: ProductSortKeys, $reverse: Boolean) {
+        products(first: $first, query: $query, sortKey: $sortKey, reverse: $reverse) {
+          edges {
+            node {
+              id
+              title
+              handle
+              description
+              descriptionHtml
+              productType
+              vendor
+              status
+              totalInventory
+              createdAt
+              updatedAt
+              tags
+              priceRangeV2 {
+                minVariantPrice {
+                  amount
+                  currencyCode
+                }
+                maxVariantPrice {
+                  amount
+                  currencyCode
+                }
+              }
+              images(first: 1) {
+                edges {
+                  node {
+                    id
+                    url
+                    altText
+                  }
+                }
+              }
+              variants(first: 1) {
+                edges {
+                  node {
+                    id
+                    title
+                    price
+                    compareAtPrice
+                    sku
+                    inventoryQuantity
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `
 
-    if (params.consulta) {
-      url.searchParams.append("title", params.consulta)
+    // Construir variables para la consulta
+    const variables = {
+      first: params.limite || 20,
+      query: params.consulta || "",
+      sortKey: params.ordenarPor ? params.ordenarPor.toUpperCase() : "TITLE",
+      reverse: false,
     }
 
+    // Si hay un ID de colección, añadirlo a la consulta
     if (params.coleccionId) {
-      url.searchParams.append("collection_id", params.coleccionId)
+      variables.query += ` collection_id:${params.coleccionId}`
     }
 
-    if (params.limite) {
-      url.searchParams.append("limit", params.limite.toString())
-    }
+    // Ejecutar la consulta
+    const data = await shopifyClient.request(query, variables)
 
-    if (params.pagina) {
-      url.searchParams.append("page", params.pagina.toString())
-    }
+    // Mapear los resultados
+    return data.products.edges.map((edge) => {
+      const node = edge.node
+      const variant = node.variants.edges[0]?.node
+      const image = node.images.edges[0]?.node
 
-    if (params.ordenarPor) {
-      url.searchParams.append("order", params.ordenarPor)
-    }
-
-    // Realizar petición a Shopify
-    const respuesta = await fetch(url.toString(), {
-      headers: {
-        "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
-        "Content-Type": "application/json",
-      },
+      return {
+        id: node.id,
+        titulo: node.title,
+        handle: node.handle,
+        descripcion: node.description || node.descriptionHtml,
+        tipo: node.productType,
+        vendedor: node.vendor,
+        estado: node.status,
+        inventario: node.totalInventory,
+        fechaCreacion: node.createdAt,
+        fechaActualizacion: node.updatedAt,
+        etiquetas: node.tags,
+        precio: variant?.price || "0.00",
+        comparacionPrecio: variant?.compareAtPrice || null,
+        sku: variant?.sku || "",
+        imagen: image?.url || null,
+        imagenes: [
+          {
+            id: image?.id,
+            src: image?.url,
+            alt: image?.altText,
+          },
+        ],
+      }
     })
-
-    if (!respuesta.ok) {
-      throw new Error(`Error al obtener productos: ${respuesta.status}`)
-    }
-
-    const datos = await respuesta.json()
-
-    // Mapear respuesta al formato esperado
-    return datos.products.map((producto: any) => ({
-      id: producto.id.toString(),
-      titulo: producto.title,
-      handle: producto.handle,
-      descripcion: producto.body_html || "",
-      imagenes: producto.images.map((img: any) => ({
-        id: img.id,
-        src: img.src,
-        posicion: img.position,
-      })),
-      precio: producto.variants[0]?.price || "0.00",
-      comparacionPrecio: producto.variants[0]?.compare_at_price || null,
-      sku: producto.variants[0]?.sku || "",
-      inventario: producto.variants[0]?.inventory_quantity || 0,
-      estado: producto.status,
-      tipo: producto.product_type,
-      etiquetas: producto.tags,
-      vendedor: producto.vendor,
-      fechaCreacion: producto.created_at,
-      fechaActualizacion: producto.updated_at,
-    }))
   } catch (error) {
-    console.error("Error en obtenerProductos:", error)
-    return []
+    console.error("Error al obtener productos:", error)
+    throw new Error(`Error al obtener productos: ${error.message}`)
   }
 }
 
@@ -88,46 +132,104 @@ export async function obtenerProductos(params: ParametrosBusquedaProducto = {}) 
  * @param id ID del producto
  * @returns Datos del producto o null si no existe
  */
-export async function obtenerProductoPorId(id: string) {
+export async function obtenerProductoPorId(id) {
   try {
-    const respuesta = await fetch(`${SHOPIFY_API_URL}/products/${id}.json`, {
-      headers: {
-        "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
-        "Content-Type": "application/json",
-      },
-    })
+    // Construir la consulta GraphQL
+    const query = gql`
+      query GetProduct($id: ID!) {
+        product(id: $id) {
+          id
+          title
+          handle
+          description
+          descriptionHtml
+          productType
+          vendor
+          status
+          totalInventory
+          createdAt
+          updatedAt
+          tags
+          priceRangeV2 {
+            minVariantPrice {
+              amount
+              currencyCode
+            }
+            maxVariantPrice {
+              amount
+              currencyCode
+            }
+          }
+          images(first: 10) {
+            edges {
+              node {
+                id
+                url
+                altText
+              }
+            }
+          }
+          variants(first: 10) {
+            edges {
+              node {
+                id
+                title
+                price
+                compareAtPrice
+                sku
+                inventoryQuantity
+              }
+            }
+          }
+        }
+      }
+    `
 
-    if (!respuesta.ok) {
-      throw new Error(`Error al obtener producto: ${respuesta.status}`)
+    // Ejecutar la consulta
+    const data = await shopifyClient.request(query, { id: `gid://shopify/Product/${id}` })
+
+    // Si no hay producto, devolver null
+    if (!data.product) {
+      return null
     }
 
-    const datos = await respuesta.json()
-    const producto = datos.product
+    const product = data.product
+    const variants = product.variants.edges.map((edge) => edge.node)
+    const images = product.images.edges.map((edge) => edge.node)
 
     return {
-      id: producto.id.toString(),
-      titulo: producto.title,
-      handle: producto.handle,
-      descripcion: producto.body_html || "",
-      imagenes: producto.images.map((img: any) => ({
+      id: product.id,
+      titulo: product.title,
+      handle: product.handle,
+      descripcion: product.description || product.descriptionHtml,
+      tipo: product.productType,
+      vendedor: product.vendor,
+      estado: product.status,
+      inventario: product.totalInventory,
+      fechaCreacion: product.createdAt,
+      fechaActualizacion: product.updatedAt,
+      etiquetas: product.tags,
+      precio: variants[0]?.price || "0.00",
+      comparacionPrecio: variants[0]?.compareAtPrice || null,
+      sku: variants[0]?.sku || "",
+      imagen: images[0]?.url || null,
+      imagenes: images.map((img) => ({
         id: img.id,
-        src: img.src,
-        posicion: img.position,
+        src: img.url,
+        alt: img.altText,
       })),
-      precio: producto.variants[0]?.price || "0.00",
-      comparacionPrecio: producto.variants[0]?.compare_at_price || null,
-      sku: producto.variants[0]?.sku || "",
-      inventario: producto.variants[0]?.inventory_quantity || 0,
-      estado: producto.status,
-      tipo: producto.product_type,
-      etiquetas: producto.tags,
-      vendedor: producto.vendor,
-      fechaCreacion: producto.created_at,
-      fechaActualizacion: producto.updated_at,
+      variantes: variants.map((variant) => ({
+        id: variant.id,
+        titulo: variant.title,
+        precio: variant.price,
+        comparacionPrecio: variant.compareAtPrice,
+        sku: variant.sku,
+        inventario: variant.inventoryQuantity,
+      })),
     }
   } catch (error) {
     console.error(`Error al obtener producto ${id}:`, error)
-    return null
+    throw new Error(`Error al obtener producto: ${error.message}`)
   }
 }
 
@@ -136,76 +238,65 @@ export async function obtenerProductoPorId(id: string) {
  * @param datos Datos del producto a crear
  * @returns El producto creado
  */
-export async function crearProducto(datos: {
-  titulo: string
-  descripcion?: string
-  precio: string
-  comparacionPrecio?: string
-  sku?: string
-  inventario?: number
-  tipo?: string
-  etiquetas?: string[]
-  vendedor?: string
-  imagenes?: { src: string }[]
-}) {
+export async function crearProducto(datos) {
   try {
-    const respuesta = await fetch(`${SHOPIFY_API_URL}/products.json`, {
-      method: "POST",
-      headers: {
-        "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        product: {
-          title: datos.titulo,
-          body_html: datos.descripcion,
-          vendor: datos.vendedor,
-          product_type: datos.tipo,
-          tags: datos.etiquetas,
-          images: datos.imagenes,
-          variants: [
-            {
-              price: datos.precio,
-              compare_at_price: datos.comparacionPrecio,
-              sku: datos.sku,
-              inventory_quantity: datos.inventario,
-              inventory_management: datos.inventario !== undefined ? "shopify" : null,
-            },
-          ],
-        },
-      }),
-    })
+    // Construir la mutación GraphQL
+    const mutation = gql`
+      mutation ProductCreate($input: ProductInput!) {
+        productCreate(input: $input) {
+          product {
+            id
+            title
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
 
-    if (!respuesta.ok) {
-      throw new Error(`Error al crear producto: ${respuesta.status}`)
+    // Construir variables para la mutación
+    const variables = {
+      input: {
+        title: datos.titulo,
+        descriptionHtml: datos.descripcion,
+        productType: datos.tipo,
+        vendor: datos.vendedor,
+        tags: datos.etiquetas,
+        variants: [
+          {
+            price: datos.precio,
+            compareAtPrice: datos.comparacionPrecio,
+            sku: datos.sku,
+            inventoryQuantities: {
+              availableQuantity: datos.inventario,
+              locationId: "gid://shopify/Location/1",
+            },
+          },
+        ],
+      },
     }
 
-    const datosRespuesta = await respuesta.json()
-    const producto = datosRespuesta.product
+    // Ejecutar la mutación
+    const data = await shopifyClient.request(mutation, variables)
+
+    // Verificar errores
+    if (data.productCreate.userErrors && data.productCreate.userErrors.length > 0) {
+      throw new Error(`Error al crear producto: ${data.productCreate.userErrors[0].message}`)
+    }
 
     return {
-      id: producto.id.toString(),
-      titulo: producto.title,
-      handle: producto.handle,
-      descripcion: producto.body_html || "",
-      imagenes: producto.images.map((img: any) => ({
-        id: img.id,
-        src: img.src,
-        posicion: img.position,
-      })),
-      precio: producto.variants[0]?.price || "0.00",
-      comparacionPrecio: producto.variants[0]?.compare_at_price || null,
-      sku: producto.variants[0]?.sku || "",
-      inventario: producto.variants[0]?.inventory_quantity || 0,
-      estado: producto.status,
-      tipo: producto.product_type,
-      etiquetas: producto.tags,
-      vendedor: producto.vendor,
-      fechaCreacion: producto.created_at,
-      fechaActualizacion: producto.updated_at,
+      id: data.productCreate.product.id,
+      titulo: data.productCreate.product.title,
     }
   } catch (error) {
     console.error("Error al crear producto:", error)
-    throw error
+    throw new Error(`Error al crear producto: ${error.message}`)
   }
 }
+
+// Alias para compatibilidad
+export const fetchProducts = obtenerProductos
+export const fetchProductById = obtenerProductoPorId
+export const createProduct = crearProducto
