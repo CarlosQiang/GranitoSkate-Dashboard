@@ -1,132 +1,146 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import Link from "next/link"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { fetchCustomerById } from "@/lib/api/customers"
+import { useToast } from "@/components/ui/use-toast"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatDate, formatCurrency } from "@/lib/utils"
-import { fetchCustomerById } from "@/lib/api/customers"
-import { Eye } from "lucide-react"
+import { ExternalLink } from "lucide-react"
 
 interface CustomerOrdersListProps {
   customerId: string
 }
 
 export function CustomerOrdersList({ customerId }: CustomerOrdersListProps) {
-  const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter()
+  const { toast } = useToast()
   const [orders, setOrders] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const loadOrders = async () => {
+    const getCustomerOrders = async () => {
+      setIsLoading(true)
       try {
-        const customer = await fetchCustomerById(customerId)
-        if (customer && customer.orders && customer.orders.edges) {
-          setOrders(customer.orders.edges.map((edge: any) => edge.node))
-        } else {
-          setOrders([])
-        }
+        const data = await fetchCustomerById(customerId)
+        setOrders(data.orders || [])
       } catch (error) {
-        console.error("Error al cargar pedidos:", error)
-        setOrders([])
+        console.error("Error fetching customer orders:", error)
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los pedidos del cliente",
+          variant: "destructive",
+        })
       } finally {
         setIsLoading(false)
       }
     }
 
-    loadOrders()
-  }, [customerId])
+    getCustomerOrders()
+  }, [customerId, toast])
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "FULFILLED":
+        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Completado</Badge>
+      case "IN_PROGRESS":
+        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">En progreso</Badge>
+      case "PARTIALLY_FULFILLED":
+        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Parcialmente completado</Badge>
+      case "UNFULFILLED":
+        return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">Pendiente</Badge>
+      case "PAID":
+        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Pagado</Badge>
+      case "PARTIALLY_PAID":
+        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Parcialmente pagado</Badge>
+      case "UNPAID":
+        return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">No pagado</Badge>
+      default:
+        return <Badge variant="outline">{status}</Badge>
+    }
+  }
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Card key={i}>
-            <CardContent className="p-4">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                <div className="mb-2 sm:mb-0">
-                  <Skeleton className="h-5 w-20 mb-1" />
+      <div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Pedido</TableHead>
+              <TableHead>Fecha</TableHead>
+              <TableHead>Estado de envío</TableHead>
+              <TableHead>Estado de pago</TableHead>
+              <TableHead>Total</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {[...Array(3)].map((_, i) => (
+              <TableRow key={i}>
+                <TableCell>
+                  <Skeleton className="h-4 w-20" />
+                </TableCell>
+                <TableCell>
                   <Skeleton className="h-4 w-32" />
-                </div>
-                <div className="flex gap-2">
-                  <Skeleton className="h-4 w-16 rounded-full" />
-                  <Skeleton className="h-9 w-24" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-6 w-24" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-6 w-24" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-16" />
+                </TableCell>
+                <TableCell className="text-right">
+                  <Skeleton className="h-8 w-20 ml-auto" />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
     )
   }
 
   if (orders.length === 0) {
-    return (
-      <div className="text-center py-6">
-        <p className="text-muted-foreground">Este cliente no tiene pedidos.</p>
-      </div>
-    )
-  }
-
-  // Función para obtener la clase de color según el estado
-  const getStatusClass = (status: string) => {
-    switch (status) {
-      case "PAID":
-        return "bg-green-100 text-green-800"
-      case "PENDING":
-        return "bg-yellow-100 text-yellow-800"
-      case "REFUNDED":
-        return "bg-red-100 text-red-800"
-      case "FULFILLED":
-        return "bg-green-100 text-green-800"
-      case "UNFULFILLED":
-        return "bg-yellow-100 text-yellow-800"
-      case "IN_PROGRESS":
-        return "bg-blue-100 text-blue-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
+    return <div className="text-center py-8 text-muted-foreground">Este cliente no tiene pedidos</div>
   }
 
   return (
-    <div className="space-y-4">
-      {orders.map((order) => (
-        <Card key={order.id}>
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-              <div>
-                <div className="font-medium">{order.name}</div>
-                <div className="text-sm text-muted-foreground">{formatDate(order.createdAt)}</div>
-              </div>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mt-2 sm:mt-0">
-                <div className="flex gap-2">
-                  <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(
-                      order.displayFinancialStatus,
-                    )}`}
-                  >
-                    {order.displayFinancialStatus}
-                  </span>
-                  <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(
-                      order.displayFulfillmentStatus,
-                    )}`}
-                  >
-                    {order.displayFulfillmentStatus}
-                  </span>
-                </div>
-                <div className="font-medium">{formatCurrency(order.totalPriceSet.shopMoney.amount)}</div>
-                <Button asChild size="sm" variant="outline" className="ml-0 sm:ml-2 mt-2 sm:mt-0">
-                  <Link href={`/dashboard/orders/${order.id.split("/").pop()}`}>
-                    <Eye className="mr-2 h-4 w-4" />
-                    Ver detalles
-                  </Link>
+    <div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Pedido</TableHead>
+            <TableHead>Fecha</TableHead>
+            <TableHead>Estado de envío</TableHead>
+            <TableHead>Estado de pago</TableHead>
+            <TableHead>Total</TableHead>
+            <TableHead className="text-right">Acciones</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {orders.map((order) => (
+            <TableRow key={order.id}>
+              <TableCell className="font-medium">{order.name}</TableCell>
+              <TableCell>{formatDate(order.processedAt)}</TableCell>
+              <TableCell>{getStatusBadge(order.fulfillmentStatus)}</TableCell>
+              <TableCell>{getStatusBadge(order.financialStatus)}</TableCell>
+              <TableCell>{formatCurrency(order.totalPrice.amount, order.totalPrice.currencyCode)}</TableCell>
+              <TableCell className="text-right">
+                <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/orders/${order.id}`)}>
+                  <ExternalLink className="h-4 w-4 mr-1" />
+                  Ver pedido
                 </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   )
 }

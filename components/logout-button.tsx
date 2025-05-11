@@ -1,14 +1,30 @@
 "use client"
 
+import { LogOut } from "lucide-react"
 import { signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
-import { LogOut } from "lucide-react"
+import { cn } from "@/lib/utils"
 
-export function LogoutButton() {
+interface LogoutButtonProps {
+  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link"
+  className?: string
+  iconOnly?: boolean
+}
+
+export function LogoutButton({ variant = "outline", className = "", iconOnly = false }: LogoutButtonProps) {
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: "/login" })
+  }
+
   return (
-    <Button variant="ghost" onClick={() => signOut({ callbackUrl: "/" })} className="flex items-center gap-2">
-      <LogOut className="h-4 w-4" />
-      <span>Cerrar sesión</span>
+    <Button
+      variant={variant}
+      className={cn("flex items-center justify-center gap-2", iconOnly ? "p-2" : "", className)}
+      onClick={handleLogout}
+      aria-label="Cerrar sesión"
+    >
+      <LogOut className={cn("h-4 w-4", iconOnly ? "mr-0" : "mr-1")} />
+      {!iconOnly && "Cerrar sesión"}
     </Button>
   )
 }

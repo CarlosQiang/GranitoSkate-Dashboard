@@ -4,10 +4,6 @@ import type React from "react"
 
 import { SessionProvider } from "next-auth/react"
 
-interface AuthProviderProps {
-  children: React.ReactNode
-}
-
-export function AuthProvider({ children }: AuthProviderProps) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   return <SessionProvider>{children}</SessionProvider>
 }

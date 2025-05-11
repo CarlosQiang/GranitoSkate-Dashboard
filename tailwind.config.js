@@ -24,19 +24,8 @@ module.exports = {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: "#d29a43", // Color principal de Granito
+          DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
-          50: "#fdf6eb",
-          100: "#f9e8cc",
-          200: "#f2d19a",
-          300: "#e9b968",
-          400: "#e0a245",
-          500: "#d29a43", // Color principal
-          600: "#b37e2f",
-          700: "#8f6424",
-          800: "#6c4b1c",
-          900: "#483214",
-          950: "#241a0a",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",

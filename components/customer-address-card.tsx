@@ -1,100 +1,153 @@
 "use client"
 
 import { useState } from "react"
+import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Home, Star, Trash2 } from "lucide-react"
-import { setDefaultCustomerAddress, deleteCustomerAddress } from "@/lib/api/customers"
+import { Badge } from "@/components/ui/badge"
+import { useToast } from "@/components/ui/use-toast"
+import { deleteCustomerAddress, setDefaultCustomerAddress } from "@/lib/api/customers"
+import { Pencil, Trash2, Check } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface CustomerAddressCardProps {
-  customerId: string
   address: {
     id: string
     address1: string
     address2?: string
     city: string
-    province: string
-    country: string
+    province?: string
     zip: string
-    isDefault?: boolean
+    country: string
+    phone?: string
   }
-  onAddressUpdated?: () => void
+  customerId: string
+  isDefault: boolean
 }
 
-export function CustomerAddressCard({ customerId, address, onAddressUpdated }: CustomerAddressCardProps) {
-  const [isLoading, setIsLoading] = useState(false)
+export function CustomerAddressCard({ address, customerId, isDefault }: CustomerAddressCardProps) {
+  const { toast } = useToast()
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [isSettingDefault, setIsSettingDefault] = useState(false)
 
-  const handleSetDefault = async () => {
-    if (address.isDefault) return
+  const handleSetDefaultAddress = async () => {
+    if (isDefault) return
 
-    setIsLoading(true)
+    setIsSettingDefault(true)
     try {
       await setDefaultCustomerAddress(customerId, address.id)
-      if (onAddressUpdated) onAddressUpdated()
+
+      toast({
+        title: "Dirección actualizada",
+        description: "La dirección predeterminada ha sido actualizada",
+      })
+
+      // Reload the page to reflect changes
+      window.location.reload()
     } catch (error) {
-      console.error("Error al establecer dirección predeterminada:", error)
+      console.error("Error setting default address:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo establecer la dirección predeterminada",
+        variant: "destructive",
+      })
     } finally {
-      setIsLoading(false)
+      setIsSettingDefault(false)
     }
   }
 
-  const handleDelete = async () => {
-    if (address.isDefault) return
-
-    setIsLoading(true)
+  const handleDeleteAddress = async () => {
+    setIsDeleting(true)
     try {
-      await deleteCustomerAddress(customerId, address.id)
-      if (onAddressUpdated) onAddressUpdated()
+      await deleteCustomerAddress(address.id)
+
+      toast({
+        title: "Dirección eliminada",
+        description: "La dirección ha sido eliminada correctamente",
+      })
+
+      // Reload the page to reflect changes
+      window.location.reload()
     } catch (error) {
-      console.error("Error al eliminar dirección:", error)
+      console.error("Error deleting address:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la dirección",
+        variant: "destructive",
+      })
     } finally {
-      setIsLoading(false)
+      setIsDeleting(false)
+      setIsDeleteDialogOpen(false)
     }
   }
 
   return (
-    <Card className={`overflow-hidden ${address.isDefault ? "border-primary" : ""}`}>
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3">
-            <div className="mt-1">
-              <Home className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <div>
-              <div className="font-medium">
-                {address.address1}
-                {address.address2 && `, ${address.address2}`}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {address.city}, {address.province}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {address.zip}, {address.country}
-              </div>
-              {address.isDefault && (
-                <div className="mt-1 flex items-center text-xs text-primary">
-                  <Star className="mr-1 h-3 w-3" />
-                  Dirección predeterminada
-                </div>
-              )}
+    <>
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex justify-between items-start mb-2">
+            <div className="space-y-1">
+              {isDefault && <Badge className="mb-2">Dirección predeterminada</Badge>}
+              <p className="font-medium">{address.address1}</p>
+              {address.address2 && <p>{address.address2}</p>}
+              <p>
+                {address.city}
+                {address.province && `, ${address.province}`} {address.zip}
+              </p>
+              <p>{address.country}</p>
+              {address.phone && <p className="text-sm text-muted-foreground">{address.phone}</p>}
             </div>
           </div>
-          <div className="flex gap-2">
-            {!address.isDefault && (
-              <>
-                <Button variant="outline" size="icon" onClick={handleSetDefault} disabled={isLoading}>
-                  <Star className="h-4 w-4" />
-                  <span className="sr-only">Establecer como predeterminada</span>
-                </Button>
-                <Button variant="outline" size="icon" onClick={handleDelete} disabled={isLoading}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                  <span className="sr-only">Eliminar</span>
-                </Button>
-              </>
-            )}
+        </CardContent>
+        <CardFooter className="flex justify-between border-t pt-4">
+          <div className="flex space-x-2">
+            <Button variant="outline" size="sm" disabled>
+              <Pencil className="h-4 w-4 mr-1" />
+              Editar
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setIsDeleteDialogOpen(true)} disabled={isDefault}>
+              <Trash2 className="h-4 w-4 mr-1" />
+              Eliminar
+            </Button>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+          {!isDefault && (
+            <Button variant="ghost" size="sm" onClick={handleSetDefaultAddress} disabled={isSettingDefault}>
+              <Check className="h-4 w-4 mr-1" />
+              Establecer como predeterminada
+            </Button>
+          )}
+        </CardFooter>
+      </Card>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. La dirección será eliminada permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteAddress}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {isDeleting ? "Eliminando..." : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }

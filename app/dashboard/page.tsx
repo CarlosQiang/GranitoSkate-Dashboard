@@ -1,55 +1,42 @@
-import Link from "next/link"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { Suspense } from "react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DashboardStats } from "@/components/dashboard-stats"
 import { RecentOrders } from "@/components/recent-orders"
 import { RecentProducts } from "@/components/recent-products"
-import { Eye } from "lucide-react"
+import { LoadingState } from "@/components/loading-state"
+
+// Forzar revalidación en cada solicitud
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export default function DashboardPage() {
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-
-      <DashboardStats />
-
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Pedidos Recientes</CardTitle>
-            <CardDescription>Últimos pedidos recibidos</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RecentOrders />
-            <div className="mt-4 flex justify-center">
-              <Button asChild variant="outline">
-                <Link href="/dashboard/orders">
-                  Ver todos los pedidos
-                  <Eye className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Productos Recientes</CardTitle>
-            <CardDescription>Últimos productos añadidos</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RecentProducts />
-            <div className="mt-4 flex justify-center">
-              <Button asChild variant="outline">
-                <Link href="/dashboard/products">
-                  Ver todos los productos
-                  <Eye className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground">Bienvenido al panel de administración de GranitoSkate</p>
       </div>
+
+      <Suspense fallback={<LoadingState message="Cargando estadísticas..." />}>
+        <DashboardStats />
+      </Suspense>
+
+      <Tabs defaultValue="orders">
+        <TabsList>
+          <TabsTrigger value="orders">Pedidos recientes</TabsTrigger>
+          <TabsTrigger value="products">Productos recientes</TabsTrigger>
+        </TabsList>
+        <TabsContent value="orders" className="space-y-4">
+          <Suspense fallback={<LoadingState message="Cargando pedidos..." />}>
+            <RecentOrders />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="products" className="space-y-4">
+          <Suspense fallback={<LoadingState message="Cargando productos..." />}>
+            <RecentProducts />
+          </Suspense>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

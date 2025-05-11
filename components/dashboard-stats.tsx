@@ -1,81 +1,130 @@
 "use client"
 
-import { Card, CardContent } from "@/components/ui/card"
-import { formatCurrency } from "@/lib/utils"
-import { TrendingUp, TrendingDown, Users, ShoppingBag, CreditCard, Package } from "lucide-react"
-
-// Datos de ejemplo para las estadísticas
-const stats = [
-  {
-    title: "Ventas Totales",
-    value: 4250.75,
-    change: 12.5,
-    icon: CreditCard,
-    color: "text-blue-500",
-    bgColor: "bg-blue-100",
-  },
-  {
-    title: "Pedidos",
-    value: 42,
-    change: 8.2,
-    icon: ShoppingBag,
-    color: "text-green-500",
-    bgColor: "bg-green-100",
-  },
-  {
-    title: "Clientes",
-    value: 156,
-    change: 5.3,
-    icon: Users,
-    color: "text-purple-500",
-    bgColor: "bg-purple-100",
-  },
-  {
-    title: "Productos",
-    value: 89,
-    change: -2.4,
-    icon: Package,
-    color: "text-amber-500",
-    bgColor: "bg-amber-100",
-  },
-]
+import { useEffect, useState } from "react"
+import { ShoppingBag, Users, Package, DollarSign, RefreshCw } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { fetchDashboardStats } from "@/lib/api/dashboard"
 
 export function DashboardStats() {
+  const [stats, setStats] = useState({
+    totalOrders: 0,
+    totalCustomers: 0,
+    totalProducts: 0,
+    totalRevenue: 0,
+  })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadStats = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await fetchDashboardStats()
+      setStats(data)
+    } catch (err) {
+      console.error("Error al cargar estadísticas:", err)
+      setError("No se pudieron cargar las estadísticas")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadStats()
+  }, [])
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      {stats.map((stat, index) => (
-        <Card key={index}>
-          <CardContent className="p-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-sm font-medium text-gray-500">{stat.title}</p>
-                <h3 className="text-2xl font-bold mt-1">
-                  {typeof stat.value === "number" && stat.title.includes("Ventas")
-                    ? formatCurrency(stat.value)
-                    : stat.value}
-                </h3>
-                <div className="flex items-center mt-1">
-                  {stat.change > 0 ? (
-                    <>
-                      <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
-                      <span className="text-xs text-green-500">+{stat.change}%</span>
-                    </>
-                  ) : (
-                    <>
-                      <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
-                      <span className="text-xs text-red-500">{stat.change}%</span>
-                    </>
-                  )}
-                  <span className="text-xs text-gray-500 ml-1">vs. mes anterior</span>
-                </div>
-              </div>
-              <div className={`p-2 rounded-full ${stat.bgColor}`}>
-                <stat.icon className={`h-5 w-5 ${stat.color}`} />
-              </div>
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Pedidos Totales</CardTitle>
+          <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center">
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              <span className="text-2xl font-bold">Cargando...</span>
             </div>
-          </CardContent>
-        </Card>
-      ))}
+          ) : (
+            <>
+              <div className="text-2xl font-bold">{stats.totalOrders}</div>
+              <p className="text-xs text-muted-foreground">+0% desde el último mes</p>
+            </>
+          )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Clientes</CardTitle>
+          <Users className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center">
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              <span className="text-2xl font-bold">Cargando...</span>
+            </div>
+          ) : (
+            <>
+              <div className="text-2xl font-bold">{stats.totalCustomers}</div>
+              <p className="text-xs text-muted-foreground">+0% desde el último mes</p>
+            </>
+          )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Productos</CardTitle>
+          <Package className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center">
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              <span className="text-2xl font-bold">Cargando...</span>
+            </div>
+          ) : (
+            <>
+              <div className="text-2xl font-bold">{stats.totalProducts}</div>
+              <p className="text-xs text-muted-foreground">+0% desde el último mes</p>
+            </>
+          )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Ingresos</CardTitle>
+          <DollarSign className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center">
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              <span className="text-2xl font-bold">Cargando...</span>
+            </div>
+          ) : (
+            <>
+              <div className="text-2xl font-bold">€{stats.totalRevenue.toFixed(2)}</div>
+              <p className="text-xs text-muted-foreground">+0% desde el último mes</p>
+            </>
+          )}
+        </CardContent>
+      </Card>
+      {error && (
+        <div className="col-span-full">
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="pt-6">
+              <p className="text-red-800">{error}</p>
+              <Button variant="outline" size="sm" className="mt-2" onClick={loadStats}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Reintentar
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

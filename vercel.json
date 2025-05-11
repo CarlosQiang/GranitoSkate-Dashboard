@@ -1,22 +1,30 @@
 {
   "version": 2,
-  "builds": [
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": ["cdg1"],
+  "headers": [
     {
-      "src": "package.json",
-      "use": "@vercel/next"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
+        },
+        {
+          "key": "Pragma",
+          "value": "no-cache"
+        },
+        {
+          "key": "Expires",
+          "value": "0"
+        }
+      ]
     }
   ],
   "env": {
-    "NEXTAUTH_URL": "https://granito-skate-dashboard.vercel.app",
-    "VERCEL": "1"
-  },
-  "github": {
-    "silent": true
+    "NEXT_PUBLIC_VERCEL_ENV": "production",
+    "NEXT_TELEMETRY_DISABLED": "1"
   }
 }

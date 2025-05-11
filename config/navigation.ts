@@ -5,6 +5,7 @@ import {
   FileText,
   Settings,
   Package,
+  BarChart3,
   Percent,
   Globe,
   Search,
@@ -54,12 +55,11 @@ export const navigationItems = [
     href: "/dashboard/customers",
     icon: Users,
   },
-  // Comentamos la sección de analíticas para evitar problemas
-  // {
-  //   name: "Analíticas",
-  //   href: "/dashboard/analytics",
-  //   icon: BarChart3,
-  // },
+  {
+    name: "Analíticas",
+    href: "/dashboard/analytics",
+    icon: BarChart3,
+  },
   {
     name: "Configuración",
     href: "/dashboard/settings",
@@ -129,13 +129,12 @@ export const mainNav = [
     icon: FileText,
     color: "text-purple-500",
   },
-  // Comentamos la sección de analíticas para evitar problemas
-  // {
-  //   title: "Analíticas",
-  //   href: "/dashboard/analytics",
-  //   icon: BarChart3,
-  //   color: "text-indigo-500",
-  // },
+  {
+    title: "Analíticas",
+    href: "/dashboard/analytics",
+    icon: BarChart3,
+    color: "text-indigo-500",
+  },
 ]
 
 export const settingsNav = [
@@ -152,9 +151,3 @@ export const settingsNav = [
     color: "text-amber-500",
   },
 ]
-
-// Exportar navigationConfig para el dashboard-nav.tsx
-export const navigationConfig = {
-  mainNav,
-  settingsNav,
-}

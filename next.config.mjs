@@ -2,11 +2,10 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['cdn.shopify.com', 'placeholder.com', 'via.placeholder.com'],
+    domains: ['cdn.shopify.com', 'placeholder.com', 'via.placeholder.com', 'burst.shopifycdn.com', 'plus.unsplash.com', 'images.unsplash.com'],
     unoptimized: true,
   },
   experimental: {
-    // Fix the serverActions format
     serverActions: {
       allowedOrigins: ["localhost:3000", "*.vercel.app"],
     },
@@ -17,10 +16,14 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  output: 'standalone',
-  env: {
-    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  compiler: {
+    removeConsole: process.env.NODE_ENV === "production" 
+      ? {
+          exclude: ["error", "warn"],
+        } 
+      : false,
   },
+  transpilePackages: ["graphql-request"],
 };
 
 export default nextConfig;

@@ -1,67 +1,62 @@
-// Simulación de autenticación sin next-auth
-import { cookies } from "next/headers"
+import type { NextAuthOptions } from "next-auth"
+import CredentialsProvider from "next-auth/providers/credentials"
 
-export type User = {
-  id: string
-  name: string
-  email: string
-  image?: string
-  role: "admin" | "user"
-}
-
-export type Session = {
-  user: User
-  expires: string
-}
-
-// Función para verificar si hay una sesión activa
-export function getSession(): Session | null {
-  const cookieStore = cookies()
-  const sessionCookie = cookieStore.get("session")
-
-  if (!sessionCookie) return null
-
-  try {
-    // En producción, esto debería verificar un token JWT o similar
-    // Por ahora, simplemente devolvemos un usuario de prueba
-    return {
-      user: {
-        id: "1",
-        name: "Admin User",
-        email: process.env.ADMIN_EMAIL || "admin@example.com",
-        role: "admin",
+export const authOptions: NextAuthOptions = {
+  providers: [
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
       },
-      expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    }
-  } catch (error) {
-    console.error("Error al verificar la sesión:", error)
-    return null
-  }
-}
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          return null
+        }
 
-// Función para verificar si el usuario está autenticado
-export async function isAuthenticated(): Promise<boolean> {
-  const session = getSession()
-  return !!session
-}
+        // Verificar que las variables de entorno estén configuradas
+        if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
+          console.error("Faltan variables de entorno para la autenticación")
+          throw new Error("Configuración de autenticación incompleta. Contacte al administrador.")
+        }
 
-// Función para iniciar sesión
-export async function signIn(email: string, password: string): Promise<boolean> {
-  // En producción, esto debería verificar las credenciales contra una base de datos
-  if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
-    // Establecer cookie de sesión
-    cookies().set("session", "authenticated", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24, // 1 día
-      path: "/",
-    })
-    return true
-  }
-  return false
-}
+        // Verificar las credenciales contra las variables de entorno
+        if (credentials.email === process.env.ADMIN_EMAIL && credentials.password === process.env.ADMIN_PASSWORD) {
+          return {
+            id: "1",
+            name: "Administrador",
+            email: credentials.email,
+          }
+        }
 
-// Función para cerrar sesión
-export async function signOut(): Promise<void> {
-  cookies().delete("session")
+        return null
+      },
+    }),
+  ],
+  pages: {
+    signIn: "/login",
+    error: "/login",
+  },
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 días
+  },
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id
+        token.name = user.name
+      }
+      return token
+    },
+    async session({ session, token }) {
+      if (token && session.user) {
+        session.user.id = token.id as string
+      }
+      return session
+    },
+  },
+  // Configuración adicional para producción
+  secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === "development",
 }

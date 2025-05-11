@@ -2,122 +2,84 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useState } from "react"
+import { Menu, X, LogOut } from "lucide-react"
+import { signOut } from "next-auth/react"
+import { cn } from "@/lib/utils"
+import { navigationItems } from "@/config/navigation"
 import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import {
-  LayoutDashboard,
-  ShoppingBag,
-  Package,
-  FileText,
-  Users,
-  Search,
-  Percent,
-  Settings,
-  AlertTriangle,
-} from "lucide-react"
-
-// Configuración de navegación
-const mainNav = [
-  {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-    color: "text-blue-500",
-  },
-  {
-    title: "Productos",
-    href: "/dashboard/products",
-    icon: ShoppingBag,
-    color: "text-violet-500",
-  },
-  {
-    title: "Colecciones",
-    href: "/dashboard/collections",
-    icon: Package,
-    color: "text-pink-500",
-  },
-  {
-    title: "Pedidos",
-    href: "/dashboard/orders",
-    icon: FileText,
-    color: "text-orange-500",
-  },
-  {
-    title: "Clientes",
-    href: "/dashboard/customers",
-    icon: Users,
-    color: "text-emerald-500",
-  },
-  {
-    title: "Promociones",
-    href: "/dashboard/promotions",
-    icon: Percent,
-    color: "text-yellow-500",
-  },
-  {
-    title: "SEO",
-    href: "/dashboard/seo",
-    icon: Search,
-    color: "text-blue-500",
-  },
-]
-
-const settingsNav = [
-  {
-    title: "Configuración",
-    href: "/dashboard/settings",
-    icon: Settings,
-    color: "text-gray-500",
-  },
-  {
-    title: "Diagnóstico",
-    href: "/dashboard/diagnostics",
-    icon: AlertTriangle,
-    color: "text-amber-500",
-  },
-]
 
 export function DashboardNav() {
   const pathname = usePathname()
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen)
+  }
+
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: "/login" })
+  }
 
   return (
-    <ScrollArea className="h-full py-6">
-      <div className="px-4 py-2">
-        <h2 className="mb-2 px-2 text-lg font-semibold tracking-tight">Panel de Control</h2>
-        <div className="space-y-1">
-          {mainNav.map((item) => (
-            <Button
+    <>
+      {/* Botón de menú móvil */}
+      <Button
+        variant="ghost"
+        className="md:hidden fixed top-4 right-4 z-50"
+        onClick={toggleMenu}
+        aria-label={isMenuOpen ? "Cerrar menú" : "Abrir menú"}
+      >
+        {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+      </Button>
+
+      {/* Navegación para escritorio */}
+      <nav
+        className={cn(
+          "w-full md:w-64 flex-col border-r bg-muted/40",
+          "fixed md:sticky top-0 left-0 h-full z-40",
+          "transform transition-transform duration-300 ease-in-out",
+          "md:transform-none md:opacity-100 md:pointer-events-auto",
+          "flex flex-col justify-between",
+          isMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+        )}
+      >
+        <div className="flex flex-col gap-1 p-4 pt-16 md:pt-4">
+          {navigationItems.map((item) => (
+            <Link
               key={item.href}
-              asChild
-              variant={pathname === item.href || pathname?.startsWith(item.href + "/") ? "secondary" : "ghost"}
-              className="w-full justify-start"
+              href={item.href}
+              onClick={() => setIsMenuOpen(false)}
+              className={cn(
+                "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                pathname === item.href
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
             >
-              <Link href={item.href}>
-                <item.icon className={`mr-2 h-4 w-4 ${item.color}`} />
-                {item.title}
-              </Link>
-            </Button>
+              <item.icon className="h-5 w-5" />
+              {item.name}
+            </Link>
           ))}
         </div>
-      </div>
-      <div className="px-4 py-2">
-        <h2 className="mb-2 px-2 text-lg font-semibold tracking-tight">Configuración</h2>
-        <div className="space-y-1">
-          {settingsNav.map((item) => (
-            <Button
-              key={item.href}
-              asChild
-              variant={pathname === item.href || pathname?.startsWith(item.href + "/") ? "secondary" : "ghost"}
-              className="w-full justify-start"
-            >
-              <Link href={item.href}>
-                <item.icon className={`mr-2 h-4 w-4 ${item.color}`} />
-                {item.title}
-              </Link>
-            </Button>
-          ))}
+
+        {/* Botón de logout */}
+        <div className="p-4 mt-auto border-t">
+          <Button
+            variant="outline"
+            className="w-full flex items-center justify-center gap-2 text-red-500 hover:text-red-600 hover:bg-red-50"
+            onClick={handleLogout}
+          >
+            <LogOut className="h-4 w-4" />
+            Cerrar sesión
+          </Button>
         </div>
-      </div>
-    </ScrollArea>
+      </nav>
+
+      {/* Overlay para cerrar el menú en móvil */}
+      {isMenuOpen && (
+        <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={toggleMenu} aria-hidden="true" />
+      )}
+    </>
   )
 }

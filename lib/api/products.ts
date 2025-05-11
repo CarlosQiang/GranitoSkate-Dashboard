@@ -1,81 +1,106 @@
-import { shopifyFetch } from "@/lib/shopify"
+import shopifyClient from "@/lib/shopify"
+import { gql } from "graphql-request"
 
-export interface Product {
-  id: string
-  title: string
-  description: string
-  handle: string
-  status: string
-  totalInventory: number
-  priceRange: {
-    minVariantPrice: {
-      amount: string
-      currencyCode: string
-    }
-    maxVariantPrice: {
-      amount: string
-      currencyCode: string
-    }
-  }
-  images: {
-    edges: {
-      node: {
-        id: string
-        url: string
-        altText: string
-      }
-    }[]
-  }
-  variants: {
-    edges: {
-      node: {
-        id: string
-        title: string
-        price: string
-        inventoryQuantity: number
-      }
-    }[]
-  }
-  seo: {
-    title: string
-    description: string
-  }
+// Función para obtener productos recientes
+export async function fetchRecentProducts(limit = 5) {
+  const products = await fetchProducts(limit)
+  return products
 }
 
-// Consulta para obtener productos
-const GET_PRODUCTS = `
-  query GetProducts($first: Int!, $after: String) {
-    products(first: $first, after: $after) {
-      pageInfo {
-        hasNextPage
-        endCursor
-      }
-      edges {
-        node {
-          id
-          title
-          description
-          handle
-          status
-          totalInventory
-          priceRange {
-            minVariantPrice {
-              amount
-              currencyCode
-            }
-            maxVariantPrice {
-              amount
-              currencyCode
-            }
-          }
-          images(first: 1) {
-            edges {
-              node {
-                id
+// Función para obtener todos los productos
+export async function fetchProducts(limit = 20) {
+  try {
+    const query = gql`
+      query GetProducts($first: Int!) {
+        products(first: $first) {
+          edges {
+            node {
+              id
+              title
+              handle
+              description
+              descriptionHtml
+              vendor
+              productType
+              status
+              totalInventory
+              featuredImage {
                 url
                 altText
               }
+              variants(first: 1) {
+                edges {
+                  node {
+                    id
+                    title
+                    price
+                    compareAtPrice
+                    sku
+                    inventoryQuantity
+                  }
+                }
+              }
             }
+          }
+        }
+      }
+    `
+
+    const data = await shopifyClient.request(query, { first: limit })
+
+    // Transformar los datos para un formato más fácil de usar
+    const products = data.products.edges.map((edge) => {
+      const node = edge.node
+      const variant = node.variants.edges[0]?.node || {}
+
+      return {
+        id: node.id,
+        numericId: node.id.split("/").pop(),
+        title: node.title,
+        handle: node.handle,
+        description: node.description,
+        descriptionHtml: node.descriptionHtml,
+        vendor: node.vendor,
+        productType: node.productType,
+        status: node.status,
+        totalInventory: node.totalInventory,
+        featuredImage: node.featuredImage,
+        price: variant.price || "0.00",
+        compareAtPrice: variant.compareAtPrice || null,
+        currencyCode: "EUR", // Valor por defecto
+        sku: variant.sku || "",
+        inventoryQuantity: variant.inventoryQuantity || 0,
+      }
+    })
+
+    return products
+  } catch (error) {
+    console.error("Error al cargar productos:", error)
+    throw new Error(`Error al cargar productos: ${error.message}`)
+  }
+}
+
+// Función para obtener un producto por ID
+export async function fetchProductById(id) {
+  try {
+    // Asegurarse de que el ID tenga el formato correcto
+    const formattedId = id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
+
+    const query = gql`
+      query GetProduct($id: ID!) {
+        product(id: $id) {
+          id
+          title
+          handle
+          description
+          descriptionHtml
+          vendor
+          productType
+          status
+          totalInventory
+          featuredImage {
+            url
+            altText
           }
           variants(first: 5) {
             edges {
@@ -83,229 +108,436 @@ const GET_PRODUCTS = `
                 id
                 title
                 price
+                compareAtPrice
+                sku
                 inventoryQuantity
               }
             }
           }
-          seo {
-            title
-            description
-          }
         }
       }
+    `
+
+    const data = await shopifyClient.request(query, { id: formattedId })
+
+    if (!data.product) {
+      throw new Error(`No se encontró el producto con ID: ${id}`)
     }
-  }
-`
 
-// Función para obtener productos
-export async function getProducts(
-  first = 10,
-  after?: string,
-): Promise<{
-  products: Product[]
-  pageInfo: { hasNextPage: boolean; endCursor: string }
-}> {
-  try {
-    const data = await shopifyFetch({
-      query: GET_PRODUCTS,
-      variables: { first, after },
-    })
+    // Transformar los datos para un formato más fácil de usar
+    const product = data.product
+    const variants = product.variants.edges.map((edge) => ({
+      id: edge.node.id,
+      numericId: edge.node.id.split("/").pop(),
+      title: edge.node.title,
+      price: edge.node.price,
+      compareAtPrice: edge.node.compareAtPrice,
+      sku: edge.node.sku || "",
+      inventoryQuantity: edge.node.inventoryQuantity || 0,
+    }))
 
-    const products = data.products.edges.map((edge: any) => edge.node)
-    const pageInfo = data.products.pageInfo
-
-    return { products, pageInfo }
+    return {
+      id: product.id,
+      numericId: product.id.split("/").pop(),
+      title: product.title,
+      handle: product.handle,
+      description: product.description,
+      descriptionHtml: product.descriptionHtml,
+      vendor: product.vendor,
+      productType: product.productType,
+      status: product.status,
+      totalInventory: product.totalInventory,
+      featuredImage: product.featuredImage,
+      variants,
+    }
   } catch (error) {
-    console.error("Error al obtener productos:", error)
-    throw error
+    console.error(`Error al cargar el producto ${id}:`, error)
+    throw new Error(`Error al cargar el producto: ${error.message}`)
   }
 }
 
-// Consulta para obtener un producto por ID
-const GET_PRODUCT_BY_ID = `
-  query GetProductById($id: ID!) {
-    product(id: $id) {
-      id
-      title
-      description
-      handle
-      status
-      totalInventory
-      priceRange {
-        minVariantPrice {
-          amount
-          currencyCode
-        }
-        maxVariantPrice {
-          amount
-          currencyCode
-        }
-      }
-      images(first: 10) {
-        edges {
-          node {
-            id
-            url
-            altText
-          }
-        }
-      }
-      variants(first: 20) {
-        edges {
-          node {
-            id
-            title
-            price
-            inventoryQuantity
-          }
-        }
-      }
-      seo {
-        title
-        description
-      }
-    }
+// Función para verificar si una URL de imagen es válida para Shopify
+function isValidImageUrl(url) {
+  // Si es una URL de datos (base64), no es válida para Shopify
+  if (url && url.startsWith("data:")) {
+    console.warn("URL de imagen en formato base64 detectada. Shopify no acepta este formato.")
+    return false
   }
-`
 
-// Función para obtener un producto por ID
-export async function getProductById(id: string): Promise<Product | null> {
+  // Verificar si es una URL válida
   try {
-    const data = await shopifyFetch({
-      query: GET_PRODUCT_BY_ID,
-      variables: { id },
-    })
-
-    return data.product
-  } catch (error) {
-    console.error("Error al obtener el producto:", error)
-    throw error
+    new URL(url)
+    return true
+  } catch (e) {
+    console.warn("URL de imagen inválida:", url)
+    return false
   }
 }
 
-// Consulta para crear un producto
-const CREATE_PRODUCT = `
-  mutation productCreate($input: ProductInput!) {
-    productCreate(input: $input) {
-      product {
-        id
-        title
-        handle
-      }
-      userErrors {
-        field
-        message
-      }
-    }
-  }
-`
-
-// Función para crear un producto
-export async function createProduct(productData: {
-  title: string
-  description: string
-  variants: { price: string }[]
-  seo?: { title?: string; description?: string }
-}): Promise<any> {
+// Función para crear un nuevo producto
+export async function createProduct(productData) {
   try {
-    const data = await shopifyFetch({
-      query: CREATE_PRODUCT,
-      variables: {
-        input: productData,
-      },
-    })
+    // Verificar si la imagen es válida
+    const hasValidImage = productData.image && isValidImageUrl(productData.image)
 
-    if (data.productCreate.userErrors.length > 0) {
+    // Crear el producto sin imagen primero
+    const mutation = gql`
+      mutation CreateProduct($input: ProductInput!) {
+        productCreate(input: $input) {
+          product {
+            id
+            title
+            handle
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    // Preparar el input sin el campo images
+    const input = {
+      title: productData.title,
+      descriptionHtml: productData.description || "",
+      vendor: productData.vendor || "",
+      productType: productData.productType || "",
+      status: productData.status || "ACTIVE",
+      variants: [
+        {
+          price: productData.variants?.[0]?.price || productData.price || "0.00",
+          compareAtPrice: productData.variants?.[0]?.compareAtPrice || productData.compareAtPrice || null,
+          sku: productData.variants?.[0]?.sku || productData.sku || "",
+        },
+      ],
+      metafields: productData.metafields || [],
+    }
+
+    const variables = { input }
+    console.log("Enviando mutación para crear producto:", JSON.stringify(variables, null, 2))
+
+    const data = await shopifyClient.request(mutation, variables)
+
+    if (data.productCreate.userErrors && data.productCreate.userErrors.length > 0) {
       throw new Error(data.productCreate.userErrors[0].message)
     }
 
-    return data.productCreate.product
+    const createdProduct = {
+      id: data.productCreate.product.id,
+      numericId: data.productCreate.product.id.split("/").pop(),
+      title: data.productCreate.product.title,
+      handle: data.productCreate.product.handle,
+    }
+
+    // Si hay una imagen válida, intentar añadirla en una operación separada
+    if (hasValidImage) {
+      try {
+        await updateProductMedia(createdProduct.id, productData.image)
+      } catch (imageError) {
+        console.error("Error al añadir imagen, pero el producto se creó correctamente:", imageError)
+      }
+    }
+
+    return createdProduct
   } catch (error) {
     console.error("Error al crear el producto:", error)
-    throw error
+    throw new Error(`Error al crear el producto: ${error.message}`)
   }
 }
 
-// Consulta para actualizar un producto
-const UPDATE_PRODUCT = `
-  mutation productUpdate($input: ProductInput!) {
-    productUpdate(input: $input) {
-      product {
-        id
-        title
-        handle
-      }
-      userErrors {
-        field
-        message
-      }
-    }
-  }
-`
-
-// Función para actualizar un producto
-export async function updateProduct(
-  id: string,
-  productData: {
-    title?: string
-    description?: string
-    seo?: { title?: string; description?: string }
-  },
-): Promise<any> {
+// Función para actualizar la imagen de un producto
+export async function updateProductMedia(productId, imageUrl) {
   try {
-    const data = await shopifyFetch({
-      query: UPDATE_PRODUCT,
-      variables: {
-        input: {
-          id,
-          ...productData,
+    // Verificar si la imagen es válida
+    if (!isValidImageUrl(imageUrl)) {
+      throw new Error("La URL de la imagen no es válida. Shopify requiere una URL accesible públicamente.")
+    }
+
+    // Asegurarse de que el ID tenga el formato correcto
+    const formattedId = productId.includes("gid://shopify/Product/") ? productId : `gid://shopify/Product/${productId}`
+
+    const mutation = gql`
+      mutation UpdateProductWithMedia($input: ProductInput!) {
+        productUpdate(input: $input) {
+          product {
+            id
+            featuredImage {
+              id
+              url
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const variables = {
+      input: {
+        id: formattedId,
+        featuredImage: {
+          src: imageUrl,
         },
       },
-    })
+    }
 
-    if (data.productUpdate.userErrors.length > 0) {
+    console.log("Enviando mutación para actualizar imagen:", JSON.stringify(variables, null, 2))
+
+    const data = await shopifyClient.request(mutation, variables)
+
+    if (data.productUpdate.userErrors && data.productUpdate.userErrors.length > 0) {
       throw new Error(data.productUpdate.userErrors[0].message)
     }
 
-    return data.productUpdate.product
+    return data.productUpdate.product.featuredImage
   } catch (error) {
-    console.error("Error al actualizar el producto:", error)
-    throw error
+    console.error(`Error al actualizar la imagen del producto ${productId}:`, error)
+    throw new Error(`Error al actualizar la imagen del producto: ${error.message}`)
   }
 }
 
-// Consulta para eliminar un producto
-const DELETE_PRODUCT = `
-  mutation productDelete($input: ProductDeleteInput!) {
-    productDelete(input: $input) {
-      deletedProductId
-      userErrors {
-        field
-        message
+// Función para actualizar un producto
+export async function updateProduct(id, productData) {
+  try {
+    // Asegurarse de que el ID tenga el formato correcto
+    const formattedId = id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
+
+    // Verificar si la imagen es válida
+    const hasValidImage =
+      productData.image && productData.image !== productData.currentImage && isValidImageUrl(productData.image)
+
+    const mutation = gql`
+      mutation UpdateProduct($input: ProductInput!) {
+        productUpdate(input: $input) {
+          product {
+            id
+            title
+            handle
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    // Preparar el input sin el campo images
+    const input = {
+      id: formattedId,
+      title: productData.title,
+      descriptionHtml: productData.descriptionHtml || productData.description || "",
+      vendor: productData.vendor || "",
+      productType: productData.productType || "",
+      status: productData.status || "ACTIVE",
+      metafields: productData.metafields || [],
+    }
+
+    // Añadir variantes si se proporcionan, asegurándose de que compareAtPrice no sea una cadena vacía
+    if (productData.variants && productData.variants.length > 0) {
+      input.variants = productData.variants.map((variant) => {
+        const variantInput = {
+          id: variant.id,
+          price: variant.price,
+          sku: variant.sku || "",
+        }
+
+        // Solo incluir compareAtPrice si tiene un valor
+        if (variant.compareAtPrice && variant.compareAtPrice.trim() !== "") {
+          variantInput.compareAtPrice = variant.compareAtPrice
+        }
+
+        return variantInput
+      })
+    }
+
+    const variables = { input }
+    console.log("Enviando mutación para actualizar producto:", JSON.stringify(variables, null, 2))
+
+    const data = await shopifyClient.request(mutation, variables)
+
+    if (data.productUpdate.userErrors && data.productUpdate.userErrors.length > 0) {
+      throw new Error(data.productUpdate.userErrors[0].message)
+    }
+
+    const updatedProduct = {
+      id: data.productUpdate.product.id,
+      numericId: data.productUpdate.product.id.split("/").pop(),
+      title: data.productUpdate.product.title,
+      handle: data.productUpdate.product.handle,
+    }
+
+    // Si hay una imagen válida, intentar actualizarla en una operación separada
+    if (hasValidImage) {
+      try {
+        await updateProductMedia(updatedProduct.id, productData.image)
+      } catch (imageError) {
+        console.error("Error al actualizar la imagen, pero el producto se actualizó correctamente:", imageError)
       }
     }
+
+    return updatedProduct
+  } catch (error) {
+    console.error(`Error al actualizar el producto ${id}:`, error)
+    throw new Error(`Error al actualizar el producto: ${error.message}`)
   }
-`
+}
 
 // Función para eliminar un producto
-export async function deleteProduct(id: string): Promise<string | null> {
+export async function deleteProduct(id) {
   try {
-    const data = await shopifyFetch({
-      query: DELETE_PRODUCT,
-      variables: {
-        input: {
-          id,
-        },
-      },
-    })
+    // Asegurarse de que el ID tenga el formato correcto
+    const formattedId = id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
 
-    if (data.productDelete.userErrors.length > 0) {
+    const mutation = gql`
+      mutation DeleteProduct($input: ProductDeleteInput!) {
+        productDelete(input: $input) {
+          deletedProductId
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const variables = {
+      input: {
+        id: formattedId,
+      },
+    }
+
+    const data = await shopifyClient.request(mutation, variables)
+
+    if (data.productDelete.userErrors && data.productDelete.userErrors.length > 0) {
       throw new Error(data.productDelete.userErrors[0].message)
     }
 
-    return data.productDelete.deletedProductId
+    return {
+      id: data.productDelete.deletedProductId,
+    }
   } catch (error) {
-    console.error("Error al eliminar el producto:", error)
-    throw error
+    console.error(`Error al eliminar el producto ${id}:`, error)
+    throw new Error(`Error al eliminar el producto: ${error.message}`)
+  }
+}
+
+// Función para generar metafields SEO para un producto
+export function generateProductSeoMetafields(title, description) {
+  return [
+    {
+      namespace: "seo",
+      key: "title",
+      value: title,
+      type: "single_line_text_field",
+    },
+    {
+      namespace: "seo",
+      key: "description",
+      value: description || `Descubre ${title} en nuestra tienda. Calidad garantizada y envío rápido.`,
+      type: "multi_line_text_field",
+    },
+  ]
+}
+
+// Añadir funciones para gestionar productos en colecciones
+export async function addProductsToCollection(collectionId, productIds) {
+  try {
+    // Asegurarse de que el ID de la colección tenga el formato correcto
+    const isFullCollectionId = collectionId.includes("gid://shopify/Collection/")
+    const formattedCollectionId = isFullCollectionId ? collectionId : `gid://shopify/Collection/${collectionId}`
+
+    // Formatear los IDs de los productos
+    const formattedProductIds = productIds.map((id) => {
+      const isFullProductId = id.includes("gid://shopify/Product/")
+      return isFullProductId ? id : `gid://shopify/Product/${id}`
+    })
+
+    console.log(`Adding ${formattedProductIds.length} products to collection ${formattedCollectionId}`)
+
+    const mutation = gql`
+      mutation CollectionAddProducts($id: ID!, $productIds: [ID!]!) {
+        collectionAddProducts(id: $id, productIds: $productIds) {
+          collection {
+            id
+            title
+            productsCount
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const data = await shopifyClient.request(mutation, {
+      id: formattedCollectionId,
+      productIds: formattedProductIds,
+    })
+
+    if (data.collectionAddProducts.userErrors && data.collectionAddProducts.userErrors.length > 0) {
+      throw new Error(data.collectionAddProducts.userErrors[0].message)
+    }
+
+    console.log(
+      `Successfully added products to collection: ${data.collectionAddProducts.collection.title} (${data.collectionAddProducts.collection.productsCount} products)`,
+    )
+    return data.collectionAddProducts.collection
+  } catch (error) {
+    console.error(`Error adding products to collection ${collectionId}:`, error)
+    throw new Error(`Error al añadir productos a la colección: ${error.message}`)
+  }
+}
+
+export async function removeProductsFromCollection(collectionId, productIds) {
+  try {
+    // Asegurarse de que el ID de la colección tenga el formato correcto
+    const isFullCollectionId = collectionId.includes("gid://shopify/Collection/")
+    const formattedCollectionId = isFullCollectionId ? collectionId : `gid://shopify/Collection/${collectionId}`
+
+    // Formatear los IDs de los productos
+    const formattedProductIds = productIds.map((id) => {
+      const isFullProductId = id.includes("gid://shopify/Product/")
+      return isFullProductId ? id : `gid://shopify/Product/${id}`
+    })
+
+    console.log(`Removing ${formattedProductIds.length} products from collection ${formattedCollectionId}`)
+
+    const mutation = gql`
+      mutation CollectionRemoveProducts($id: ID!, $productIds: [ID!]!) {
+        collectionRemoveProducts(id: $id, productIds: $productIds) {
+          collection {
+            id
+            title
+            productsCount
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const data = await shopifyClient.request(mutation, {
+      id: formattedCollectionId,
+      productIds: formattedProductIds,
+    })
+
+    if (data.collectionRemoveProducts.userErrors && data.collectionRemoveProducts.userErrors.length > 0) {
+      throw new Error(data.collectionRemoveProducts.userErrors[0].message)
+    }
+
+    console.log(
+      `Successfully removed products from collection: ${data.collectionRemoveProducts.collection.title} (${data.collectionRemoveProducts.collection.productsCount} products)`,
+    )
+    return data.collectionRemoveProducts.collection
+  } catch (error) {
+    console.error(`Error removing products from collection ${collectionId}:`, error)
+    throw new Error(`Error al eliminar productos de la colección: ${error.message}`)
   }
 }
