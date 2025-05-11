@@ -186,7 +186,7 @@ export async function fetchOrders(filters: OrderFilter = {}) {
     }
   } catch (error) {
     console.error("Error fetching orders:", error)
-    return { orders: [], pageInfo: null }
+    throw new Error(`Error al cargar pedidos: ${(error as Error).message}`)
   }
 }
 
@@ -287,7 +287,7 @@ export async function fetchOrderById(id) {
 
     if (!data || !data.order) {
       console.error(`Pedido no encontrado: ${id}`)
-      return null
+      throw new Error(`Pedido no encontrado: ${id}`)
     }
 
     const order = data.order
@@ -347,7 +347,7 @@ export async function fetchOrderById(id) {
     }
   } catch (error) {
     console.error(`Error fetching order ${id}:`, error)
-    return null
+    throw new Error(`Error al cargar el pedido: ${(error as Error).message}`)
   }
 }
 
@@ -398,7 +398,7 @@ export async function updateOrder(id, data) {
     }
   } catch (error) {
     console.error(`Error updating order ${id}:`, error)
-    throw new Error(`Error al actualizar el pedido: ${error.message}`)
+    throw new Error(`Error al actualizar el pedido: ${(error as Error).message}`)
   }
 }
 
@@ -433,9 +433,8 @@ export async function fetchOrderTags() {
 // Función para obtener pedidos recientes
 export async function fetchRecentOrders(limit = 5) {
   try {
-    console.log(`Fetching ${limit} recent orders from Shopify...`)
+    console.log(`Fetching ${limit} recent orders...`)
 
-    // Usar directamente shopifyClient en lugar del proxy
     const query = gql`
       query GetRecentOrders($limit: Int!) {
         orders(first: $limit, sortKey: PROCESSED_AT, reverse: true) {
@@ -462,10 +461,6 @@ export async function fetchRecentOrders(limit = 5) {
                   node {
                     title
                     quantity
-                    originalTotalPrice {
-                      amount
-                      currencyCode
-                    }
                   }
                 }
               }
@@ -478,44 +473,38 @@ export async function fetchRecentOrders(limit = 5) {
     const data = await shopifyClient.request(query, { limit })
 
     if (!data || !data.orders || !data.orders.edges) {
-      console.warn("No se encontraron pedidos recientes o la respuesta está incompleta")
+      console.warn("No se encontraron pedidos recientes")
       return []
     }
 
-    // Transformar los datos de GraphQL a nuestro formato
-    const orders = data.orders.edges.map((edge) => {
-      const node = edge.node
-      return {
-        id: node.id.split("/").pop(),
-        orderNumber: node.name,
-        date: node.processedAt,
-        status: node.displayFinancialStatus,
-        fulfillmentStatus: node.displayFulfillmentStatus,
-        total: {
-          amount: node.totalPriceSet?.shopMoney?.amount || "0.00",
-          currencyCode: node.totalPriceSet?.shopMoney?.currencyCode || "EUR",
-        },
-        customer: node.customer
-          ? {
-              firstName: node.customer.firstName || "",
-              lastName: node.customer.lastName || "",
-              email: node.customer.email || "",
-            }
-          : null,
-        items: node.lineItems.edges.map((item) => ({
-          title: item.node.title,
-          quantity: item.node.quantity,
-          price: item.node.originalTotalPrice?.amount || "0.00",
-          currencyCode: item.node.originalTotalPrice?.currencyCode || "EUR",
-        })),
-      }
-    })
+    // Transformar los datos para la aplicación
+    const orders = data.orders.edges.map((edge) => ({
+      id: edge.node.id.split("/").pop(),
+      orderNumber: edge.node.name,
+      date: edge.node.processedAt,
+      status: edge.node.displayFinancialStatus,
+      fulfillmentStatus: edge.node.displayFulfillmentStatus,
+      total: {
+        amount: edge.node.totalPriceSet?.shopMoney?.amount || "0.00",
+        currencyCode: edge.node.totalPriceSet?.shopMoney?.currencyCode || "EUR",
+      },
+      customer: edge.node.customer
+        ? {
+            firstName: edge.node.customer.firstName || "",
+            lastName: edge.node.customer.lastName || "",
+            email: edge.node.customer.email || "",
+          }
+        : null,
+      items: edge.node.lineItems.edges.map((item) => ({
+        title: item.node.title,
+        quantity: item.node.quantity,
+      })),
+    }))
 
     console.log(`Successfully fetched ${orders.length} recent orders`)
     return orders
   } catch (error) {
-    console.error("Error en fetchRecentOrders:", error)
-    // Devolver un array vacío para evitar errores en la UI
-    return []
+    console.error("Error fetching recent orders:", error)
+    throw new Error(`Error al cargar pedidos recientes: ${(error as Error).message}`)
   }
 }

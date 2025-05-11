@@ -1,487 +1,291 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu"
-import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Search,
-  MoreHorizontal,
-  Eye,
-  Filter,
-  SortAsc,
-  SortDesc,
-  ChevronLeft,
-  ChevronRight,
-  Tag,
-  Download,
-  Printer,
-} from "lucide-react"
-import { fetchOrders, type OrderFilter } from "@/lib/api/orders"
-import { useToast } from "@/components/ui/use-toast"
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
+import { LoadingState } from "@/components/loading-state"
+import { fetchOrders } from "@/lib/api/orders"
 import { formatDate, formatCurrency } from "@/lib/utils"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-
-interface Order {
-  id: string
-  name: string
-  processedAt: string
-  fulfillmentStatus: string
-  financialStatus: string
-  totalPrice: string
-  customer: {
-    firstName: string
-    lastName: string
-    email?: string
-    phone?: string
-  }
-  tags: string[]
-  cursor: string
-}
-
-interface PageInfo {
-  hasNextPage: boolean
-  hasPreviousPage: boolean
-  startCursor: string
-  endCursor: string
-}
+import { Search } from "lucide-react"
 
 export default function OrdersPage() {
+  const { data: session } = useSession()
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const { toast } = useToast()
-  const [orders, setOrders] = useState<Order[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [pageInfo, setPageInfo] = useState<PageInfo | null>(null)
-  const [activeTab, setActiveTab] = useState("all")
-  const [filters, setFilters] = useState<OrderFilter>({
-    sortKey: "PROCESSED_AT",
-    reverse: true,
-    first: 20,
-  })
+  const [orders, setOrders] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [sortOrder, setSortOrder] = useState("desc")
+  const ordersPerPage = 10
 
-  // Cargar filtros desde URL
   useEffect(() => {
-    const query = searchParams.get("query") || ""
-    const status = searchParams.get("status") || "ANY"
-    const financialStatus = searchParams.get("financialStatus") || ""
-    const fulfillmentStatus = searchParams.get("fulfillmentStatus") || ""
-    const sortKey = searchParams.get("sortKey") || "PROCESSED_AT"
-    const reverse = searchParams.get("reverse") !== "false"
-    const cursor = searchParams.get("cursor") || ""
-    const tab = searchParams.get("tab") || "all"
+    const getOrdersList = async () => {
+      if (!session?.user) return
 
-    setSearchQuery(query)
-    setFilters({
-      query,
-      status: status as any,
-      financialStatus,
-      fulfillmentStatus,
-      sortKey: sortKey as any,
-      reverse,
-      cursor,
-      first: 20,
-    })
-    setActiveTab(tab)
-  }, [searchParams])
-
-  // Cargar pedidos
-  useEffect(() => {
-    const getOrders = async () => {
+      setLoading(true)
       try {
-        setIsLoading(true)
-        const { orders: fetchedOrders, pageInfo: fetchedPageInfo } = await fetchOrders(filters)
-        setOrders(fetchedOrders)
-        setPageInfo(fetchedPageInfo)
-      } catch (error) {
-        console.error("Error fetching orders:", error)
-        toast({
-          title: "Error",
-          description: "No se pudieron cargar los pedidos",
-          variant: "destructive",
-        })
+        // Construir filtros para la API de Shopify
+        const filters = {
+          sortKey: "PROCESSED_AT",
+          reverse: sortOrder === "desc",
+          first: 50, // Obtenemos más para filtrar en el cliente
+        }
+
+        // Añadir filtro de estado si es necesario
+        if (statusFilter !== "all") {
+          if (
+            statusFilter === "fulfilled" ||
+            statusFilter === "unfulfilled" ||
+            statusFilter === "partially_fulfilled"
+          ) {
+            filters.fulfillmentStatus = statusFilter.toUpperCase()
+          } else if (statusFilter === "paid" || statusFilter === "unpaid" || statusFilter === "refunded") {
+            filters.financialStatus = statusFilter.toUpperCase()
+          }
+        }
+
+        // Añadir búsqueda si hay término
+        if (searchTerm) {
+          filters.query = searchTerm
+        }
+
+        const response = await fetchOrders(filters)
+
+        if (response && response.orders) {
+          // Paginación en el cliente
+          const totalItems = response.orders.length
+          setTotalPages(Math.ceil(totalItems / ordersPerPage))
+
+          const startIndex = (currentPage - 1) * ordersPerPage
+          const paginatedOrders = response.orders.slice(startIndex, startIndex + ordersPerPage)
+
+          setOrders(paginatedOrders)
+          setError(null)
+        } else {
+          setOrders([])
+          setError("No se pudieron cargar los pedidos")
+        }
+      } catch (err) {
+        console.error("Error al cargar pedidos:", err)
+        setError("Error al cargar los pedidos: " + (err.message || "Intente nuevamente"))
+        setOrders([])
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
-    getOrders()
-  }, [filters, toast])
+    getOrdersList()
+  }, [session, currentPage, searchTerm, statusFilter, sortOrder])
 
-  // Actualizar URL con filtros
-  const updateUrlWithFilters = (newFilters: Partial<OrderFilter>, tab?: string) => {
-    const updatedFilters = { ...filters, ...newFilters }
-    const params = new URLSearchParams()
-
-    if (updatedFilters.query) params.set("query", updatedFilters.query)
-    if (updatedFilters.status && updatedFilters.status !== "ANY") params.set("status", updatedFilters.status)
-    if (updatedFilters.financialStatus) params.set("financialStatus", updatedFilters.financialStatus)
-    if (updatedFilters.fulfillmentStatus) params.set("fulfillmentStatus", updatedFilters.fulfillmentStatus)
-    if (updatedFilters.sortKey) params.set("sortKey", updatedFilters.sortKey)
-    if (updatedFilters.reverse !== undefined) params.set("reverse", updatedFilters.reverse.toString())
-    if (updatedFilters.cursor) params.set("cursor", updatedFilters.cursor)
-    if (tab) params.set("tab", tab)
-
-    router.push(`/dashboard/orders?${params.toString()}`)
+  const handlePageChange = (page) => {
+    setCurrentPage(page)
   }
 
-  // Manejar cambio de pestaña
-  const handleTabChange = (value: string) => {
-    setActiveTab(value)
+  const handleOrderClick = (orderId) => {
+    router.push(`/dashboard/orders/${orderId}`)
+  }
 
-    let fulfillmentStatus = ""
-    let financialStatus = ""
-
-    switch (value) {
-      case "unfulfilled":
-        fulfillmentStatus = "UNFULFILLED"
-        break
-      case "fulfilled":
-        fulfillmentStatus = "FULFILLED"
-        break
-      case "paid":
-        financialStatus = "PAID"
-        break
-      case "unpaid":
-        financialStatus = "UNPAID"
-        break
+  const getStatusBadge = (status) => {
+    const statusMap = {
+      FULFILLED: { label: "Completado", variant: "success" },
+      UNFULFILLED: { label: "Pendiente", variant: "warning" },
+      PARTIALLY_FULFILLED: { label: "Parcial", variant: "info" },
+      CANCELLED: { label: "Cancelado", variant: "destructive" },
+      REFUNDED: { label: "Reembolsado", variant: "secondary" },
+      PAID: { label: "Pagado", variant: "success" },
+      UNPAID: { label: "Sin pagar", variant: "destructive" },
+      PENDING: { label: "Pendiente", variant: "warning" },
     }
 
-    updateUrlWithFilters({ fulfillmentStatus, financialStatus, cursor: "" }, value)
+    const statusInfo = statusMap[status] || { label: status, variant: "default" }
+
+    return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
   }
 
-  // Manejar búsqueda
-  const handleSearch = () => {
-    updateUrlWithFilters({ query: searchQuery, cursor: "" })
-  }
-
-  // Manejar paginación
-  const handleNextPage = () => {
-    if (pageInfo?.hasNextPage) {
-      updateUrlWithFilters({ cursor: pageInfo.endCursor })
-    }
-  }
-
-  const handlePrevPage = () => {
-    if (pageInfo?.hasPreviousPage) {
-      updateUrlWithFilters({ cursor: pageInfo.startCursor })
-    }
-  }
-
-  // Manejar ordenación
-  const handleSort = (sortKey: string) => {
-    const newSortKey = sortKey as any
-    const newReverse = filters.sortKey === newSortKey ? !filters.reverse : true
-    updateUrlWithFilters({ sortKey: newSortKey, reverse: newReverse, cursor: "" })
-  }
-
-  // Obtener color de estado
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "FULFILLED":
-        return "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100"
-      case "UNFULFILLED":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100"
-      case "PARTIALLY_FULFILLED":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100"
-      case "PAID":
-        return "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100"
-      case "PENDING":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100"
-      case "REFUNDED":
-        return "bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100"
-      case "UNPAID":
-        return "bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100"
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100"
-    }
+  if (loading) {
+    return <LoadingState message="Cargando pedidos..." />
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Pedidos</h1>
-          <p className="text-muted-foreground">Gestiona los pedidos de tu tienda</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => window.print()}>
-            <Printer className="mr-2 h-4 w-4" />
-            Imprimir
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              // Implementar exportación a CSV
-              toast({
-                title: "Exportando pedidos",
-                description: "Los pedidos se están exportando a CSV",
-              })
-            }}
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Exportar
-          </Button>
+          <p className="text-muted-foreground">Gestiona los pedidos de tu tienda Shopify</p>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="all">Todos</TabsTrigger>
-          <TabsTrigger value="unfulfilled">Sin enviar</TabsTrigger>
-          <TabsTrigger value="fulfilled">Enviados</TabsTrigger>
-          <TabsTrigger value="paid">Pagados</TabsTrigger>
-          <TabsTrigger value="unpaid">Sin pagar</TabsTrigger>
-        </TabsList>
-
-        <Card>
-          <CardHeader className="p-4">
-            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder="Buscar pedidos..."
-                  className="pl-8"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                />
-              </div>
-
-              <div className="flex gap-2 flex-wrap">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <Filter className="mr-2 h-4 w-4" />
-                      Filtros
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuLabel>Estado del pedido</DropdownMenuLabel>
-                    <DropdownMenuItem onClick={() => updateUrlWithFilters({ status: "ANY", cursor: "" })}>
-                      Todos
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => updateUrlWithFilters({ status: "OPEN", cursor: "" })}>
-                      Abiertos
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => updateUrlWithFilters({ status: "CLOSED", cursor: "" })}>
-                      Cerrados
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => updateUrlWithFilters({ status: "CANCELLED", cursor: "" })}>
-                      Cancelados
-                    </DropdownMenuItem>
-
-                    <DropdownMenuSeparator />
-
-                    <DropdownMenuLabel>Estado de pago</DropdownMenuLabel>
-                    <DropdownMenuItem onClick={() => updateUrlWithFilters({ financialStatus: "PAID", cursor: "" })}>
-                      Pagados
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => updateUrlWithFilters({ financialStatus: "PENDING", cursor: "" })}>
-                      Pendientes
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => updateUrlWithFilters({ financialStatus: "REFUNDED", cursor: "" })}>
-                      Reembolsados
-                    </DropdownMenuItem>
-
-                    <DropdownMenuSeparator />
-
-                    <DropdownMenuLabel>Estado de envío</DropdownMenuLabel>
-                    <DropdownMenuItem
-                      onClick={() => updateUrlWithFilters({ fulfillmentStatus: "FULFILLED", cursor: "" })}
-                    >
-                      Enviados
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => updateUrlWithFilters({ fulfillmentStatus: "UNFULFILLED", cursor: "" })}
-                    >
-                      Sin enviar
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => updateUrlWithFilters({ fulfillmentStatus: "PARTIALLY_FULFILLED", cursor: "" })}
-                    >
-                      Parcialmente enviados
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      {filters.reverse ? <SortDesc className="mr-2 h-4 w-4" /> : <SortAsc className="mr-2 h-4 w-4" />}
-                      Ordenar
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleSort("PROCESSED_AT")}>
-                      Fecha de procesamiento
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleSort("UPDATED_AT")}>Última actualización</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleSort("TOTAL_PRICE")}>Precio total</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleSort("ID")}>Número de pedido</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <Button variant="default" size="sm" onClick={handleSearch}>
-                  Buscar
-                </Button>
-              </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Todos los pedidos</CardTitle>
+          <CardDescription>
+            {orders.length > 0 ? `Mostrando ${orders.length} pedidos` : "No se encontraron pedidos"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col md:flex-row gap-4 mb-6">
+            <div className="flex-1 relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por número o cliente..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8 w-full"
+              />
             </div>
-          </CardHeader>
+            <div className="w-full md:w-48">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los estados</SelectItem>
+                  <SelectItem value="fulfilled">Completados</SelectItem>
+                  <SelectItem value="unfulfilled">Pendientes</SelectItem>
+                  <SelectItem value="partially_fulfilled">Parciales</SelectItem>
+                  <SelectItem value="paid">Pagados</SelectItem>
+                  <SelectItem value="unpaid">Sin pagar</SelectItem>
+                  <SelectItem value="refunded">Reembolsados</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-full md:w-48">
+              <Select value={sortOrder} onValueChange={setSortOrder}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Ordenar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="desc">Más recientes primero</SelectItem>
+                  <SelectItem value="asc">Más antiguos primero</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="rounded-md">
+          {error && <div className="bg-red-50 text-red-700 p-4 rounded-md mb-4">{error}</div>}
+
+          {orders.length > 0 ? (
+            <>
+              <div className="rounded-md border overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Número</TableHead>
                       <TableHead>Fecha</TableHead>
                       <TableHead>Cliente</TableHead>
-                      <TableHead>Estado</TableHead>
                       <TableHead>Total</TableHead>
+                      <TableHead>Estado</TableHead>
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {[...Array(5)].map((_, i) => (
-                      <TableRow key={i}>
+                    {orders.map((order) => (
+                      <TableRow
+                        key={order.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => handleOrderClick(order.id)}
+                      >
+                        <TableCell className="font-medium">#{order.name}</TableCell>
+                        <TableCell>{formatDate(order.processedAt)}</TableCell>
                         <TableCell>
-                          <Skeleton className="h-4 w-16" />
+                          {order.customer
+                            ? `${order.customer.firstName} ${order.customer.lastName}`
+                            : "Cliente anónimo"}
                         </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-24" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-32" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-6 w-20" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-16" />
-                        </TableCell>
+                        <TableCell>{formatCurrency(order.totalPrice, order.currencyCode)}</TableCell>
+                        <TableCell>{getStatusBadge(order.fulfillmentStatus)}</TableCell>
                         <TableCell className="text-right">
-                          <Skeleton className="h-8 w-8 rounded-md ml-auto" />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleOrderClick(order.id)
+                            }}
+                          >
+                            Ver detalles
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
-            ) : (
-              <div className="rounded-md">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Número</TableHead>
-                      <TableHead>Fecha</TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead className="text-right">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {orders.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-6">
-                          No se encontraron pedidos
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      orders.map((order) => (
-                        <TableRow key={order.id}>
-                          <TableCell>
-                            <div className="font-medium">{order.name}</div>
-                          </TableCell>
-                          <TableCell>{formatDate(order.processedAt)}</TableCell>
-                          <TableCell>
-                            {order.customer ? (
-                              <div>
-                                <div>
-                                  {order.customer.firstName} {order.customer.lastName}
-                                </div>
-                                {order.customer.email && (
-                                  <div className="text-xs text-muted-foreground">{order.customer.email}</div>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">Sin cliente</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-col gap-1">
-                              <Badge className={getStatusColor(order.fulfillmentStatus)}>
-                                {order.fulfillmentStatus.replace("_", " ")}
-                              </Badge>
-                              <Badge className={getStatusColor(order.financialStatus)}>
-                                {order.financialStatus.replace("_", " ")}
-                              </Badge>
-                            </div>
-                          </TableCell>
-                          <TableCell>{formatCurrency(order.totalPrice)}</TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                  <span className="sr-only">Acciones</span>
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => router.push(`/dashboard/orders/${order.id}`)}>
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  Ver detalles
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => router.push(`/dashboard/orders/${order.id}/edit`)}>
-                                  <Tag className="mr-2 h-4 w-4" />
-                                  Editar etiquetas
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
 
-                {/* Paginación */}
-                {pageInfo && (
-                  <div className="flex items-center justify-between p-4 border-t">
-                    <div className="text-sm text-muted-foreground">Mostrando {orders.length} pedidos</div>
-                    <div className="flex items-center space-x-2">
-                      <Button variant="outline" size="sm" onClick={handlePrevPage} disabled={!pageInfo.hasPreviousPage}>
-                        <ChevronLeft className="h-4 w-4 mr-1" />
-                        Anterior
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={handleNextPage} disabled={!pageInfo.hasNextPage}>
-                        Siguiente
-                        <ChevronRight className="h-4 w-4 ml-1" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
+              <div className="mt-4 flex justify-center">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                        disabled={currentPage === 1}
+                      />
+                    </PaginationItem>
+
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum
+                      if (totalPages <= 5) {
+                        pageNum = i + 1
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i
+                      } else {
+                        pageNum = currentPage - 2 + i
+                      }
+
+                      return (
+                        <PaginationItem key={pageNum}>
+                          <PaginationLink isActive={currentPage === pageNum} onClick={() => handlePageChange(pageNum)}>
+                            {pageNum}
+                          </PaginationLink>
+                        </PaginationItem>
+                      )
+                    })}
+
+                    <PaginationItem>
+                      <PaginationNext
+                        onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                        disabled={currentPage === totalPages}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </Tabs>
+            </>
+          ) : !loading && !error ? (
+            <div className="text-center py-10">
+              <p className="text-muted-foreground mb-4">No se encontraron pedidos</p>
+              <Button
+                onClick={() => {
+                  setSearchTerm("")
+                  setStatusFilter("all")
+                  setSortOrder("desc")
+                }}
+              >
+                Limpiar filtros
+              </Button>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
     </div>
   )
 }

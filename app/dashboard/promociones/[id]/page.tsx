@@ -1,230 +1,123 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { fetchPriceListById, deletePriceList } from "@/lib/api/promociones"
-import type { Promocion } from "@/types/promotions"
-import {
-  ArrowLeft,
-  Calendar,
-  Tag,
-  Percent,
-  ShoppingBag,
-  Trash2,
-  Edit,
-  AlertTriangle,
-  RefreshCw,
-  Users,
-  Package,
-  AlertCircle,
-} from "lucide-react"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
+import { Separator } from "@/components/ui/separator"
+import { Switch } from "@/components/ui/switch"
+import { LoadingState } from "@/components/loading-state"
+import { getPromotionById, updatePromotion } from "@/lib/api/promotions"
+import { formatDate } from "@/lib/utils"
+import { ArrowLeft, ExternalLink, Edit, Trash, Copy } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Skeleton } from "@/components/ui/skeleton"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
 
-export default function PromotionDetailPage({ params }: { params: { id: string } }) {
+export default function PromocionDetailPage({ params }) {
+  const { id } = params
+  const { data: session } = useSession()
   const router = useRouter()
   const { toast } = useToast()
-  const [promotion, setPromotion] = useState<Promocion | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [promotion, setPromotion] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [updating, setUpdating] = useState(false)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    async function loadPromotion() {
-      try {
-        setIsLoading(true)
-        const data = await fetchPriceListById(params.id)
-        setPromotion(data)
+    const fetchPromotionDetails = async () => {
+      if (!session?.user || !id) return
 
-        // Si la promoción tiene un error, mostrarlo
-        if (data.error) {
-          setError(`No se pudo cargar la promoción correctamente: ${data.summary}`)
+      setLoading(true)
+      try {
+        const promotionData = await getPromotionById(id)
+        if (promotionData) {
+          setPromotion(promotionData)
         } else {
-          setError(null)
+          setError("No se pudo cargar la información de la promoción")
         }
       } catch (err) {
-        console.error("Error al cargar la promoción:", err)
-        setError(`No se pudo cargar la promoción: ${(err as Error).message}`)
+        console.error("Error al cargar detalles de la promoción:", err)
+        setError("Error al cargar los detalles de la promoción. Por favor, inténtalo de nuevo.")
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
-    loadPromotion()
-  }, [params.id])
+    fetchPromotionDetails()
+  }, [session, id])
 
-  const handleDelete = async () => {
-    try {
-      setIsDeleting(true)
-      await deletePriceList(params.id)
-      toast({
-        title: "Promoción eliminada",
-        description: "La promoción ha sido eliminada correctamente",
-      })
-      router.push("/dashboard/promociones")
-    } catch (error) {
-      console.error("Error deleting promotion:", error)
-      toast({
-        title: "Error",
-        description: `No se pudo eliminar la promoción: ${(error as Error).message}`,
-        variant: "destructive",
-      })
-      setIsDeleting(false)
-    }
-  }
-
-  const togglePromotionStatus = async () => {
+  const handleToggleStatus = async () => {
     if (!promotion) return
 
+    const newStatus = promotion.status === "active" ? "disabled" : "active"
+
+    setUpdating(true)
     try {
-      const now = new Date()
-      const isActive = promotion.status === "ACTIVE"
+      const updatedPromotion = await updatePromotion(promotion.id, {
+        status: newStatus,
+      })
 
-      // Si está activa, la desactivamos poniendo la fecha de fin en el pasado
-      // Si está inactiva, la activamos quitando la fecha de fin
-      const updateData = {
-        endDate: isActive ? new Date(now.getTime() - 86400000).toISOString() : undefined,
+      if (updatedPromotion) {
+        setPromotion(updatedPromotion)
+        toast({
+          title: "Promoción actualizada",
+          description: `La promoción ha sido ${newStatus === "active" ? "activada" : "desactivada"} correctamente.`,
+        })
+      } else {
+        throw new Error("No se pudo actualizar la promoción")
       }
-
-      // Actualizar el estado local para una respuesta inmediata
-      setPromotion({
-        ...promotion,
-        status: isActive ? "EXPIRED" : "ACTIVE",
-        endsAt: isActive ? new Date(now.getTime() - 86400000).toISOString() : undefined,
-      })
-
-      toast({
-        title: isActive ? "Promoción desactivada" : "Promoción activada",
-        description: isActive
-          ? "La promoción ha sido desactivada correctamente"
-          : "La promoción ha sido activada correctamente",
-      })
-    } catch (error) {
-      console.error("Error updating promotion status:", error)
+    } catch (err) {
+      console.error("Error al actualizar la promoción:", err)
       toast({
         title: "Error",
-        description: `No se pudo actualizar el estado de la promoción: ${(error as Error).message}`,
+        description: "No se pudo actualizar el estado de la promoción.",
         variant: "destructive",
       })
+    } finally {
+      setUpdating(false)
     }
   }
 
-  // Función para formatear el valor de la promoción
-  const formatPromotionValue = (promotion: Promocion) => {
-    if (promotion.valueType === "percentage") {
-      return `${promotion.value}% de descuento`
-    } else if (promotion.valueType === "fixed_amount") {
-      return `${promotion.value}€ de descuento`
-    } else if (promotion.type === "BUY_X_GET_Y") {
-      return `Compra ${promotion.conditions?.[0]?.value || "X"} y llévate ${promotion.value || "Y"}`
-    }
-    return `${promotion.value}`
+  const copyToClipboard = () => {
+    if (!promotion?.code) return
+
+    navigator.clipboard.writeText(promotion.code)
+    toast({
+      title: "Código copiado",
+      description: `El código ${promotion.code} ha sido copiado al portapapeles.`,
+    })
   }
 
-  // Función para obtener el icono según el tipo de promoción
-  const getPromotionIcon = (type: string) => {
-    switch (type) {
-      case "percentage":
-        return <Percent className="h-6 w-6 text-green-500" />
-      case "fixed_amount":
-        return <Tag className="h-6 w-6 text-blue-500" />
-      case "BUY_X_GET_Y":
-        return <ShoppingBag className="h-6 w-6 text-purple-500" />
-      default:
-        return <Tag className="h-6 w-6 text-gray-500" />
+  const getStatusBadge = (status) => {
+    const statusMap = {
+      active: { label: "Activa", variant: "success" },
+      scheduled: { label: "Programada", variant: "warning" },
+      expired: { label: "Expirada", variant: "destructive" },
+      disabled: { label: "Desactivada", variant: "secondary" },
     }
+
+    const statusInfo = statusMap[status] || { label: status, variant: "default" }
+
+    return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
   }
 
-  // Función para formatear el estado de la promoción
-  const getPromotionStatus = (promotion: Promocion) => {
-    const now = new Date()
-    const startDate = new Date(promotion.startsAt)
-    const endDate = promotion.endsAt ? new Date(promotion.endsAt) : null
-
-    if (promotion.status === "UNKNOWN") {
-      return { label: "Desconocido", color: "bg-gray-100 text-gray-800" }
-    } else if (startDate > now) {
-      return { label: "Próximamente", color: "bg-blue-100 text-blue-800" }
-    } else if (endDate && endDate < now) {
-      return { label: "Expirada", color: "bg-gray-100 text-gray-800" }
-    } else if (promotion.status !== "ACTIVE") {
-      return { label: "Inactiva", color: "bg-yellow-100 text-yellow-800" }
-    } else {
-      return { label: "Activa", color: "bg-green-100 text-green-800" }
-    }
-  }
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <Skeleton className="h-8 w-48" />
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          <Skeleton className="h-[400px] w-full" />
-          <div className="space-y-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-32 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-        </div>
-      </div>
-    )
+  if (loading) {
+    return <LoadingState message="Cargando detalles de la promoción..." />
   }
 
   if (error || !promotion) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <h1 className="text-3xl font-bold tracking-tight">Error</h1>
-        </div>
+      <div className="container mx-auto py-6">
+        <Button variant="ghost" onClick={() => router.back()} className="mb-6">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Volver
+        </Button>
 
-        <Card className="border-destructive">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              <CardTitle className="text-destructive">Error al cargar la promoción</CardTitle>
-            </div>
-            <CardDescription>
-              No se pudo cargar la información de la promoción. Es posible que la promoción haya sido eliminada o que no
-              tengas permisos para acceder a ella.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">{error}</p>
-            <div className="mt-4 flex gap-2">
-              <Button variant="outline" onClick={() => router.push("/dashboard/promociones")}>
-                Volver a promociones
-              </Button>
-              <Button onClick={() => window.location.reload()}>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Reintentar
-              </Button>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-10">
+              <p className="text-muted-foreground mb-4">{error || "No se encontró la promoción"}</p>
+              <Button onClick={() => router.push("/dashboard/promociones")}>Ver todas las promociones</Button>
             </div>
           </CardContent>
         </Card>
@@ -232,278 +125,267 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
     )
   }
 
-  const status = getPromotionStatus(promotion)
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4" />
-            <span className="sr-only">Volver</span>
+          <Button variant="ghost" onClick={() => router.back()}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Volver
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">{promotion.title}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{promotion.title || `Promoción: ${promotion.code}`}</h1>
+          {promotion.status && <div className="ml-2">{getStatusBadge(promotion.status)}</div>}
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant={promotion.status === "ACTIVE" ? "outline" : "default"}
-            onClick={togglePromotionStatus}
-            disabled={promotion.error}
-          >
-            {promotion.status === "ACTIVE" ? "Desactivar" : "Activar"}
+
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/promociones/${id}/edit`)}>
+            <Edit className="mr-2 h-4 w-4" /> Editar
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => router.push(`/dashboard/promociones/${params.id}/edit`)}
-            disabled={promotion.error}
-          >
-            <Edit className="mr-2 h-4 w-4" />
-            Editar
+          {promotion.adminUrl && (
+            <Button variant="outline" size="sm" asChild>
+              <a href={promotion.adminUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="mr-2 h-4 w-4" /> Ver en Shopify
+              </a>
+            </Button>
+          )}
+          <Button variant="destructive" size="sm">
+            <Trash className="mr-2 h-4 w-4" /> Eliminar
           </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" className="text-destructive" disabled={promotion.error}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Esta acción no se puede deshacer. Esto eliminará permanentemente la promoción.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleDelete}
-                  disabled={isDeleting}
-                  className="bg-destructive text-destructive-foreground"
-                >
-                  {isDeleting ? "Eliminando..." : "Eliminar"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              {getPromotionIcon(promotion.valueType)}
-              <span>Detalles de la promoción</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="font-medium">Estado:</span>
-              <Badge variant="outline" className={status.color}>
-                {status.label}
-              </Badge>
-            </div>
-
-            <div className="flex justify-between items-center">
-              <span className="font-medium">Tipo:</span>
-              <span>
-                {promotion.valueType === "percentage"
-                  ? "Descuento porcentual"
-                  : promotion.valueType === "fixed_amount"
-                    ? "Descuento de cantidad fija"
-                    : promotion.type === "BUY_X_GET_Y"
-                      ? "Compra X y llévate Y"
-                      : "Envío gratuito"}
-              </span>
-            </div>
-
-            <div className="flex justify-between items-center">
-              <span className="font-medium">Valor:</span>
-              <span className="font-bold">{formatPromotionValue(promotion)}</span>
-            </div>
-
-            <div className="flex justify-between items-center">
-              <span className="font-medium">Periodo:</span>
-              <span>
-                {format(new Date(promotion.startsAt), "dd MMM yyyy", { locale: es })}
-                {promotion.endsAt
-                  ? ` - ${format(new Date(promotion.endsAt), "dd MMM yyyy", { locale: es })}`
-                  : " - Sin fecha de fin"}
-              </span>
-            </div>
-
-            {promotion.code && (
-              <div className="flex justify-between items-center">
-                <span className="font-medium">Código:</span>
-                <Badge variant="secondary" className="text-lg font-mono">
-                  {promotion.code}
-                </Badge>
-              </div>
-            )}
-
-            {promotion.usageLimit && (
-              <div className="flex justify-between items-center">
-                <span className="font-medium">Límite de usos:</span>
-                <span>
-                  {promotion.usageCount || 0} / {promotion.usageLimit}
-                </span>
-              </div>
-            )}
-
-            {promotion.summary && (
-              <div className="pt-4 border-t">
-                <p className="text-sm text-muted-foreground">{promotion.summary}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Aplicación</CardTitle>
-            <CardDescription>Dónde y cómo se aplica esta promoción</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-2 p-4 bg-muted rounded-md">
-              {promotion.target === "COLLECTION" ? (
-                <Package className="h-5 w-5 text-blue-500" />
-              ) : promotion.target === "PRODUCT" ? (
-                <Package className="h-5 w-5 text-green-500" />
-              ) : (
-                <ShoppingBag className="h-5 w-5 text-purple-500" />
-              )}
-              <div>
-                <p className="font-medium">
-                  {promotion.target === "COLLECTION"
-                    ? "Aplicada a una colección"
-                    : promotion.target === "PRODUCT"
-                      ? "Aplicada a un producto"
-                      : "Aplicada a toda la tienda"}
-                </p>
-                {promotion.targetId && <p className="text-sm text-muted-foreground">ID: {promotion.targetId}</p>}
-              </div>
-            </div>
-
-            {promotion.conditions && promotion.conditions.length > 0 && (
-              <div>
-                <h3 className="text-sm font-medium mb-2">Condiciones:</h3>
-                <ul className="space-y-2">
-                  {promotion.conditions.map((condition, index) => (
-                    <li key={index} className="flex items-center gap-2 text-sm">
-                      <AlertCircle className="h-4 w-4 text-blue-500" />
-                      {condition.type === "MINIMUM_AMOUNT" && <span>Compra mínima de {condition.value}€</span>}
-                      {condition.type === "MINIMUM_QUANTITY" && (
-                        <span>Cantidad mínima de {condition.value} productos</span>
-                      )}
-                      {condition.type === "SPECIFIC_CUSTOMER_GROUP" && (
-                        <span>Solo para grupo de clientes específico</span>
-                      )}
-                      {condition.type === "DATE_RANGE" && (
-                        <span>
-                          Válido del {format(new Date(condition.value.start), "dd/MM/yyyy")} al{" "}
-                          {format(new Date(condition.value.end), "dd/MM/yyyy")}
-                        </span>
-                      )}
-                      {condition.type === "FIRST_PURCHASE" && <span>Solo para primera compra</span>}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <Alert className="mt-4">
-              <Calendar className="h-4 w-4" />
-              <AlertTitle>Información de uso</AlertTitle>
-              <AlertDescription>
-                Esta promoción ha sido utilizada {promotion.usageCount || 0} veces desde su creación.
-              </AlertDescription>
-            </Alert>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs defaultValue="products">
-        <TabsList>
-          <TabsTrigger value="products">Productos aplicables</TabsTrigger>
-          <TabsTrigger value="customers">Clientes elegibles</TabsTrigger>
-          <TabsTrigger value="analytics">Análisis de rendimiento</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="products" className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2 space-y-6">
+          {/* Detalles de la promoción */}
           <Card>
             <CardHeader>
-              <CardTitle>Productos con esta promoción</CardTitle>
-              <CardDescription>Lista de productos a los que se aplica esta promoción</CardDescription>
+              <CardTitle>Detalles de la promoción</CardTitle>
+              <CardDescription>Creada el {formatDate(promotion.createdAt)}</CardDescription>
             </CardHeader>
-            <CardContent>
-              {promotion.prices && promotion.prices.length > 0 ? (
-                <div className="space-y-2">
-                  {promotion.prices.map((price, index) => (
-                    <div key={index} className="flex justify-between items-center p-2 border-b">
-                      <span>{price.productTitle}</span>
-                      <span className="font-medium">
-                        {new Intl.NumberFormat("es-ES", {
-                          style: "currency",
-                          currency: price.price.currencyCode,
-                        }).format(Number(price.price.amount))}
-                      </span>
-                    </div>
-                  ))}
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Código</h3>
+                  <div className="flex items-center gap-2">
+                    <div className="font-mono bg-muted p-2 rounded-md">{promotion.code}</div>
+                    <Button variant="ghost" size="icon" onClick={copyToClipboard}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <Package className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-lg font-medium mb-2">No hay productos específicos</p>
-                  <p className="text-muted-foreground max-w-md">
-                    {promotion.target === "CART"
-                      ? "Esta promoción se aplica a todos los productos de la tienda que cumplan las condiciones."
-                      : "No hay productos específicos asociados a esta promoción."}
+
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Tipo de descuento</h3>
+                  <p className="font-medium">
+                    {promotion.type === "percentage"
+                      ? "Porcentaje"
+                      : promotion.type === "fixed_amount"
+                        ? "Importe fijo"
+                        : promotion.type === "free_shipping"
+                          ? "Envío gratis"
+                          : promotion.type}
                   </p>
                 </div>
+
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Valor del descuento</h3>
+                  <p className="font-medium">
+                    {promotion.type === "percentage"
+                      ? `${promotion.value}%`
+                      : promotion.type === "fixed_amount"
+                        ? `${promotion.value}€`
+                        : promotion.type === "free_shipping"
+                          ? "Envío gratis"
+                          : promotion.value}
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Usos</h3>
+                  <p className="font-medium">
+                    {promotion.usageCount || 0} / {promotion.usageLimit ? promotion.usageLimit : "∞"}
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-1">Periodo de validez</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Fecha de inicio</p>
+                    <p className="font-medium">{formatDate(promotion.startsAt)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Fecha de fin</p>
+                    <p className="font-medium">
+                      {promotion.endsAt ? formatDate(promotion.endsAt) : "Sin fecha de fin"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {promotion.minimumRequirement && (
+                <>
+                  <Separator />
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Requisitos mínimos</h3>
+                    <p className="font-medium">
+                      {promotion.minimumRequirement.type === "subtotal"
+                        ? `Subtotal mínimo: ${promotion.minimumRequirement.value}€`
+                        : promotion.minimumRequirement.type === "quantity"
+                          ? `Cantidad mínima: ${promotion.minimumRequirement.value} productos`
+                          : JSON.stringify(promotion.minimumRequirement)}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {promotion.customerEligibility && (
+                <>
+                  <Separator />
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Elegibilidad de clientes</h3>
+                    <p className="font-medium">
+                      {promotion.customerEligibility === "all"
+                        ? "Todos los clientes"
+                        : promotion.customerEligibility === "specific"
+                          ? "Clientes específicos"
+                          : promotion.customerEligibility}
+                    </p>
+                  </div>
+                </>
               )}
             </CardContent>
+            <CardFooter className="flex justify-between">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={promotion.status === "active"}
+                  onCheckedChange={handleToggleStatus}
+                  disabled={updating || promotion.status === "expired"}
+                />
+                <span>{promotion.status === "active" ? "Activa" : "Inactiva"}</span>
+              </div>
+            </CardFooter>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="customers" className="space-y-4">
+          {/* Descripción y condiciones */}
+          {(promotion.description || promotion.conditions) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Descripción y condiciones</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {promotion.description && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Descripción</h3>
+                    <p>{promotion.description}</p>
+                  </div>
+                )}
+
+                {promotion.conditions && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Condiciones</h3>
+                    <p>{promotion.conditions}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        <div className="space-y-6">
+          {/* Estadísticas */}
           <Card>
             <CardHeader>
-              <CardTitle>Clientes elegibles</CardTitle>
-              <CardDescription>Clientes que pueden utilizar esta promoción</CardDescription>
+              <CardTitle>Estadísticas</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <Users className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-lg font-medium mb-2">Disponible para todos los clientes</p>
-                <p className="text-muted-foreground max-w-md">
-                  {promotion.conditions && promotion.conditions.some((c) => c.type === "FIRST_PURCHASE")
-                    ? "Esta promoción está disponible solo para clientes que realizan su primera compra."
-                    : "Esta promoción está disponible para todos los clientes que cumplan con las condiciones establecidas."}
-                </p>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Usos totales</p>
+                  <p className="text-2xl font-bold">{promotion.usageCount || 0}</p>
+                </div>
+
+                {promotion.revenue !== undefined && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Ingresos generados</p>
+                    <p className="text-2xl font-bold">
+                      {new Intl.NumberFormat("es-ES", {
+                        style: "currency",
+                        currency: "EUR",
+                      }).format(promotion.revenue || 0)}
+                    </p>
+                  </div>
+                )}
+
+                {promotion.discountAmount !== undefined && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Descuento total aplicado</p>
+                    <p className="text-2xl font-bold">
+                      {new Intl.NumberFormat("es-ES", {
+                        style: "currency",
+                        currency: "EUR",
+                      }).format(promotion.discountAmount || 0)}
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="analytics" className="space-y-4">
+          {/* Aplicabilidad */}
           <Card>
             <CardHeader>
-              <CardTitle>Análisis de rendimiento</CardTitle>
-              <CardDescription>Estadísticas de uso y efectividad de la promoción</CardDescription>
+              <CardTitle>Aplicabilidad</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-lg font-medium mb-2">Análisis no disponible</p>
-                <p className="text-muted-foreground max-w-md">
-                  Las estadísticas detalladas de rendimiento estarán disponibles próximamente.
-                </p>
+              <div className="space-y-4">
+                {promotion.appliesTo && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Se aplica a</h3>
+                    <p className="font-medium">
+                      {promotion.appliesTo === "all_products"
+                        ? "Todos los productos"
+                        : promotion.appliesTo === "specific_products"
+                          ? "Productos específicos"
+                          : promotion.appliesTo === "specific_collections"
+                            ? "Colecciones específicas"
+                            : promotion.appliesTo}
+                    </p>
+                  </div>
+                )}
+
+                {promotion.targetSelection && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Selección de objetivo</h3>
+                    <p className="font-medium">
+                      {promotion.targetSelection === "all"
+                        ? "Todos los productos elegibles"
+                        : promotion.targetSelection === "entitled"
+                          ? "Productos específicos"
+                          : promotion.targetSelection}
+                    </p>
+                  </div>
+                )}
+
+                {promotion.allocationMethod && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Método de asignación</h3>
+                    <p className="font-medium">
+                      {promotion.allocationMethod === "each"
+                        ? "Cada uno"
+                        : promotion.allocationMethod === "across"
+                          ? "A través de todos"
+                          : promotion.allocationMethod}
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
     </div>
   )
 }

@@ -1,157 +1,145 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Skeleton } from "@/components/ui/skeleton"
-import { ArrowLeft, Printer, Download, Tag, Mail, Phone, MapPin } from "lucide-react"
-import { fetchOrderById } from "@/lib/api/orders"
-import { useToast } from "@/components/ui/use-toast"
-import { formatDate, formatCurrency } from "@/lib/utils"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { LoadingState } from "@/components/loading-state"
+import { getOrderById } from "@/lib/api/orders"
+import { formatDate } from "@/lib/utils"
+import { ArrowLeft, Printer, Mail, ExternalLink } from "lucide-react"
 
-export default function OrderDetailsPage({ params }: { params: { id: string } }) {
+export default function OrderDetailPage({ params }) {
+  const { id } = params
+  const { data: session } = useSession()
   const router = useRouter()
-  const { toast } = useToast()
-  const [order, setOrder] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [order, setOrder] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    const getOrder = async () => {
+    const fetchOrderDetails = async () => {
+      if (!session?.user || !id) return
+
+      setLoading(true)
       try {
-        setIsLoading(true)
-        const data = await fetchOrderById(params.id)
-        setOrder(data)
-      } catch (error) {
-        console.error("Error fetching order:", error)
-        toast({
-          title: "Error",
-          description: "No se pudo cargar el pedido",
-          variant: "destructive",
-        })
+        const orderData = await getOrderById(id)
+        if (orderData) {
+          setOrder(orderData)
+        } else {
+          setError("No se pudo cargar la información del pedido")
+        }
+      } catch (err) {
+        console.error("Error al cargar detalles del pedido:", err)
+        setError("Error al cargar los detalles del pedido. Por favor, inténtalo de nuevo.")
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
-    getOrder()
-  }, [params.id, toast])
+    fetchOrderDetails()
+  }, [session, id])
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "FULFILLED":
-        return "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100"
-      case "UNFULFILLED":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100"
-      case "PARTIALLY_FULFILLED":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100"
-      case "PAID":
-        return "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100"
-      case "PENDING":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100"
-      case "REFUNDED":
-        return "bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100"
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100"
+  const getStatusBadge = (status) => {
+    const statusMap = {
+      fulfilled: { label: "Completado", variant: "success" },
+      unfulfilled: { label: "Pendiente", variant: "warning" },
+      partially_fulfilled: { label: "Parcial", variant: "info" },
+      cancelled: { label: "Cancelado", variant: "destructive" },
+      refunded: { label: "Reembolsado", variant: "secondary" },
     }
+
+    const statusInfo = statusMap[status] || { label: status, variant: "default" }
+
+    return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+  }
+
+  const getPaymentStatusBadge = (status) => {
+    const statusMap = {
+      paid: { label: "Pagado", variant: "success" },
+      pending: { label: "Pendiente", variant: "warning" },
+      partially_paid: { label: "Pago parcial", variant: "info" },
+      refunded: { label: "Reembolsado", variant: "secondary" },
+      voided: { label: "Anulado", variant: "destructive" },
+    }
+
+    const statusInfo = statusMap[status] || { label: status, variant: "default" }
+
+    return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+  }
+
+  if (loading) {
+    return <LoadingState message="Cargando detalles del pedido..." />
+  }
+
+  if (error || !order) {
+    return (
+      <div className="container mx-auto py-6">
+        <Button variant="ghost" onClick={() => router.back()} className="mb-6">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Volver
+        </Button>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-10">
+              <p className="text-muted-foreground mb-4">{error || "No se encontró el pedido"}</p>
+              <Button onClick={() => router.push("/dashboard/orders")}>Ver todos los pedidos</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  const formatCurrency = (amount, currency = "EUR") => {
+    return new Intl.NumberFormat("es-ES", {
+      style: "currency",
+      currency: currency,
+    }).format(amount || 0)
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4" />
+          <Button variant="ghost" onClick={() => router.back()}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Volver
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              {isLoading ? <Skeleton className="h-9 w-32" /> : `Pedido ${order?.name}`}
-            </h1>
-            <p className="text-muted-foreground">
-              {isLoading ? <Skeleton className="h-5 w-48 mt-1" /> : `Realizado el ${formatDate(order?.processedAt)}`}
-            </p>
-          </div>
+          <h1 className="text-3xl font-bold tracking-tight">Pedido #{order.orderNumber || order.name}</h1>
+          {order.fulfillmentStatus && <div className="ml-2">{getStatusBadge(order.fulfillmentStatus)}</div>}
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => window.print()}>
-            <Printer className="mr-2 h-4 w-4" />
-            Imprimir
+
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm">
+            <Printer className="mr-2 h-4 w-4" /> Imprimir
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              // Implementar exportación a PDF
-              toast({
-                title: "Exportando pedido",
-                description: "El pedido se está exportando a PDF",
-              })
-            }}
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Exportar
+          <Button variant="outline" size="sm">
+            <Mail className="mr-2 h-4 w-4" /> Enviar email
           </Button>
-          <Button onClick={() => router.push(`/dashboard/orders/${params.id}/edit`)}>
-            <Tag className="mr-2 h-4 w-4" />
-            Editar
-          </Button>
+          {order.adminUrl && (
+            <Button variant="outline" size="sm" asChild>
+              <a href={order.adminUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="mr-2 h-4 w-4" /> Ver en Shopify
+              </a>
+            </Button>
+          )}
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="md:col-span-2">
-            <CardHeader>
-              <Skeleton className="h-7 w-40" />
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="flex justify-between">
-                    <Skeleton className="h-5 w-48" />
-                    <Skeleton className="h-5 w-24" />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2 space-y-6">
+          {/* Detalles del pedido */}
           <Card>
             <CardHeader>
-              <Skeleton className="h-7 w-32" />
+              <CardTitle>Detalles del pedido</CardTitle>
+              <CardDescription>Realizado el {formatDate(order.createdAt)}</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {[...Array(3)].map((_, i) => (
-                  <Skeleton key={i} className="h-5 w-full" />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 space-y-6">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle>Resumen del pedido</CardTitle>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  <Badge className={getStatusColor(order?.fulfillmentStatus)}>
-                    {order?.fulfillmentStatus.replace("_", " ")}
-                  </Badge>
-                  <Badge className={getStatusColor(order?.financialStatus)}>
-                    {order?.financialStatus.replace("_", " ")}
-                  </Badge>
-                  {order?.tags.map((tag: string) => (
-                    <Badge key={tag} variant="outline">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              </CardHeader>
-              <CardContent>
+              <div className="rounded-md border overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -162,233 +150,177 @@ export default function OrderDetailsPage({ params }: { params: { id: string } })
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {order?.items.map((item: any, index: number) => (
+                    {order.lineItems?.map((item, index) => (
                       <TableRow key={index}>
-                        <TableCell>{item.title}</TableCell>
+                        <TableCell>
+                          <div className="font-medium">{item.title}</div>
+                          {item.variant && (
+                            <div className="text-sm text-muted-foreground">
+                              {item.variant.title !== "Default Title" ? item.variant.title : ""}
+                            </div>
+                          )}
+                          {item.sku && <div className="text-xs text-muted-foreground">SKU: {item.sku}</div>}
+                        </TableCell>
                         <TableCell className="text-right">{item.quantity}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(item.price)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.price, order.currencyCode)}</TableCell>
                         <TableCell className="text-right">
-                          {formatCurrency(Number(item.price) * item.quantity)}
+                          {formatCurrency(item.price * item.quantity, order.currencyCode)}
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-
-                <div className="mt-6 space-y-2">
-                  <div className="flex justify-between">
-                    <span>Subtotal</span>
-                    <span>{formatCurrency(order?.subtotalPrice)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Envío</span>
-                    <span>{formatCurrency(order?.shippingPrice)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Impuestos</span>
-                    <span>{formatCurrency(order?.taxPrice)}</span>
-                  </div>
-                  <Separator />
-                  <div className="flex justify-between font-bold">
-                    <span>Total</span>
-                    <span>{formatCurrency(order?.totalPrice)}</span>
-                  </div>
+              </div>
+            </CardContent>
+            <CardFooter className="flex flex-col items-end pt-0">
+              <div className="w-full md:w-72 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Subtotal</span>
+                  <span>{formatCurrency(order.subtotalPrice, order.currencyCode)}</span>
                 </div>
-              </CardContent>
-            </Card>
 
-            <Tabs defaultValue="shipping">
-              <TabsList>
-                <TabsTrigger value="shipping">Dirección de envío</TabsTrigger>
-                <TabsTrigger value="billing">Dirección de facturación</TabsTrigger>
-                <TabsTrigger value="notes">Notas</TabsTrigger>
-              </TabsList>
+                {order.totalShippingPrice > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span>Envío</span>
+                    <span>{formatCurrency(order.totalShippingPrice, order.currencyCode)}</span>
+                  </div>
+                )}
 
-              <TabsContent value="shipping">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Dirección de envío</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {order?.shippingAddress ? (
-                      <div className="space-y-2">
-                        <div className="flex items-start gap-2">
-                          <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                          <div>
-                            <p>{order.shippingAddress.address1}</p>
-                            {order.shippingAddress.address2 && <p>{order.shippingAddress.address2}</p>}
-                            <p>
-                              {order.shippingAddress.city}, {order.shippingAddress.province} {order.shippingAddress.zip}
-                            </p>
-                            <p>{order.shippingAddress.country}</p>
-                          </div>
-                        </div>
-                        {order.shippingAddress.phone && (
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-4 w-4 text-muted-foreground" />
-                            <span>{order.shippingAddress.phone}</span>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground">No hay dirección de envío disponible</p>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                {order.totalDiscounts > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Descuentos</span>
+                    <span>-{formatCurrency(order.totalDiscounts, order.currencyCode)}</span>
+                  </div>
+                )}
 
-              <TabsContent value="billing">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Dirección de facturación</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {order?.billingAddress ? (
-                      <div className="space-y-2">
-                        <div className="flex items-start gap-2">
-                          <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                          <div>
-                            <p>{order.billingAddress.address1}</p>
-                            {order.billingAddress.address2 && <p>{order.billingAddress.address2}</p>}
-                            <p>
-                              {order.billingAddress.city}, {order.billingAddress.province} {order.billingAddress.zip}
-                            </p>
-                            <p>{order.billingAddress.country}</p>
-                          </div>
-                        </div>
-                        {order.billingAddress.phone && (
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-4 w-4 text-muted-foreground" />
-                            <span>{order.billingAddress.phone}</span>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground">No hay dirección de facturación disponible</p>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                {order.totalTax > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span>Impuestos</span>
+                    <span>{formatCurrency(order.totalTax, order.currencyCode)}</span>
+                  </div>
+                )}
 
-              <TabsContent value="notes">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Notas del pedido</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {order?.note ? (
-                      <div className="p-4 bg-muted rounded-md">
-                        <p>{order.note}</p>
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground">No hay notas para este pedido</p>
-                    )}
+                <Separator />
 
-                    {order?.customAttributes && order.customAttributes.length > 0 && (
-                      <div className="mt-4">
-                        <h4 className="font-medium mb-2">Atributos personalizados</h4>
-                        <div className="space-y-2">
-                          {order.customAttributes.map((attr: any, index: number) => (
-                            <div key={index} className="flex justify-between">
-                              <span className="font-medium">{attr.key}</span>
-                              <span>{attr.value}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </div>
+                <div className="flex justify-between font-medium">
+                  <span>Total</span>
+                  <span>{formatCurrency(order.totalPrice, order.currencyCode)}</span>
+                </div>
 
-          <div className="space-y-6">
+                <div className="flex justify-end">{getPaymentStatusBadge(order.financialStatus || "pending")}</div>
+              </div>
+            </CardFooter>
+          </Card>
+
+          {/* Notas y etiquetas */}
+          {(order.note || (order.tags && order.tags.length > 0)) && (
             <Card>
               <CardHeader>
-                <CardTitle>Cliente</CardTitle>
+                <CardTitle>Notas y etiquetas</CardTitle>
               </CardHeader>
               <CardContent>
-                {order?.customer ? (
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="font-medium text-lg">
-                        {order.customer.firstName} {order.customer.lastName}
-                      </h4>
-                    </div>
-
-                    {order.customer.email && (
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <a href={`mailto:${order.customer.email}`} className="text-primary hover:underline">
-                          {order.customer.email}
-                        </a>
-                      </div>
-                    )}
-
-                    {order.customer.phone && (
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        <a href={`tel:${order.customer.phone}`} className="text-primary hover:underline">
-                          {order.customer.phone}
-                        </a>
-                      </div>
-                    )}
-
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => router.push(`/dashboard/customers/${order.customer.id}`)}
-                    >
-                      Ver perfil del cliente
-                    </Button>
+                {order.note && (
+                  <div className="mb-4">
+                    <h3 className="font-medium mb-1">Nota del cliente:</h3>
+                    <p className="text-muted-foreground">{order.note}</p>
                   </div>
-                ) : (
-                  <p className="text-muted-foreground">No hay información del cliente disponible</p>
+                )}
+
+                {order.tags && order.tags.length > 0 && (
+                  <div>
+                    <h3 className="font-medium mb-1">Etiquetas:</h3>
+                    <div className="flex flex-wrap gap-1">
+                      {order.tags.map((tag, index) => (
+                        <Badge key={index} variant="outline">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </CardContent>
             </Card>
+          )}
+        </div>
 
+        <div className="space-y-6">
+          {/* Información del cliente */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Cliente</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {order.customer ? (
+                <>
+                  <div className="font-medium">
+                    {order.customer.firstName} {order.customer.lastName}
+                  </div>
+                  {order.customer.email && <div className="text-sm text-muted-foreground">{order.customer.email}</div>}
+                  {order.customer.phone && <div className="text-sm text-muted-foreground">{order.customer.phone}</div>}
+
+                  <Button
+                    variant="link"
+                    className="p-0 h-auto mt-2"
+                    onClick={() => router.push(`/dashboard/customers/${order.customer.id}`)}
+                  >
+                    Ver perfil del cliente
+                  </Button>
+                </>
+              ) : (
+                <p className="text-muted-foreground">Cliente no registrado</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Dirección de envío */}
+          {order.shippingAddress && (
             <Card>
               <CardHeader>
-                <CardTitle>Cronología</CardTitle>
-                <CardDescription>Historial del pedido</CardDescription>
+                <CardTitle>Dirección de envío</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-start gap-2">
-                    <div className="h-2 w-2 rounded-full bg-primary mt-2" />
-                    <div>
-                      <p className="font-medium">Pedido creado</p>
-                      <p className="text-sm text-muted-foreground">{formatDate(order?.processedAt)}</p>
-                    </div>
+                <div className="space-y-1">
+                  <div className="font-medium">
+                    {order.shippingAddress.firstName} {order.shippingAddress.lastName}
                   </div>
-
-                  {order?.financialStatus === "PAID" && (
-                    <div className="flex items-start gap-2">
-                      <div className="h-2 w-2 rounded-full bg-green-500 mt-2" />
-                      <div>
-                        <p className="font-medium">Pago recibido</p>
-                        <p className="text-sm text-muted-foreground">{formatDate(order?.processedAt)}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {order?.fulfillmentStatus === "FULFILLED" && (
-                    <div className="flex items-start gap-2">
-                      <div className="h-2 w-2 rounded-full bg-green-500 mt-2" />
-                      <div>
-                        <p className="font-medium">Pedido enviado</p>
-                        <p className="text-sm text-muted-foreground">{formatDate(order?.processedAt)}</p>
-                      </div>
-                    </div>
-                  )}
+                  {order.shippingAddress.address1 && <div className="text-sm">{order.shippingAddress.address1}</div>}
+                  {order.shippingAddress.address2 && <div className="text-sm">{order.shippingAddress.address2}</div>}
+                  <div className="text-sm">
+                    {order.shippingAddress.zip}, {order.shippingAddress.city}
+                  </div>
+                  {order.shippingAddress.province && <div className="text-sm">{order.shippingAddress.province}</div>}
+                  <div className="text-sm">{order.shippingAddress.country}</div>
+                  {order.shippingAddress.phone && <div className="text-sm">{order.shippingAddress.phone}</div>}
                 </div>
               </CardContent>
             </Card>
-          </div>
+          )}
+
+          {/* Dirección de facturación */}
+          {order.billingAddress && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Dirección de facturación</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-1">
+                  <div className="font-medium">
+                    {order.billingAddress.firstName} {order.billingAddress.lastName}
+                  </div>
+                  {order.billingAddress.address1 && <div className="text-sm">{order.billingAddress.address1}</div>}
+                  {order.billingAddress.address2 && <div className="text-sm">{order.billingAddress.address2}</div>}
+                  <div className="text-sm">
+                    {order.billingAddress.zip}, {order.billingAddress.city}
+                  </div>
+                  {order.billingAddress.province && <div className="text-sm">{order.billingAddress.province}</div>}
+                  <div className="text-sm">{order.billingAddress.country}</div>
+                  {order.billingAddress.phone && <div className="text-sm">{order.billingAddress.phone}</div>}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }

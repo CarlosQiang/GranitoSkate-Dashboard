@@ -24,8 +24,8 @@ export async function fetchCustomers(limit = 50) {
 
     // Consulta actualizada según la documentación actual de Shopify Admin API 2023-07
     const query = gql`
-      query {
-        customers(first: ${limit}) {
+      query GetCustomers($limit: Int!) {
+        customers(first: $limit) {
           edges {
             node {
               id
@@ -46,14 +46,14 @@ export async function fetchCustomers(limit = 50) {
       }
     `
 
-    const data = await shopifyClient.request(query)
+    const data = await shopifyClient.request(query, { limit })
 
     if (!data || !data.customers || !data.customers.edges) {
       console.warn("No se encontraron clientes o la respuesta está incompleta")
       return []
     }
 
-    const customers = data.customers.edges.map((edge: any) => ({
+    const customers = data.customers.edges.map((edge) => ({
       id: edge.node.id.split("/").pop(),
       firstName: edge.node.firstName || "",
       lastName: edge.node.lastName || "",
@@ -79,12 +79,11 @@ export async function fetchCustomers(limit = 50) {
     return customers
   } catch (error) {
     console.error("Error fetching customers:", error)
-    // Devolver un array vacío para evitar errores en la UI
-    return []
+    throw new Error(`Error al cargar clientes: ${(error as Error).message}`)
   }
 }
 
-export async function fetchCustomerById(id: string) {
+export async function fetchCustomerById(id) {
   try {
     // Formatear el ID correctamente
     let formattedId = id
@@ -92,10 +91,12 @@ export async function fetchCustomerById(id: string) {
       formattedId = `gid://shopify/Customer/${id}`
     }
 
+    console.log(`Fetching customer with ID: ${formattedId}`)
+
     // Consulta actualizada según la documentación actual de Shopify Admin API 2023-07
     const query = gql`
-      query {
-        customer(id: "${formattedId}") {
+      query GetCustomerById($id: ID!) {
+        customer(id: $id) {
           id
           displayName
           firstName
@@ -149,7 +150,7 @@ export async function fetchCustomerById(id: string) {
       }
     `
 
-    const data = await shopifyClient.request(query)
+    const data = await shopifyClient.request(query, { id: formattedId })
 
     if (!data || !data.customer) {
       throw new Error(`Cliente no encontrado: ${id}`)
@@ -164,12 +165,12 @@ export async function fetchCustomerById(id: string) {
         `${data.customer.firstName || ""} ${data.customer.lastName || ""}`.trim() ||
         "Cliente sin nombre",
       addresses:
-        data.customer.addresses?.edges?.map((edge: any) => ({
+        data.customer.addresses?.edges?.map((edge) => ({
           ...edge.node,
           id: edge.node.id.split("/").pop(),
         })) || [],
       orders:
-        data.customer.orders?.edges?.map((edge: any) => ({
+        data.customer.orders?.edges?.map((edge) => ({
           ...edge.node,
           id: edge.node.id.split("/").pop(),
         })) || [],
@@ -178,29 +179,16 @@ export async function fetchCustomerById(id: string) {
     return customer
   } catch (error) {
     console.error(`Error fetching customer ${id}:`, error)
-    // En lugar de lanzar un error, devolvemos un objeto con información de error
-    // para que la UI pueda manejarlo adecuadamente
-    return {
-      id: id,
-      error: true,
-      errorMessage: `Error al cargar cliente: ${(error as Error).message}`,
-      firstName: "",
-      lastName: "",
-      displayName: "Cliente no encontrado",
-      email: "",
-      phone: "",
-      addresses: [],
-      orders: [],
-    }
+    throw new Error(`Error al cargar cliente: ${(error as Error).message}`)
   }
 }
 
-export async function searchCustomers(searchTerm: string, limit = 20) {
+export async function searchCustomers(searchTerm, limit = 20) {
   try {
     // Consulta para buscar clientes
     const query = gql`
-      query {
-        customers(first: ${limit}, query: "${searchTerm}") {
+      query SearchCustomers($searchTerm: String!, $limit: Int!) {
+        customers(first: $limit, query: $searchTerm) {
           edges {
             node {
               id
@@ -221,13 +209,13 @@ export async function searchCustomers(searchTerm: string, limit = 20) {
       }
     `
 
-    const data = await shopifyClient.request(query)
+    const data = await shopifyClient.request(query, { searchTerm, limit })
 
     if (!data || !data.customers || !data.customers.edges) {
       return []
     }
 
-    return data.customers.edges.map((edge: any) => ({
+    return data.customers.edges.map((edge) => ({
       id: edge.node.id.split("/").pop(),
       firstName: edge.node.firstName || "",
       lastName: edge.node.lastName || "",
@@ -246,12 +234,12 @@ export async function searchCustomers(searchTerm: string, limit = 20) {
     }))
   } catch (error) {
     console.error("Error searching customers:", error)
-    return []
+    throw new Error(`Error al buscar clientes: ${(error as Error).message}`)
   }
 }
 
 // Funciones para gestión de clientes
-export async function updateCustomer(id: string, customerData: any) {
+export async function updateCustomer(id, customerData) {
   try {
     // Formatear el ID correctamente
     let formattedId = id
@@ -307,7 +295,7 @@ export async function updateCustomer(id: string, customerData: any) {
   }
 }
 
-export async function createCustomer(customerData: any) {
+export async function createCustomer(customerData) {
   try {
     const mutation = gql`
       mutation customerCreate($input: CustomerInput!) {
@@ -356,7 +344,7 @@ export async function createCustomer(customerData: any) {
   }
 }
 
-export async function deleteCustomer(id: string) {
+export async function deleteCustomer(id) {
   try {
     // Formatear el ID correctamente
     let formattedId = id
@@ -394,7 +382,7 @@ export async function deleteCustomer(id: string) {
 }
 
 // Funciones para gestionar direcciones de clientes
-export async function addCustomerAddress(customerId: string, addressData: any) {
+export async function addCustomerAddress(customerId, addressData) {
   try {
     // Formatear el ID correctamente
     let formattedId = customerId
@@ -445,7 +433,7 @@ export async function addCustomerAddress(customerId: string, addressData: any) {
   }
 }
 
-export async function deleteCustomerAddress(customerId: string, addressId: string) {
+export async function deleteCustomerAddress(customerId, addressId) {
   try {
     // Formatear los IDs correctamente
     let formattedCustomerId = customerId
@@ -488,7 +476,7 @@ export async function deleteCustomerAddress(customerId: string, addressId: strin
   }
 }
 
-export async function setDefaultCustomerAddress(customerId: string, addressId: string) {
+export async function setDefaultCustomerAddress(customerId, addressId) {
   try {
     // Formatear los IDs correctamente
     let formattedCustomerId = customerId
