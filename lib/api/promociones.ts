@@ -8,4 +8,5 @@ export const eliminarPromocion = deletePromotion
 export const actualizarPromocion = updatePromotion
 
 // Alias para compatibilidad
-export { fetchPromotions, fetchPromotionById, createPromotion, deletePromotion, updatePromotion }
+export const obtenerListasPrecios = fetchPromotions
+export const eliminarListaPrecio = eliminarPromocion

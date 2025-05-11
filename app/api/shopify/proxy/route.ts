@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         query,
-        variables,
+        variables: variables || {},
       }),
     })
 
