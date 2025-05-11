@@ -15,40 +15,81 @@ interface FormularioValorPromocionProps {
 }
 
 export function FormularioValorPromocion({ tipo, valor, onChange }: FormularioValorPromocionProps) {
-  const [valorSlider, setValorSlider] = useState<number>(Number(valor) || 0)
+  // Establecer un valor predeterminado válido según el tipo
+  const getValorPredeterminado = () => {
+    switch (tipo) {
+      case "PORCENTAJE_DESCUENTO":
+        return "10"
+      case "CANTIDAD_FIJA":
+        return "5"
+      case "COMPRA_X_LLEVA_Y":
+        return "1"
+      case "ENVIO_GRATIS":
+        return "50"
+      default:
+        return "10"
+    }
+  }
+
+  // Inicializar con un valor válido si no hay uno
+  const valorInicial = valor && Number.parseFloat(valor) > 0 ? valor : getValorPredeterminado()
+
+  const [valorSlider, setValorSlider] = useState<number>(Number.parseFloat(valorInicial))
+  const [valorInput, setValorInput] = useState<string>(valorInicial)
   const [error, setError] = useState<string | null>(null)
 
+  // Actualizar el valor cuando cambia el tipo
   useEffect(() => {
-    // Actualizar slider cuando el valor cambia externamente
-    setValorSlider(Number(valor) || 0)
+    if (!valor || Number.parseFloat(valor) <= 0) {
+      const nuevoValor = getValorPredeterminado()
+      setValorInput(nuevoValor)
+      setValorSlider(Number.parseFloat(nuevoValor))
+      onChange(nuevoValor)
+    }
+  }, [tipo])
+
+  // Actualizar slider cuando el valor cambia externamente
+  useEffect(() => {
+    if (valor && Number.parseFloat(valor) > 0) {
+      setValorInput(valor)
+      setValorSlider(Number.parseFloat(valor))
+    } else {
+      const nuevoValor = getValorPredeterminado()
+      setValorInput(nuevoValor)
+      setValorSlider(Number.parseFloat(nuevoValor))
+      onChange(nuevoValor)
+    }
   }, [valor])
 
   const handleSliderChange = (nuevoValor: number[]) => {
     const value = nuevoValor[0]
     setValorSlider(value)
+    const valueStr = value.toString()
+    setValorInput(valueStr)
 
     // Validar que el valor sea mayor que cero
     if (value <= 0) {
       setError("El valor debe ser mayor que cero")
     } else {
       setError(null)
-      onChange(value.toString())
+      onChange(valueStr)
     }
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const nuevoValor = e.target.value
-    const numericValue = Number(nuevoValor)
+    setValorInput(nuevoValor)
+
+    const numericValue = Number.parseFloat(nuevoValor)
 
     // Validar que el valor sea mayor que cero
-    if (numericValue <= 0) {
+    if (isNaN(numericValue) || numericValue <= 0) {
       setError("El valor debe ser mayor que cero")
     } else {
       setError(null)
+      setValorSlider(numericValue)
+      onChange(nuevoValor)
     }
-
-    onChange(nuevoValor)
-    setValorSlider(numericValue || 0)
   }
 
   const getValorMaximo = () => {
@@ -164,12 +205,13 @@ export function FormularioValorPromocion({ tipo, valor, onChange }: FormularioVa
               <Input
                 id="valor-descuento"
                 type="number"
-                value={valor}
+                value={valorInput}
                 onChange={handleInputChange}
                 min={1} // Mínimo valor es 1 para evitar errores
                 max={getValorMaximo()}
                 step={tipo === "CANTIDAD_FIJA" ? "0.01" : "1"}
                 className={`w-full ${error ? "border-red-500" : ""}`}
+                autoComplete="off"
               />
               <span className="ml-2">{getSufijoValor()}</span>
             </div>
