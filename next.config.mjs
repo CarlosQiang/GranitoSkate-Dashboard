@@ -1,8 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  swcMinify: true,
   images: {
-    domains: ['cdn.shopify.com'],
+    domains: ['cdn.shopify.com', 'burst.shopifycdn.com'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -11,25 +12,30 @@ const nextConfig = {
     ],
     unoptimized: true,
   },
-  // Optimizaciones para producción
-  poweredByHeader: false,
-  // Configuración para Vercel
-  env: {
-    NEXT_PUBLIC_VERCEL_URL: process.env.VERCEL_URL,
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Credentials', value: 'true' },
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET,OPTIONS,PATCH,DELETE,POST,PUT' },
+          { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version' },
+        ],
+      },
+    ]
   },
-  // Ignorar errores de ESLint y TypeScript durante la compilación para evitar fallos en el despliegue
+  // Configuración para optimizar el despliegue
+  output: 'standalone',
+  poweredByHeader: false,
+  compress: true,
+  productionBrowserSourceMaps: false,
   eslint: {
     ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Optimización de compilación
-  compiler: {
-    removeConsole: process.env.NODE_ENV === 'production' ? {
-      exclude: ['error', 'warn'],
-    } : false,
-  },
-};
+}
 
-export default nextConfig;
+export default nextConfig

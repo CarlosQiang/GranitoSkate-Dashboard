@@ -22,31 +22,24 @@ export async function fetchCustomers(limit = 50) {
 
     console.log(`Fetching ${limit} customers from Shopify...`)
 
-    // Consulta actualizada según la documentación actual de Shopify
+    // Consulta actualizada según la documentación actual de Shopify Admin API 2023-07
     const query = gql`
-      query CustomerList {
+      query {
         customers(first: ${limit}) {
-          nodes {
-            id
-            firstName
-            lastName
-            email
-            phone
-            numberOfOrders
-            amountSpent {
-              amount
-              currencyCode
-            }
-            createdAt
-            updatedAt
-            defaultAddress {
+          edges {
+            node {
               id
-              address1
-              city
-              province
-              country
-              zip
+              displayName
+              firstName
+              lastName
+              email
               phone
+              ordersCount
+              totalSpent
+              createdAt
+              updatedAt
+              tags
+              verifiedEmail
             }
           }
         }
@@ -55,23 +48,27 @@ export async function fetchCustomers(limit = 50) {
 
     const data = await shopifyClient.request(query)
 
-    if (!data || !data.customers || !data.customers.nodes) {
+    if (!data || !data.customers || !data.customers.edges) {
       console.warn("No se encontraron clientes o la respuesta está incompleta")
       return []
     }
 
-    const customers = data.customers.nodes.map((node: any) => ({
-      id: node.id.split("/").pop(),
-      firstName: node.firstName || "",
-      lastName: node.lastName || "",
-      email: node.email || "",
-      phone: node.phone || null,
-      ordersCount: node.numberOfOrders || 0,
-      totalSpent: {
-        amount: node.amountSpent?.amount || "0",
-        currencyCode: node.amountSpent?.currencyCode || "EUR",
-      },
-      createdAt: node.createdAt || new Date().toISOString(),
+    const customers = data.customers.edges.map((edge: any) => ({
+      id: edge.node.id.split("/").pop(),
+      firstName: edge.node.firstName || "",
+      lastName: edge.node.lastName || "",
+      displayName:
+        edge.node.displayName ||
+        `${edge.node.firstName || ""} ${edge.node.lastName || ""}`.trim() ||
+        "Cliente sin nombre",
+      email: edge.node.email || "",
+      phone: edge.node.phone || null,
+      ordersCount: edge.node.ordersCount || 0,
+      totalSpent: edge.node.totalSpent || "0",
+      createdAt: edge.node.createdAt || new Date().toISOString(),
+      updatedAt: edge.node.updatedAt || new Date().toISOString(),
+      tags: edge.node.tags || [],
+      verifiedEmail: edge.node.verifiedEmail || false,
     }))
 
     // Update cache
@@ -95,21 +92,23 @@ export async function fetchCustomerById(id: string) {
       formattedId = `gid://shopify/Customer/${id}`
     }
 
+    // Consulta actualizada según la documentación actual de Shopify Admin API 2023-07
     const query = gql`
       query {
         customer(id: "${formattedId}") {
           id
+          displayName
           firstName
           lastName
           email
           phone
           acceptsMarketing
           createdAt
-          numberOfOrders
-          amountSpent {
-            amount
-            currencyCode
-          }
+          updatedAt
+          ordersCount
+          totalSpent
+          tags
+          verifiedEmail
           defaultAddress {
             id
             address1
@@ -120,15 +119,31 @@ export async function fetchCustomerById(id: string) {
             country
             phone
           }
-          addresses {
-            id
-            address1
-            address2
-            city
-            province
-            zip
-            country
-            phone
+          addresses(first: 5) {
+            edges {
+              node {
+                id
+                address1
+                address2
+                city
+                province
+                zip
+                country
+                phone
+              }
+            }
+          }
+          orders(first: 5) {
+            edges {
+              node {
+                id
+                name
+                processedAt
+                totalPrice
+                financialStatus
+                fulfillmentStatus
+              }
+            }
           }
         }
       }
@@ -140,18 +155,43 @@ export async function fetchCustomerById(id: string) {
       throw new Error(`Cliente no encontrado: ${id}`)
     }
 
-    return {
+    // Transformar los datos para que sean más fáciles de usar
+    const customer = {
       ...data.customer,
       id: data.customer.id.split("/").pop(),
-      ordersCount: data.customer.numberOfOrders || 0,
-      totalSpent: {
-        amount: data.customer.amountSpent?.amount || "0",
-        currencyCode: data.customer.amountSpent?.currencyCode || "EUR",
-      },
+      displayName:
+        data.customer.displayName ||
+        `${data.customer.firstName || ""} ${data.customer.lastName || ""}`.trim() ||
+        "Cliente sin nombre",
+      addresses:
+        data.customer.addresses?.edges?.map((edge: any) => ({
+          ...edge.node,
+          id: edge.node.id.split("/").pop(),
+        })) || [],
+      orders:
+        data.customer.orders?.edges?.map((edge: any) => ({
+          ...edge.node,
+          id: edge.node.id.split("/").pop(),
+        })) || [],
     }
+
+    return customer
   } catch (error) {
     console.error(`Error fetching customer ${id}:`, error)
-    throw new Error(`Error al cargar cliente: ${(error as Error).message}`)
+    // En lugar de lanzar un error, devolvemos un objeto con información de error
+    // para que la UI pueda manejarlo adecuadamente
+    return {
+      id: id,
+      error: true,
+      errorMessage: `Error al cargar cliente: ${(error as Error).message}`,
+      firstName: "",
+      lastName: "",
+      displayName: "Cliente no encontrado",
+      email: "",
+      phone: "",
+      addresses: [],
+      orders: [],
+    }
   }
 }
 
@@ -161,18 +201,21 @@ export async function searchCustomers(searchTerm: string, limit = 20) {
     const query = gql`
       query {
         customers(first: ${limit}, query: "${searchTerm}") {
-          nodes {
-            id
-            firstName
-            lastName
-            email
-            phone
-            numberOfOrders
-            amountSpent {
-              amount
-              currencyCode
+          edges {
+            node {
+              id
+              displayName
+              firstName
+              lastName
+              email
+              phone
+              ordersCount
+              totalSpent
+              createdAt
+              updatedAt
+              tags
+              verifiedEmail
             }
-            createdAt
           }
         }
       }
@@ -180,22 +223,26 @@ export async function searchCustomers(searchTerm: string, limit = 20) {
 
     const data = await shopifyClient.request(query)
 
-    if (!data || !data.customers || !data.customers.nodes) {
+    if (!data || !data.customers || !data.customers.edges) {
       return []
     }
 
-    return data.customers.nodes.map((node: any) => ({
-      id: node.id.split("/").pop(),
-      firstName: node.firstName || "",
-      lastName: node.lastName || "",
-      email: node.email || "",
-      phone: node.phone || null,
-      ordersCount: node.numberOfOrders || 0,
-      totalSpent: {
-        amount: node.amountSpent?.amount || "0",
-        currencyCode: node.amountSpent?.currencyCode || "EUR",
-      },
-      createdAt: node.createdAt || new Date().toISOString(),
+    return data.customers.edges.map((edge: any) => ({
+      id: edge.node.id.split("/").pop(),
+      firstName: edge.node.firstName || "",
+      lastName: edge.node.lastName || "",
+      displayName:
+        edge.node.displayName ||
+        `${edge.node.firstName || ""} ${edge.node.lastName || ""}`.trim() ||
+        "Cliente sin nombre",
+      email: edge.node.email || "",
+      phone: edge.node.phone || null,
+      ordersCount: edge.node.ordersCount || 0,
+      totalSpent: edge.node.totalSpent || "0",
+      createdAt: edge.node.createdAt || new Date().toISOString(),
+      updatedAt: edge.node.updatedAt || new Date().toISOString(),
+      tags: edge.node.tags || [],
+      verifiedEmail: edge.node.verifiedEmail || false,
     }))
   } catch (error) {
     console.error("Error searching customers:", error)
@@ -343,5 +390,145 @@ export async function deleteCustomer(id: string) {
   } catch (error) {
     console.error(`Error deleting customer ${id}:`, error)
     throw new Error(`Error al eliminar cliente: ${(error as Error).message}`)
+  }
+}
+
+// Funciones para gestionar direcciones de clientes
+export async function addCustomerAddress(customerId: string, addressData: any) {
+  try {
+    // Formatear el ID correctamente
+    let formattedId = customerId
+    if (!customerId.includes("gid://shopify/")) {
+      formattedId = `gid://shopify/Customer/${customerId}`
+    }
+
+    const mutation = gql`
+      mutation customerAddressCreate($customerId: ID!, $address: MailingAddressInput!) {
+        customerAddressCreate(customerId: $customerId, address: $address) {
+          customerAddress {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const variables = {
+      customerId: formattedId,
+      address: {
+        address1: addressData.address1,
+        address2: addressData.address2,
+        city: addressData.city,
+        province: addressData.province,
+        zip: addressData.zip,
+        country: addressData.country,
+        phone: addressData.phone,
+      },
+    }
+
+    const data = await shopifyClient.request(mutation, variables)
+
+    if (data.customerAddressCreate.userErrors && data.customerAddressCreate.userErrors.length > 0) {
+      throw new Error(data.customerAddressCreate.userErrors[0].message)
+    }
+
+    return {
+      id: data.customerAddressCreate.customerAddress.id.split("/").pop(),
+      ...addressData,
+    }
+  } catch (error) {
+    console.error(`Error adding address to customer ${customerId}:`, error)
+    throw new Error(`Error al añadir dirección: ${(error as Error).message}`)
+  }
+}
+
+export async function deleteCustomerAddress(customerId: string, addressId: string) {
+  try {
+    // Formatear los IDs correctamente
+    let formattedCustomerId = customerId
+    if (!customerId.includes("gid://shopify/")) {
+      formattedCustomerId = `gid://shopify/Customer/${customerId}`
+    }
+
+    let formattedAddressId = addressId
+    if (!addressId.includes("gid://shopify/")) {
+      formattedAddressId = `gid://shopify/MailingAddress/${addressId}`
+    }
+
+    const mutation = gql`
+      mutation customerAddressDelete($id: ID!, $customerAddressId: ID!) {
+        customerAddressDelete(customerId: $id, id: $customerAddressId) {
+          deletedCustomerAddressId
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const variables = {
+      id: formattedCustomerId,
+      customerAddressId: formattedAddressId,
+    }
+
+    const data = await shopifyClient.request(mutation, variables)
+
+    if (data.customerAddressDelete.userErrors && data.customerAddressDelete.userErrors.length > 0) {
+      throw new Error(data.customerAddressDelete.userErrors[0].message)
+    }
+
+    return { success: true, id: addressId }
+  } catch (error) {
+    console.error(`Error deleting address ${addressId} from customer ${customerId}:`, error)
+    throw new Error(`Error al eliminar dirección: ${(error as Error).message}`)
+  }
+}
+
+export async function setDefaultCustomerAddress(customerId: string, addressId: string) {
+  try {
+    // Formatear los IDs correctamente
+    let formattedCustomerId = customerId
+    if (!customerId.includes("gid://shopify/")) {
+      formattedCustomerId = `gid://shopify/Customer/${customerId}`
+    }
+
+    let formattedAddressId = addressId
+    if (!addressId.includes("gid://shopify/")) {
+      formattedAddressId = `gid://shopify/MailingAddress/${addressId}`
+    }
+
+    const mutation = gql`
+      mutation customerDefaultAddressUpdate($customerId: ID!, $addressId: ID!) {
+        customerDefaultAddressUpdate(customerId: $customerId, addressId: $addressId) {
+          customer {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const variables = {
+      customerId: formattedCustomerId,
+      addressId: formattedAddressId,
+    }
+
+    const data = await shopifyClient.request(mutation, variables)
+
+    if (data.customerDefaultAddressUpdate.userErrors && data.customerDefaultAddressUpdate.userErrors.length > 0) {
+      throw new Error(data.customerDefaultAddressUpdate.userErrors[0].message)
+    }
+
+    return { success: true, id: addressId }
+  } catch (error) {
+    console.error(`Error setting default address ${addressId} for customer ${customerId}:`, error)
+    throw new Error(`Error al establecer dirección predeterminada: ${(error as Error).message}`)
   }
 }
