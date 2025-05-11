@@ -5,26 +5,42 @@ export interface MetafieldInput {
   type: string
 }
 
-export interface LocalBusinessMetafields {
-  name: string
-  streetAddress: string
-  addressLocality: string
-  addressRegion: string
-  postalCode: string
-  addressCountry: string
-  telephone: string
-  email: string
-  openingHours: string[]
-  latitude: number
-  longitude: number
+export interface LocalBusinessData {
+  name?: string
+  type?: string
+  address?: string
+  city?: string
+  postalCode?: string
+  region?: string
+  country?: string
+  phone?: string
+  email?: string
+  latitude?: string
+  longitude?: string
+  openingHours?: string
+  priceRange?: string
 }
 
-export interface SocialMediaMetafields {
+export interface SocialMediaData {
   facebook?: string
-  instagram?: string
   twitter?: string
+  instagram?: string
   youtube?: string
   pinterest?: string
   linkedin?: string
   tiktok?: string
+}
+
+export interface SeoMetafields {
+  title: string
+  description: string
+  keywords: string[]
+  ogTitle?: string
+  ogDescription?: string
+  ogImage?: string
+  twitterTitle?: string
+  twitterDescription?: string
+  twitterImage?: string
+  canonicalUrl?: string
+  structuredData?: string
 }

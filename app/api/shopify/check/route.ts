@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server"
-import shopifyClient from "@/lib/shopify"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 // Aumentar el tiempo de timeout para la solicitud
 export const maxDuration = 30 // 30 segundos
 
 export async function GET(request: Request) {
   try {
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
     console.log("Verificando conexión con Shopify...")
 
     // Obtener la URL de la solicitud para extraer parámetros
@@ -14,27 +21,95 @@ export async function GET(request: Request) {
 
     console.log(`Intento de conexión #${retry}`)
 
-    // Consulta simple para verificar la conexión
-    const query = `
-      {
-        shop {
-          name
-          url
-          primaryDomain {
-            url
-          }
-        }
-      }
-    `
+    // Verificar variables de entorno
+    const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
+    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
 
-    const data = await shopifyClient.request(query)
+    if (!shopDomain) {
+      console.error("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está configurado")
+      return NextResponse.json(
+        { success: false, error: "Falta el dominio de la tienda Shopify" },
+        { status: 200 }, // Devolvemos 200 para manejar el error en el cliente
+      )
+    }
+
+    if (!accessToken) {
+      console.error("SHOPIFY_ACCESS_TOKEN no está configurado")
+      return NextResponse.json(
+        { success: false, error: "Falta el token de acceso de Shopify" },
+        { status: 200 }, // Devolvemos 200 para manejar el error en el cliente
+      )
+    }
+
+    // Hacer la solicitud a la API de Shopify
+    const response = await fetch(`https://${shopDomain}/admin/api/2023-10/graphql.json`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": accessToken,
+      },
+      body: JSON.stringify({
+        query: `
+          {
+            shop {
+              name
+              url
+              primaryDomain {
+                url
+              }
+            }
+          }
+        `,
+      }),
+    })
+
+    // Verificar si la respuesta es exitosa
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`Error en la respuesta de Shopify (${response.status}): ${errorText}`)
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Error en la respuesta de Shopify: ${response.status} ${response.statusText}`,
+        },
+        { status: 200 }, // Devolvemos 200 para manejar el error en el cliente
+      )
+    }
+
+    // Intentar parsear la respuesta JSON
+    let data
+    try {
+      data = await response.json()
+    } catch (error) {
+      console.error("Error al parsear la respuesta JSON:", error)
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Error al parsear la respuesta JSON de Shopify",
+        },
+        { status: 200 }, // Devolvemos 200 para manejar el error en el cliente
+      )
+    }
+
+    // Verificar si hay errores en la respuesta GraphQL
+    if (data.errors) {
+      console.error("Errores GraphQL:", JSON.stringify(data.errors, null, 2))
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Error en la consulta GraphQL",
+          details: data.errors,
+        },
+        { status: 200 }, // Devolvemos 200 para manejar el error en el cliente
+      )
+    }
 
     console.log("Conexión con Shopify establecida correctamente:", data)
 
     return NextResponse.json({
       success: true,
-      shopName: data?.shop?.name || "Tienda Shopify",
-      shopUrl: data?.shop?.primaryDomain?.url || data?.shop?.url,
+      shopName: data?.data?.shop?.name || "Tienda Shopify",
+      shopUrl: data?.data?.shop?.primaryDomain?.url || data?.data?.shop?.url,
       message: "Conexión establecida correctamente",
     })
   } catch (error) {

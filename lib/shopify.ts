@@ -1,15 +1,26 @@
 import { GraphQLClient } from "graphql-request"
 
-// Obtener las variables de entorno
-const SHOPIFY_API_URL = process.env.SHOPIFY_API_URL || "https://qiangtheme.myshopify.com/admin/api/2023-07/graphql.json"
-const SHOPIFY_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN || ""
+// Función para obtener la URL base de la aplicación
+const getBaseUrl = () => {
+  // En el navegador, usamos window.location.origin
+  if (typeof window !== "undefined") {
+    return window.location.origin
+  }
 
-// Crear el cliente GraphQL
-const shopifyClient = new GraphQLClient(SHOPIFY_API_URL, {
+  // En el servidor, usamos la URL de Vercel o localhost
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`
+  }
+
+  return "http://localhost:3000"
+}
+
+// Crear el cliente GraphQL que usa nuestro proxy en lugar de conectarse directamente a Shopify
+const shopifyClient = new GraphQLClient(`${getBaseUrl()}/api/shopify/proxy`, {
   headers: {
-    "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
     "Content-Type": "application/json",
   },
+  timeout: 60000, // 60 segundos de timeout para operaciones largas
 })
 
 // Función para formatear correctamente los IDs de Shopify
@@ -23,10 +34,9 @@ export function formatShopifyId(id: string, type = "Product") {
 // Función para realizar una consulta de prueba a Shopify
 export async function testShopifyConnection() {
   try {
-    const response = await fetch(`${SHOPIFY_API_URL}`, {
+    const response = await fetch(`${getBaseUrl()}/api/shopify/check`, {
       method: "GET",
       headers: {
-        "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
         "Cache-Control": "no-cache, no-store, must-revalidate",
       },
     })
