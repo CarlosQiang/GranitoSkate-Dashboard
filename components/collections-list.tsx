@@ -1,48 +1,31 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Link from "next/link"
-import Image from "next/image"
 import { fetchCollections } from "@/lib/api/collections"
-import { Card, CardContent, CardFooter } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { CollectionCard } from "@/components/collection-card"
+import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Pencil, Trash2, Package, RefreshCw } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { deleteCollection } from "@/lib/api/collections"
-import { useRouter } from "next/navigation"
+import { Search, RefreshCw, AlertCircle } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ShopifyApiStatus } from "@/components/shopify-api-status"
 
 export function CollectionsList() {
   const [collections, setCollections] = useState([])
+  const [filteredCollections, setFilteredCollections] = useState([])
+  const [searchTerm, setSearchTerm] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [deletingId, setDeletingId] = useState(null)
-  const { toast } = useToast()
-  const router = useRouter()
 
   const loadCollections = async () => {
     try {
       setLoading(true)
       setError(null)
-      console.log("Cargando colecciones...")
-      const data = await fetchCollections()
-      console.log(`Colecciones cargadas: ${data.length}`)
+      const data = await fetchCollections({ limit: 50 })
       setCollections(data)
+      setFilteredCollections(data)
     } catch (err) {
       console.error("Error al cargar colecciones:", err)
-      setError(err.message || "No se pudieron cargar las colecciones")
+      setError(err.message || "Error al cargar colecciones")
     } finally {
       setLoading(false)
     }
@@ -52,72 +35,44 @@ export function CollectionsList() {
     loadCollections()
   }, [])
 
-  const handleDelete = async (id) => {
-    try {
-      setDeletingId(id)
-      await deleteCollection(id)
-
-      // Actualizar la lista de colecciones
-      setCollections(collections.filter((collection) => collection.id !== id))
-
-      toast({
-        title: "Colección eliminada",
-        description: "La colección ha sido eliminada correctamente",
-      })
-    } catch (error) {
-      console.error("Error al eliminar la colección:", error)
-      toast({
-        title: "Error",
-        description: `No se pudo eliminar la colección: ${error.message}`,
-        variant: "destructive",
-      })
-    } finally {
-      setDeletingId(null)
+  useEffect(() => {
+    if (searchTerm.trim() === "") {
+      setFilteredCollections(collections)
+    } else {
+      const term = searchTerm.toLowerCase()
+      const filtered = collections.filter(
+        (collection) =>
+          collection.title.toLowerCase().includes(term) || collection.description.toLowerCase().includes(term),
+      )
+      setFilteredCollections(filtered)
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {[...Array(6)].map((_, i) => (
-          <Card key={i} className="animate-pulse">
-            <div className="h-48 bg-gray-200 rounded-t-lg" />
-            <CardContent className="p-4">
-              <div className="h-6 bg-gray-200 rounded w-3/4 mb-2" />
-              <div className="h-4 bg-gray-200 rounded w-1/2" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    )
-  }
+  }, [searchTerm, collections])
 
   if (error) {
     return (
       <div className="space-y-4">
         <ShopifyApiStatus />
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
-          <p className="font-medium">Error al cargar las colecciones</p>
-          <p>{error}</p>
-          <Button variant="outline" className="mt-2" onClick={loadCollections}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Reintentar
-          </Button>
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error al cargar colecciones</AlertTitle>
+          <AlertDescription className="flex flex-col gap-2">
+            <p>{error}</p>
+            <Button variant="outline" size="sm" onClick={loadCollections} className="w-fit">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Reintentar
+            </Button>
+          </AlertDescription>
+        </Alert>
       </div>
     )
   }
 
-  if (collections.length === 0) {
+  if (loading) {
     return (
       <div className="space-y-4">
         <ShopifyApiStatus />
-        <div className="text-center p-8 border border-dashed rounded-lg">
-          <h3 className="text-lg font-medium mb-2">No hay colecciones</h3>
-          <p className="text-muted-foreground mb-4">Crea tu primera colección para organizar tus productos</p>
-          <Button asChild>
-            <Link href="/dashboard/collections/new">Crear colección</Link>
-          </Button>
+        <div className="flex items-center justify-center h-32">
+          <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       </div>
     )
@@ -126,76 +81,29 @@ export function CollectionsList() {
   return (
     <div className="space-y-4">
       <ShopifyApiStatus />
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {collections.map((collection) => (
-          <Card key={collection.id} className="overflow-hidden" data-collection-item>
-            <div className="relative h-48 bg-gray-100">
-              {collection.image ? (
-                <Image
-                  src={collection.image.url || "/placeholder.svg"}
-                  alt={collection.image.altText || collection.title}
-                  fill
-                  className="object-cover"
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-400">
-                  <Package size={48} />
-                </div>
-              )}
-            </div>
-            <CardContent className="p-4">
-              <h3 className="text-lg font-medium mb-1">{collection.title}</h3>
-              <div className="flex items-center gap-2 mb-2">
-                <Badge variant="outline" className="text-xs">
-                  {collection.productsCount} productos
-                </Badge>
-              </div>
-            </CardContent>
-            <CardFooter className="p-4 pt-0 flex justify-between">
-              <div className="flex gap-2">
-                <Button asChild size="sm" variant="outline">
-                  <Link href={`/dashboard/collections/${collection.id}`}>
-                    <Pencil className="h-4 w-4 mr-1" />
-                    Editar
-                  </Link>
-                </Button>
-                <Button asChild size="sm" variant="outline">
-                  <Link href={`/dashboard/collections/${collection.id}/products`}>
-                    <Package className="h-4 w-4 mr-1" />
-                    Productos
-                  </Link>
-                </Button>
-              </div>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-600 hover:bg-red-50">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>¿Eliminar colección?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Esta acción no se puede deshacer. La colección será eliminada permanentemente, pero los productos
-                      no se eliminarán.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => handleDelete(collection.id)}
-                      className="bg-red-500 hover:bg-red-600"
-                      disabled={deletingId === collection.id}
-                    >
-                      {deletingId === collection.id ? "Eliminando..." : "Eliminar"}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </CardFooter>
-          </Card>
-        ))}
+
+      <div className="relative">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Buscar colecciones..."
+          className="pl-8"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
       </div>
+
+      {filteredCollections.length === 0 ? (
+        <div className="text-center py-10">
+          <p className="text-muted-foreground">No se encontraron colecciones</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredCollections.map((collection) => (
+            <CollectionCard key={collection.id} collection={collection} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

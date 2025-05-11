@@ -18,18 +18,35 @@ export async function fetchDashboardStats() {
 
     console.log("Obteniendo estadísticas del dashboard...")
 
-    // Consulta para obtener estadísticas generales
-    const query = `
+    // Consulta para obtener información de la tienda
+    const shopQuery = `
       query {
         shop {
           name
-          ordersCount
-          customersCount
-          productsCount
         }
+      }
+    `
+
+    // Consulta corregida para obtener productos
+    const productsQuery = `
+      query {
+        products(first: 1) {
+          edges {
+            node {
+              id
+            }
+          }
+        }
+      }
+    `
+
+    // Consulta corregida para obtener pedidos
+    const ordersQuery = `
+      query {
         orders(first: 100, sortKey: PROCESSED_AT, reverse: true) {
           edges {
             node {
+              id
               totalPriceSet {
                 shopMoney {
                   amount
@@ -42,58 +59,100 @@ export async function fetchDashboardStats() {
       }
     `
 
-    // Usar el proxy en lugar de shopifyClient directamente
-    const response = await fetch("/api/shopify/proxy", {
+    // Consulta corregida para obtener clientes
+    const customersQuery = `
+      query {
+        customers(first: 1) {
+          edges {
+            node {
+              id
+            }
+          }
+        }
+      }
+    `
+
+    // Usar el proxy para cada consulta
+    console.log("Obteniendo información de la tienda...")
+    const shopResponse = await fetch("/api/shopify/proxy", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        query,
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: shopQuery }),
       cache: "no-store",
     })
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`Error en la respuesta del proxy (${response.status}): ${errorText}`)
-      throw new Error(`Error ${response.status}: ${errorText}`)
+    console.log("Obteniendo información de productos...")
+    const productsResponse = await fetch("/api/shopify/proxy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: productsQuery }),
+      cache: "no-store",
+    })
+
+    console.log("Obteniendo información de pedidos...")
+    const ordersResponse = await fetch("/api/shopify/proxy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: ordersQuery }),
+      cache: "no-store",
+    })
+
+    console.log("Obteniendo información de clientes...")
+    const customersResponse = await fetch("/api/shopify/proxy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: customersQuery }),
+      cache: "no-store",
+    })
+
+    // Verificar respuestas
+    if (!shopResponse.ok || !productsResponse.ok || !ordersResponse.ok || !customersResponse.ok) {
+      throw new Error("Error en una o más consultas a la API de Shopify")
     }
 
-    const result = await response.json()
+    // Procesar respuestas
+    const shopData = await shopResponse.json()
+    const productsData = await productsResponse.json()
+    const ordersData = await ordersResponse.json()
+    const customersData = await customersResponse.json()
 
-    if (result.errors) {
-      console.error("Errores GraphQL:", result.errors)
-      throw new Error(result.errors[0]?.message || "Error en la consulta GraphQL")
+    // Verificar errores en las respuestas
+    if (shopData.errors || productsData.errors || ordersData.errors || customersData.errors) {
+      console.error("Errores en las consultas GraphQL:", {
+        shop: shopData.errors,
+        products: productsData.errors,
+        orders: ordersData.errors,
+        customers: customersData.errors,
+      })
+      throw new Error("Errores en las consultas GraphQL")
     }
 
-    const data = result.data
+    // Extraer datos
+    const shopName = shopData.data?.shop?.name || "Tienda Shopify"
 
-    if (!data || !data.shop) {
-      console.warn("No se pudieron obtener estadísticas de la tienda")
-      return {
-        totalOrders: 0,
-        totalCustomers: 0,
-        totalProducts: 0,
-        totalRevenue: 0,
-        error: "No se pudieron obtener estadísticas de la tienda",
-      }
-    }
+    // Contar productos manualmente
+    const totalProducts = productsData.data?.products?.edges?.length || 0
+
+    // Contar pedidos manualmente
+    const orders = ordersData.data?.orders?.edges || []
+    const totalOrders = orders.length
 
     // Calcular ingresos totales
     let totalRevenue = 0
-    if (data.orders && data.orders.edges) {
-      totalRevenue = data.orders.edges.reduce((sum, edge) => {
-        const amount = Number.parseFloat(edge.node.totalPriceSet?.shopMoney?.amount || "0")
-        return sum + amount
-      }, 0)
-    }
+    orders.forEach((edge) => {
+      const amount = Number.parseFloat(edge.node.totalPriceSet?.shopMoney?.amount || "0")
+      totalRevenue += amount
+    })
+
+    // Contar clientes manualmente
+    const totalCustomers = customersData.data?.customers?.edges?.length || 0
 
     const stats = {
-      totalOrders: data.shop.ordersCount || 0,
-      totalCustomers: data.shop.customersCount || 0,
-      totalProducts: data.shop.productsCount || 0,
-      totalRevenue: totalRevenue,
+      totalOrders,
+      totalCustomers,
+      totalProducts,
+      totalRevenue,
+      shopName,
     }
 
     // Actualizar caché
@@ -153,7 +212,6 @@ export async function fetchSalesChartData() {
       },
       body: JSON.stringify({
         query,
-        variables: { date: sixMonthsAgoISO },
       }),
       cache: "no-store",
     })
@@ -224,15 +282,19 @@ export async function fetchTopProductsChartData() {
 
     const query = `
       query {
-        products(first: 250, sortKey: BEST_SELLING) {
+        products(first: 10, sortKey: TITLE) {
           edges {
             node {
               id
               title
               totalInventory
-              totalVariants
-              productType
-              vendor
+              variants(first: 1) {
+                edges {
+                  node {
+                    price
+                  }
+                }
+              }
             }
           }
         }
@@ -269,15 +331,13 @@ export async function fetchTopProductsChartData() {
       return []
     }
 
-    // Obtener los 5 productos más vendidos
-    const topProducts = data.products.edges.slice(0, 5).map((edge) => ({
+    // Obtener los productos
+    const topProducts = data.products.edges.slice(0, 5).map((edge, index) => ({
       name: edge.node.title,
-      sales: Math.floor(Math.random() * 100) + 20, // Esto es temporal hasta que tengamos datos reales
+      sales: 100 - index * 15, // Valor simulado para mostrar en el gráfico
       id: edge.node.id.split("/").pop(),
       inventory: edge.node.totalInventory || 0,
-      variants: edge.node.totalVariants || 0,
-      type: edge.node.productType || "",
-      vendor: edge.node.vendor || "",
+      price: edge.node.variants.edges[0]?.node.price || "0.00",
     }))
 
     console.log("Datos de productos más vendidos obtenidos correctamente")

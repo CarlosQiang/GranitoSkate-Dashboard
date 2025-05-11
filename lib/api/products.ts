@@ -11,9 +11,9 @@ export async function fetchRecentProducts(limit = 5) {
   try {
     console.log(`Fetching ${limit} recent products...`)
 
-    const query = gql`
-      query GetRecentProducts($limit: Int!) {
-        products(first: $limit, sortKey: CREATED_AT, reverse: true) {
+    const query = `
+      query {
+        products(first: ${limit}, sortKey: CREATED_AT, reverse: true) {
           edges {
             node {
               id
@@ -47,8 +47,8 @@ export async function fetchRecentProducts(limit = 5) {
       },
       body: JSON.stringify({
         query,
-        variables: { limit },
       }),
+      cache: "no-store",
     })
 
     if (!response.ok) {
@@ -78,8 +78,8 @@ export async function fetchRecentProducts(limit = 5) {
       productType: edge.node.productType,
       inventory: edge.node.totalInventory,
       price: {
-        amount: Number.parseFloat(edge.node.priceRangeV2.minVariantPrice.amount),
-        currencyCode: edge.node.priceRangeV2.minVariantPrice.currencyCode,
+        amount: Number.parseFloat(edge.node.priceRangeV2?.minVariantPrice?.amount || "0"),
+        currencyCode: edge.node.priceRangeV2?.minVariantPrice?.currencyCode || "EUR",
       },
       image: edge.node.featuredImage
         ? {
@@ -215,9 +215,9 @@ export async function fetchProductById(id) {
     // Asegurarse de que el ID tenga el formato correcto
     const formattedId = id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
 
-    const query = gql`
-      query GetProduct($id: ID!) {
-        product(id: $id) {
+    const query = `
+      query {
+        product(id: "${formattedId}") {
           id
           title
           handle
@@ -247,9 +247,34 @@ export async function fetchProductById(id) {
       }
     `
 
-    const data = await shopifyClient.request(query, { id: formattedId })
+    // Usar el proxy en lugar de shopifyClient directamente
+    const response = await fetch("/api/shopify/proxy", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query,
+      }),
+      cache: "no-store",
+    })
 
-    if (!data.product) {
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`Error en la respuesta del proxy (${response.status}): ${errorText}`)
+      throw new Error(`Error ${response.status}: ${errorText}`)
+    }
+
+    const result = await response.json()
+
+    if (result.errors) {
+      console.error("Errores GraphQL:", result.errors)
+      throw new Error(result.errors[0]?.message || "Error en la consulta GraphQL")
+    }
+
+    const data = result.data
+
+    if (!data || !data.product) {
       throw new Error(`No se encontró el producto con ID: ${id}`)
     }
 

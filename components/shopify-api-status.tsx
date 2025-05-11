@@ -1,220 +1,78 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { CheckCircle2, AlertCircle, RefreshCw, ChevronDown, ChevronUp } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { CheckCircle2, AlertCircle } from "lucide-react"
+import { checkShopifyConnection } from "@/lib/shopify"
 
 export function ShopifyApiStatus() {
-  const [status, setStatus] = useState<"loading" | "connected" | "error" | "hidden">("loading")
-  const [shopName, setShopName] = useState<string>("")
-  const [error, setError] = useState<string>("")
-  const [isChecking, setIsChecking] = useState(false)
-  const [hasData, setHasData] = useState(false)
-  const [debugInfo, setDebugInfo] = useState<any>(null)
-  const [isDebugOpen, setIsDebugOpen] = useState(false)
-
-  // Verificar si hay datos en la página o si existe el mensaje de conexión exitosa
-  const checkForDataOrSuccessMessage = () => {
-    // Verificar si existe el mensaje de conexión exitosa
-    const successMessage = document.querySelector('[data-shopify-connected="true"]')
-    if (successMessage) {
-      setHasData(true)
-      return true
-    }
-
-    // Si estamos en la página de colecciones, verificar si hay colecciones
-    if (window.location.pathname.includes("/collections")) {
-      const collectionElements = document.querySelectorAll("[data-collection-item]")
-      if (collectionElements && collectionElements.length > 0) {
-        setHasData(true)
-        return true
-      }
-    }
-
-    // Si estamos en la página de productos, verificar si hay productos
-    if (window.location.pathname.includes("/products")) {
-      const productElements = document.querySelectorAll("[data-product-item]")
-      if (productElements && productElements.length > 0) {
-        setHasData(true)
-        return true
-      }
-    }
-
-    return false
-  }
-
-  const checkConnection = async () => {
-    setIsChecking(true)
-    setStatus("loading")
-    setDebugInfo(null)
-
-    try {
-      // Primero verificamos si hay datos en la página o mensaje de éxito
-      if (checkForDataOrSuccessMessage()) {
-        console.log("Se encontraron datos o mensaje de éxito, ocultando el estado de la API")
-        setStatus("hidden")
-        setIsChecking(false)
-        return
-      }
-
-      console.log("Verificando conexión con Shopify...")
-      const timestamp = new Date().getTime()
-      const response = await fetch(`/api/shopify/check?timestamp=${timestamp}`, {
-        method: "GET",
-        headers: {
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
-        },
-      })
-
-      console.log("Respuesta recibida:", response.status)
-
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`)
-      }
-
-      // Intentar parsear la respuesta JSON
-      let data
-      try {
-        const text = await response.text()
-        console.log("Respuesta texto:", text.substring(0, 200))
-
-        if (!text) {
-          // Si no hay respuesta pero hay datos, ocultamos el estado
-          if (checkForDataOrSuccessMessage()) {
-            setStatus("hidden")
-            setIsChecking(false)
-            return
-          }
-
-          throw new Error("Respuesta vacía del servidor")
-        }
-
-        data = JSON.parse(text)
-        setDebugInfo(data)
-      } catch (parseError) {
-        console.error("Error al parsear la respuesta:", parseError)
-
-        // Si hay un error pero hay datos, ocultamos el estado
-        if (checkForDataOrSuccessMessage()) {
-          setStatus("hidden")
-          setIsChecking(false)
-          return
-        }
-
-        setStatus("error")
-        setError(`Error al parsear la respuesta: ${(parseError as Error).message}`)
-        setIsChecking(false)
-        return
-      }
-
-      if (data.success) {
-        setStatus("connected")
-        setShopName(data.shopName || "")
-      } else {
-        // Si hay un error pero hay datos, ocultamos el estado
-        if (checkForDataOrSuccessMessage()) {
-          setStatus("hidden")
-          setIsChecking(false)
-          return
-        }
-
-        setStatus("error")
-        setError(data.error || "Error desconocido al conectar con Shopify")
-      }
-    } catch (err) {
-      console.error("Error al verificar la conexión con Shopify:", err)
-
-      // Si hay un error pero hay datos, ocultamos el estado
-      if (checkForDataOrSuccessMessage()) {
-        setStatus("hidden")
-        setIsChecking(false)
-        return
-      }
-
-      setStatus("error")
-      setError(`Error al verificar la conexión con Shopify: ${(err as Error).message}`)
-    } finally {
-      setIsChecking(false)
-    }
-  }
+  const [status, setStatus] = useState({
+    checked: false,
+    success: false,
+    shopName: "",
+    error: null,
+  })
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Esperar a que el DOM esté completamente cargado
-    const timer = setTimeout(() => {
+    const checkConnection = async () => {
+      try {
+        setLoading(true)
+        const result = await checkShopifyConnection()
+        setStatus({
+          checked: true,
+          success: result.success,
+          shopName: result.shopName || result.shop?.name || "",
+          error: result.error || null,
+        })
+      } catch (error) {
+        setStatus({
+          checked: true,
+          success: false,
+          shopName: "",
+          error: error.message || "Error al verificar la conexión",
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    // Solo verificar la conexión una vez
+    if (!status.checked) {
       checkConnection()
-    }, 1000)
+    }
+  }, [status.checked])
 
-    return () => clearTimeout(timer)
-  }, [])
-
-  // Si el estado es "hidden", no mostramos nada
-  if (status === "hidden") {
+  // No mostrar nada mientras se carga
+  if (loading && !status.checked) {
     return null
   }
 
-  if (status === "loading") {
-    return (
-      <Alert>
-        <RefreshCw className="h-4 w-4 animate-spin" />
-        <AlertTitle>Verificando conexión con Shopify</AlertTitle>
-        <AlertDescription>Estamos verificando la conexión con tu tienda Shopify...</AlertDescription>
-      </Alert>
-    )
+  // No mostrar nada si ya se verificó y fue exitoso (para evitar duplicados)
+  if (status.checked && status.success && sessionStorage.getItem("shopify-connection-verified") === "true") {
+    return null
   }
 
-  if (status === "error") {
-    return (
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Error de conexión con Shopify</AlertTitle>
-        <AlertDescription className="flex flex-col gap-2">
-          <p>{error}</p>
-          <div className="flex flex-wrap gap-2 mt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={checkConnection}
-              disabled={isChecking}
-              className="flex items-center gap-2"
-            >
-              {isChecking ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-              Reintentar conexión
-            </Button>
-
-            <Collapsible open={isDebugOpen} onOpenChange={setIsDebugOpen} className="w-full">
-              <CollapsibleTrigger asChild>
-                <Button variant="outline" size="sm" className="flex items-center gap-2">
-                  {isDebugOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  {isDebugOpen ? "Ocultar información de depuración" : "Mostrar información de depuración"}
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="mt-2">
-                <div className="bg-gray-100 p-3 rounded-md text-xs overflow-auto max-h-60">
-                  <pre>{JSON.stringify(debugInfo || { error }, null, 2)}</pre>
-                </div>
-                <p className="text-xs mt-2">
-                  Verifica que las variables de entorno NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN y SHOPIFY_ACCESS_TOKEN estén
-                  configuradas correctamente.
-                </p>
-              </CollapsibleContent>
-            </Collapsible>
-          </div>
-        </AlertDescription>
-      </Alert>
-    )
+  // Guardar en sessionStorage que ya se verificó la conexión
+  if (status.checked && status.success) {
+    sessionStorage.setItem("shopify-connection-verified", "true")
   }
 
   return (
-    <Alert variant="default" className="bg-green-50 border-green-200" data-shopify-connected="true">
-      <CheckCircle2 className="h-4 w-4 text-green-600" />
-      <AlertTitle className="text-green-800">Conectado a Shopify</AlertTitle>
-      <AlertDescription className="text-green-700">
-        Conexión establecida correctamente con la tienda: <strong>{shopName}</strong>
-      </AlertDescription>
-    </Alert>
+    <>
+      {status.success ? (
+        <Alert variant="success" className="bg-green-50 text-green-800 border-green-200">
+          <CheckCircle2 className="h-4 w-4" />
+          <AlertTitle>Conectado a Shopify - Tienda: {status.shopName}</AlertTitle>
+          <AlertDescription>Conexión establecida correctamente con la tienda Shopify</AlertDescription>
+        </Alert>
+      ) : (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error de conexión con Shopify</AlertTitle>
+          <AlertDescription>{status.error || "No se pudo establecer conexión con la tienda Shopify"}</AlertDescription>
+        </Alert>
+      )}
+    </>
   )
 }

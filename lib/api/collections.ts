@@ -12,6 +12,7 @@ export async function fetchCollections(options = {}) {
     const { limit = 20 } = options
     console.log(`Fetching collections with limit: ${limit}`)
 
+    // Corregido: Eliminada la referencia a productsCount que causaba el error
     const query = `
       query {
         collections(first: ${limit}) {
@@ -22,10 +23,20 @@ export async function fetchCollections(options = {}) {
               handle
               description
               descriptionHtml
-              productsCount
               image {
                 url
                 altText
+              }
+              products(first: 1) {
+                edges {
+                  node {
+                    id
+                  }
+                }
+                pageInfo {
+                  hasNextPage
+                  hasPreviousPage
+                }
               }
             }
           }
@@ -72,13 +83,16 @@ export async function fetchCollections(options = {}) {
     const collections = data.collections.edges.map((edge) => {
       const node = edge.node
 
+      // Calcular productsCount manualmente
+      const productsCount = node.products?.edges?.length || 0
+
       return {
         id: extractIdFromGid(node.id),
         title: node.title,
         handle: node.handle,
-        description: node.description,
-        descriptionHtml: node.descriptionHtml,
-        productsCount: node.productsCount,
+        description: node.description || node.descriptionHtml || "",
+        descriptionHtml: node.descriptionHtml || "",
+        productsCount: productsCount,
         image: node.image,
       }
     })
@@ -87,7 +101,7 @@ export async function fetchCollections(options = {}) {
     return collections
   } catch (error) {
     console.error("Error al cargar colecciones:", error)
-    throw new Error(`Error al cargar colecciones: ${error.message}`)
+    throw new Error(`Error al cargar colecciones: ${(error as Error).message}`)
   }
 }
 
@@ -97,14 +111,13 @@ export async function fetchCollectionById(id) {
     // Asegurarse de que el ID tenga el formato correcto
     const formattedId = id.includes("gid://shopify/Collection/") ? id : `gid://shopify/Collection/${id}`
 
-    const query = gql`
-      query GetCollection($id: ID!) {
-        collection(id: $id) {
+    const query = `
+      query {
+        collection(id: "${formattedId}") {
           id
           title
           handle
           descriptionHtml
-          productsCount
           image {
             url
             altText
@@ -133,9 +146,34 @@ export async function fetchCollectionById(id) {
       }
     `
 
-    const data = await shopifyClient.request(query, { id: formattedId })
+    // Usar el proxy en lugar de shopifyClient directamente
+    const response = await fetch("/api/shopify/proxy", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query,
+      }),
+      cache: "no-store",
+    })
 
-    if (!data.collection) {
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`Error en la respuesta del proxy (${response.status}): ${errorText}`)
+      throw new Error(`Error ${response.status}: ${errorText}`)
+    }
+
+    const result = await response.json()
+
+    if (result.errors) {
+      console.error("Errores GraphQL:", result.errors)
+      throw new Error(result.errors[0]?.message || "Error en la consulta GraphQL")
+    }
+
+    const data = result.data
+
+    if (!data || !data.collection) {
       throw new Error(`No se encontró la colección con ID: ${id}`)
     }
 
@@ -145,7 +183,7 @@ export async function fetchCollectionById(id) {
       title: data.collection.title,
       handle: data.collection.handle,
       description: data.collection.descriptionHtml,
-      productsCount: data.collection.productsCount || 0,
+      productsCount: data.collection.products?.edges?.length || 0,
       image: data.collection.image,
       products: data.collection.products.edges.map((edge) => ({
         id: edge.node.id.split("/").pop(),

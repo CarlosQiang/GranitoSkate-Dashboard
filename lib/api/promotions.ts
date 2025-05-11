@@ -48,9 +48,9 @@ export async function fetchPromotions(limit = 50) {
 
     console.log(`Fetching ${limit} promotions from Shopify...`)
 
-    const query = gql`
-      query GetPriceRules($limit: Int!) {
-        priceRules(first: $limit) {
+    const query = `
+      query {
+        priceRules(first: ${limit}) {
           edges {
             node {
               id
@@ -70,12 +70,6 @@ export async function fetchPromotions(limit = 50) {
               customerSelection
               usageLimit
               oncePerCustomer
-              prerequisiteSubtotalRange {
-                greaterThanOrEqualTo
-              }
-              prerequisiteQuantityRange {
-                greaterThanOrEqualTo
-              }
               discountCodes(first: 1) {
                 edges {
                   node {
@@ -90,7 +84,35 @@ export async function fetchPromotions(limit = 50) {
       }
     `
 
-    const data = await shopifyClient.request(query, { limit })
+    // Corregido: Usar URL absoluta para el proxy
+    const baseUrl =
+      typeof window !== "undefined" ? window.location.origin : process.env.NEXTAUTH_URL || "http://localhost:3000"
+
+    const response = await fetch(`${baseUrl}/api/shopify/proxy`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query,
+      }),
+      cache: "no-store",
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`Error en la respuesta del proxy (${response.status}): ${errorText}`)
+      throw new Error(`Error ${response.status}: ${errorText}`)
+    }
+
+    const result = await response.json()
+
+    if (result.errors) {
+      console.error("Errores GraphQL:", result.errors)
+      throw new Error(result.errors[0]?.message || "Error en la consulta GraphQL")
+    }
+
+    const data = result.data
 
     if (!data || !data.priceRules || !data.priceRules.edges) {
       console.warn("No se encontraron promociones o la respuesta está incompleta")
@@ -138,27 +160,6 @@ export async function fetchPromotions(limit = 50) {
 
       // Construir condiciones
       const conditions = []
-
-      if (node.prerequisiteSubtotalRange?.greaterThanOrEqualTo) {
-        conditions.push({
-          type: "MINIMUM_AMOUNT",
-          value: node.prerequisiteSubtotalRange.greaterThanOrEqualTo,
-        })
-      }
-
-      if (node.prerequisiteQuantityRange?.greaterThanOrEqualTo) {
-        conditions.push({
-          type: "MINIMUM_QUANTITY",
-          value: node.prerequisiteQuantityRange.greaterThanOrEqualTo,
-        })
-      }
-
-      if (node.customerSelection === "PREREQUISITE") {
-        conditions.push({
-          type: "SPECIFIC_CUSTOMER_GROUP",
-          value: "customer_group",
-        })
-      }
 
       return {
         id: node.id.split("/").pop(),

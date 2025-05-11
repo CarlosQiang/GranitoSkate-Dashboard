@@ -28,7 +28,10 @@ export async function checkShopifyConnection() {
   try {
     if (isClient) {
       // En el cliente, usar el endpoint de verificación
-      const response = await fetch("/api/shopify/check", {
+      const baseUrl =
+        typeof window !== "undefined" ? window.location.origin : process.env.NEXTAUTH_URL || "http://localhost:3000"
+
+      const response = await fetch(`${baseUrl}/api/shopify/check`, {
         method: "GET",
         headers: {
           "Cache-Control": "no-cache, no-store, must-revalidate",
