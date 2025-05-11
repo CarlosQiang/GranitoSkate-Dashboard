@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { testShopifyConnection } from "@/lib/shopify"
 import { CheckCircle, AlertCircle } from "lucide-react"
 
 export function ShopifyConnectionChecker() {
@@ -12,17 +11,20 @@ export function ShopifyConnectionChecker() {
   useEffect(() => {
     async function checkConnection() {
       try {
-        const result = await testShopifyConnection()
-        if (result.success) {
+        const response = await fetch("/api/shopify/check")
+        const data = await response.json()
+
+        if (data.success) {
           setStatus("connected")
-          setShopName(result.data?.shop?.name || "")
+          setShopName(data.shopName || "")
         } else {
           setStatus("error")
-          setErrorMessage(result.message || "Error desconocido")
+          setErrorMessage(data.message || "No se pudo conectar con Shopify")
         }
       } catch (error) {
         setStatus("error")
-        setErrorMessage(error instanceof Error ? error.message : "Error desconocido")
+        setErrorMessage("Error al verificar la conexión con Shopify")
+        console.error("Error al verificar la conexión con Shopify:", error)
       }
     }
 
@@ -31,37 +33,31 @@ export function ShopifyConnectionChecker() {
 
   if (status === "loading") {
     return (
-      <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
-        <div className="flex items-center">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-700 mr-2"></div>
-          <p className="text-yellow-700">Verificando conexión con Shopify...</p>
-        </div>
+      <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded relative mb-4">
+        <span className="block sm:inline">Verificando conexión con Shopify...</span>
       </div>
     )
   }
 
   if (status === "error") {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+      <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded relative mb-4">
         <div className="flex items-center">
-          <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
-          <div>
-            <p className="text-red-700 font-medium">Error de conexión con Shopify</p>
-            <p className="text-red-600 text-sm">{errorMessage}</p>
-          </div>
+          <AlertCircle className="h-5 w-5 mr-2" />
+          <span className="block sm:inline">Error de conexión con Shopify: {errorMessage}</span>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-4">
+    <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded relative mb-4">
       <div className="flex items-center">
-        <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
-        <div>
-          <p className="text-green-700 font-medium">Conectado a Shopify</p>
-          <p className="text-green-600 text-sm">Conexión establecida correctamente con la tienda: {shopName}</p>
-        </div>
+        <CheckCircle className="h-5 w-5 mr-2" />
+        <span className="block sm:inline">
+          Conectado a Shopify
+          {shopName && <span className="font-medium"> - Tienda: {shopName}</span>}
+        </span>
       </div>
     </div>
   )

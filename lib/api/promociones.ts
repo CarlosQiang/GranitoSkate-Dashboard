@@ -7,12 +7,6 @@ let ultimaActualizacion = null
 const CACHE_DURACION = 5 * 60 * 1000 // 5 minutos
 
 /**
- * Obtiene todas las promociones (alias para compatibilidad)
- * @returns Lista de promociones
- */
-export const obtenerListasPrecios = obtenerPromociones
-
-/**
  * Obtiene todas las promociones
  * @returns Lista de promociones
  */
@@ -27,7 +21,7 @@ export async function obtenerPromociones(limit = 20) {
 
     console.log(`Obteniendo ${limit} promociones de Shopify...`)
 
-    // Consulta para la API de Shopify 2023-07
+    // Consulta para la API de Shopify 2024-04
     const query = gql`
       query GetDiscountNodes($limit: Int!) {
         discountNodes(first: $limit) {
@@ -462,13 +456,6 @@ export async function actualizarPromocion(id, promotionData) {
 }
 
 /**
- * Elimina una promoción (alias para compatibilidad)
- * @param id ID de la promoción
- * @returns true si se eliminó correctamente
- */
-export const eliminarListaPrecio = eliminarPromocion
-
-/**
  * Elimina una promoción
  * @param id ID de la promoción
  * @returns true si se eliminó correctamente
@@ -535,31 +522,5 @@ export async function eliminarPromocion(id) {
 }
 
 // Alias para compatibilidad
-export const fetchPromotionById = obtenerPromocionPorId
-export const fetchPriceListById = obtenerPromocionPorId
-export const deletePromotionAlias = eliminarPromocion
-export const createPriceList = crearPromocion
-export const updatePriceList = async (id, data) => {
-  console.warn("updatePriceList está obsoleto, usa updatePromotion en su lugar")
-  return { id, ...data }
-}
-export const fetchPriceListByIdAlias = fetchPromotionById
-//export const deletePromotion = deletePromotion
-
-import {
-  fetchPromotions,
-  fetchPromotionById as fetchPromotionByIdAliasImport,
-  createPromotion as createPromotionImport,
-  deletePromotion as deletePromotionImport,
-} from "./promotions"
-
-// Exportar funciones con nombres en español
-export const obtenerPromociones = fetchPromotions
-export const obtenerPromocionPorId = fetchPromotionByIdAliasImport
-export const crearPromocion = createPromotionImport
-export const eliminarPromocion = deletePromotionImport
-
-// Alias para compatibilidad
-export const obtenerListasPrecios = fetchPromotions
-export const eliminarListaPrecio = deletePromotionImport
-export const createPriceListAlias = createPromotionImport
+export const obtenerListasPrecios = obtenerPromociones
+export const eliminarListaPrecio = eliminarPromocion

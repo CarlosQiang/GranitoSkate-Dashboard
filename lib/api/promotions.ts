@@ -852,3 +852,14 @@ export const updatePriceList = async (id, data) => {
 }
 export const deletePriceList = deletePromotion
 export const fetchPriceLists = fetchPromotions
+
+import { actualizarPromocion } from "./promociones"
+
+// Exportar funciones con nombres en inglés
+export { actualizarPromocion as updatePromotion }
+
+// Alias para compatibilidad
+export const getPriceListById = fetchPromotionById
+export const deletePriceList = deletePromotion
+export const createPriceList = createPromotion
+export const updatePriceList = updatePromotion
