@@ -5,15 +5,17 @@ import type { MetafieldInput, LocalBusinessData, SocialMediaData, SeoMetafields 
 // Función para obtener metafields de un recurso
 export async function getMetafields(ownerId: string, ownerType: string) {
   const query = gql`
-    query GetMetafields($ownerId: ID!, $ownerType: MetafieldOwnerType!) {
-      metafields(first: 100, owner: { id: $ownerId, type: $ownerType }) {
-        edges {
-          node {
-            id
-            namespace
-            key
-            value
-            type
+    query {
+      ${ownerType.toLowerCase()}(id: "${ownerId}") {
+        metafields(first: 100) {
+          edges {
+            node {
+              id
+              namespace
+              key
+              value
+              type
+            }
           }
         }
       }
@@ -24,7 +26,6 @@ export async function getMetafields(ownerId: string, ownerType: string) {
     // Asegurarse de que el ID tenga el formato correcto
     const isFullShopifyId = ownerId.includes("gid://shopify/")
     let formattedId = ownerId
-    const formattedOwnerType = ownerType
 
     // Si no es un ID completo, formatearlo según el tipo de propietario
     if (!isFullShopifyId) {
@@ -43,16 +44,14 @@ export async function getMetafields(ownerId: string, ownerType: string) {
       }
     }
 
-    const data = await shopifyClient.request(query, {
-      ownerId: formattedId,
-      ownerType: formattedOwnerType,
-    })
+    const data = await shopifyClient.request(query.replace("${ownerType.toLowerCase()}", ownerType.toLowerCase()))
 
-    if (!data || !data.metafields || !data.metafields.edges) {
+    const ownerTypeKey = ownerType.toLowerCase()
+    if (!data || !data[ownerTypeKey] || !data[ownerTypeKey].metafields || !data[ownerTypeKey].metafields.edges) {
       return []
     }
 
-    return data.metafields.edges.map((edge: any) => edge.node)
+    return data[ownerTypeKey].metafields.edges.map((edge: any) => edge.node)
   } catch (error) {
     console.error(`Error fetching metafields for ${ownerType} ${ownerId}:`, error)
     throw new Error(`Error al obtener metafields: ${(error as Error).message}`)
