@@ -21,8 +21,6 @@
     }
   ],
   "env": {
-    "NEXT_PUBLIC_VERCEL_URL": {
-      "type": "system"
-    }
+    "NEXT_PUBLIC_VERCEL_URL": "${VERCEL_URL}"
   }
 }
