@@ -1,4 +1,3 @@
-import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 
 // Caché para mejorar rendimiento
@@ -45,7 +44,23 @@ export async function fetchDashboardStats() {
       }
     `
 
-    const data = await shopifyClient.request(query)
+    // Usar el proxy en lugar de shopifyClient directamente
+    const response = await fetch("/api/shopify/proxy", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query,
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`)
+    }
+
+    const result = await response.json()
+    const data = result.data
 
     if (!data || !data.shop) {
       console.warn("No se pudieron obtener estadísticas de la tienda")
@@ -122,7 +137,24 @@ export async function fetchSalesChartData() {
       }
     `
 
-    const data = await shopifyClient.request(query, { date: sixMonthsAgoISO })
+    // Usar el proxy en lugar de shopifyClient directamente
+    const response = await fetch("/api/shopify/proxy", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query,
+        variables: { date: sixMonthsAgoISO },
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`)
+    }
+
+    const result = await response.json()
+    const data = result.data
 
     if (!data || !data.orders || !data.orders.edges) {
       console.warn("No se encontraron datos para el gráfico de ventas")
@@ -192,7 +224,23 @@ export async function fetchTopProductsChartData() {
       }
     `
 
-    const data = await shopifyClient.request(query)
+    // Usar el proxy en lugar de shopifyClient directamente
+    const response = await fetch("/api/shopify/proxy", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query,
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`)
+    }
+
+    const result = await response.json()
+    const data = result.data
 
     if (!data || !data.products || !data.products.edges) {
       console.warn("No se encontraron datos para el gráfico de productos")

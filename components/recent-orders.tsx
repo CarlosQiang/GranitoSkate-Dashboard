@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { fetchRecentOrders } from "@/lib/api/orders"
 import { formatDate, formatCurrency } from "@/lib/utils"
 import { ShoppingBag, RefreshCw, AlertCircle } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export function RecentOrders() {
   const [orders, setOrders] = useState([])
@@ -23,7 +24,7 @@ export function RecentOrders() {
       setOrders(data)
     } catch (err) {
       console.error("Error al cargar pedidos recientes:", err)
-      setError("No se pudieron cargar los pedidos recientes")
+      setError(err.message || "No se pudieron cargar los pedidos recientes")
     } finally {
       setLoading(false)
     }
@@ -77,9 +78,12 @@ export function RecentOrders() {
           <CardTitle>Pedidos recientes</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col items-center justify-center py-4 text-center">
-            <AlertCircle className="h-10 w-10 text-red-500 mb-2" />
-            <p className="mb-2">{error}</p>
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+          <div className="flex justify-center">
             <Button variant="outline" size="sm" onClick={loadOrders}>
               <RefreshCw className="mr-2 h-4 w-4" />
               Reintentar
@@ -108,8 +112,12 @@ export function RecentOrders() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Pedidos recientes</CardTitle>
+        <Button variant="outline" size="sm" onClick={loadOrders}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Actualizar
+        </Button>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

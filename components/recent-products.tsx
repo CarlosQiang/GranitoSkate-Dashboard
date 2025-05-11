@@ -1,32 +1,32 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
-import { RefreshCw, AlertCircle, Eye } from "lucide-react"
-import { fetchRecentProducts } from "@/lib/api/products"
-import { formatCurrency } from "@/lib/utils"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { fetchRecentProducts } from "@/lib/api/products"
+import { formatDate, formatCurrency, getImageUrl } from "@/lib/utils"
+import { Package, RefreshCw, AlertCircle } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export function RecentProducts() {
   const [products, setProducts] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   const loadProducts = async () => {
-    setIsLoading(true)
-    setError(null)
     try {
+      setLoading(true)
+      setError(null)
       const data = await fetchRecentProducts(5)
       setProducts(data)
     } catch (err) {
       console.error("Error al cargar productos recientes:", err)
       setError(err.message || "No se pudieron cargar los productos recientes")
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
@@ -34,24 +34,25 @@ export function RecentProducts() {
     loadProducts()
   }, [])
 
-  if (isLoading) {
+  if (loading) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>Productos recientes</CardTitle>
-          <CardDescription>Los últimos productos añadidos a tu tienda</CardDescription>
         </CardHeader>
         <CardContent>
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="flex items-center gap-3 py-2">
-              <Skeleton className="h-10 w-10 rounded-md" />
-              <div className="space-y-1 flex-1">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-3 w-16" />
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="flex items-center space-x-4 border-b pb-4">
+                <Skeleton className="h-12 w-12 rounded-md" />
+                <div className="space-y-1">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+                <Skeleton className="ml-auto h-6 w-16" />
               </div>
-              <Skeleton className="h-6 w-16" />
-            </div>
-          ))}
+            ))}
+          </div>
         </CardContent>
       </Card>
     )
@@ -61,18 +62,35 @@ export function RecentProducts() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Productos recientes</span>
-            <Button variant="outline" size="sm" onClick={loadProducts}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Reintentar
-            </Button>
-          </CardTitle>
+          <CardTitle>Productos recientes</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center p-4 text-sm border rounded-md bg-red-50 border-red-200 text-red-800">
-            <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-            <p>{error}</p>
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+          <div className="flex justify-center">
+            <Button variant="outline" size="sm" onClick={loadProducts}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Reintentar
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (products.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Productos recientes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center py-6 text-center">
+            <Package className="h-10 w-10 text-muted-foreground mb-2" />
+            <p className="text-muted-foreground">No hay productos recientes</p>
           </div>
         </CardContent>
       </Card>
@@ -81,66 +99,49 @@ export function RecentProducts() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span>Productos recientes</span>
-          <Button variant="outline" size="sm" onClick={loadProducts}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Actualizar
-          </Button>
-        </CardTitle>
-        <CardDescription>Los últimos productos añadidos a tu tienda</CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>Productos recientes</CardTitle>
+        <Button variant="outline" size="sm" onClick={loadProducts}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Actualizar
+        </Button>
       </CardHeader>
       <CardContent>
-        {products.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4 text-center">No hay productos recientes para mostrar</p>
-        ) : (
-          <div className="space-y-4">
-            {products.map((product) => (
-              <div key={product.id} className="flex items-center gap-3 border-b pb-3 last:border-0 last:pb-0">
-                <div className="h-12 w-12 relative bg-gray-100 rounded-md overflow-hidden flex-shrink-0">
-                  {product.image ? (
-                    <Image
-                      src={product.image || "/placeholder.svg"}
-                      alt={product.title}
-                      fill
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center h-full w-full text-gray-400">
-                      <span className="text-xs">Sin imagen</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <Link
-                    href={`/dashboard/products/${product.id}`}
-                    className="font-medium hover:underline truncate block"
-                  >
-                    {product.title}
-                  </Link>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={product.status === "ACTIVE" ? "default" : "secondary"} className="text-xs">
-                      {product.status === "ACTIVE" ? "Activo" : "Borrador"}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">Stock: {product.totalInventory || 0}</span>
+        <div className="space-y-4">
+          {products.map((product) => (
+            <div key={product.id} className="flex items-center space-x-4 border-b pb-4 last:border-0 last:pb-0">
+              <div className="h-12 w-12 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
+                {product.image ? (
+                  <Image
+                    src={getImageUrl(product.image.url) || "/placeholder.svg"}
+                    alt={product.image.altText || product.title}
+                    width={48}
+                    height={48}
+                    className="object-cover w-full h-full"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                    <Package className="h-6 w-6 text-gray-400" />
                   </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-bold">{formatCurrency(product.price, product.currencyCode)}</div>
-                  <Link
-                    href={`/dashboard/products/${product.id}`}
-                    className="text-xs text-blue-600 hover:underline flex items-center"
-                  >
-                    <Eye className="h-3 w-3 mr-1" />
-                    Ver
-                  </Link>
-                </div>
+                )}
               </div>
-            ))}
-          </div>
-        )}
+              <div className="space-y-1 flex-1 min-w-0">
+                <p className="font-medium truncate">{product.title}</p>
+                <p className="text-sm text-muted-foreground">{formatDate(product.createdAt)}</p>
+              </div>
+              <div className="font-medium">{formatCurrency(product.price.amount, product.price.currencyCode)}</div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 text-center">
+          <Button asChild variant="outline" size="sm">
+            <Link href="/dashboard/products">Ver todos los productos</Link>
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )
 }
+
+// Exportación por defecto para compatibilidad
+export default RecentProducts

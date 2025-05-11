@@ -50,15 +50,14 @@ export function truncateText(text: string, maxLength: number): string {
 }
 
 // Función para obtener URL de imagen con fallback
-export function getImageUrl(image: any, fallback = "/placeholder.svg"): string {
-  if (!image) return fallback
-  if (typeof image === "string") return image
+export function getImageUrl(url) {
+  if (!url) return null
 
-  // Si es un objeto de imagen de Shopify
-  if (image.url) return image.url
-  if (image.src) return image.src
+  // Si la URL ya es absoluta, devolverla tal cual
+  if (url.startsWith("http")) return url
 
-  return fallback
+  // Si es una URL relativa, convertirla a absoluta
+  return `https:${url}`
 }
 
 // Función para generar un slug

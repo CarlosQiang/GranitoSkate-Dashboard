@@ -1,13 +1,14 @@
 import { GraphQLClient } from "graphql-request"
 
-// Configuración del cliente GraphQL para Shopify
+// Configuración del cliente GraphQL para Shopify usando el proxy
 const shopifyClient = new GraphQLClient(
-  process.env.SHOPIFY_API_URL ||
-    `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-07/graphql.json`,
+  typeof window === "undefined"
+    ? `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-07/graphql.json`
+    : "/api/shopify/proxy", // Usar el proxy para solicitudes del cliente
   {
     headers: {
-      "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN || "",
       "Content-Type": "application/json",
+      // El token de acceso se añade en el servidor a través del proxy
     },
     timeout: 30000, // Aumentar timeout a 30 segundos
   },
@@ -18,22 +19,22 @@ export default shopifyClient
 // Función para verificar la conexión con Shopify
 export async function checkShopifyConnection() {
   try {
-    const query = `
-      {
-        shop {
-          name
-          primaryDomain {
-            url
-          }
-        }
-      }
-    `
-    const data = await shopifyClient.request(query)
-    console.log("Conexión exitosa con Shopify:", data)
-    return {
-      success: true,
-      shop: data.shop,
+    // Usar el endpoint de verificación en lugar de hacer la solicitud directamente
+    const response = await fetch("/api/shopify/check", {
+      method: "GET",
+      headers: {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`)
     }
+
+    const data = await response.json()
+    return data
   } catch (error) {
     console.error("Error checking Shopify connection:", error)
     return {

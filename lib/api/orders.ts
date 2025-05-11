@@ -1,5 +1,6 @@
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
+import { extractIdFromGid } from "@/lib/shopify"
 
 // Tipos para los filtros de pedidos
 export type OrderFilter = {
@@ -433,14 +434,18 @@ export async function fetchOrderTags() {
   }
 }
 
-// Función para obtener pedidos recientes
+/**
+ * Obtiene pedidos recientes
+ * @param limit Número de pedidos a obtener
+ * @returns Lista de pedidos recientes
+ */
 export async function fetchRecentOrders(limit = 5) {
   try {
     console.log(`Fetching ${limit} recent orders...`)
 
     const query = gql`
       query GetRecentOrders($limit: Int!) {
-        orders(first: $limit, sortKey: PROCESSED_AT, reverse: true) {
+        orders(first: $limit, sortKey: CREATED_AT, reverse: true) {
           edges {
             node {
               id
@@ -448,23 +453,15 @@ export async function fetchRecentOrders(limit = 5) {
               processedAt
               displayFinancialStatus
               displayFulfillmentStatus
-              totalPriceSet {
-                shopMoney {
-                  amount
-                  currencyCode
-                }
-              }
               customer {
                 firstName
                 lastName
                 email
               }
-              lineItems(first: 5) {
-                edges {
-                  node {
-                    title
-                    quantity
-                  }
+              totalPriceSet {
+                shopMoney {
+                  amount
+                  currencyCode
                 }
               }
             }
@@ -473,41 +470,58 @@ export async function fetchRecentOrders(limit = 5) {
       }
     `
 
-    const data = await shopifyClient.request(query, { limit })
+    // Usar el proxy en lugar de shopifyClient directamente
+    const response = await fetch("/api/shopify/proxy", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query,
+        variables: { limit },
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`)
+    }
+
+    const result = await response.json()
+
+    if (result.errors) {
+      throw new Error(result.errors[0]?.message || "Error en la consulta GraphQL")
+    }
+
+    const data = result.data
 
     if (!data || !data.orders || !data.orders.edges) {
       console.warn("No se encontraron pedidos recientes")
       return []
     }
 
-    // Transformar los datos para la aplicación
+    // Transformar los datos
     const orders = data.orders.edges.map((edge) => ({
-      id: edge.node.id.split("/").pop(),
+      id: extractIdFromGid(edge.node.id),
       orderNumber: edge.node.name,
       date: edge.node.processedAt,
       status: edge.node.displayFinancialStatus,
       fulfillmentStatus: edge.node.displayFulfillmentStatus,
-      total: {
-        amount: edge.node.totalPriceSet?.shopMoney?.amount || "0.00",
-        currencyCode: edge.node.totalPriceSet?.shopMoney?.currencyCode || "EUR",
-      },
       customer: edge.node.customer
         ? {
-            firstName: edge.node.customer.firstName || "",
-            lastName: edge.node.customer.lastName || "",
-            email: edge.node.customer.email || "",
+            firstName: edge.node.customer.firstName,
+            lastName: edge.node.customer.lastName,
+            email: edge.node.customer.email,
           }
         : null,
-      items: edge.node.lineItems.edges.map((item) => ({
-        title: item.node.title,
-        quantity: item.node.quantity,
-      })),
+      total: {
+        amount: Number.parseFloat(edge.node.totalPriceSet.shopMoney.amount),
+        currencyCode: edge.node.totalPriceSet.shopMoney.currencyCode,
+      },
     }))
 
-    console.log(`Successfully fetched ${orders.length} recent orders`)
     return orders
   } catch (error) {
     console.error("Error fetching recent orders:", error)
-    throw new Error(`Error al cargar pedidos recientes: ${(error as Error).message}`)
+    throw new Error(`Error al cargar pedidos recientes: ${error.message}`)
   }
 }

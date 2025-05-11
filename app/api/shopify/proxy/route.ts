@@ -33,10 +33,21 @@ export async function POST(request: Request) {
     }
 
     // Obtener el cuerpo de la solicitud
-    const body = await request.json()
+    let body
+    try {
+      body = await request.json()
+    } catch (error) {
+      console.error("Error al parsear el cuerpo de la solicitud:", error)
+      return NextResponse.json({ error: "Error al parsear el cuerpo de la solicitud" }, { status: 400 })
+    }
+
     const { query, variables } = body
 
-    console.log("Enviando consulta a Shopify:", query.substring(0, 100) + "...")
+    if (!query) {
+      return NextResponse.json({ error: "La consulta GraphQL es obligatoria" }, { status: 400 })
+    }
+
+    console.log("Proxy: Enviando consulta a Shopify:", query.substring(0, 100) + "...")
 
     // Usar la versión 2023-07 de la API que es más compatible con las consultas actuales
     const apiVersion = "2023-07"
@@ -95,6 +106,7 @@ export async function POST(request: Request) {
       )
     }
 
+    console.log("Proxy: Respuesta exitosa de Shopify")
     return NextResponse.json(data)
   } catch (error) {
     console.error("Error en el proxy de Shopify:", error)

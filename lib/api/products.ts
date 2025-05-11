@@ -1,12 +1,99 @@
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
+import { extractIdFromGid } from "@/lib/shopify"
 
-// Función para obtener productos recientes
+/**
+ * Obtiene productos recientes
+ * @param limit Número de productos a obtener
+ * @returns Lista de productos recientes
+ */
 export async function fetchRecentProducts(limit = 5) {
-  // Implementación de la función para obtener productos recientes
-  // Utilizamos la función fetchProducts existente con un límite
-  const products = await fetchProducts({ limit })
-  return products
+  try {
+    console.log(`Fetching ${limit} recent products...`)
+
+    const query = gql`
+      query GetRecentProducts($limit: Int!) {
+        products(first: $limit, sortKey: CREATED_AT, reverse: true) {
+          edges {
+            node {
+              id
+              title
+              handle
+              description
+              createdAt
+              productType
+              totalInventory
+              priceRangeV2 {
+                minVariantPrice {
+                  amount
+                  currencyCode
+                }
+              }
+              featuredImage {
+                url
+                altText
+              }
+            }
+          }
+        }
+      }
+    `
+
+    // Usar el proxy en lugar de shopifyClient directamente
+    const response = await fetch("/api/shopify/proxy", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query,
+        variables: { limit },
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`)
+    }
+
+    const result = await response.json()
+
+    if (result.errors) {
+      throw new Error(result.errors[0]?.message || "Error en la consulta GraphQL")
+    }
+
+    const data = result.data
+
+    if (!data || !data.products || !data.products.edges) {
+      console.warn("No se encontraron productos recientes")
+      return []
+    }
+
+    // Transformar los datos
+    const products = data.products.edges.map((edge) => ({
+      id: extractIdFromGid(edge.node.id),
+      title: edge.node.title,
+      handle: edge.node.handle,
+      description: edge.node.description,
+      createdAt: edge.node.createdAt,
+      productType: edge.node.productType,
+      inventory: edge.node.totalInventory,
+      price: {
+        amount: Number.parseFloat(edge.node.priceRangeV2.minVariantPrice.amount),
+        currencyCode: edge.node.priceRangeV2.minVariantPrice.currencyCode,
+      },
+      image: edge.node.featuredImage
+        ? {
+            url: edge.node.featuredImage.url,
+            altText: edge.node.featuredImage.altText || edge.node.title,
+          }
+        : null,
+    }))
+
+    return products
+  } catch (error) {
+    console.error("Error fetching recent products:", error)
+    throw new Error(`Error al cargar productos recientes: ${error.message}`)
+  }
 }
 
 // Función para obtener todos los productos
