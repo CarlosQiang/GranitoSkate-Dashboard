@@ -52,6 +52,7 @@ export async function POST(request: Request) {
         query,
         variables: variables || {},
       }),
+      cache: "no-store",
     })
 
     // Verificar si la respuesta es exitosa

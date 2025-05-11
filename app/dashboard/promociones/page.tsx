@@ -4,486 +4,375 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CalendarIcon, PlusCircle, TagIcon, AlertCircle, RefreshCw } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { CalendarIcon, PlusIcon, TagIcon, AlertCircle } from "lucide-react"
+import { fetchPromotions } from "@/lib/api/promociones"
+import { formatDate } from "@/lib/utils"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { obtenerPromociones } from "@/lib/api/promociones"
-import type { Promotion, PromotionStatus } from "@/lib/api/promotions"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function PromocionesPage() {
+  const [promociones, setPromociones] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [retryCount, setRetryCount] = useState(0)
   const router = useRouter()
-  const [promociones, setPromociones] = useState<Promotion[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const cargarPromociones = async () => {
-    setIsLoading(true)
-    setError(null)
-    try {
-      const data = await obtenerPromociones()
-      setPromociones(data)
-    } catch (err) {
-      console.error("Error al cargar promociones:", err)
-      setError(`Error al cargar promociones: ${(err as Error).message}`)
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   useEffect(() => {
+    const cargarPromociones = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const data = await fetchPromotions()
+        setPromociones(data)
+      } catch (err) {
+        console.error("Error al cargar promociones:", err)
+        setError(err.message || "Error al cargar promociones")
+      } finally {
+        setLoading(false)
+      }
+    }
+
     cargarPromociones()
-  }, [])
+  }, [retryCount])
 
-  const getStatusColor = (status: PromotionStatus) => {
-    switch (status) {
-      case "active":
-        return "bg-green-100 text-green-800 hover:bg-green-200"
-      case "expired":
-        return "bg-gray-100 text-gray-800 hover:bg-gray-200"
-      case "scheduled":
-        return "bg-blue-100 text-blue-800 hover:bg-blue-200"
+  const handleRetry = () => {
+    setRetryCount((prev) => prev + 1)
+  }
+
+  const getEstadoBadge = (estado) => {
+    switch (estado) {
+      case "ACTIVE":
+        return <Badge className="bg-green-500">Activa</Badge>
+      case "EXPIRED":
+        return (
+          <Badge variant="outline" className="text-gray-500">
+            Expirada
+          </Badge>
+        )
+      case "SCHEDULED":
+        return <Badge className="bg-blue-500">Programada</Badge>
       default:
-        return "bg-gray-100 text-gray-800 hover:bg-gray-200"
+        return <Badge variant="outline">Desconocido</Badge>
     }
   }
 
-  const getStatusText = (status: PromotionStatus) => {
-    switch (status) {
-      case "active":
-        return "Activa"
-      case "expired":
-        return "Expirada"
-      case "scheduled":
-        return "Programada"
-      default:
-        return "Desconocido"
-    }
-  }
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "N/A"
-    return new Date(dateString).toLocaleDateString("es-ES", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    })
+  const getTipoValorText = (tipoValor, valor) => {
+    return tipoValor === "percentage" ? `${valor}%` : `${valor}€`
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Promociones</h1>
-          <p className="text-muted-foreground">Gestiona las promociones y descuentos de tu tienda</p>
-        </div>
+    <div className="container mx-auto py-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Promociones</h1>
         <Button
           onClick={() => router.push("/dashboard/promociones/asistente")}
-          className="bg-granito hover:bg-granito/90 text-white"
+          className="bg-granito hover:bg-granito/90"
         >
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Nueva promoción
+          <PlusIcon className="mr-2 h-4 w-4" /> Nueva Promoción
         </Button>
       </div>
 
       {error && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
-          <AlertDescription className="flex flex-col gap-2">
-            <span>No se pudieron cargar las promociones. Por favor, inténtalo de nuevo.</span>
-            <Button variant="outline" size="sm" className="w-fit" onClick={cargarPromociones}>
-              <RefreshCw className="mr-2 h-4 w-4" />
+          <AlertDescription>
+            {error}
+            <Button variant="link" onClick={handleRetry} className="ml-2 p-0">
               Reintentar
             </Button>
           </AlertDescription>
         </Alert>
       )}
 
-      <Tabs defaultValue="todas" className="space-y-4">
-        <TabsList>
+      <Tabs defaultValue="todas">
+        <TabsList className="mb-4">
           <TabsTrigger value="todas">Todas</TabsTrigger>
           <TabsTrigger value="activas">Activas</TabsTrigger>
           <TabsTrigger value="programadas">Programadas</TabsTrigger>
           <TabsTrigger value="expiradas">Expiradas</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="todas" className="space-y-4">
-          {isLoading ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {[...Array(3)].map((_, i) => (
-                <Card key={i} className="overflow-hidden">
-                  <CardHeader className="p-4">
-                    <Skeleton className="h-6 w-3/4 mb-2" />
-                    <Skeleton className="h-4 w-1/2" />
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0">
-                    <Skeleton className="h-4 w-full mb-2" />
-                    <Skeleton className="h-4 w-2/3" />
-                  </CardContent>
-                  <CardFooter className="p-4 flex justify-between">
-                    <Skeleton className="h-8 w-20" />
-                    <Skeleton className="h-8 w-20" />
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          ) : promociones.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {promociones.map((promocion) => (
+        <TabsContent value="todas">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {loading ? (
+              Array(6)
+                .fill(0)
+                .map((_, i) => (
+                  <Card key={i} className="overflow-hidden">
+                    <CardHeader className="pb-2">
+                      <Skeleton className="h-5 w-3/4 mb-2" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </CardHeader>
+                    <CardContent>
+                      <Skeleton className="h-4 w-full mb-2" />
+                      <Skeleton className="h-4 w-3/4 mb-2" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </CardContent>
+                    <CardFooter>
+                      <Skeleton className="h-9 w-full" />
+                    </CardFooter>
+                  </Card>
+                ))
+            ) : promociones.length > 0 ? (
+              promociones.map((promocion) => (
                 <Card key={promocion.id} className="overflow-hidden">
-                  <CardHeader className="p-4">
+                  <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">{promocion.title}</CardTitle>
-                      <Badge className={getStatusColor(promocion.status)}>{getStatusText(promocion.status)}</Badge>
+                      <CardTitle className="text-xl">{promocion.titulo}</CardTitle>
+                      {getEstadoBadge(promocion.estado)}
                     </div>
                     <CardDescription>
-                      {promocion.type === "percentage"
-                        ? `${promocion.value} de descuento`
-                        : promocion.type === "fixed_amount"
-                          ? `${promocion.value} de descuento`
-                          : promocion.type === "free_shipping"
-                            ? "Envío gratis"
-                            : "Compra X y lleva Y"}
+                      {promocion.codigo && (
+                        <span className="flex items-center text-sm font-medium">
+                          <TagIcon className="mr-1 h-3 w-3" /> Código: {promocion.codigo}
+                        </span>
+                      )}
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="p-4 pt-0">
-                    <div className="flex items-center text-sm text-muted-foreground mb-2">
-                      <CalendarIcon className="mr-1 h-4 w-4" />
-                      <span>
-                        Desde {formatDate(promocion.startDate)}
-                        {promocion.endDate ? ` hasta ${formatDate(promocion.endDate)}` : ""}
-                      </span>
-                    </div>
-                    {promocion.code && (
-                      <div className="flex items-center text-sm">
-                        <TagIcon className="mr-1 h-4 w-4" />
-                        <span>
-                          Código: <strong>{promocion.code}</strong>
-                        </span>
-                      </div>
-                    )}
+                  <CardContent>
+                    <p className="text-lg font-bold mb-2">
+                      {getTipoValorText(promocion.tipoValor, promocion.valor)} de descuento
+                    </p>
+                    <p className="text-sm text-gray-500 flex items-center">
+                      <CalendarIcon className="mr-1 h-3 w-3" />
+                      {formatDate(promocion.fechaInicio)}
+                      {promocion.fechaFin && ` - ${formatDate(promocion.fechaFin)}`}
+                    </p>
+                    {promocion.resumen && <p className="mt-2 text-sm">{promocion.resumen}</p>}
                   </CardContent>
-                  <CardFooter className="p-4 flex justify-between">
+                  <CardFooter>
                     <Button
                       variant="outline"
-                      size="sm"
+                      className="w-full"
                       onClick={() => router.push(`/dashboard/promociones/${promocion.id}`)}
                     >
                       Ver detalles
                     </Button>
-                    <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
-                      Eliminar
-                    </Button>
                   </CardFooter>
                 </Card>
-              ))}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center p-6">
-                <div className="rounded-full bg-muted p-3">
-                  <TagIcon className="h-6 w-6" />
-                </div>
-                <h3 className="mt-4 text-lg font-semibold">No hay promociones</h3>
-                <p className="mb-4 mt-2 text-center text-sm text-muted-foreground">
-                  Crea tu primera promoción para atraer más clientes a tu tienda.
-                </p>
+              ))
+            ) : (
+              <div className="col-span-full text-center py-12">
+                <p className="text-gray-500 mb-4">No hay promociones disponibles</p>
                 <Button
                   onClick={() => router.push("/dashboard/promociones/asistente")}
-                  className="bg-granito hover:bg-granito/90 text-white"
+                  className="bg-granito hover:bg-granito/90"
                 >
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Nueva promoción
+                  <PlusIcon className="mr-2 h-4 w-4" /> Crear primera promoción
                 </Button>
-              </CardContent>
-            </Card>
-          )}
+              </div>
+            )}
+          </div>
         </TabsContent>
 
-        <TabsContent value="activas" className="space-y-4">
-          {isLoading ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {[...Array(2)].map((_, i) => (
-                <Card key={i} className="overflow-hidden">
-                  <CardHeader className="p-4">
-                    <Skeleton className="h-6 w-3/4 mb-2" />
-                    <Skeleton className="h-4 w-1/2" />
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0">
-                    <Skeleton className="h-4 w-full mb-2" />
-                    <Skeleton className="h-4 w-2/3" />
-                  </CardContent>
-                  <CardFooter className="p-4 flex justify-between">
-                    <Skeleton className="h-8 w-20" />
-                    <Skeleton className="h-8 w-20" />
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {promociones
-                .filter((p) => p.status === "active")
+        <TabsContent value="activas">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {loading ? (
+              Array(3)
+                .fill(0)
+                .map((_, i) => (
+                  <Card key={i} className="overflow-hidden">
+                    <CardHeader className="pb-2">
+                      <Skeleton className="h-5 w-3/4 mb-2" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </CardHeader>
+                    <CardContent>
+                      <Skeleton className="h-4 w-full mb-2" />
+                      <Skeleton className="h-4 w-3/4 mb-2" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </CardContent>
+                    <CardFooter>
+                      <Skeleton className="h-9 w-full" />
+                    </CardFooter>
+                  </Card>
+                ))
+            ) : promociones.filter((p) => p.estado === "ACTIVE").length > 0 ? (
+              promociones
+                .filter((p) => p.estado === "ACTIVE")
                 .map((promocion) => (
                   <Card key={promocion.id} className="overflow-hidden">
-                    <CardHeader className="p-4">
+                    <CardHeader className="pb-2">
                       <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">{promocion.title}</CardTitle>
-                        <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Activa</Badge>
+                        <CardTitle className="text-xl">{promocion.titulo}</CardTitle>
+                        {getEstadoBadge(promocion.estado)}
                       </div>
                       <CardDescription>
-                        {promocion.type === "percentage"
-                          ? `${promocion.value} de descuento`
-                          : promocion.type === "fixed_amount"
-                            ? `${promocion.value} de descuento`
-                            : promocion.type === "free_shipping"
-                              ? "Envío gratis"
-                              : "Compra X y lleva Y"}
+                        {promocion.codigo && (
+                          <span className="flex items-center text-sm font-medium">
+                            <TagIcon className="mr-1 h-3 w-3" /> Código: {promocion.codigo}
+                          </span>
+                        )}
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="p-4 pt-0">
-                      <div className="flex items-center text-sm text-muted-foreground mb-2">
-                        <CalendarIcon className="mr-1 h-4 w-4" />
-                        <span>
-                          Desde {formatDate(promocion.startDate)}
-                          {promocion.endDate ? ` hasta ${formatDate(promocion.endDate)}` : ""}
-                        </span>
-                      </div>
-                      {promocion.code && (
-                        <div className="flex items-center text-sm">
-                          <TagIcon className="mr-1 h-4 w-4" />
-                          <span>
-                            Código: <strong>{promocion.code}</strong>
-                          </span>
-                        </div>
-                      )}
+                    <CardContent>
+                      <p className="text-lg font-bold mb-2">
+                        {getTipoValorText(promocion.tipoValor, promocion.valor)} de descuento
+                      </p>
+                      <p className="text-sm text-gray-500 flex items-center">
+                        <CalendarIcon className="mr-1 h-3 w-3" />
+                        {formatDate(promocion.fechaInicio)}
+                        {promocion.fechaFin && ` - ${formatDate(promocion.fechaFin)}`}
+                      </p>
+                      {promocion.resumen && <p className="mt-2 text-sm">{promocion.resumen}</p>}
                     </CardContent>
-                    <CardFooter className="p-4 flex justify-between">
+                    <CardFooter>
                       <Button
                         variant="outline"
-                        size="sm"
+                        className="w-full"
                         onClick={() => router.push(`/dashboard/promociones/${promocion.id}`)}
                       >
                         Ver detalles
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
-                        Eliminar
-                      </Button>
                     </CardFooter>
                   </Card>
-                ))}
-              {promociones.filter((p) => p.status === "active").length === 0 && (
-                <Card className="col-span-full">
-                  <CardContent className="flex flex-col items-center justify-center p-6">
-                    <div className="rounded-full bg-muted p-3">
-                      <TagIcon className="h-6 w-6" />
-                    </div>
-                    <h3 className="mt-4 text-lg font-semibold">No hay promociones activas</h3>
-                    <p className="mb-4 mt-2 text-center text-sm text-muted-foreground">
-                      Crea una nueva promoción o activa una existente.
-                    </p>
-                    <Button
-                      onClick={() => router.push("/dashboard/promociones/asistente")}
-                      className="bg-granito hover:bg-granito/90 text-white"
-                    >
-                      <PlusCircle className="mr-2 h-4 w-4" />
-                      Nueva promoción
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          )}
+                ))
+            ) : (
+              <div className="col-span-full text-center py-12">
+                <p className="text-gray-500">No hay promociones activas</p>
+              </div>
+            )}
+          </div>
         </TabsContent>
 
-        <TabsContent value="programadas" className="space-y-4">
-          {isLoading ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <Card className="overflow-hidden">
-                <CardHeader className="p-4">
-                  <Skeleton className="h-6 w-3/4 mb-2" />
-                  <Skeleton className="h-4 w-1/2" />
-                </CardHeader>
-                <CardContent className="p-4 pt-0">
-                  <Skeleton className="h-4 w-full mb-2" />
-                  <Skeleton className="h-4 w-2/3" />
-                </CardContent>
-                <CardFooter className="p-4 flex justify-between">
-                  <Skeleton className="h-8 w-20" />
-                  <Skeleton className="h-8 w-20" />
-                </CardFooter>
-              </Card>
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {promociones
-                .filter((p) => p.status === "scheduled")
+        <TabsContent value="programadas">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {loading ? (
+              Array(2)
+                .fill(0)
+                .map((_, i) => (
+                  <Card key={i} className="overflow-hidden">
+                    <CardHeader className="pb-2">
+                      <Skeleton className="h-5 w-3/4 mb-2" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </CardHeader>
+                    <CardContent>
+                      <Skeleton className="h-4 w-full mb-2" />
+                      <Skeleton className="h-4 w-3/4 mb-2" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </CardContent>
+                    <CardFooter>
+                      <Skeleton className="h-9 w-full" />
+                    </CardFooter>
+                  </Card>
+                ))
+            ) : promociones.filter((p) => p.estado === "SCHEDULED").length > 0 ? (
+              promociones
+                .filter((p) => p.estado === "SCHEDULED")
                 .map((promocion) => (
                   <Card key={promocion.id} className="overflow-hidden">
-                    <CardHeader className="p-4">
+                    <CardHeader className="pb-2">
                       <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">{promocion.title}</CardTitle>
-                        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">Programada</Badge>
+                        <CardTitle className="text-xl">{promocion.titulo}</CardTitle>
+                        {getEstadoBadge(promocion.estado)}
                       </div>
                       <CardDescription>
-                        {promocion.type === "percentage"
-                          ? `${promocion.value} de descuento`
-                          : promocion.type === "fixed_amount"
-                            ? `${promocion.value} de descuento`
-                            : promocion.type === "free_shipping"
-                              ? "Envío gratis"
-                              : "Compra X y lleva Y"}
+                        {promocion.codigo && (
+                          <span className="flex items-center text-sm font-medium">
+                            <TagIcon className="mr-1 h-3 w-3" /> Código: {promocion.codigo}
+                          </span>
+                        )}
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="p-4 pt-0">
-                      <div className="flex items-center text-sm text-muted-foreground mb-2">
-                        <CalendarIcon className="mr-1 h-4 w-4" />
-                        <span>
-                          Desde {formatDate(promocion.startDate)}
-                          {promocion.endDate ? ` hasta ${formatDate(promocion.endDate)}` : ""}
-                        </span>
-                      </div>
-                      {promocion.code && (
-                        <div className="flex items-center text-sm">
-                          <TagIcon className="mr-1 h-4 w-4" />
-                          <span>
-                            Código: <strong>{promocion.code}</strong>
-                          </span>
-                        </div>
-                      )}
+                    <CardContent>
+                      <p className="text-lg font-bold mb-2">
+                        {getTipoValorText(promocion.tipoValor, promocion.valor)} de descuento
+                      </p>
+                      <p className="text-sm text-gray-500 flex items-center">
+                        <CalendarIcon className="mr-1 h-3 w-3" />
+                        {formatDate(promocion.fechaInicio)}
+                        {promocion.fechaFin && ` - ${formatDate(promocion.fechaFin)}`}
+                      </p>
+                      {promocion.resumen && <p className="mt-2 text-sm">{promocion.resumen}</p>}
                     </CardContent>
-                    <CardFooter className="p-4 flex justify-between">
+                    <CardFooter>
                       <Button
                         variant="outline"
-                        size="sm"
+                        className="w-full"
                         onClick={() => router.push(`/dashboard/promociones/${promocion.id}`)}
                       >
                         Ver detalles
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
-                        Eliminar
-                      </Button>
                     </CardFooter>
                   </Card>
-                ))}
-              {promociones.filter((p) => p.status === "scheduled").length === 0 && (
-                <Card className="col-span-full">
-                  <CardContent className="flex flex-col items-center justify-center p-6">
-                    <div className="rounded-full bg-muted p-3">
-                      <CalendarIcon className="h-6 w-6" />
-                    </div>
-                    <h3 className="mt-4 text-lg font-semibold">No hay promociones programadas</h3>
-                    <p className="mb-4 mt-2 text-center text-sm text-muted-foreground">
-                      Programa promociones para fechas futuras.
-                    </p>
-                    <Button
-                      onClick={() => router.push("/dashboard/promociones/asistente")}
-                      className="bg-granito hover:bg-granito/90 text-white"
-                    >
-                      <PlusCircle className="mr-2 h-4 w-4" />
-                      Nueva promoción
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          )}
+                ))
+            ) : (
+              <div className="col-span-full text-center py-12">
+                <p className="text-gray-500">No hay promociones programadas</p>
+              </div>
+            )}
+          </div>
         </TabsContent>
 
-        <TabsContent value="expiradas" className="space-y-4">
-          {isLoading ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <Card className="overflow-hidden">
-                <CardHeader className="p-4">
-                  <Skeleton className="h-6 w-3/4 mb-2" />
-                  <Skeleton className="h-4 w-1/2" />
-                </CardHeader>
-                <CardContent className="p-4 pt-0">
-                  <Skeleton className="h-4 w-full mb-2" />
-                  <Skeleton className="h-4 w-2/3" />
-                </CardContent>
-                <CardFooter className="p-4 flex justify-between">
-                  <Skeleton className="h-8 w-20" />
-                  <Skeleton className="h-8 w-20" />
-                </CardFooter>
-              </Card>
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {promociones
-                .filter((p) => p.status === "expired")
+        <TabsContent value="expiradas">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {loading ? (
+              Array(2)
+                .fill(0)
+                .map((_, i) => (
+                  <Card key={i} className="overflow-hidden">
+                    <CardHeader className="pb-2">
+                      <Skeleton className="h-5 w-3/4 mb-2" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </CardHeader>
+                    <CardContent>
+                      <Skeleton className="h-4 w-full mb-2" />
+                      <Skeleton className="h-4 w-3/4 mb-2" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </CardContent>
+                    <CardFooter>
+                      <Skeleton className="h-9 w-full" />
+                    </CardFooter>
+                  </Card>
+                ))
+            ) : promociones.filter((p) => p.estado === "EXPIRED").length > 0 ? (
+              promociones
+                .filter((p) => p.estado === "EXPIRED")
                 .map((promocion) => (
                   <Card key={promocion.id} className="overflow-hidden">
-                    <CardHeader className="p-4">
+                    <CardHeader className="pb-2">
                       <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">{promocion.title}</CardTitle>
-                        <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-200">Expirada</Badge>
+                        <CardTitle className="text-xl">{promocion.titulo}</CardTitle>
+                        {getEstadoBadge(promocion.estado)}
                       </div>
                       <CardDescription>
-                        {promocion.type === "percentage"
-                          ? `${promocion.value} de descuento`
-                          : promocion.type === "fixed_amount"
-                            ? `${promocion.value} de descuento`
-                            : promocion.type === "free_shipping"
-                              ? "Envío gratis"
-                              : "Compra X y lleva Y"}
+                        {promocion.codigo && (
+                          <span className="flex items-center text-sm font-medium">
+                            <TagIcon className="mr-1 h-3 w-3" /> Código: {promocion.codigo}
+                          </span>
+                        )}
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="p-4 pt-0">
-                      <div className="flex items-center text-sm text-muted-foreground mb-2">
-                        <CalendarIcon className="mr-1 h-4 w-4" />
-                        <span>
-                          Desde {formatDate(promocion.startDate)}
-                          {promocion.endDate ? ` hasta ${formatDate(promocion.endDate)}` : ""}
-                        </span>
-                      </div>
-                      {promocion.code && (
-                        <div className="flex items-center text-sm">
-                          <TagIcon className="mr-1 h-4 w-4" />
-                          <span>
-                            Código: <strong>{promocion.code}</strong>
-                          </span>
-                        </div>
-                      )}
+                    <CardContent>
+                      <p className="text-lg font-bold mb-2">
+                        {getTipoValorText(promocion.tipoValor, promocion.valor)} de descuento
+                      </p>
+                      <p className="text-sm text-gray-500 flex items-center">
+                        <CalendarIcon className="mr-1 h-3 w-3" />
+                        {formatDate(promocion.fechaInicio)}
+                        {promocion.fechaFin && ` - ${formatDate(promocion.fechaFin)}`}
+                      </p>
+                      {promocion.resumen && <p className="mt-2 text-sm">{promocion.resumen}</p>}
                     </CardContent>
-                    <CardFooter className="p-4 flex justify-between">
+                    <CardFooter>
                       <Button
                         variant="outline"
-                        size="sm"
+                        className="w-full"
                         onClick={() => router.push(`/dashboard/promociones/${promocion.id}`)}
                       >
                         Ver detalles
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
-                        Eliminar
-                      </Button>
                     </CardFooter>
                   </Card>
-                ))}
-              {promociones.filter((p) => p.status === "expired").length === 0 && (
-                <Card className="col-span-full">
-                  <CardContent className="flex flex-col items-center justify-center p-6">
-                    <div className="rounded-full bg-muted p-3">
-                      <TagIcon className="h-6 w-6" />
-                    </div>
-                    <h3 className="mt-4 text-lg font-semibold">No hay promociones expiradas</h3>
-                    <p className="mb-4 mt-2 text-center text-sm text-muted-foreground">
-                      Las promociones expiradas aparecerán aquí.
-                    </p>
-                    <Button
-                      onClick={() => router.push("/dashboard/promociones/asistente")}
-                      className="bg-granito hover:bg-granito/90 text-white"
-                    >
-                      <PlusCircle className="mr-2 h-4 w-4" />
-                      Nueva promoción
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          )}
+                ))
+            ) : (
+              <div className="col-span-full text-center py-12">
+                <p className="text-gray-500">No hay promociones expiradas</p>
+              </div>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
     </div>
