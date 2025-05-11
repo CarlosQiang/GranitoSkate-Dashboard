@@ -1,55 +1,53 @@
-// Tipos de promociones disponibles en nuestra plataforma
-// TODO: Añadir más tipos según necesidades del negocio
+/**
+ * Tipos para el sistema de promociones
+ *
+ * @author Carlos Martínez
+ * @version 1.0.1
+ * @fecha 2023-05-10
+ */
+
+// Tipos de promociones disponibles
 export type TipoPromocion = "PORCENTAJE_DESCUENTO" | "CANTIDAD_FIJA" | "COMPRA_X_LLEVA_Y" | "ENVIO_GRATIS"
 
-// Dónde se puede aplicar la promoción
-export type ObjetivoPromocion = "CARRITO" | "COLECCION" | "PRODUCTO" | "VARIANTE"
+// Objetivos donde se puede aplicar una promoción
+export type ObjetivoPromocion = "CARRITO" | "PRODUCTO" | "COLECCION"
 
-// Tipos de condiciones que podemos aplicar
-// NOTA: Actualmente solo implementamos CANTIDAD_MINIMA, el resto para futuras versiones
-export type TipoCondicionPromocion =
-  | "CANTIDAD_MINIMA"
-  | "PRIMERA_COMPRA"
-  | "GRUPO_CLIENTE_ESPECIFICO"
-  | "CANTIDAD_MINIMA_PRODUCTOS"
+// Tipos de condiciones para las promociones
+export type TipoCondicion = "CANTIDAD_MINIMA" | "CLIENTE_ESPECIFICO" | "PRIMERA_COMPRA"
 
 // Estructura de una condición
-export type CondicionPromocion = {
-  tipo: TipoCondicionPromocion
-  valor: any // FIXME: Tipar esto mejor en el futuro
+export interface CondicionPromocion {
+  tipo: TipoCondicion
+  valor: number | string
 }
 
-// Información de precios para mostrar en la UI
-export type PrecioPromocion = {
-  precio: {
-    cantidad: string
-    codigoMoneda: string
-  }
-  tituloProducto: string
-  idVariante: string
-}
-
-// Modelo principal de promoción
-export type Promocion = {
+// Estructura completa de una promoción
+export interface Promocion {
   id: string
   titulo: string
+  descripcion?: string
   tipo: TipoPromocion
+  objetivo: ObjetivoPromocion
+  objetivoId?: string
   valor: number
+  condiciones: CondicionPromocion[]
   activa: boolean
+  codigo?: string
   fechaInicio: string
   fechaFin?: string
-  condiciones: CondicionPromocion[]
+  limiteUsos?: number
   contadorUsos: number
   fechaCreacion: string
   fechaActualizacion: string
-  objetivo: ObjetivoPromocion
-  precios?: PrecioPromocion[]
-  codigo?: string
 }
 
-// Datos que maneja el asistente de promociones
-// Separamos este modelo del principal para facilitar la gestión del formulario
-export type DatosAsistentePromocion = {
+// Datos para crear o actualizar una promoción
+export type PromocionInput = Omit<Promocion, "id" | "fechaCreacion" | "fechaActualizacion" | "contadorUsos"> & {
+  contadorUsos?: number
+}
+
+// Datos para el asistente de promociones
+export interface DatosAsistentePromocion {
   titulo: string
   descripcion: string
   tipo: TipoPromocion
