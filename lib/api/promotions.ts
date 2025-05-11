@@ -174,3 +174,77 @@ export const createPriceList = createPromotion
 export const updatePriceList = updatePromotion
 export const deletePriceList = deletePromotion
 export const getPriceListById = fetchPromotionById
+
+// Añadir la función createMarketingActivity si no existe
+
+export async function createMarketingActivity(data) {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "/api"}/shopify/proxy`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query: `
+          mutation marketingActivityCreate($input: MarketingActivityCreateInput!) {
+            marketingActivityCreate(input: $input) {
+              marketingActivity {
+                id
+                marketingChannel
+                status
+                utmCampaign
+                utmMedium
+                utmSource
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `,
+        variables: {
+          input: {
+            marketingChannel: data.channel,
+            status: "SCHEDULED",
+            utmCampaign: data.utmCampaign,
+            utmMedium: data.utmMedium,
+            utmSource: data.utmSource,
+            scheduledStart: data.scheduledStart,
+            scheduledEnd: data.scheduledEnd || null,
+            budget: {
+              amount: Number.parseFloat(data.budget) || 0,
+              currencyCode: "EUR",
+            },
+            reminders: data.reminders || [],
+            tactic: data.tactic || "DIRECT_BUY",
+            targetStatus: "PROSPECT",
+            description: data.description || "",
+          },
+        },
+      }),
+      cache: "no-store",
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error al crear actividad de marketing: ${response.status}`)
+    }
+
+    const result = await response.json()
+
+    if (result.errors) {
+      console.error("Errores GraphQL:", result.errors)
+      throw new Error(result.errors[0]?.message || "Error en la mutación GraphQL")
+    }
+
+    if (result.data.marketingActivityCreate.userErrors.length > 0) {
+      const error = result.data.marketingActivityCreate.userErrors[0]
+      throw new Error(`Error: ${error.message}`)
+    }
+
+    return result.data.marketingActivityCreate.marketingActivity
+  } catch (error) {
+    console.error("Error en createMarketingActivity:", error)
+    throw error
+  }
+}

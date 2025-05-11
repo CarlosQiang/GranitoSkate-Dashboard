@@ -434,3 +434,186 @@ export const createPriceList = crearPromocion
 export const updatePriceList = actualizarPromocion
 export const deletePriceList = eliminarPromocion
 export const getPriceListById = obtenerPromocionPorId
+
+// Asegúrate de que la función fetchPromotions esté exportada
+// Si el archivo ya tiene contenido, añade esta función si no existe
+
+export async function fetchPromotions() {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "/api"}/shopify/proxy`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query: `
+          query GetPriceRules {
+            priceRules(first: 50) {
+              edges {
+                node {
+                  id
+                  title
+                  startsAt
+                  endsAt
+                  status
+                  valueType
+                  value
+                  usageLimit
+                  customerSelection {
+                    all
+                  }
+                  target
+                  targetType
+                  allocationMethod
+                  oncePerCustomer
+                  usesPerOrderLimit
+                  itemEntitlements {
+                    productVariants(first: 10) {
+                      edges {
+                        node {
+                          id
+                          title
+                          product {
+                            title
+                          }
+                        }
+                      }
+                    }
+                    collections(first: 10) {
+                      edges {
+                        node {
+                          id
+                          title
+                        }
+                      }
+                    }
+                    products(first: 10) {
+                      edges {
+                        node {
+                          id
+                          title
+                        }
+                      }
+                    }
+                  }
+                  prerequisiteSubtotalRange {
+                    greaterThanOrEqualTo
+                  }
+                  prerequisiteQuantityRange {
+                    greaterThanOrEqualTo
+                  }
+                  discountCodes(first: 1) {
+                    edges {
+                      node {
+                        code
+                        usageCount
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        `,
+      }),
+      cache: "no-store",
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error al obtener promociones: ${response.status}`)
+    }
+
+    const data = await response.json()
+
+    if (data.errors) {
+      console.error("Errores GraphQL:", data.errors)
+      throw new Error(data.errors[0]?.message || "Error en la consulta GraphQL")
+    }
+
+    // Transformar los datos de GraphQL a nuestro formato
+    const promociones = data.data.priceRules.edges.map((edge) => {
+      const node = edge.node
+      const discountCode = node.discountCodes.edges[0]?.node.code || null
+
+      // Determinar el estado
+      let estado = "UNKNOWN"
+      if (node.status === "ACTIVE") {
+        const now = new Date()
+        const startDate = node.startsAt ? new Date(node.startsAt) : null
+        const endDate = node.endsAt ? new Date(node.endsAt) : null
+
+        if (startDate && startDate > now) {
+          estado = "SCHEDULED"
+        } else if (endDate && endDate < now) {
+          estado = "EXPIRED"
+        } else {
+          estado = "ACTIVE"
+        }
+      } else {
+        estado = node.status
+      }
+
+      return {
+        id: node.id.split("/").pop(),
+        titulo: node.title,
+        fechaInicio: node.startsAt,
+        fechaFin: node.endsAt,
+        estado: estado,
+        tipoValor: node.valueType.toLowerCase(),
+        valor:
+          node.valueType === "PERCENTAGE"
+            ? Math.abs(Number.parseFloat(node.value))
+            : Math.abs(Number.parseFloat(node.value)),
+        codigo: discountCode,
+        tipoObjetivo: node.targetType,
+        objetivo: node.target,
+        limiteUso: node.usageLimit,
+        unaVezPorCliente: node.oncePerCustomer,
+        limiteUsosPorPedido: node.usesPerOrderLimit,
+        requisitoSubtotal: node.prerequisiteSubtotalRange?.greaterThanOrEqualTo || null,
+        requisitoCantidad: node.prerequisiteQuantityRange?.greaterThanOrEqualTo || null,
+        productos:
+          node.itemEntitlements?.products?.edges.map((e) => ({
+            id: e.node.id,
+            titulo: e.node.title,
+          })) || [],
+        colecciones:
+          node.itemEntitlements?.collections?.edges.map((e) => ({
+            id: e.node.id,
+            titulo: e.node.title,
+          })) || [],
+        variantes:
+          node.itemEntitlements?.productVariants?.edges.map((e) => ({
+            id: e.node.id,
+            titulo: e.node.title,
+            producto: e.node.product.title,
+          })) || [],
+        resumen: generarResumen(node),
+      }
+    })
+
+    return promociones
+  } catch (error) {
+    console.error("Error en fetchPromotions:", error)
+    throw error
+  }
+}
+
+// Función auxiliar para generar un resumen de la promoción
+function generarResumen(promocion) {
+  let resumen = ""
+
+  if (promocion.targetType === "LINE_ITEM") {
+    resumen = "Descuento aplicado a productos específicos"
+  } else if (promocion.targetType === "SHIPPING_LINE") {
+    resumen = "Descuento en gastos de envío"
+  } else {
+    resumen = "Descuento aplicado a todo el pedido"
+  }
+
+  if (promocion.prerequisiteSubtotalRange?.greaterThanOrEqualTo) {
+    resumen += ` para pedidos superiores a ${promocion.prerequisiteSubtotalRange.greaterThanOrEqualTo}€`
+  }
+
+  return resumen
+}

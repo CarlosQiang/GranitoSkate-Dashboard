@@ -429,3 +429,103 @@ export async function fetchOrderTags() {
     return []
   }
 }
+
+// Añadir la función fetchRecentOrders si no existe
+
+export async function fetchRecentOrders(limit = 5) {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "/api"}/shopify/proxy`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query: `
+          query GetRecentOrders($limit: Int!) {
+            orders(first: $limit, sortKey: PROCESSED_AT, reverse: true) {
+              edges {
+                node {
+                  id
+                  name
+                  processedAt
+                  financialStatus
+                  fulfillmentStatus
+                  totalPrice
+                  currencyCode
+                  customer {
+                    firstName
+                    lastName
+                    email
+                  }
+                  lineItems(first: 5) {
+                    edges {
+                      node {
+                        title
+                        quantity
+                        originalTotalPrice {
+                          amount
+                          currencyCode
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        `,
+        variables: {
+          limit: limit,
+        },
+      }),
+      cache: "no-store",
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error al obtener pedidos recientes: ${response.status}`)
+    }
+
+    const data = await response.json()
+
+    if (data.errors) {
+      console.error("Errores GraphQL:", data.errors)
+      throw new Error(data.errors[0]?.message || "Error en la consulta GraphQL")
+    }
+
+    // Transformar los datos de GraphQL a nuestro formato
+    const orders = data.data.orders.edges.map((edge) => {
+      const node = edge.node
+      return {
+        id: node.id.split("/").pop(),
+        name: node.name,
+        processedAt: node.processedAt,
+        financialStatus: node.financialStatus,
+        fulfillmentStatus: node.fulfillmentStatus,
+        totalPrice: node.totalPrice,
+        currencyCode: node.currencyCode,
+        customer: node.customer
+          ? {
+              firstName: node.customer.firstName,
+              lastName: node.customer.lastName,
+              email: node.customer.email,
+            }
+          : null,
+        lineItems: node.lineItems.edges.map((item) => ({
+          title: item.node.title,
+          quantity: item.node.quantity,
+          originalTotalPrice: {
+            amount: item.node.originalTotalPrice.amount,
+            currencyCode: item.node.originalTotalPrice.currencyCode,
+          },
+        })),
+      }
+    })
+
+    return orders
+  } catch (error) {
+    console.error("Error en fetchRecentOrders:", error)
+    throw error
+  }
+}
+
+// Asegúrate de que las demás funciones existentes permanezcan intactas
