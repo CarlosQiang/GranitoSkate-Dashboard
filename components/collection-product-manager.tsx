@@ -68,18 +68,11 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
       onComplete()
     } catch (err) {
       console.error(`Error al ${mode === "add" ? "añadir" : "eliminar"} productos:`, err)
-
-      // Mensaje de error más detallado
-      let errorMessage = `No se pudieron ${mode === "add" ? "añadir" : "eliminar"} los productos a la colección.`
-
-      // Si hay un mensaje de error específico de la API, lo mostramos
-      if (err.response?.errors && err.response.errors.length > 0) {
-        errorMessage += ` Error: ${err.response.errors[0].message}`
-      } else if (err.message) {
-        errorMessage += ` Error: ${err.message}`
-      }
-
-      setError(errorMessage)
+      setError(
+        `No se pudieron ${
+          mode === "add" ? "añadir" : "eliminar"
+        } los productos a la colección. Por favor, inténtalo de nuevo.`,
+      )
       setIsSubmitting(false)
     }
   }

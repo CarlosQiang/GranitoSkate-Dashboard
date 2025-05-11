@@ -3,7 +3,9 @@ import { gql } from "graphql-request"
 
 // Función para obtener productos recientes
 export async function fetchRecentProducts(limit = 5) {
-  const products = await fetchProducts(limit)
+  // Implementación de la función para obtener productos recientes
+  // Utilizamos la función fetchProducts existente con un límite
+  const products = await fetchProducts({ limit })
   return products
 }
 
@@ -54,8 +56,7 @@ export async function fetchProducts(limit = 20) {
       const variant = node.variants.edges[0]?.node || {}
 
       return {
-        id: node.id,
-        numericId: node.id.split("/").pop(),
+        id: node.id.split("/").pop(), // Extraer el ID numérico
         title: node.title,
         handle: node.handle,
         description: node.description,
@@ -126,19 +127,9 @@ export async function fetchProductById(id) {
 
     // Transformar los datos para un formato más fácil de usar
     const product = data.product
-    const variants = product.variants.edges.map((edge) => ({
-      id: edge.node.id,
-      numericId: edge.node.id.split("/").pop(),
-      title: edge.node.title,
-      price: edge.node.price,
-      compareAtPrice: edge.node.compareAtPrice,
-      sku: edge.node.sku || "",
-      inventoryQuantity: edge.node.inventoryQuantity || 0,
-    }))
 
     return {
-      id: product.id,
-      numericId: product.id.split("/").pop(),
+      id: product.id.split("/").pop(),
       title: product.title,
       handle: product.handle,
       description: product.description,
@@ -148,7 +139,14 @@ export async function fetchProductById(id) {
       status: product.status,
       totalInventory: product.totalInventory,
       featuredImage: product.featuredImage,
-      variants,
+      variants: product.variants.edges.map((edge) => ({
+        id: edge.node.id.split("/").pop(),
+        title: edge.node.title,
+        price: edge.node.price,
+        compareAtPrice: edge.node.compareAtPrice,
+        sku: edge.node.sku,
+        inventoryQuantity: edge.node.inventoryQuantity,
+      })),
     }
   } catch (error) {
     console.error(`Error al cargar el producto ${id}:`, error)
@@ -156,31 +154,9 @@ export async function fetchProductById(id) {
   }
 }
 
-// Función para verificar si una URL de imagen es válida para Shopify
-function isValidImageUrl(url) {
-  // Si es una URL de datos (base64), no es válida para Shopify
-  if (url && url.startsWith("data:")) {
-    console.warn("URL de imagen en formato base64 detectada. Shopify no acepta este formato.")
-    return false
-  }
-
-  // Verificar si es una URL válida
-  try {
-    new URL(url)
-    return true
-  } catch (e) {
-    console.warn("URL de imagen inválida:", url)
-    return false
-  }
-}
-
 // Función para crear un nuevo producto
 export async function createProduct(productData) {
   try {
-    // Verificar si la imagen es válida
-    const hasValidImage = productData.image && isValidImageUrl(productData.image)
-
-    // Crear el producto sin imagen primero
     const mutation = gql`
       mutation CreateProduct($input: ProductInput!) {
         productCreate(input: $input) {
@@ -197,25 +173,27 @@ export async function createProduct(productData) {
       }
     `
 
-    // Preparar el input sin el campo images
-    const input = {
-      title: productData.title,
-      descriptionHtml: productData.description || "",
-      vendor: productData.vendor || "",
-      productType: productData.productType || "",
-      status: productData.status || "ACTIVE",
-      variants: [
-        {
-          price: productData.variants?.[0]?.price || productData.price || "0.00",
-          compareAtPrice: productData.variants?.[0]?.compareAtPrice || productData.compareAtPrice || null,
-          sku: productData.variants?.[0]?.sku || productData.sku || "",
-        },
-      ],
-      metafields: productData.metafields || [],
+    const variables = {
+      input: {
+        title: productData.title,
+        descriptionHtml: productData.description || "",
+        vendor: productData.vendor || "",
+        productType: productData.productType || "",
+        status: productData.status || "ACTIVE",
+        images: productData.image ? [{ src: productData.image }] : [],
+        variants: [
+          {
+            price: productData.price || "0.00",
+            compareAtPrice: productData.compareAtPrice || null,
+            sku: productData.sku || "",
+            inventoryQuantities: {
+              availableQuantity: productData.inventoryQuantity || 0,
+              locationId: "gid://shopify/Location/1", // Ubicación por defecto
+            },
+          },
+        ],
+      },
     }
-
-    const variables = { input }
-    console.log("Enviando mutación para crear producto:", JSON.stringify(variables, null, 2))
 
     const data = await shopifyClient.request(mutation, variables)
 
@@ -223,79 +201,14 @@ export async function createProduct(productData) {
       throw new Error(data.productCreate.userErrors[0].message)
     }
 
-    const createdProduct = {
-      id: data.productCreate.product.id,
-      numericId: data.productCreate.product.id.split("/").pop(),
+    return {
+      id: data.productCreate.product.id.split("/").pop(),
       title: data.productCreate.product.title,
       handle: data.productCreate.product.handle,
     }
-
-    // Si hay una imagen válida, intentar añadirla en una operación separada
-    if (hasValidImage) {
-      try {
-        await updateProductMedia(createdProduct.id, productData.image)
-      } catch (imageError) {
-        console.error("Error al añadir imagen, pero el producto se creó correctamente:", imageError)
-      }
-    }
-
-    return createdProduct
   } catch (error) {
     console.error("Error al crear el producto:", error)
     throw new Error(`Error al crear el producto: ${error.message}`)
-  }
-}
-
-// Función para actualizar la imagen de un producto
-export async function updateProductMedia(productId, imageUrl) {
-  try {
-    // Verificar si la imagen es válida
-    if (!isValidImageUrl(imageUrl)) {
-      throw new Error("La URL de la imagen no es válida. Shopify requiere una URL accesible públicamente.")
-    }
-
-    // Asegurarse de que el ID tenga el formato correcto
-    const formattedId = productId.includes("gid://shopify/Product/") ? productId : `gid://shopify/Product/${productId}`
-
-    const mutation = gql`
-      mutation UpdateProductWithMedia($input: ProductInput!) {
-        productUpdate(input: $input) {
-          product {
-            id
-            featuredImage {
-              id
-              url
-            }
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const variables = {
-      input: {
-        id: formattedId,
-        featuredImage: {
-          src: imageUrl,
-        },
-      },
-    }
-
-    console.log("Enviando mutación para actualizar imagen:", JSON.stringify(variables, null, 2))
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.productUpdate.userErrors && data.productUpdate.userErrors.length > 0) {
-      throw new Error(data.productUpdate.userErrors[0].message)
-    }
-
-    return data.productUpdate.product.featuredImage
-  } catch (error) {
-    console.error(`Error al actualizar la imagen del producto ${productId}:`, error)
-    throw new Error(`Error al actualizar la imagen del producto: ${error.message}`)
   }
 }
 
@@ -304,10 +217,6 @@ export async function updateProduct(id, productData) {
   try {
     // Asegurarse de que el ID tenga el formato correcto
     const formattedId = id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
-
-    // Verificar si la imagen es válida
-    const hasValidImage =
-      productData.image && productData.image !== productData.currentImage && isValidImageUrl(productData.image)
 
     const mutation = gql`
       mutation UpdateProduct($input: ProductInput!) {
@@ -325,37 +234,21 @@ export async function updateProduct(id, productData) {
       }
     `
 
-    // Preparar el input sin el campo images
     const input = {
       id: formattedId,
       title: productData.title,
-      descriptionHtml: productData.descriptionHtml || productData.description || "",
+      descriptionHtml: productData.descriptionHtml || "",
       vendor: productData.vendor || "",
       productType: productData.productType || "",
       status: productData.status || "ACTIVE",
-      metafields: productData.metafields || [],
     }
 
-    // Añadir variantes si se proporcionan, asegurándose de que compareAtPrice no sea una cadena vacía
-    if (productData.variants && productData.variants.length > 0) {
-      input.variants = productData.variants.map((variant) => {
-        const variantInput = {
-          id: variant.id,
-          price: variant.price,
-          sku: variant.sku || "",
-        }
-
-        // Solo incluir compareAtPrice si tiene un valor
-        if (variant.compareAtPrice && variant.compareAtPrice.trim() !== "") {
-          variantInput.compareAtPrice = variant.compareAtPrice
-        }
-
-        return variantInput
-      })
+    // Añadir imagen solo si se proporciona
+    if (productData.image) {
+      input.images = [{ src: productData.image }]
     }
 
     const variables = { input }
-    console.log("Enviando mutación para actualizar producto:", JSON.stringify(variables, null, 2))
 
     const data = await shopifyClient.request(mutation, variables)
 
@@ -363,23 +256,11 @@ export async function updateProduct(id, productData) {
       throw new Error(data.productUpdate.userErrors[0].message)
     }
 
-    const updatedProduct = {
-      id: data.productUpdate.product.id,
-      numericId: data.productUpdate.product.id.split("/").pop(),
+    return {
+      id: data.productUpdate.product.id.split("/").pop(),
       title: data.productUpdate.product.title,
       handle: data.productUpdate.product.handle,
     }
-
-    // Si hay una imagen válida, intentar actualizarla en una operación separada
-    if (hasValidImage) {
-      try {
-        await updateProductMedia(updatedProduct.id, productData.image)
-      } catch (imageError) {
-        console.error("Error al actualizar la imagen, pero el producto se actualizó correctamente:", imageError)
-      }
-    }
-
-    return updatedProduct
   } catch (error) {
     console.error(`Error al actualizar el producto ${id}:`, error)
     throw new Error(`Error al actualizar el producto: ${error.message}`)
@@ -423,24 +304,6 @@ export async function deleteProduct(id) {
     console.error(`Error al eliminar el producto ${id}:`, error)
     throw new Error(`Error al eliminar el producto: ${error.message}`)
   }
-}
-
-// Función para generar metafields SEO para un producto
-export function generateProductSeoMetafields(title, description) {
-  return [
-    {
-      namespace: "seo",
-      key: "title",
-      value: title,
-      type: "single_line_text_field",
-    },
-    {
-      namespace: "seo",
-      key: "description",
-      value: description || `Descubre ${title} en nuestra tienda. Calidad garantizada y envío rápido.`,
-      type: "multi_line_text_field",
-    },
-  ]
 }
 
 // Añadir funciones para gestionar productos en colecciones

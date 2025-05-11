@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Save, AlertCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { createProduct } from "@/lib/api/products"
-import { generateProductSeoMetafields } from "@/lib/api/products"
+import { generateSeoMetafields, generateSeoHandle } from "@/lib/seo-utils"
 import { SeoPreview } from "@/components/seo-preview"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ImageUpload } from "@/components/image-upload"
@@ -76,22 +76,34 @@ export default function NewProductPage() {
     setIsSaving(true)
 
     try {
+      // Generar handle SEO-friendly
+      const handle = generateSeoHandle(formData.title)
+
       // Preparar los datos para la API de Shopify
       const productData = {
         title: formData.title,
-        description: formData.description,
+        descriptionHtml: formData.description,
+        handle: handle,
         status: formData.status,
         vendor: formData.vendor,
         productType: formData.productType,
+        variants: [
+          {
+            price: formData.variants[0].price || "0.00",
+            compareAtPrice: formData.variants[0].compareAtPrice || null,
+            sku: formData.variants[0].sku || "",
+            title: formData.variants[0].title || "Default Title",
+          },
+        ],
+        // Añadir la imagen si existe
         image: productImage,
-        price: formData.variants[0].price,
-        compareAtPrice: formData.variants[0].compareAtPrice,
-        sku: formData.variants[0].sku,
         // Generar automáticamente los metafields de SEO
-        metafields: generateProductSeoMetafields(formData.title, formData.description),
+        metafields: generateSeoMetafields(formData.title, formData.description),
       }
 
+      console.log("Enviando datos para crear producto:", productData)
       const product = await createProduct(productData)
+      console.log("Producto creado:", product)
 
       toast({
         title: "¡Producto creado!",

@@ -39,15 +39,13 @@ export async function fetchCollections(first = 20) {
     const collections = data.collections.edges.map((edge) => {
       const node = edge.node
       return {
-        id: node.id,
-        numericId: node.id.split("/").pop(),
+        id: node.id.split("/").pop(), // Extraer el ID numérico
         title: node.title,
         handle: node.handle,
         productsCount: node.productsCount?.count || 0,
         image: node.image,
         products: node.products.edges.map((productEdge) => ({
-          id: productEdge.node.id,
-          numericId: productEdge.node.id.split("/").pop(),
+          id: productEdge.node.id.split("/").pop(),
           title: productEdge.node.title,
         })),
       }
@@ -85,7 +83,6 @@ export async function fetchCollectionById(id) {
               node {
                 id
                 title
-                status
                 featuredImage {
                   url
                   altText
@@ -113,25 +110,19 @@ export async function fetchCollectionById(id) {
 
     // Transformar los datos para un formato más fácil de usar
     const collection = {
-      id: data.collection.id,
-      numericId: data.collection.id.split("/").pop(),
+      id: data.collection.id.split("/").pop(),
       title: data.collection.title,
       handle: data.collection.handle,
       description: data.collection.descriptionHtml,
       productsCount: data.collection.productsCount?.count || 0,
       image: data.collection.image,
-      products: data.collection.products.edges.map((edge) => {
-        const variant = edge.node.variants.edges[0]?.node || {}
-        return {
-          id: edge.node.id,
-          numericId: edge.node.id.split("/").pop(),
-          title: edge.node.title,
-          status: edge.node.status,
-          image: edge.node.featuredImage,
-          price: variant.price || "0.00",
-          compareAtPrice: variant.compareAtPrice,
-        }
-      }),
+      products: data.collection.products.edges.map((edge) => ({
+        id: edge.node.id.split("/").pop(),
+        title: edge.node.title,
+        image: edge.node.featuredImage,
+        price: edge.node.variants.edges[0]?.node.price || "0.00",
+        currencyCode: "EUR", // Valor por defecto
+      })),
     }
 
     return collection
@@ -179,8 +170,7 @@ export async function createCollection(collectionData) {
     }
 
     return {
-      id: data.collectionCreate.collection.id,
-      numericId: data.collectionCreate.collection.id.split("/").pop(),
+      id: data.collectionCreate.collection.id.split("/").pop(),
       title: data.collectionCreate.collection.title,
       handle: data.collectionCreate.collection.handle,
     }
@@ -232,8 +222,7 @@ export async function updateCollection(id, collectionData) {
     }
 
     return {
-      id: data.collectionUpdate.collection.id,
-      numericId: data.collectionUpdate.collection.id.split("/").pop(),
+      id: data.collectionUpdate.collection.id.split("/").pop(),
       title: data.collectionUpdate.collection.title,
       handle: data.collectionUpdate.collection.handle,
     }
@@ -297,7 +286,7 @@ export async function addProductsToCollection(collectionId, productIds) {
 
     const mutation = gql`
       mutation CollectionAddProducts($id: ID!, $productIds: [ID!]!) {
-        collectionAddProducts(id: $id, productIds: $productIds) {
+        collectionAddProducts(collectionId: $id, productIds: $productIds) {
           collection {
             id
             title
@@ -322,8 +311,7 @@ export async function addProductsToCollection(collectionId, productIds) {
     }
 
     return {
-      id: data.collectionAddProducts.collection.id,
-      numericId: data.collectionAddProducts.collection.id.split("/").pop(),
+      id: data.collectionAddProducts.collection.id.split("/").pop(),
       title: data.collectionAddProducts.collection.title,
     }
   } catch (error) {
@@ -347,7 +335,7 @@ export async function removeProductsFromCollection(collectionId, productIds) {
 
     const mutation = gql`
       mutation CollectionRemoveProducts($id: ID!, $productIds: [ID!]!) {
-        collectionRemoveProducts(id: $id, productIds: $productIds) {
+        collectionRemoveProducts(collectionId: $id, productIds: $productIds) {
           collection {
             id
             title
@@ -372,8 +360,7 @@ export async function removeProductsFromCollection(collectionId, productIds) {
     }
 
     return {
-      id: data.collectionRemoveProducts.collection.id,
-      numericId: data.collectionRemoveProducts.collection.id.split("/").pop(),
+      id: data.collectionRemoveProducts.collection.id.split("/").pop(),
       title: data.collectionRemoveProducts.collection.title,
     }
   } catch (error) {

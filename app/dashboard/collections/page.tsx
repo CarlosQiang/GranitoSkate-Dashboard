@@ -1,9 +1,9 @@
 import { Suspense } from "react"
+import Link from "next/link"
+import { Plus } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { LoadingState } from "@/components/loading-state"
 import { CollectionsList } from "@/components/collections-list"
-import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
-import Link from "next/link"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -16,7 +16,7 @@ export default function CollectionsPage() {
           <h1 className="text-2xl font-bold">Colecciones</h1>
           <p className="text-muted-foreground">Gestiona las colecciones de tu tienda</p>
         </div>
-        <Button asChild>
+        <Button asChild className="w-full sm:w-auto">
           <Link href="/dashboard/collections/new">
             <Plus className="mr-2 h-4 w-4" />
             Nueva colección

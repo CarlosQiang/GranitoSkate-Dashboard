@@ -1,106 +1,100 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useState, useEffect, useCallback } from "react"
+import { AlertCircle, CheckCircle, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { AlertCircle, RefreshCw, CheckCircle } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { testShopifyConnection } from "@/lib/shopify"
 
-interface ShopifyConnectionCheckerProps {
-  onConnectionChange?: (connected: boolean) => void
-}
+export function ShopifyConnectionChecker() {
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
+  const [message, setMessage] = useState("")
+  const [shopName, setShopName] = useState("")
+  const [isChecking, setIsChecking] = useState(true)
+  const [retryCount, setRetryCount] = useState(0)
 
-// Exportamos tanto como función nombrada como por defecto para mantener compatibilidad
-export function ShopifyConnectionChecker({ onConnectionChange }: ShopifyConnectionCheckerProps = {}) {
-  const [status, setStatus] = useState<"loading" | "connected" | "error">("loading")
-  const [shopName, setShopName] = useState<string>("")
-  const [error, setError] = useState<string>("")
-  const [isChecking, setIsChecking] = useState(false)
-
-  const checkConnection = async () => {
+  const checkConnection = useCallback(async () => {
     setIsChecking(true)
     setStatus("loading")
 
     try {
-      const response = await fetch("/api/shopify/check", {
-        method: "GET",
-        headers: {
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
-        },
-      })
+      const result = await testShopifyConnection()
 
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`)
-      }
-
-      const data = await response.json()
-
-      if (data.success) {
-        setStatus("connected")
-        setShopName(data.shopName || "")
-        onConnectionChange?.(true) // Notify parent component
+      if (result.success) {
+        setStatus("success")
+        setShopName(result.data?.shop?.name || "")
+        setMessage(`Conexión establecida correctamente con la tienda: ${result.data?.shop?.name || ""}`)
       } else {
         setStatus("error")
-        setError(data.error || "Error desconocido al conectar con Shopify")
-        onConnectionChange?.(false) // Notify parent component
+        setMessage(result.message || "Error al verificar la conexión con Shopify")
       }
-    } catch (err) {
-      console.error("Error al verificar la conexión con Shopify:", err)
+    } catch (error) {
       setStatus("error")
-      setError(`Error al verificar la conexión con Shopify: ${(err as Error).message}`)
-      onConnectionChange?.(false) // Notify parent component
+      setMessage(`Error al verificar la conexión: ${(error as Error).message}`)
     } finally {
       setIsChecking(false)
     }
+  }, [retryCount])
+
+  const handleRetry = () => {
+    setRetryCount((prev) => prev + 1)
+    checkConnection()
   }
 
   useEffect(() => {
     checkConnection()
-  }, [])
+  }, [checkConnection])
 
-  return (
-    <>
-      {status === "loading" && (
-        <Alert>
-          <RefreshCw className="h-4 w-4 animate-spin" />
-          <AlertTitle>Verificando conexión con Shopify</AlertTitle>
-          <AlertDescription>Estamos verificando la conexión con tu tienda Shopify...</AlertDescription>
-        </Alert>
-      )}
+  if (status === "loading" && isChecking) {
+    return (
+      <Alert className="mb-4 bg-blue-50 text-blue-800 border-blue-200">
+        <RefreshCw className="h-4 w-4 animate-spin" />
+        <AlertTitle>Verificando conexión con Shopify</AlertTitle>
+        <AlertDescription>Espere un momento mientras verificamos la conexión...</AlertDescription>
+      </Alert>
+    )
+  }
 
-      {status === "error" && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error de conexión con Shopify</AlertTitle>
-          <AlertDescription className="flex flex-col gap-2">
-            <p>{error}</p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={checkConnection}
-              disabled={isChecking}
-              className="w-fit flex items-center gap-2"
-            >
-              {isChecking ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-              Reintentar conexión
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
+  if (status === "success") {
+    return (
+      <Alert className="mb-4 bg-green-50 text-green-800 border-green-200" data-shopify-connected="true">
+        <CheckCircle className="h-4 w-4" />
+        <AlertTitle>Conectado a Shopify</AlertTitle>
+        <AlertDescription className="flex flex-col md:flex-row md:items-center gap-2 justify-between">
+          <span>Conexión establecida correctamente con la tienda: {shopName}</span>
+          <Button variant="outline" size="sm" className="w-fit" onClick={handleRetry} disabled={isChecking}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isChecking ? "animate-spin" : ""}`} />
+            Actualizar
+          </Button>
+        </AlertDescription>
+      </Alert>
+    )
+  }
 
-      {status === "connected" && (
-        <Alert variant="default" className="bg-green-50 border-green-200">
-          <CheckCircle className="h-4 w-4 text-green-600" />
-          <AlertTitle className="text-green-800">Conectado a Shopify</AlertTitle>
-          <AlertDescription className="text-green-700">
-            Conexión establecida correctamente con la tienda: <strong>{shopName}</strong>
-          </AlertDescription>
-        </Alert>
-      )}
-    </>
-  )
+  if (status === "error") {
+    return (
+      <Alert className="mb-4 bg-red-50 text-red-800 border-red-200">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error de conexión con Shopify</AlertTitle>
+        <AlertDescription className="flex flex-col gap-2">
+          <span>Error al verificar la conexión con Shopify: {message}</span>
+          <Button variant="outline" size="sm" className="w-fit" onClick={handleRetry} disabled={isChecking}>
+            {isChecking ? (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                Reintentando...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Reintentar conexión
+              </>
+            )}
+          </Button>
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
+  return null
 }
-
-// También exportamos como default para mantener compatibilidad
-export default ShopifyConnectionChecker

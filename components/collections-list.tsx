@@ -2,55 +2,52 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { fetchCollections, deleteCollection } from "@/lib/api/collections"
-import { CollectionCard } from "@/components/collection-card"
-import { Input } from "@/components/ui/input"
+import Image from "next/image"
+import { fetchCollections } from "@/lib/api/collections"
+import { Card, CardContent, CardFooter } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Search, RefreshCw, AlertTriangle, Plus } from "lucide-react"
+import { Pencil, Trash2, Package } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { deleteCollection } from "@/lib/api/collections"
 import { useRouter } from "next/navigation"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export function CollectionsList() {
   const [collections, setCollections] = useState([])
-  const [filteredCollections, setFilteredCollections] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [searchTerm, setSearchTerm] = useState("")
   const [deletingId, setDeletingId] = useState(null)
   const { toast } = useToast()
   const router = useRouter()
 
-  const loadCollections = async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      const data = await fetchCollections(50)
-      console.log("Collections loaded:", data)
-      setCollections(data)
-      setFilteredCollections(data)
-    } catch (err) {
-      console.error("Error al cargar colecciones:", err)
-      setError(err.message || "No se pudieron cargar las colecciones")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   useEffect(() => {
+    async function loadCollections() {
+      try {
+        setLoading(true)
+        setError(null)
+        const data = await fetchCollections()
+        setCollections(data)
+      } catch (err) {
+        console.error("Error al cargar colecciones:", err)
+        setError(err.message || "No se pudieron cargar las colecciones")
+      } finally {
+        setLoading(false)
+      }
+    }
+
     loadCollections()
   }, [])
-
-  useEffect(() => {
-    if (searchTerm.trim() === "") {
-      setFilteredCollections(collections)
-    } else {
-      const filtered = collections.filter((collection) =>
-        collection.title.toLowerCase().includes(searchTerm.toLowerCase()),
-      )
-      setFilteredCollections(filtered)
-    }
-  }, [searchTerm, collections])
 
   const handleDelete = async (id) => {
     try {
@@ -76,85 +73,116 @@ export function CollectionsList() {
     }
   }
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 bg-muted/30 p-4 rounded-lg animate-pulse">
-          <div className="h-10 w-full bg-muted rounded-md"></div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {[...Array(8)].map((_, i) => (
-            <div key={i} className="bg-muted/30 rounded-lg p-4 animate-pulse">
-              <div className="aspect-square bg-muted rounded-md mb-4"></div>
-              <div className="h-6 bg-muted rounded-md mb-2"></div>
-              <div className="h-4 bg-muted rounded-md w-1/2"></div>
-            </div>
-          ))}
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {[...Array(6)].map((_, i) => (
+          <Card key={i} className="animate-pulse">
+            <div className="h-48 bg-gray-200 rounded-t-lg" />
+            <CardContent className="p-4">
+              <div className="h-6 bg-gray-200 rounded w-3/4 mb-2" />
+              <div className="h-4 bg-gray-200 rounded w-1/2" />
+            </CardContent>
+          </Card>
+        ))}
       </div>
     )
   }
 
   if (error) {
     return (
-      <Alert variant="destructive">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>Error</AlertTitle>
-        <AlertDescription>
-          {error}
-          <div className="mt-2">
-            <Button variant="outline" size="sm" onClick={loadCollections}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Reintentar
-            </Button>
-          </div>
-        </AlertDescription>
-      </Alert>
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
+        <p className="font-medium">Error al cargar las colecciones</p>
+        <p>{error}</p>
+        <Button variant="outline" className="mt-2" onClick={() => router.refresh()}>
+          Reintentar
+        </Button>
+      </div>
+    )
+  }
+
+  if (collections.length === 0) {
+    return (
+      <div className="text-center p-8 border border-dashed rounded-lg">
+        <h3 className="text-lg font-medium mb-2">No hay colecciones</h3>
+        <p className="text-muted-foreground mb-4">Crea tu primera colección para organizar tus productos</p>
+        <Button asChild>
+          <Link href="/dashboard/collections/new">Crear colección</Link>
+        </Button>
+      </div>
     )
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Buscar colecciones..."
-            className="pl-8"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <Button variant="outline" size="icon" onClick={loadCollections} title="Actualizar">
-          <RefreshCw className="h-4 w-4" />
-          <span className="sr-only">Actualizar</span>
-        </Button>
-        <Button asChild>
-          <Link href="/dashboard/collections/new">
-            <Plus className="h-4 w-4 mr-1" />
-            Nueva colección
-          </Link>
-        </Button>
-      </div>
-
-      {filteredCollections.length === 0 ? (
-        <div className="text-center py-12 border-2 border-dashed rounded-lg">
-          <p className="text-muted-foreground">No se encontraron colecciones</p>
-          <Button asChild className="mt-4">
-            <Link href="/dashboard/collections/new">
-              <Plus className="h-4 w-4 mr-1" />
-              Crear colección
-            </Link>
-          </Button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filteredCollections.map((collection) => (
-            <CollectionCard key={collection.id} collection={collection} />
-          ))}
-        </div>
-      )}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {collections.map((collection) => (
+        <Card key={collection.id} className="overflow-hidden">
+          <div className="relative h-48 bg-gray-100">
+            {collection.image ? (
+              <Image
+                src={collection.image.url || "/placeholder.svg"}
+                alt={collection.image.altText || collection.title}
+                fill
+                className="object-cover"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-400">
+                <Package size={48} />
+              </div>
+            )}
+          </div>
+          <CardContent className="p-4">
+            <h3 className="text-lg font-medium mb-1">{collection.title}</h3>
+            <div className="flex items-center gap-2 mb-2">
+              <Badge variant="outline" className="text-xs">
+                {collection.productsCount} productos
+              </Badge>
+            </div>
+          </CardContent>
+          <CardFooter className="p-4 pt-0 flex justify-between">
+            <div className="flex gap-2">
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/dashboard/collections/${collection.id}`}>
+                  <Pencil className="h-4 w-4 mr-1" />
+                  Editar
+                </Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/dashboard/collections/${collection.id}/products`}>
+                  <Package className="h-4 w-4 mr-1" />
+                  Productos
+                </Link>
+              </Button>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-600 hover:bg-red-50">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Eliminar colección?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta acción no se puede deshacer. La colección será eliminada permanentemente, pero los productos no
+                    se eliminarán.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => handleDelete(collection.id)}
+                    className="bg-red-500 hover:bg-red-600"
+                    disabled={deletingId === collection.id}
+                  >
+                    {deletingId === collection.id ? "Eliminando..." : "Eliminar"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </CardFooter>
+        </Card>
+      ))}
     </div>
   )
 }

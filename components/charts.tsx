@@ -1,114 +1,158 @@
 "use client"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-export function BarChart({ data, title, description }) {
-  // Implementación simplificada de un gráfico de barras
-  const maxValue = Math.max(...data.map((item) => item.value || item.sales || 0))
+import { useTheme } from "next-themes"
+
+export function LineChart() {
+  const { theme } = useTheme()
+  const isDark = theme === "dark"
+  const textColor = isDark ? "#ffffff" : "#000000"
+  const gridColor = isDark ? "#333333" : "#e5e5e5"
+  const lineColor = "#d29a43"
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle>{title}</CardTitle>
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
-          {data.map((item, index) => (
-            <div key={index} className="flex items-center">
-              <div className="w-24 text-sm">{item.label || item.month || item.name}</div>
-              <div className="flex-1">
-                <div className="h-4 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className="h-full bg-primary"
-                    style={{
-                      width: `${((item.value || item.sales || 0) / maxValue) * 100}%`,
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="w-12 text-right text-sm">{item.value || item.sales || 0}</div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+    <div className="w-full h-full flex items-center justify-center">
+      <svg width="100%" height="100%" viewBox="0 0 800 400">
+        <rect width="800" height="400" fill="none" />
+
+        {/* Eje X */}
+        <line x1="50" y1="350" x2="750" y2="350" stroke={gridColor} strokeWidth="1" />
+
+        {/* Eje Y */}
+        <line x1="50" y1="50" x2="50" y2="350" stroke={gridColor} strokeWidth="1" />
+
+        {/* Líneas de cuadrícula horizontales */}
+        <line x1="50" y1="50" x2="750" y2="50" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
+        <line x1="50" y1="125" x2="750" y2="125" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
+        <line x1="50" y1="200" x2="750" y2="200" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
+        <line x1="50" y1="275" x2="750" y2="275" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
+
+        {/* Etiquetas del eje X */}
+        <text x="100" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Día 1
+        </text>
+        <text x="200" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Día 6
+        </text>
+        <text x="300" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Día 11
+        </text>
+        <text x="400" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Día 16
+        </text>
+        <text x="500" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Día 21
+        </text>
+        <text x="600" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Día 26
+        </text>
+        <text x="700" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Día 30
+        </text>
+
+        {/* Etiquetas del eje Y */}
+        <text x="40" y="350" fill={textColor} fontSize="12" textAnchor="end">
+          0€
+        </text>
+        <text x="40" y="275" fill={textColor} fontSize="12" textAnchor="end">
+          500€
+        </text>
+        <text x="40" y="200" fill={textColor} fontSize="12" textAnchor="end">
+          1000€
+        </text>
+        <text x="40" y="125" fill={textColor} fontSize="12" textAnchor="end">
+          1500€
+        </text>
+        <text x="40" y="50" fill={textColor} fontSize="12" textAnchor="end">
+          2000€
+        </text>
+
+        {/* Mensaje de datos no disponibles */}
+        <text x="400" y="200" fill={textColor} fontSize="14" textAnchor="middle">
+          Los datos de ventas estarán disponibles próximamente
+        </text>
+      </svg>
+    </div>
   )
 }
 
-export function LineChart({ data, title, description }) {
-  // Implementación simplificada de un gráfico de líneas
+export function BarChart() {
+  const { theme } = useTheme()
+  const isDark = theme === "dark"
+  const textColor = isDark ? "#ffffff" : "#000000"
+  const gridColor = isDark ? "#333333" : "#e5e5e5"
+
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle>{title}</CardTitle>
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
-      </CardHeader>
-      <CardContent>
-        <div className="h-[200px] flex items-end justify-between">
-          {data.map((item, index) => (
-            <div key={index} className="flex flex-col items-center">
-              <div
-                className="w-8 bg-primary rounded-t-sm"
-                style={{
-                  height: `${(item.value || item.sales || 0) / 100}px`,
-                }}
-              />
-              <div className="mt-2 text-xs">{item.label || item.month || item.name}</div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+    <div className="w-full h-full flex items-center justify-center">
+      <svg width="100%" height="100%" viewBox="0 0 800 400">
+        <rect width="800" height="400" fill="none" />
+
+        {/* Eje X */}
+        <line x1="50" y1="350" x2="750" y2="350" stroke={gridColor} strokeWidth="1" />
+
+        {/* Eje Y */}
+        <line x1="50" y1="50" x2="50" y2="350" stroke={gridColor} strokeWidth="1" />
+
+        {/* Líneas de cuadrícula horizontales */}
+        <line x1="50" y1="50" x2="750" y2="50" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
+        <line x1="50" y1="125" x2="750" y2="125" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
+        <line x1="50" y1="200" x2="750" y2="200" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
+        <line x1="50" y1="275" x2="750" y2="275" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
+
+        {/* Etiquetas del eje X */}
+        <text x="125" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Tablas
+        </text>
+        <text x="250" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Ruedas
+        </text>
+        <text x="375" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Ejes
+        </text>
+        <text x="500" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Ropa
+        </text>
+        <text x="625" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Accesorios
+        </text>
+
+        {/* Etiquetas del eje Y */}
+        <text x="40" y="350" fill={textColor} fontSize="12" textAnchor="end">
+          0€
+        </text>
+        <text x="40" y="275" fill={textColor} fontSize="12" textAnchor="end">
+          1000€
+        </text>
+        <text x="40" y="200" fill={textColor} fontSize="12" textAnchor="end">
+          2000€
+        </text>
+        <text x="40" y="125" fill={textColor} fontSize="12" textAnchor="end">
+          3000€
+        </text>
+        <text x="40" y="50" fill={textColor} fontSize="12" textAnchor="end">
+          4000€
+        </text>
+
+        {/* Mensaje de datos no disponibles */}
+        <text x="400" y="200" fill={textColor} fontSize="14" textAnchor="middle">
+          Los datos por categoría estarán disponibles próximamente
+        </text>
+      </svg>
+    </div>
   )
 }
 
-export function PieChart({ data, title, description }) {
-  // Implementación simplificada de un gráfico circular
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle>{title}</CardTitle>
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
-      </CardHeader>
-      <CardContent className="flex justify-center">
-        <div className="w-40 h-40 rounded-full border-8 border-primary flex items-center justify-center">
-          <div className="text-center">
-            <div className="text-2xl font-bold">
-              {data.reduce((sum, item) => sum + (item.value || item.sales || 0), 0)}
-            </div>
-            <div className="text-xs text-muted-foreground">Total</div>
-          </div>
-        </div>
-      </CardContent>
-      <div className="px-6 pb-6">
-        <div className="space-y-2">
-          {data.map((item, index) => (
-            <div key={index} className="flex items-center">
-              <div
-                className="w-3 h-3 rounded-full mr-2"
-                style={{
-                  backgroundColor: `hsl(${index * 40}, 70%, 50%)`,
-                }}
-              />
-              <div className="flex-1 text-sm">{item.label || item.name}</div>
-              <div className="text-sm font-medium">{item.value || item.sales || 0}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </Card>
-  )
-}
+export function PieChart() {
+  const { theme } = useTheme()
+  const isDark = theme === "dark"
+  const textColor = isDark ? "#ffffff" : "#000000"
 
-export function DashboardChart({ type = "bar", ...props }) {
-  switch (type) {
-    case "bar":
-      return <BarChart {...props} />
-    case "line":
-      return <LineChart {...props} />
-    case "pie":
-      return <PieChart {...props} />
-    default:
-      return <BarChart {...props} />
-  }
+  return (
+    <div className="w-full h-full flex items-center justify-center">
+      <svg width="100%" height="100%" viewBox="0 0 400 400">
+        <text x="200" y="200" fill={textColor} fontSize="14" textAnchor="middle">
+          Los datos de tráfico estarán disponibles próximamente
+        </text>
+      </svg>
+    </div>
+  )
 }

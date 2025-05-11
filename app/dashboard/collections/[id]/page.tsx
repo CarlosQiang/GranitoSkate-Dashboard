@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/components/ui/use-toast"
 import { fetchCollectionById, updateCollection, deleteCollection } from "@/lib/api/collections"
 import { ArrowLeft, Save, Tags, AlertTriangle, RefreshCw, AlertCircle, Plus, Trash2, Package } from "lucide-react"
+import { generateSeoMetafields } from "@/lib/seo-utils"
 import { SeoPreview } from "@/components/seo-preview"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
@@ -29,7 +30,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { CollectionSeoForm } from "@/components/collection-seo-form"
-import Link from "next/link"
 
 export default function CollectionPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -96,7 +96,9 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
     try {
       const updateData = {
         title: formData.title,
-        description: formData.description,
+        descriptionHtml: formData.description,
+        // Generar automáticamente los metafields de SEO
+        metafields: generateSeoMetafields(formData.title, formData.description),
       }
 
       console.log("Enviando datos para actualizar colección:", updateData)
@@ -324,15 +326,15 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
               </Button>
             </CardHeader>
             <CardContent>
-              {Array.isArray(collection.products) && collection.products.length > 0 ? (
+              {collection.products?.edges.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {collection.products.map((product) => (
-                    <div key={product.id} className="border rounded-md overflow-hidden">
+                  {collection.products.edges.map((edge: any) => (
+                    <div key={edge.node.id} className="border rounded-md overflow-hidden">
                       <div className="aspect-square relative">
-                        {product.image ? (
+                        {edge.node.featuredImage ? (
                           <Image
-                            src={product.image.url || "/placeholder.svg"}
-                            alt={product.title}
+                            src={edge.node.featuredImage.url || "/placeholder.svg"}
+                            alt={edge.node.title}
                             fill
                             className="object-cover"
                           />
@@ -343,19 +345,19 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
                         )}
                       </div>
                       <div className="p-3">
-                        <h3 className="font-medium truncate">{product.title}</h3>
+                        <h3 className="font-medium truncate">{edge.node.title}</h3>
                         <div className="flex items-center justify-between mt-2">
                           <span
                             className={`text-xs px-2 py-1 rounded-full ${
-                              product.status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                              edge.node.status === "ACTIVE"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-gray-100 text-gray-800"
                             }`}
                           >
-                            {product.status === "ACTIVE" ? "Visible" : "Oculto"}
+                            {edge.node.status === "ACTIVE" ? "Visible" : "Oculto"}
                           </span>
                           <Button variant="ghost" size="sm" asChild className="ml-auto">
-                            <Link href={`/dashboard/products/${product.numericId || product.id.split("/").pop()}`}>
-                              Ver
-                            </Link>
+                            <a href={`/dashboard/products/${edge.node.id.split("/").pop()}`}>Ver</a>
                           </Button>
                         </div>
                       </div>

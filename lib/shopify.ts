@@ -34,12 +34,10 @@ export function formatShopifyId(id: string, type = "Product") {
 // Función para realizar una consulta de prueba a Shopify
 export async function testShopifyConnection() {
   try {
-    const response = await fetch(`${getBaseUrl()}/api/shopify/check`, {
+    const response = await fetch(`${getBaseUrl()}/api/shopify/proxy`, {
       method: "GET",
       headers: {
         "Cache-Control": "no-cache, no-store, must-revalidate",
-        Pragma: "no-cache",
-        Expires: "0",
       },
     })
 

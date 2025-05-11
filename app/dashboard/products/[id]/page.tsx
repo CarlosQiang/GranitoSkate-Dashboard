@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Save, Trash2, AlertCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { fetchProductById, updateProduct, deleteProduct } from "@/lib/api/products"
-import { generateProductSeoMetafields } from "@/lib/api/products"
+import { generateSeoMetafields } from "@/lib/seo-utils"
 import { SeoPreview } from "@/components/seo-preview"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ImageUpload } from "@/components/image-upload"
@@ -59,15 +59,12 @@ export default function ProductPage({ params }) {
       try {
         setIsLoading(true)
         setError(null)
+        const productData = await fetchProductById(params.id)
 
-        // Asegurarse de que el ID no tenga el prefijo de Shopify
-        const cleanId = params.id.replace("gid://shopify/Product/", "")
-
-        const productData = await fetchProductById(cleanId)
         setProduct(productData)
 
         // Extraer la primera variante
-        const firstVariant = productData.variants?.[0] || {}
+        const firstVariant = productData.variants?.edges?.[0]?.node || {}
 
         setFormData({
           title: productData.title || "",
@@ -77,9 +74,8 @@ export default function ProductPage({ params }) {
           productType: productData.productType || "",
           variants: [
             {
-              id: firstVariant.id,
-              price: firstVariant.price || "",
-              compareAtPrice: firstVariant.compareAtPrice || "",
+              price: firstVariant.price?.amount || "",
+              compareAtPrice: firstVariant.compareAtPrice?.amount || "",
               sku: firstVariant.sku || "",
               title: firstVariant.title || "Default",
             },
@@ -142,19 +138,17 @@ export default function ProductPage({ params }) {
       // Preparar los datos para la API de Shopify
       const productData = {
         title: formData.title,
-        description: formData.description,
+        descriptionHtml: formData.description,
         status: formData.status,
         vendor: formData.vendor,
         productType: formData.productType,
-        // Pasar la imagen actual y la nueva imagen si existe
-        image: productImage,
-        currentImage: product?.featuredImage?.url || null,
+        // Añadir la imagen si existe y ha cambiado
+        ...(productImage !== product?.featuredImage?.url && { image: productImage }),
         // Generar automáticamente los metafields de SEO
-        metafields: generateProductSeoMetafields(formData.title, formData.description),
-        // Incluir variantes
-        variants: formData.variants,
+        metafields: generateSeoMetafields(formData.title, formData.description),
       }
 
+      console.log("Enviando datos para actualizar producto:", productData)
       await updateProduct(params.id, productData)
 
       toast({
