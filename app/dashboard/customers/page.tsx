@@ -11,6 +11,7 @@ import { Search, MoreHorizontal, Pencil, ShoppingCart } from "lucide-react"
 import { fetchCustomers } from "@/lib/api/customers"
 import { useToast } from "@/components/ui/use-toast"
 import { formatDate, formatCurrency } from "@/lib/utils"
+import { fallbackCustomers } from "@/components/fallback-data-provider"
 
 interface Customer {
   id: string
@@ -32,17 +33,36 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const { useFallbackData } = useFallbackData()
 
   useEffect(() => {
     const getCustomers = async () => {
       try {
+        if (useFallbackData) {
+          // Usar datos de fallback si es necesario
+          setCustomers(fallbackCustomers as Customer[])
+          setIsLoading(false)
+          return
+        }
+
         const data = await fetchCustomers()
-        setCustomers(data)
+
+        if (data && data.length > 0) {
+          setCustomers(data)
+          setError(null)
+        } else {
+          // Si no hay datos, mostrar un mensaje y usar datos de fallback
+          setError("No se pudieron cargar los clientes. Mostrando datos de ejemplo.")
+          setCustomers(fallbackCustomers as Customer[])
+        }
       } catch (error) {
         console.error("Error fetching customers:", error)
+        setError("Error al cargar los clientes. Mostrando datos de ejemplo.")
+        setCustomers(fallbackCustomers as Customer[])
         toast({
           title: "Error",
-          description: "No se pudieron cargar los clientes",
+          description: "No se pudieron cargar los clientes. Mostrando datos de ejemplo.",
           variant: "destructive",
         })
       } finally {
@@ -51,7 +71,7 @@ export default function CustomersPage() {
     }
 
     getCustomers()
-  }, [toast])
+  }, [toast, useFallbackData])
 
   const filteredCustomers = customers.filter(
     (customer) =>
@@ -67,6 +87,16 @@ export default function CustomersPage() {
           <p className="text-muted-foreground">Gestiona los clientes de tu tienda</p>
         </div>
       </div>
+
+      {error && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+          <div className="flex">
+            <div>
+              <p className="text-sm text-yellow-700">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center">
         <div className="relative flex-1 max-w-sm">

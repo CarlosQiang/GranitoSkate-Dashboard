@@ -38,8 +38,11 @@ export async function POST(request: Request) {
 
     console.log("Enviando consulta a Shopify:", query.substring(0, 100) + "...")
 
-    // Hacer la solicitud a la API de Shopify con la versión 2023-01 que es más estable para estas consultas
-    const response = await fetch(`https://${shopDomain}/admin/api/2023-01/graphql.json`, {
+    // Usar la versión 2023-01 de la API que es más estable para estas consultas
+    const apiVersion = "2023-01"
+
+    // Hacer la solicitud a la API de Shopify
+    const response = await fetch(`https://${shopDomain}/admin/api/${apiVersion}/graphql.json`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
