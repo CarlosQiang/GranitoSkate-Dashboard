@@ -9,9 +9,10 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    domains: ['cdn.shopify.com', 'res.cloudinary.com'],
+    domains: ['cdn.shopify.com', 'res.cloudinary.com', 'burst.shopifycdn.com'],
     unoptimized: true,
   },
+  // Asegurar que los archivos estáticos sean accesibles
   async headers() {
     return [
       {
@@ -24,26 +25,21 @@ const nextConfig = {
         ],
       },
       {
-        // Asegurar que los archivos estáticos sean accesibles sin autenticación
+        // Configuración específica para archivos estáticos
         source: '/(favicon.ico|site.webmanifest|android-chrome-192x192.png|android-chrome-512x512.png|apple-touch-icon.png|favicon-16x16.png|favicon-32x32.png)',
         headers: [
           {
             key: 'Cache-Control',
             value: 'public, max-age=31536000, immutable',
           },
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
+          },
         ],
       },
     ]
   },
-  // Asegurar que los archivos estáticos sean accesibles sin autenticación
-  async rewrites() {
-    return [
-      {
-        source: '/(favicon.ico|site.webmanifest|android-chrome-192x192.png|android-chrome-512x512.png|apple-touch-icon.png|favicon-16x16.png|favicon-32x32.png)',
-        destination: '/$1',
-      },
-    ]
-  },
-}
+};
 
-export default nextConfig
+export default nextConfig;

@@ -1,18 +1,27 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Card, CardContent } from "@/components/ui/card"
-import { Loader2, Search, Package, AlertCircle, RefreshCw } from "lucide-react"
-import { fetchProducts } from "@/lib/api/productos"
-import { fetchCollectionById } from "@/lib/api/collections"
-import { addProductsToCollection, removeProductsFromCollection } from "@/lib/api/collections"
-import Image from "next/image"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { getImageUrl } from "@/lib/utils"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
+import { Search, Loader2, AlertCircle } from "lucide-react"
+import { fetchCollectionProducts, addProductsToCollection, removeProductsFromCollection } from "@/lib/api/collections"
+import { fetchProducts } from "@/lib/api/products"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+
+interface Product {
+  id: string
+  title: string
+  handle: string
+  image?: {
+    url: string
+    altText: string
+  }
+  price?: string
+}
 
 interface CollectionProductManagerProps {
   collectionId: string
@@ -22,167 +31,127 @@ interface CollectionProductManagerProps {
 
 export function CollectionProductManager({ collectionId, onComplete, mode }: CollectionProductManagerProps) {
   const { toast } = useToast()
-  const [allProducts, setAllProducts] = useState<any[]>([])
-  const [collectionProducts, setCollectionProducts] = useState<any[]>([])
-  const [displayProducts, setDisplayProducts] = useState<any[]>([])
-  const [filteredProducts, setFilteredProducts] = useState<any[]>([])
-  const [selectedProducts, setSelectedProducts] = useState<string[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({})
-  const isMounted = useRef(true)
+  const [collectionProducts, setCollectionProducts] = useState<Product[]>([])
+  const [availableProducts, setAvailableProducts] = useState<Product[]>([])
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Evitar problemas de memoria con componentes desmontados
+  // Cargar productos de la colección
   useEffect(() => {
-    return () => {
-      isMounted.current = false
-    }
-  }, [])
-
-  // Cargar productos y colección
-  useEffect(() => {
-    loadData()
-  }, [collectionId, mode])
-
-  const loadData = async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      // Cargar todos los productos
-      const productsData = await fetchProducts({ limite: 250 })
-
-      if (!productsData || !Array.isArray(productsData)) {
-        throw new Error("No se pudieron cargar los productos correctamente")
-      }
-
-      if (isMounted.current) {
-        setAllProducts(productsData)
-      }
-
-      // Cargar la colección para obtener sus productos
+    async function loadCollectionProducts() {
       try {
-        const collectionData = await fetchCollectionById(collectionId)
+        setLoading(true)
+        setError(null)
+        const response = await fetchCollectionProducts(collectionId)
 
-        if (!collectionData) {
-          throw new Error("No se pudo cargar la información de la colección")
-        }
+        // Asegurarse de que response.edges existe y es un array
+        if (response && response.edges && Array.isArray(response.edges)) {
+          const products = response.edges.map((edge) => ({
+            id: edge.node.id,
+            title: edge.node.title,
+            handle: edge.node.handle,
+            image: edge.node.images?.edges?.[0]?.node || null,
+            price: edge.node.priceRangeV2?.minVariantPrice?.amount,
+          }))
+          setCollectionProducts(products)
 
-        // Asegurarse de que collectionData.products sea un array
-        let collectionProductsArray = []
-        if (collectionData.products) {
-          if (Array.isArray(collectionData.products)) {
-            collectionProductsArray = collectionData.products
-          } else if (collectionData.products.edges && Array.isArray(collectionData.products.edges)) {
-            collectionProductsArray = collectionData.products.edges.map((edge: any) => edge.node)
-          }
-        }
+          // Extraer IDs para mostrar en la consola
+          const productIds = products.map((p) => {
+            // Asegurarse de que el ID es una cadena y extraer el ID numérico
+            const idString = typeof p.id === "string" ? p.id : String(p.id)
+            const matches = idString.match(/\/([^/]+)$/)
+            return matches ? matches[1] : idString
+          })
 
-        if (isMounted.current) {
-          setCollectionProducts(collectionProductsArray)
-
-          // Crear un conjunto de IDs de productos en la colección para búsqueda rápida
-          const collectionProductIds = new Set(
-            collectionProductsArray.map((product: any) => {
-              // Normalizar IDs para comparación
-              const productId =
-                typeof product.id === "string" && product.id.includes("/") ? product.id.split("/").pop() : product.id
-              return productId
-            }),
-          )
-
-          console.log("IDs de productos en la colección:", Array.from(collectionProductIds))
-          console.log("Total de productos en la colección:", collectionProductIds.size)
-
-          // Filtrar productos según el modo
-          if (mode === "add") {
-            // Para añadir: mostrar solo productos que NO están en la colección
-            const productsToAdd = productsData.filter((product: any) => {
-              const productId =
-                typeof product.id === "string" && product.id.includes("/") ? product.id.split("/").pop() : product.id
-              return !collectionProductIds.has(productId)
-            })
-
-            console.log("Productos disponibles para añadir:", productsToAdd.length)
-            setDisplayProducts(productsToAdd)
-            setFilteredProducts(productsToAdd)
-          } else {
-            // Para eliminar: mostrar solo productos que SÍ están en la colección
-            const productsToRemove = productsData.filter((product: any) => {
-              const productId =
-                typeof product.id === "string" && product.id.includes("/") ? product.id.split("/").pop() : product.id
-              return collectionProductIds.has(productId)
-            })
-
-            console.log("Productos disponibles para eliminar:", productsToRemove.length)
-            setDisplayProducts(productsToRemove)
-            setFilteredProducts(productsToRemove)
-          }
+          console.log("IDs de productos en la colección:", productIds)
+          console.log("Total de productos en la colección:", products.length)
+        } else {
+          console.error("Formato de respuesta inesperado:", response)
+          setCollectionProducts([])
         }
       } catch (err) {
-        console.error("Error al cargar la colección:", err)
-
-        if (isMounted.current) {
-          // En caso de error, mostrar todos los productos en modo añadir
-          if (mode === "add") {
-            setDisplayProducts(productsData)
-            setFilteredProducts(productsData)
-          } else {
-            setDisplayProducts([])
-            setFilteredProducts([])
-          }
-
-          setError(`Error al cargar la colección: ${(err as Error).message}`)
-        }
-      }
-    } catch (err) {
-      console.error("Error al cargar productos:", err)
-
-      if (isMounted.current) {
-        setError(`Error al cargar productos: ${(err as Error).message}`)
-      }
-    } finally {
-      if (isMounted.current) {
-        setIsLoading(false)
+        console.error("Error al cargar productos de la colección:", err)
+        setError(`Error al cargar productos de la colección: ${(err as Error).message}`)
+        setCollectionProducts([])
+      } finally {
+        setLoading(false)
       }
     }
-  }
 
-  // Filtrar productos por búsqueda
+    loadCollectionProducts()
+  }, [collectionId])
+
+  // Cargar productos disponibles (para el modo "add")
   useEffect(() => {
-    if (searchTerm.trim() === "") {
-      setFilteredProducts(displayProducts)
-      return
+    if (mode !== "add") return
+
+    async function loadAvailableProducts() {
+      try {
+        setLoading(true)
+        setError(null)
+        const response = await fetchProducts()
+
+        // Asegurarse de que response.edges existe y es un array
+        if (response && response.edges && Array.isArray(response.edges)) {
+          const allProducts = response.edges.map((edge) => ({
+            id: edge.node.id,
+            title: edge.node.title,
+            handle: edge.node.handle,
+            image: edge.node.images?.edges?.[0]?.node || null,
+            price: edge.node.priceRangeV2?.minVariantPrice?.amount,
+          }))
+
+          // Filtrar productos que ya están en la colección
+          const collectionProductIds = new Set(collectionProducts.map((p) => p.id))
+          const available = allProducts.filter((p) => !collectionProductIds.has(p.id))
+          setAvailableProducts(available)
+          console.log("Productos disponibles para añadir:", available.length)
+        } else {
+          console.error("Formato de respuesta inesperado:", response)
+          setAvailableProducts([])
+        }
+      } catch (err) {
+        console.error("Error al cargar productos disponibles:", err)
+        setError(`Error al cargar productos disponibles: ${(err as Error).message}`)
+        setAvailableProducts([])
+      } finally {
+        setLoading(false)
+      }
     }
 
-    const lowerSearchTerm = searchTerm.toLowerCase()
+    if (collectionProducts.length > 0) {
+      loadAvailableProducts()
+    }
+  }, [collectionProducts, mode])
 
-    // Filtrar los productos según el término de búsqueda
-    const searchResults = displayProducts.filter((product) => {
-      const title = (product.titulo || product.title || "").toLowerCase()
-      return title.includes(lowerSearchTerm)
-    })
+  // Función para filtrar productos por término de búsqueda
+  const filteredProducts = (mode === "add" ? availableProducts : collectionProducts).filter((product) => {
+    // Asegurarse de que product.title es una cadena antes de llamar a toLowerCase
+    const title = typeof product.title === "string" ? product.title.toLowerCase() : ""
+    const search = searchTerm.toLowerCase()
+    return title.includes(search)
+  })
 
-    setFilteredProducts(searchResults)
-  }, [searchTerm, displayProducts])
-
-  const handleImageError = (productId: string) => {
-    setImageErrors((prev) => ({
-      ...prev,
-      [productId]: true,
-    }))
+  // Manejar selección de productos
+  const handleSelectProduct = (productId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedProducts([...selectedProducts, productId])
+    } else {
+      setSelectedProducts(selectedProducts.filter((id) => id !== productId))
+    }
   }
 
-  const handleToggleProduct = (productId: string) => {
-    setSelectedProducts((prev) =>
-      prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId],
-    )
-  }
-
+  // Manejar envío del formulario
   const handleSubmit = async () => {
     if (selectedProducts.length === 0) {
+      toast({
+        title: "Selección vacía",
+        description: "Por favor, selecciona al menos un producto.",
+        variant: "destructive",
+      })
       return
     }
 
@@ -190,118 +159,85 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
       setIsSubmitting(true)
       setError(null)
 
-      console.log("Operación de productos en colección:", {
-        mode,
-        collectionId,
-        productIds: selectedProducts,
-      })
-
-      // Procesar los productos en lotes más pequeños para evitar problemas
-      const BATCH_SIZE = 5
-      const batches = []
-
-      for (let i = 0; i < selectedProducts.length; i += BATCH_SIZE) {
-        batches.push(selectedProducts.slice(i, i + BATCH_SIZE))
-      }
-
-      let successCount = 0
-      let errorCount = 0
-      let lastError = null
-
-      for (const batch of batches) {
-        try {
-          if (mode === "add") {
-            await addProductsToCollection(collectionId, batch)
-            successCount += batch.length
-          } else {
-            await removeProductsFromCollection(collectionId, batch)
-            successCount += batch.length
-          }
-        } catch (err) {
-          console.error(`Error al procesar lote de productos:`, err)
-          errorCount += batch.length
-          lastError = err
-        }
-      }
-
-      if (isMounted.current) {
-        setIsSubmitting(false)
-
-        if (errorCount === 0) {
-          toast({
-            title: "Operación completada",
-            description: `${successCount} productos ${mode === "add" ? "añadidos a" : "eliminados de"} la colección correctamente.`,
-          })
-          onComplete()
-        } else if (successCount > 0) {
-          toast({
-            title: "Operación parcialmente completada",
-            description: `${successCount} productos procesados correctamente, pero ${errorCount} fallaron. ${lastError?.message || ""}`,
-            variant: "destructive",
-          })
-          onComplete()
-        } else {
-          setError(
-            `No se pudieron ${mode === "add" ? "añadir" : "eliminar"} los productos. ${lastError?.message || ""}`,
-          )
-          toast({
-            title: "Error",
-            description: `Error al ${mode === "add" ? "añadir" : "eliminar"} productos: ${lastError?.message || "Error desconocido"}`,
-            variant: "destructive",
-          })
-        }
-      }
-    } catch (err) {
-      console.error(`Error al ${mode === "add" ? "añadir" : "eliminar"} productos:`, err)
-
-      if (isMounted.current) {
-        setError(
-          `No se pudieron ${
-            mode === "add" ? "añadir" : "eliminar"
-          } los productos a la colección. Por favor, inténtalo de nuevo.`,
-        )
-        setIsSubmitting(false)
+      if (mode === "add") {
+        await addProductsToCollection(collectionId, selectedProducts)
         toast({
-          title: "Error",
-          description: `Error al ${mode === "add" ? "añadir" : "eliminar"} productos: ${(err as Error).message}`,
-          variant: "destructive",
+          title: "Productos añadidos",
+          description: `Se han añadido ${selectedProducts.length} productos a la colección.`,
+        })
+      } else {
+        await removeProductsFromCollection(collectionId, selectedProducts)
+        toast({
+          title: "Productos eliminados",
+          description: `Se han eliminado ${selectedProducts.length} productos de la colección.`,
         })
       }
+
+      onComplete()
+    } catch (err) {
+      console.error(`Error al ${mode === "add" ? "añadir" : "eliminar"} productos:`, err)
+      setError(`Error al ${mode === "add" ? "añadir" : "eliminar"} productos: ${(err as Error).message}`)
+      toast({
+        title: "Error",
+        description: `No se pudieron ${mode === "add" ? "añadir" : "eliminar"} los productos. ${(err as Error).message}`,
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-granito mb-4" />
-        <p className="text-muted-foreground">Cargando productos...</p>
-      </div>
-    )
+  // Función para formatear el precio
+  const formatPrice = (price: string | undefined) => {
+    if (!price) return "N/A"
+    try {
+      return new Intl.NumberFormat("es-ES", {
+        style: "currency",
+        currency: "EUR",
+      }).format(Number(price))
+    } catch (error) {
+      console.error("Error al formatear precio:", error)
+      return price
+    }
   }
 
-  if (error) {
-    return (
-      <Alert variant="destructive" className="mb-4">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Error</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
-        <Button variant="outline" className="mt-2" onClick={() => loadData()}>
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Reintentar
-        </Button>
-      </Alert>
-    )
+  // Función para extraer el ID numérico de un ID de Shopify
+  const extractShopifyId = (id: string) => {
+    if (!id) return "ID no disponible"
+
+    // Asegurarse de que id es una cadena
+    const idString = typeof id === "string" ? id : String(id)
+
+    // Extraer el ID numérico del final de la cadena
+    const matches = idString.match(/\/([^/]+)$/)
+    return matches ? matches[1] : idString
   }
 
-  // Mensaje cuando no hay productos para mostrar
-  if (filteredProducts.length === 0) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center space-x-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+  return (
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>
+          {mode === "add" ? "Añadir productos a la colección" : "Eliminar productos de la colección"}
+        </CardTitle>
+        <CardDescription>
+          {mode === "add"
+            ? "Selecciona los productos que deseas añadir a esta colección."
+            : "Selecciona los productos que deseas eliminar de esta colección."}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <div className="mb-4">
+          <div className="relative">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              type="search"
               placeholder="Buscar productos..."
               className="pl-8"
               value={searchTerm}
@@ -310,101 +246,51 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
           </div>
         </div>
 
-        <div className="text-center py-12 border-2 border-dashed rounded-lg">
-          <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">
+        {loading ? (
+          <div className="flex justify-center items-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2">Cargando productos...</span>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
             {mode === "add"
-              ? "No hay productos disponibles para añadir a esta colección"
-              : "No hay productos en esta colección para eliminar"}
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center space-x-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Buscar productos..."
-            className="pl-8"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <Button
-          onClick={handleSubmit}
-          disabled={selectedProducts.length === 0 || isSubmitting}
-          className="bg-granito hover:bg-granito/90"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {mode === "add" ? "Añadiendo..." : "Eliminando..."}
-            </>
-          ) : (
-            <>
-              {mode === "add" ? "Añadir" : "Eliminar"} {selectedProducts.length}{" "}
-              {selectedProducts.length === 1 ? "producto" : "productos"}
-            </>
-          )}
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {filteredProducts.map((product) => {
-          const hasImageError = imageErrors[product.id] || false
-          const imageUrl = getImageUrl(product)
-          const title = product.titulo || product.title || "Producto sin título"
-          const price = product.precio || product.price || 0
-          const status = product.estado || product.status || "DRAFT"
-
-          return (
-            <Card
-              key={product.id}
-              className={`overflow-hidden cursor-pointer transition-all ${
-                selectedProducts.includes(product.id) ? "ring-2 ring-granito" : ""
-              }`}
-              onClick={() => handleToggleProduct(product.id)}
-            >
-              <div className="aspect-square relative">
-                {!hasImageError && imageUrl ? (
-                  <Image
-                    src={imageUrl || "/placeholder.svg"}
-                    alt={title}
-                    fill
-                    className="object-cover"
-                    onError={() => handleImageError(product.id)}
-                  />
-                ) : (
-                  <div className="h-full w-full flex items-center justify-center bg-muted">
-                    <Package className="h-12 w-12 text-muted-foreground" />
-                  </div>
-                )}
-                <div className="absolute top-2 right-2">
-                  <Checkbox checked={selectedProducts.includes(product.id)} />
-                </div>
+              ? availableProducts.length === 0
+                ? "No hay productos disponibles para añadir a esta colección."
+                : "No se encontraron productos que coincidan con tu búsqueda."
+              : collectionProducts.length === 0
+                ? "Esta colección no tiene productos."
+                : "No se encontraron productos que coincidan con tu búsqueda."}
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+            {filteredProducts.map((product) => (
+              <div key={product.id} className="flex items-center space-x-2 p-2 border rounded-md hover:bg-accent">
+                <Checkbox
+                  id={`product-${extractShopifyId(product.id)}`}
+                  checked={selectedProducts.includes(product.id)}
+                  onCheckedChange={(checked) => handleSelectProduct(product.id, checked === true)}
+                />
+                <Label
+                  htmlFor={`product-${extractShopifyId(product.id)}`}
+                  className="flex-1 flex justify-between items-center cursor-pointer"
+                >
+                  <span>{product.title}</span>
+                  <span className="text-sm text-muted-foreground">{formatPrice(product.price)}</span>
+                </Label>
               </div>
-              <CardContent className="p-3">
-                <h3 className="font-medium truncate">{title}</h3>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-sm font-medium">{price} €</span>
-                  <span
-                    className={`text-xs px-2 py-1 rounded-full ${
-                      status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {status === "ACTIVE" ? "Visible" : "Oculto"}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
-    </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+      <CardFooter className="flex justify-between">
+        <Button variant="outline" onClick={onComplete}>
+          Cancelar
+        </Button>
+        <Button onClick={handleSubmit} disabled={isSubmitting || selectedProducts.length === 0}>
+          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {mode === "add" ? "Añadir productos" : "Eliminar productos"} ({selectedProducts.length})
+        </Button>
+      </CardFooter>
+    </Card>
   )
 }
