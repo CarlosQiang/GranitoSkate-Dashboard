@@ -21,6 +21,12 @@ export function CollectionsList() {
       setLoading(true)
       setError(null)
       const data = await fetchCollections({ limit: 50 })
+
+      // Asegurarse de que data es un array
+      if (!Array.isArray(data)) {
+        throw new Error("Los datos recibidos no son un array válido")
+      }
+
       setCollections(data)
       setFilteredCollections(data)
     } catch (err) {
@@ -42,7 +48,7 @@ export function CollectionsList() {
       const term = searchTerm.toLowerCase()
       const filtered = collections.filter(
         (collection) =>
-          collection.title.toLowerCase().includes(term) || collection.description.toLowerCase().includes(term),
+          collection.title?.toLowerCase().includes(term) || collection.description?.toLowerCase().includes(term),
       )
       setFilteredCollections(filtered)
     }

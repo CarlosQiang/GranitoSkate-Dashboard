@@ -1,120 +1,28 @@
-import shopifyClient from "@/lib/shopify"
-import { gql } from "graphql-request"
-import { extractIdFromGid } from "@/lib/shopify"
 import { shopifyFetch } from "@/lib/shopify"
 
-/**
- * Obtiene productos recientes
- * @param limit Número de productos a obtener
- * @returns Lista de productos recientes
- */
-export async function fetchRecentProducts(limit = 5) {
-  try {
-    console.log(`Fetching ${limit} recent products...`)
-
-    const query = `
-      query {
-        products(first: ${limit}, sortKey: CREATED_AT, reverse: true) {
-          edges {
-            node {
-              id
-              title
-              handle
-              description
-              createdAt
-              productType
-              totalInventory
-              priceRangeV2 {
-                minVariantPrice {
-                  amount
-                  currencyCode
-                }
-              }
-              featuredImage {
-                url
-                altText
-              }
-            }
-          }
-        }
-      }
-    `
-
-    // Usar el proxy en lugar de shopifyClient directamente
-    const response = await fetch("/api/shopify/proxy", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        query,
-      }),
-      cache: "no-store",
-    })
-
-    if (!response.ok) {
-      throw new Error(`Error ${response.status}: ${response.statusText}`)
-    }
-
-    const result = await response.json()
-
-    if (result.errors) {
-      throw new Error(result.errors[0]?.message || "Error en la consulta GraphQL")
-    }
-
-    const data = result.data
-
-    if (!data || !data.products || !data.products.edges) {
-      console.warn("No se encontraron productos recientes")
-      return []
-    }
-
-    // Transformar los datos
-    const products = data.products.edges.map((edge) => ({
-      id: extractIdFromGid(edge.node.id),
-      title: edge.node.title,
-      handle: edge.node.handle,
-      description: edge.node.description,
-      createdAt: edge.node.createdAt,
-      productType: edge.node.productType,
-      inventory: edge.node.totalInventory,
-      price: {
-        amount: Number.parseFloat(edge.node.priceRangeV2?.minVariantPrice?.amount || "0"),
-        currencyCode: edge.node.priceRangeV2?.minVariantPrice?.currencyCode || "EUR",
-      },
-      image: edge.node.featuredImage
-        ? {
-            url: edge.node.featuredImage.url,
-            altText: edge.node.featuredImage.altText || edge.node.title,
-          }
-        : null,
-    }))
-
-    return products
-  } catch (error) {
-    console.error("Error fetching recent products:", error)
-    throw new Error(`Error al cargar productos recientes: ${error.message}`)
-  }
-}
-
-export async function getProducts(limit = 50) {
+export async function fetchProducts({ limit = 10, cursor = null, query = null, sortKey = "TITLE", reverse = false }) {
   try {
     console.log(`Fetching products with limit: ${limit}`)
 
-    const query = `
-      query GetProducts($limit: Int!) {
-        products(first: $limit) {
+    // Construir la consulta GraphQL
+    const queryString = `
+      query GetProducts($limit: Int!, $cursor: String, $query: String, $sortKey: ProductSortKeys, $reverse: Boolean) {
+        products(first: $limit, after: $cursor, query: $query, sortKey: $sortKey, reverse: $reverse) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
           edges {
             node {
               id
               title
-              description
               handle
+              description
               status
-              vendor
               productType
+              vendor
+              tags
               featuredImage {
-                id
                 url
                 altText
               }
@@ -124,10 +32,15 @@ export async function getProducts(limit = 50) {
                   currencyCode
                 }
               }
-              compareAtPriceRange {
-                minVariantPrice {
-                  amount
-                  currencyCode
+              variants(first: 1) {
+                edges {
+                  node {
+                    id
+                    price
+                    compareAtPrice
+                    inventoryQuantity
+                    availableForSale
+                  }
                 }
               }
               collections(first: 5) {
@@ -145,163 +58,94 @@ export async function getProducts(limit = 50) {
     `
 
     console.log("Enviando consulta a Shopify...")
+
+    // Realizar la consulta a la API de Shopify
     const response = await shopifyFetch({
-      query,
-      variables: { limit },
+      query: queryString,
+      variables: {
+        limit,
+        cursor,
+        query,
+        sortKey,
+        reverse,
+      },
     })
 
-    const products = response.data.products.edges.map(({ node }) => ({
-      id: node.id,
-      title: node.title,
-      description: node.description,
-      handle: node.handle,
-      status: node.status,
-      vendor: node.vendor,
-      productType: node.productType,
-      featuredImage: node.featuredImage,
-      price: node.priceRangeV2?.minVariantPrice?.amount,
-      currencyCode: node.priceRangeV2?.minVariantPrice?.currencyCode,
-      compareAtPrice: node.compareAtPriceRange?.minVariantPrice?.amount,
-      collections: node.collections,
-    }))
+    // Verificar si hay errores en la respuesta
+    if (response.errors) {
+      throw new Error(response.errors[0].message)
+    }
+
+    // Procesar los datos recibidos
+    const products = response.data.products.edges.map((edge) => {
+      const product = edge.node
+
+      // Extraer el precio del primer variante
+      const price = product.variants.edges[0]?.node.price || product.priceRangeV2?.minVariantPrice?.amount || "0.00"
+
+      // Extraer las colecciones
+      const collections =
+        product.collections?.edges.map((edge) => ({
+          id: edge.node.id,
+          title: edge.node.title,
+        })) || []
+
+      return {
+        id: product.id,
+        title: product.title,
+        handle: product.handle,
+        description: product.description,
+        status: product.status,
+        productType: product.productType,
+        vendor: product.vendor,
+        tags: product.tags,
+        image: product.featuredImage,
+        price,
+        inventoryQuantity: product.variants.edges[0]?.node.inventoryQuantity || 0,
+        availableForSale: product.variants.edges[0]?.node.availableForSale || false,
+        collections,
+      }
+    })
 
     console.log(`Successfully fetched ${products.length} products`)
     return products
   } catch (error) {
     console.error("Error fetching products:", error)
-    throw error
-  }
-}
-
-/**
- * Obtiene todos los productos
- * @param options Opciones de filtrado
- * @returns Lista de productos
- */
-export async function fetchProducts(options = {}) {
-  try {
-    const { limit = 20 } = options
-    console.log(`Fetching products with limit: ${limit}`)
-
-    const query = `
-      query {
-        products(first: ${limit}) {
-          edges {
-            node {
-              id
-              title
-              handle
-              description
-              descriptionHtml
-              vendor
-              productType
-              status
-              totalInventory
-              featuredImage {
-                url
-                altText
-              }
-              variants(first: 1) {
-                edges {
-                  node {
-                    id
-                    title
-                    price
-                    compareAtPrice
-                    sku
-                    inventoryQuantity
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    `
-
-    console.log("Enviando consulta a Shopify...")
-
-    // Usar el proxy en lugar de shopifyClient directamente
-    const response = await fetch("/api/shopify/proxy", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        query,
-      }),
-      cache: "no-store",
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`Error en la respuesta del proxy (${response.status}): ${errorText}`)
-      throw new Error(`Error ${response.status}: ${errorText}`)
-    }
-
-    const result = await response.json()
-
-    if (result.errors) {
-      console.error("Errores GraphQL:", result.errors)
-      throw new Error(result.errors[0]?.message || "Error en la consulta GraphQL")
-    }
-
-    const data = result.data
-
-    // Verificar si la respuesta tiene la estructura esperada
-    if (!data || !data.products || !data.products.edges) {
-      console.error("Respuesta de productos incompleta:", data)
-      return []
-    }
-
-    // Transformar los datos para un formato más fácil de usar
-    const products = data.products.edges.map((edge) => {
-      const node = edge.node
-      const variant = node.variants.edges[0]?.node || {}
-
-      return {
-        id: extractIdFromGid(node.id),
-        title: node.title,
-        handle: node.handle,
-        description: node.description,
-        descriptionHtml: node.descriptionHtml,
-        vendor: node.vendor,
-        productType: node.productType,
-        status: node.status,
-        totalInventory: node.totalInventory,
-        featuredImage: node.featuredImage,
-        price: variant.price || "0.00",
-        compareAtPrice: variant.compareAtPrice || null,
-        currencyCode: "EUR", // Valor por defecto
-        sku: variant.sku || "",
-        inventoryQuantity: variant.inventoryQuantity || 0,
-      }
-    })
-
-    console.log(`Successfully fetched ${products.length} products`)
-    return products
-  } catch (error) {
-    console.error("Error al cargar productos:", error)
     throw new Error(`Error al cargar productos: ${error.message}`)
   }
 }
 
-export async function getProductById(id) {
+export async function fetchProductById(id) {
   try {
-    const query = `
+    // Si el ID no incluye el prefijo gid://, añadirlo
+    let fullId = id
+    if (!id.includes("gid://")) {
+      fullId = `gid://shopify/Product/${id}`
+    }
+
+    const queryString = `
       query GetProductById($id: ID!) {
         product(id: $id) {
           id
           title
-          description
           handle
+          description
+          descriptionHtml
           status
-          vendor
           productType
+          vendor
+          tags
           featuredImage {
-            id
             url
             altText
+          }
+          images(first: 10) {
+            edges {
+              node {
+                url
+                altText
+              }
+            }
           }
           priceRangeV2 {
             minVariantPrice {
@@ -309,11 +153,26 @@ export async function getProductById(id) {
               currencyCode
             }
           }
-          compareAtPriceRange {
-            minVariantPrice {
-              amount
-              currencyCode
+          variants(first: 10) {
+            edges {
+              node {
+                id
+                title
+                price
+                compareAtPrice
+                inventoryQuantity
+                availableForSale
+                selectedOptions {
+                  name
+                  value
+                }
+              }
             }
+          }
+          options {
+            id
+            name
+            values
           }
           collections(first: 10) {
             edges {
@@ -323,212 +182,81 @@ export async function getProductById(id) {
               }
             }
           }
+          metafields(first: 20) {
+            edges {
+              node {
+                namespace
+                key
+                value
+              }
+            }
+          }
         }
       }
     `
 
     const response = await shopifyFetch({
-      query,
-      variables: { id },
+      query: queryString,
+      variables: {
+        id: fullId,
+      },
     })
 
+    if (response.errors) {
+      throw new Error(response.errors[0].message)
+    }
+
     if (!response.data.product) {
-      throw new Error(`Product with ID ${id} not found`)
+      throw new Error(`Producto con ID ${id} no encontrado`)
     }
 
     const product = response.data.product
+
+    // Procesar los datos del producto
     return {
       id: product.id,
-      title: product.title,
-      description: product.description,
-      handle: product.handle,
-      status: product.status,
-      vendor: product.vendor,
-      productType: product.productType,
-      featuredImage: product.featuredImage,
-      price: product.priceRangeV2?.minVariantPrice?.amount,
-      currencyCode: product.priceRangeV2?.minVariantPrice?.currencyCode,
-      compareAtPrice: product.compareAtPriceRange?.minVariantPrice?.amount,
-      collections: product.collections,
-    }
-  } catch (error) {
-    console.error(`Error fetching product with ID ${id}:`, error)
-    throw error
-  }
-}
-
-// Función para obtener un producto por ID
-export async function fetchProductById(id) {
-  try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const formattedId = id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
-
-    const query = `
-      query {
-        product(id: "${formattedId}") {
-          id
-          title
-          handle
-          description
-          descriptionHtml
-          vendor
-          productType
-          status
-          totalInventory
-          featuredImage {
-            url
-            altText
-          }
-          variants(first: 5) {
-            edges {
-              node {
-                id
-                title
-                price
-                compareAtPrice
-                sku
-                inventoryQuantity
-              }
-            }
-          }
-        }
-      }
-    `
-
-    // Usar el proxy en lugar de shopifyClient directamente
-    const response = await fetch("/api/shopify/proxy", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        query,
-      }),
-      cache: "no-store",
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`Error en la respuesta del proxy (${response.status}): ${errorText}`)
-      throw new Error(`Error ${response.status}: ${errorText}`)
-    }
-
-    const result = await response.json()
-
-    if (result.errors) {
-      console.error("Errores GraphQL:", result.errors)
-      throw new Error(result.errors[0]?.message || "Error en la consulta GraphQL")
-    }
-
-    const data = result.data
-
-    if (!data || !data.product) {
-      throw new Error(`No se encontró el producto con ID: ${id}`)
-    }
-
-    // Transformar los datos para un formato más fácil de usar
-    const product = data.product
-
-    return {
-      id: product.id.split("/").pop(),
       title: product.title,
       handle: product.handle,
       description: product.description,
       descriptionHtml: product.descriptionHtml,
-      vendor: product.vendor,
-      productType: product.productType,
       status: product.status,
-      totalInventory: product.totalInventory,
+      productType: product.productType,
+      vendor: product.vendor,
+      tags: product.tags,
       featuredImage: product.featuredImage,
-      variants: product.variants.edges.map((edge) => ({
-        id: edge.node.id.split("/").pop(),
-        title: edge.node.title,
-        price: edge.node.price,
-        compareAtPrice: edge.node.compareAtPrice,
-        sku: edge.node.sku,
-        inventoryQuantity: edge.node.inventoryQuantity,
-      })),
+      images: product.images.edges.map((edge) => edge.node),
+      price: product.priceRangeV2?.minVariantPrice?.amount || product.variants.edges[0]?.node.price || "0.00",
+      currencyCode: product.priceRangeV2?.minVariantPrice?.currencyCode || "EUR",
+      variants: product.variants.edges.map((edge) => edge.node),
+      options: product.options,
+      collections: product.collections.edges.map((edge) => edge.node),
+      metafields: product.metafields.edges.map((edge) => edge.node),
     }
   } catch (error) {
-    console.error(`Error al cargar el producto ${id}:`, error)
+    console.error("Error fetching product by ID:", error)
     throw new Error(`Error al cargar el producto: ${error.message}`)
   }
 }
 
-// Alias para compatibilidad
-export const getProductById_old = fetchProductById
-
-// Función para crear un nuevo producto
-export async function createProduct(productData) {
+export async function updateProduct(id, data) {
   try {
-    const mutation = gql`
-      mutation CreateProduct($input: ProductInput!) {
-        productCreate(input: $input) {
-          product {
-            id
-            title
-            handle
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const variables = {
-      input: {
-        title: productData.title,
-        descriptionHtml: productData.description || "",
-        vendor: productData.vendor || "",
-        productType: productData.productType || "",
-        status: productData.status || "ACTIVE",
-        images: productData.image ? [{ src: productData.image }] : [],
-        variants: [
-          {
-            price: productData.price || "0.00",
-            compareAtPrice: productData.compareAtPrice || null,
-            sku: productData.sku || "",
-            inventoryQuantities: {
-              availableQuantity: productData.inventoryQuantity || 0,
-              locationId: "gid://shopify/Location/1", // Ubicación por defecto
-            },
-          },
-        ],
-      },
+    // Si el ID no incluye el prefijo gid://, añadirlo
+    let fullId = id
+    if (!id.includes("gid://")) {
+      fullId = `gid://shopify/Product/${id}`
     }
 
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.productCreate.userErrors && data.productCreate.userErrors.length > 0) {
-      throw new Error(data.productCreate.userErrors[0].message)
+    const input = {
+      id: fullId,
+      ...data,
     }
 
-    return {
-      id: data.productCreate.product.id.split("/").pop(),
-      title: data.productCreate.product.title,
-      handle: data.productCreate.product.handle,
-    }
-  } catch (error) {
-    console.error("Error al crear el producto:", error)
-    throw new Error(`Error al crear el producto: ${error.message}`)
-  }
-}
-
-// Función para actualizar un producto
-export async function updateProduct(id, productData) {
-  try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const formattedId = id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
-
-    const mutation = gql`
+    const queryString = `
       mutation UpdateProduct($input: ProductInput!) {
         productUpdate(input: $input) {
           product {
             id
             title
-            handle
           }
           userErrors {
             field
@@ -538,224 +266,66 @@ export async function updateProduct(id, productData) {
       }
     `
 
-    const input = {
-      id: formattedId,
-      title: productData.title,
-      descriptionHtml: productData.descriptionHtml || "",
-      vendor: productData.vendor || "",
-      productType: productData.productType || "",
-      status: productData.status || "ACTIVE",
+    const response = await shopifyFetch({
+      query: queryString,
+      variables: {
+        input,
+      },
+    })
+
+    if (response.errors) {
+      throw new Error(response.errors[0].message)
     }
 
-    // Añadir imagen solo si se proporciona
-    if (productData.image) {
-      input.images = [{ src: productData.image }]
+    if (response.data.productUpdate.userErrors.length > 0) {
+      throw new Error(response.data.productUpdate.userErrors[0].message)
     }
 
-    const variables = { input }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.productUpdate.userErrors && data.productUpdate.userErrors.length > 0) {
-      throw new Error(data.productUpdate.userErrors[0].message)
-    }
-
-    return {
-      id: data.productUpdate.product.id.split("/").pop(),
-      title: data.productUpdate.product.title,
-      handle: data.productUpdate.product.handle,
-    }
+    return response.data.productUpdate.product
   } catch (error) {
-    console.error(`Error al actualizar el producto ${id}:`, error)
+    console.error("Error updating product:", error)
     throw new Error(`Error al actualizar el producto: ${error.message}`)
   }
 }
 
-// Función para eliminar un producto
-// export async function deleteProduct(id) {
-//   try {
-//     // Asegurarse de que el ID tenga el formato correcto
-//     const formattedId = id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
-
-//     const mutation = gql`
-//       mutation DeleteProduct($input: ProductDeleteInput!) {
-//         productDelete(input: $input) {
-//           deletedProductId
-//           userErrors {
-//             field
-//             message
-//           }
-//         }
-//       }
-//     `
-
-//     const variables = {
-//       input: {
-//         id: formattedId,
-//       },
-//     }
-
-//     const data = await shopifyClient.request(mutation, variables)
-
-//     if (data.productDelete.userErrors && data.productDelete.userErrors.length > 0) {
-//       throw new Error(data.productDelete.userErrors[0].message)
-//     }
-
-//     return {
-//       id: data.productDelete.deletedProductId,
-//     }
-//   } catch (error) {
-//     console.error(`Error al eliminar el producto ${id}:`, error)
-//     throw new Error(`Error al eliminar el producto: ${error.message}`)
-//   }
-// }
-
-// Añadir funciones para gestionar productos en colecciones
-export async function addProductsToCollection(collectionId, productIds) {
-  try {
-    // Asegurarse de que el ID de la colección tenga el formato correcto
-    const isFullCollectionId = collectionId.includes("gid://shopify/Collection/")
-    const formattedCollectionId = isFullCollectionId ? collectionId : `gid://shopify/Collection/${collectionId}`
-
-    // Formatear los IDs de los productos
-    const formattedProductIds = productIds.map((id) => {
-      const isFullProductId = id.includes("gid://shopify/Product/")
-      return isFullProductId ? id : `gid://shopify/Product/${id}`
-    })
-
-    console.log(`Adding ${formattedProductIds.length} products to collection ${formattedCollectionId}`)
-
-    const mutation = gql`
-      mutation CollectionAddProducts($id: ID!, $productIds: [ID!]!) {
-        collectionAddProducts(id: $id, productIds: $productIds) {
-          collection {
-            id
-            title
-            productsCount
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const data = await shopifyClient.request(mutation, {
-      id: formattedCollectionId,
-      productIds: formattedProductIds,
-    })
-
-    if (data.collectionAddProducts.userErrors && data.collectionAddProducts.userErrors.length > 0) {
-      throw new Error(data.collectionAddProducts.userErrors[0].message)
-    }
-
-    console.log(
-      `Successfully added products to collection: ${data.collectionAddProducts.collection.title} (${data.collectionAddProducts.collection.productsCount} products)`,
-    )
-    return data.collectionAddProducts.collection
-  } catch (error) {
-    console.error(`Error adding products to collection ${collectionId}:`, error)
-    throw new Error(`Error al añadir productos a la colección: ${error.message}`)
-  }
-}
-
-export async function removeProductsFromCollection(collectionId, productIds) {
-  try {
-    // Asegurarse de que el ID de la colección tenga el formato correcto
-    const isFullCollectionId = collectionId.includes("gid://shopify/Collection/")
-    const formattedCollectionId = isFullCollectionId ? collectionId : `gid://shopify/Collection/${collectionId}`
-
-    // Formatear los IDs de los productos
-    const formattedProductIds = productIds.map((id) => {
-      const isFullProductId = id.includes("gid://shopify/Product/")
-      return isFullProductId ? id : `gid://shopify/Product/${id}`
-    })
-
-    console.log(`Removing ${formattedProductIds.length} products from collection ${formattedCollectionId}`)
-
-    const mutation = gql`
-      mutation CollectionRemoveProducts($id: ID!, $productIds: [ID!]!) {
-        collectionRemoveProducts(id: $id, productIds: $productIds) {
-          collection {
-            id
-            title
-            productsCount
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const data = await shopifyClient.request(mutation, {
-      id: formattedCollectionId,
-      productIds: formattedProductIds,
-    })
-
-    if (data.collectionRemoveProducts.userErrors && data.collectionRemoveProducts.userErrors.length > 0) {
-      throw new Error(data.collectionRemoveProducts.userErrors[0].message)
-    }
-
-    console.log(
-      `Successfully removed products from collection: ${data.collectionRemoveProducts.collection.title} (${data.collectionRemoveProducts.collection.productsCount} products)`,
-    )
-    return data.collectionRemoveProducts.collection
-  } catch (error) {
-    console.error(`Error removing products from collection ${collectionId}:`, error)
-    throw new Error(`Error al eliminar productos de la colección: ${error.message}`)
-  }
-}
-
-// Añadir esta función al final del archivo
 export async function deleteProduct(id) {
   try {
-    // Asegurarnos de que el ID esté en el formato correcto
-    const formattedId = id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
+    // Si el ID no incluye el prefijo gid://, añadirlo
+    let fullId = id
+    if (!id.includes("gid://")) {
+      fullId = `gid://shopify/Product/${id}`
+    }
 
-    const response = await fetch(`/api/shopify/proxy`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        query: `
-          mutation productDelete($input: ProductDeleteInput!) {
-            productDelete(input: $input) {
-              deletedProductId
-              shop {
-                id
-              }
-              userErrors {
-                field
-                message
-              }
-            }
+    const queryString = `
+      mutation DeleteProduct($id: ID!) {
+        productDelete(input: {id: $id}) {
+          deletedProductId
+          userErrors {
+            field
+            message
           }
-        `,
-        variables: {
-          input: {
-            id: formattedId,
-          },
-        },
-      }),
+        }
+      }
+    `
+
+    const response = await shopifyFetch({
+      query: queryString,
+      variables: {
+        id: fullId,
+      },
     })
 
-    const result = await response.json()
-
-    if (result.errors) {
-      throw new Error(result.errors[0].message)
+    if (response.errors) {
+      throw new Error(response.errors[0].message)
     }
 
-    if (result.data.productDelete.userErrors.length > 0) {
-      throw new Error(result.data.productDelete.userErrors[0].message)
+    if (response.data.productDelete.userErrors.length > 0) {
+      throw new Error(response.data.productDelete.userErrors[0].message)
     }
 
-    return result.data.productDelete
+    return response.data.productDelete.deletedProductId
   } catch (error) {
-    console.error("Error al eliminar el producto:", error)
-    throw error
+    console.error("Error deleting product:", error)
+    throw new Error(`Error al eliminar el producto: ${error.message}`)
   }
 }

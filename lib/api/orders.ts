@@ -1,213 +1,197 @@
-import shopifyClient from "@/lib/shopify"
-import { gql } from "graphql-request"
-import { extractIdFromGid } from "@/lib/shopify"
+import { shopifyFetch } from "@/lib/shopify"
 
-// Tipos para los filtros de pedidos
-export type OrderFilter = {
-  query?: string
-  sortKey?: "PROCESSED_AT" | "TOTAL_PRICE" | "UPDATED_AT" | "ID" | "CREATED_AT"
-  reverse?: boolean
-  status?: "OPEN" | "CLOSED" | "CANCELLED" | "ANY"
-  financialStatus?: string
-  fulfillmentStatus?: string
-  cursor?: string
-  first?: number
-}
-
-// Función para obtener pedidos con filtros
-export async function fetchOrders(filters: OrderFilter = {}) {
+export async function fetchOrders({
+  limit = 10,
+  cursor = null,
+  query = null,
+  sortKey = "PROCESSED_AT",
+  reverse = true,
+}) {
   try {
-    console.log(`Fetching orders with filters:`, filters)
-
-    const {
-      query = "",
-      sortKey = "PROCESSED_AT",
-      reverse = true,
-      status,
-      financialStatus,
-      fulfillmentStatus,
-      cursor,
-      first = 20,
-    } = filters
+    console.log(`Fetching orders with filters:`, { sortKey, reverse, first: limit })
 
     // Construir la consulta GraphQL
-    const queryString = gql`
-      query GetOrders(
-        $first: Int!
-        $query: String
-        $sortKey: OrderSortKeys
-        $reverse: Boolean
-        $after: String
-      ) {
-        orders(
-          first: $first
-          query: $query
-          sortKey: $sortKey
-          reverse: $reverse
-          after: $after
-        ) {
+    const queryString = `
+      query GetOrders($limit: Int!, $cursor: String, $query: String, $sortKey: OrderSortKeys, $reverse: Boolean) {
+        orders(first: $limit, after: $cursor, query: $query, sortKey: $sortKey, reverse: $reverse) {
           pageInfo {
             hasNextPage
-            hasPreviousPage
-            startCursor
             endCursor
           }
           edges {
-            cursor
             node {
               id
               name
+              email
+              phone
               processedAt
-              displayFinancialStatus
-              displayFulfillmentStatus
+              financialStatus
+              fulfillmentStatus
               totalPriceSet {
                 shopMoney {
                   amount
                   currencyCode
                 }
               }
+              subtotalPriceSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+              }
+              totalShippingPriceSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+              }
+              totalTaxSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+              }
               customer {
+                id
                 firstName
                 lastName
                 email
                 phone
-              }
-              lineItems(first: 5) {
-                edges {
-                  node {
-                    title
-                    quantity
-                    variant {
-                      price {
-                        amount
-                        currencyCode
-                      }
-                      product {
-                        id
-                        title
-                      }
-                    }
-                  }
-                }
               }
               shippingAddress {
                 address1
                 address2
                 city
                 province
-                country
                 zip
+                country
                 phone
               }
-              tags
+              lineItems(first: 10) {
+                edges {
+                  node {
+                    title
+                    quantity
+                    originalTotalSet {
+                      shopMoney {
+                        amount
+                        currencyCode
+                      }
+                    }
+                    variant {
+                      id
+                      title
+                      price
+                      image {
+                        url
+                      }
+                      product {
+                        id
+                        title
+                        handle
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
         }
       }
     `
 
-    // Construir la consulta de filtro
-    const queryFilters = []
-
-    if (status && status !== "ANY") {
-      queryFilters.push(`status:${status}`)
-    }
-
-    if (financialStatus) {
-      queryFilters.push(`financial_status:${financialStatus}`)
-    }
-
-    if (fulfillmentStatus) {
-      queryFilters.push(`fulfillment_status:${fulfillmentStatus}`)
-    }
-
-    // Combinar los filtros con la consulta original
-    const combinedQuery = [...queryFilters, query].filter(Boolean).join(" ")
-
-    // Realizar la consulta a la API
-    const data = await shopifyClient.request(queryString, {
-      first,
-      query: combinedQuery || null,
-      sortKey,
-      reverse,
-      after: cursor || null,
+    // Realizar la consulta a la API de Shopify
+    const response = await shopifyFetch({
+      query: queryString,
+      variables: {
+        limit,
+        cursor,
+        query,
+        sortKey,
+        reverse,
+      },
     })
 
-    if (!data || !data.orders || !data.orders.edges) {
-      console.error("Respuesta de pedidos incompleta:", data)
-      return { orders: [], pageInfo: null }
+    // Verificar si hay errores en la respuesta
+    if (response.errors) {
+      throw new Error(response.errors[0].message)
     }
 
-    // Transformar los datos para la aplicación
-    const orders = data.orders.edges.map((edge) => ({
-      id: edge.node.id.split("/").pop(),
-      name: edge.node.name,
-      processedAt: edge.node.processedAt,
-      financialStatus: edge.node.displayFinancialStatus,
-      fulfillmentStatus: edge.node.displayFulfillmentStatus,
-      totalPrice: edge.node.totalPriceSet?.shopMoney?.amount || "0.00",
-      currencyCode: edge.node.totalPriceSet?.shopMoney?.currencyCode || "EUR",
-      customer: edge.node.customer
-        ? {
-            firstName: edge.node.customer.firstName || "",
-            lastName: edge.node.customer.lastName || "",
-            email: edge.node.customer.email || "",
-            phone: edge.node.customer.phone || "",
-          }
-        : null,
-      shippingAddress: edge.node.shippingAddress
-        ? {
-            address1: edge.node.shippingAddress.address1 || "",
-            address2: edge.node.shippingAddress.address2 || "",
-            city: edge.node.shippingAddress.city || "",
-            province: edge.node.shippingAddress.province || "",
-            country: edge.node.shippingAddress.country || "",
-            zip: edge.node.shippingAddress.zip || "",
-            phone: edge.node.shippingAddress.phone || "",
-          }
-        : null,
-      items:
-        edge.node.lineItems?.edges?.map((item) => ({
-          title: item.node.title,
-          quantity: item.node.quantity,
-          price: item.node.variant?.price?.amount || "0.00",
-          currencyCode: item.node.variant?.price?.currencyCode || "EUR",
-          productId: item.node.variant?.product?.id?.split("/").pop() || null,
-          productTitle: item.node.variant?.product?.title || "",
-        })) || [],
-      tags: edge.node.tags || [],
-      cursor: edge.cursor,
-    }))
+    // Procesar los datos recibidos
+    const orders = response.data.orders.edges.map((edge) => {
+      const order = edge.node
 
-    console.log(`Successfully fetched ${orders.length} orders`)
+      return {
+        id: order.id,
+        name: order.name,
+        email: order.email,
+        phone: order.phone,
+        processedAt: order.processedAt,
+        financialStatus: order.financialStatus,
+        fulfillmentStatus: order.fulfillmentStatus,
+        totalPrice: order.totalPriceSet?.shopMoney?.amount || "0.00",
+        currencyCode: order.totalPriceSet?.shopMoney?.currencyCode || "EUR",
+        subtotalPrice: order.subtotalPriceSet?.shopMoney?.amount || "0.00",
+        totalShippingPrice: order.totalShippingPriceSet?.shopMoney?.amount || "0.00",
+        totalTax: order.totalTaxSet?.shopMoney?.amount || "0.00",
+        customer: order.customer
+          ? {
+              id: order.customer.id,
+              firstName: order.customer.firstName,
+              lastName: order.customer.lastName,
+              email: order.customer.email,
+              phone: order.customer.phone,
+            }
+          : null,
+        shippingAddress: order.shippingAddress,
+        lineItems: order.lineItems.edges.map((edge) => {
+          const item = edge.node
+          return {
+            title: item.title,
+            quantity: item.quantity,
+            totalPrice: item.originalTotalSet?.shopMoney?.amount || "0.00",
+            variant: item.variant
+              ? {
+                  id: item.variant.id,
+                  title: item.variant.title,
+                  price: item.variant.price,
+                  image: item.variant.image,
+                  product: item.variant.product,
+                }
+              : null,
+          }
+        }),
+      }
+    })
 
     return {
       orders,
-      pageInfo: data.orders.pageInfo,
+      pageInfo: response.data.orders.pageInfo,
     }
   } catch (error) {
     console.error("Error fetching orders:", error)
-    throw new Error(`Error al cargar pedidos: ${(error as Error).message}`)
+    throw new Error(`Error al cargar pedidos: ${error.message}`)
   }
 }
 
-// Función para obtener un pedido por ID
-export async function fetchOrderById(id: string) {
+export async function fetchOrderById(id) {
   try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const isFullShopifyId = id.includes("gid://shopify/Order/")
-    const formattedId = isFullShopifyId ? id : `gid://shopify/Order/${id}`
+    // Si el ID no incluye el prefijo gid://, añadirlo
+    let fullId = id
+    if (!id.includes("gid://")) {
+      fullId = `gid://shopify/Order/${id}`
+    }
 
-    console.log(`Fetching order with ID: ${formattedId}`)
-
-    const query = gql`
+    const queryString = `
       query GetOrderById($id: ID!) {
         order(id: $id) {
           id
           name
+          email
+          phone
           processedAt
-          displayFinancialStatus
-          displayFulfillmentStatus
+          financialStatus
+          fulfillmentStatus
           totalPriceSet {
             shopMoney {
               amount
@@ -233,6 +217,7 @@ export async function fetchOrderById(id: string) {
             }
           }
           customer {
+            id
             firstName
             lastName
             email
@@ -243,8 +228,8 @@ export async function fetchOrderById(id: string) {
             address2
             city
             province
-            country
             zip
+            country
             phone
           }
           billingAddress {
@@ -252,123 +237,129 @@ export async function fetchOrderById(id: string) {
             address2
             city
             province
-            country
             zip
+            country
             phone
           }
-          lineItems(first: 20) {
+          lineItems(first: 50) {
             edges {
               node {
                 title
                 quantity
-                variant {
-                  price {
+                originalTotalSet {
+                  shopMoney {
                     amount
                     currencyCode
+                  }
+                }
+                variant {
+                  id
+                  title
+                  price
+                  image {
+                    url
                   }
                   product {
                     id
                     title
+                    handle
                   }
                 }
               }
             }
           }
-          tags
           note
-          customAttributes {
-            key
-            value
-          }
+          tags
         }
       }
     `
 
-    const data = await shopifyClient.request(query, { id: formattedId })
+    const response = await shopifyFetch({
+      query: queryString,
+      variables: {
+        id: fullId,
+      },
+    })
 
-    if (!data || !data.order) {
-      console.error(`Pedido no encontrado: ${id}`)
-      throw new Error(`Pedido no encontrado: ${id}`)
+    if (response.errors) {
+      throw new Error(response.errors[0].message)
     }
 
-    const order = data.order
+    if (!response.data.order) {
+      throw new Error(`Pedido con ID ${id} no encontrado`)
+    }
+
+    const order = response.data.order
+
     return {
-      id: order.id.split("/").pop(),
+      id: order.id,
       name: order.name,
+      email: order.email,
+      phone: order.phone,
       processedAt: order.processedAt,
-      financialStatus: order.displayFinancialStatus,
-      fulfillmentStatus: order.displayFulfillmentStatus,
+      financialStatus: order.financialStatus,
+      fulfillmentStatus: order.fulfillmentStatus,
       totalPrice: order.totalPriceSet?.shopMoney?.amount || "0.00",
-      subtotalPrice: order.subtotalPriceSet?.shopMoney?.amount || "0.00",
-      shippingPrice: order.totalShippingPriceSet?.shopMoney?.amount || "0.00",
-      taxPrice: order.totalTaxSet?.shopMoney?.amount || "0.00",
       currencyCode: order.totalPriceSet?.shopMoney?.currencyCode || "EUR",
+      subtotalPrice: order.subtotalPriceSet?.shopMoney?.amount || "0.00",
+      totalShippingPrice: order.totalShippingPriceSet?.shopMoney?.amount || "0.00",
+      totalTax: order.totalTaxSet?.shopMoney?.amount || "0.00",
       customer: order.customer
         ? {
-            firstName: order.customer.firstName || "",
-            lastName: order.customer.lastName || "",
-            email: order.customer.email || "",
-            phone: order.customer.phone || "",
+            id: order.customer.id,
+            firstName: order.customer.firstName,
+            lastName: order.customer.lastName,
+            email: order.customer.email,
+            phone: order.customer.phone,
           }
         : null,
-      shippingAddress: order.shippingAddress
-        ? {
-            address1: order.shippingAddress.address1 || "",
-            address2: order.shippingAddress.address2 || "",
-            city: order.shippingAddress.city || "",
-            province: order.shippingAddress.province || "",
-            country: order.shippingAddress.country || "",
-            zip: order.shippingAddress.zip || "",
-            phone: order.shippingAddress.phone || "",
-          }
-        : null,
-      billingAddress: order.billingAddress
-        ? {
-            address1: order.billingAddress.address1 || "",
-            address2: order.billingAddress.address2 || "",
-            city: order.billingAddress.city || "",
-            province: order.billingAddress.province || "",
-            country: order.billingAddress.country || "",
-            zip: order.billingAddress.zip || "",
-            phone: order.billingAddress.phone || "",
-          }
-        : null,
-      items:
-        order.lineItems?.edges?.map((item) => ({
-          title: item.node.title,
-          quantity: item.node.quantity,
-          price: item.node.variant?.price?.amount || "0.00",
-          currencyCode: item.node.variant?.price?.currencyCode || "EUR",
-          productId: item.node.variant?.product?.id?.split("/").pop() || null,
-          productTitle: item.node.variant?.product?.title || "",
-        })) || [],
-      tags: order.tags || [],
-      note: order.note || "",
-      customAttributes: order.customAttributes || [],
+      shippingAddress: order.shippingAddress,
+      billingAddress: order.billingAddress,
+      lineItems: order.lineItems.edges.map((edge) => {
+        const item = edge.node
+        return {
+          title: item.title,
+          quantity: item.quantity,
+          totalPrice: item.originalTotalSet?.shopMoney?.amount || "0.00",
+          variant: item.variant
+            ? {
+                id: item.variant.id,
+                title: item.variant.title,
+                price: item.variant.price,
+                image: item.variant.image,
+                product: item.variant.product,
+              }
+            : null,
+        }
+      }),
+      note: order.note,
+      tags: order.tags,
     }
   } catch (error) {
-    console.error(`Error fetching order ${id}:`, error)
-    throw new Error(`Error al cargar el pedido: ${(error as Error).message}`)
+    console.error("Error fetching order by ID:", error)
+    throw new Error(`Error al cargar el pedido: ${error.message}`)
   }
 }
 
-// Añadir alias para getOrderById
-export const getOrderById = fetchOrderById
-
-// Función para actualizar un pedido
-export async function updateOrder(id: string, data: any) {
+export async function updateOrder(id, data) {
   try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const isFullShopifyId = id.includes("gid://shopify/Order/")
-    const formattedId = isFullShopifyId ? id : `gid://shopify/Order/${id}`
+    // Si el ID no incluye el prefijo gid://, añadirlo
+    let fullId = id
+    if (!id.includes("gid://")) {
+      fullId = `gid://shopify/Order/${id}`
+    }
 
-    console.log(`Updating order with ID: ${formattedId}`, data)
+    const input = {
+      id: fullId,
+      ...data,
+    }
 
-    const mutation = gql`
-      mutation orderUpdate($input: OrderInput!) {
+    const queryString = `
+      mutation UpdateOrder($input: OrderInput!) {
         orderUpdate(input: $input) {
           order {
             id
+            name
           }
           userErrors {
             field
@@ -378,153 +369,24 @@ export async function updateOrder(id: string, data: any) {
       }
     `
 
-    // Preparar los datos para la actualización
-    const input = {
-      id: formattedId,
-      tags: data.tags,
-      note: data.note,
-      customAttributes: data.customAttributes?.map((attr) => ({
-        key: attr.key,
-        value: attr.value,
-      })),
-    }
-
-    const result = await shopifyClient.request(mutation, { input })
-
-    if (result.orderUpdate.userErrors.length > 0) {
-      console.error("Errores al actualizar el pedido:", result.orderUpdate.userErrors)
-      throw new Error(`Error al actualizar el pedido: ${result.orderUpdate.userErrors[0].message}`)
-    }
-
-    return {
-      id: result.orderUpdate.order.id.split("/").pop(),
-      success: true,
-    }
-  } catch (error) {
-    console.error(`Error updating order ${id}:`, error)
-    throw new Error(`Error al actualizar el pedido: ${(error as Error).message}`)
-  }
-}
-
-// Función para obtener las etiquetas de pedidos
-export async function fetchOrderTags() {
-  try {
-    const query = gql`
-      query {
-        shop {
-          productTags(first: 100) {
-            edges {
-              node
-            }
-          }
-        }
-      }
-    `
-
-    const data = await shopifyClient.request(query)
-
-    if (!data || !data.shop || !data.shop.productTags) {
-      return []
-    }
-
-    return data.shop.productTags.edges.map((edge) => edge.node)
-  } catch (error) {
-    console.error("Error fetching order tags:", error)
-    return []
-  }
-}
-
-/**
- * Obtiene pedidos recientes
- * @param limit Número de pedidos a obtener
- * @returns Lista de pedidos recientes
- */
-export async function fetchRecentOrders(limit = 5) {
-  try {
-    console.log(`Fetching ${limit} recent orders...`)
-
-    const query = `
-      query {
-        orders(first: ${limit}, sortKey: CREATED_AT, reverse: true) {
-          edges {
-            node {
-              id
-              name
-              processedAt
-              displayFinancialStatus
-              displayFulfillmentStatus
-              customer {
-                firstName
-                lastName
-                email
-              }
-              totalPriceSet {
-                shopMoney {
-                  amount
-                  currencyCode
-                }
-              }
-            }
-          }
-        }
-      }
-    `
-
-    // Usar el proxy en lugar de shopifyClient directamente
-    const response = await fetch("/api/shopify/proxy", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const response = await shopifyFetch({
+      query: queryString,
+      variables: {
+        input,
       },
-      body: JSON.stringify({
-        query,
-      }),
-      cache: "no-store",
     })
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`Error en la respuesta del proxy (${response.status}): ${errorText}`)
-      throw new Error(`Error ${response.status}: ${errorText}`)
+    if (response.errors) {
+      throw new Error(response.errors[0].message)
     }
 
-    const result = await response.json()
-
-    if (result.errors) {
-      console.error("Errores GraphQL:", result.errors)
-      throw new Error(result.errors[0]?.message || "Error en la consulta GraphQL")
+    if (response.data.orderUpdate.userErrors.length > 0) {
+      throw new Error(response.data.orderUpdate.userErrors[0].message)
     }
 
-    const data = result.data
-
-    if (!data || !data.orders || !data.orders.edges) {
-      console.warn("No se encontraron pedidos recientes")
-      return []
-    }
-
-    // Transformar los datos
-    const orders = data.orders.edges.map((edge) => ({
-      id: extractIdFromGid(edge.node.id),
-      orderNumber: edge.node.name,
-      date: edge.node.processedAt,
-      status: edge.node.displayFinancialStatus,
-      fulfillmentStatus: edge.node.displayFulfillmentStatus,
-      customer: edge.node.customer
-        ? {
-            firstName: edge.node.customer.firstName,
-            lastName: edge.node.customer.lastName,
-            email: edge.node.customer.email,
-          }
-        : null,
-      total: {
-        amount: Number.parseFloat(edge.node.totalPriceSet.shopMoney.amount),
-        currencyCode: edge.node.totalPriceSet.shopMoney.currencyCode,
-      },
-    }))
-
-    return orders
+    return response.data.orderUpdate.order
   } catch (error) {
-    console.error("Error fetching recent orders:", error)
-    throw new Error(`Error al cargar pedidos recientes: ${error.message}`)
+    console.error("Error updating order:", error)
+    throw new Error(`Error al actualizar el pedido: ${error.message}`)
   }
 }
