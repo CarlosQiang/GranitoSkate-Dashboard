@@ -1,92 +1,89 @@
 "use client"
 
+import { useState } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Percent, Tag, ShoppingBag, Truck } from "lucide-react"
-import type { TipoPromocion } from "@/types/promociones"
 
-// Props del componente
-interface SelectorTipoPromocionProps {
-  valor: TipoPromocion
-  onChange: (valor: TipoPromocion) => void
+interface TipoPromocionProps {
+  value: string
+  onChange: (value: string) => void
 }
 
-/**
- * Componente para seleccionar el tipo de promoción
- *
- * @param {TipoPromocion} valor - El tipo de promoción seleccionado actualmente
- * @param {Function} onChange - Función para actualizar el tipo seleccionado
- */
-export function SelectorTipoPromocion({ valor, onChange }: SelectorTipoPromocionProps) {
-  // Opciones de tipos de promoción
-  const tiposPromocion = [
-    {
-      id: "porcentaje",
-      valor: "PORCENTAJE_DESCUENTO" as TipoPromocion,
-      titulo: "Descuento porcentual",
-      descripcion: "Ej: 20% de descuento en productos",
-      icono: Percent,
-    },
-    {
-      id: "fijo",
-      valor: "CANTIDAD_FIJA" as TipoPromocion,
-      titulo: "Descuento de cantidad fija",
-      descripcion: "Ej: 10€ de descuento en la compra",
-      icono: Tag,
-    },
-    {
-      id: "compraylleva",
-      valor: "COMPRA_X_LLEVA_Y" as TipoPromocion,
-      titulo: "Compra X y llévate Y",
-      descripcion: "Ej: 2x1 en productos seleccionados",
-      icono: ShoppingBag,
-    },
-    {
-      id: "envio",
-      valor: "ENVIO_GRATIS" as TipoPromocion,
-      titulo: "Envío gratuito",
-      descripcion: "Sin costes de envío en pedidos",
-      icono: Truck,
-    },
-  ]
+export function SelectorTipoPromocion({ value, onChange }: TipoPromocionProps) {
+  const [selectedType, setSelectedType] = useState(value || "PORCENTAJE_DESCUENTO")
+
+  const handleChange = (value: string) => {
+    setSelectedType(value)
+    onChange(value)
+  }
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-xl font-semibold">¿Qué tipo de descuento quieres ofrecer?</h2>
-      <p className="text-muted-foreground">
-        Elige el tipo de descuento que mejor se adapte a tu estrategia de marketing
-      </p>
-
-      <RadioGroup
-        value={valor}
-        onValueChange={(val) => onChange(val as TipoPromocion)}
-        className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4"
-      >
-        {tiposPromocion.map((tipo) => (
-          <div
-            key={tipo.id}
-            className="flex items-center space-x-2 border rounded-md p-4 cursor-pointer hover:bg-muted/50"
-          >
-            <RadioGroupItem value={tipo.valor} id={tipo.id} />
-            <Label htmlFor={tipo.id} className="flex items-center cursor-pointer">
-              <tipo.icono className="h-5 w-5 mr-2 text-granito" />
-              <div>
-                <p className="font-medium">{tipo.titulo}</p>
-                <p className="text-sm text-muted-foreground">{tipo.descripcion}</p>
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Tipo de promoción</CardTitle>
+        <CardDescription>Selecciona el tipo de descuento que quieres ofrecer a tus clientes</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <RadioGroup value={selectedType} onValueChange={handleChange} className="grid gap-4 md:grid-cols-2">
+          <div>
+            <RadioGroupItem value="PORCENTAJE_DESCUENTO" id="percentage" className="peer sr-only" />
+            <Label
+              htmlFor="percentage"
+              className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+            >
+              <Percent className="mb-3 h-6 w-6" />
+              <div className="text-center">
+                <p className="font-medium">Porcentaje de descuento</p>
+                <p className="text-sm text-muted-foreground">Ej: 10% de descuento en toda la tienda</p>
               </div>
             </Label>
           </div>
-        ))}
-      </RadioGroup>
 
-      {/* Consejo para el usuario */}
-      <div className="mt-4 p-4 bg-granito-light/10 border border-granito-light/20 rounded-md">
-        <h3 className="text-sm font-medium text-granito-dark">Consejo:</h3>
-        <p className="text-sm text-granito-dark/80">
-          Los descuentos porcentuales son ideales para promociones generales, mientras que los descuentos de cantidad
-          fija son mejores para compras de mayor valor.
-        </p>
-      </div>
-    </div>
+          <div>
+            <RadioGroupItem value="CANTIDAD_FIJA" id="fixed" className="peer sr-only" />
+            <Label
+              htmlFor="fixed"
+              className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+            >
+              <Tag className="mb-3 h-6 w-6" />
+              <div className="text-center">
+                <p className="font-medium">Cantidad fija</p>
+                <p className="text-sm text-muted-foreground">Ej: 5€ de descuento en tu compra</p>
+              </div>
+            </Label>
+          </div>
+
+          <div>
+            <RadioGroupItem value="ENVIO_GRATIS" id="shipping" className="peer sr-only" />
+            <Label
+              htmlFor="shipping"
+              className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+            >
+              <Truck className="mb-3 h-6 w-6" />
+              <div className="text-center">
+                <p className="font-medium">Envío gratis</p>
+                <p className="text-sm text-muted-foreground">Ofrece envío gratuito a tus clientes</p>
+              </div>
+            </Label>
+          </div>
+
+          <div>
+            <RadioGroupItem value="COMPRA_X_LLEVA_Y" id="buyxgety" className="peer sr-only" />
+            <Label
+              htmlFor="buyxgety"
+              className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+            >
+              <ShoppingBag className="mb-3 h-6 w-6" />
+              <div className="text-center">
+                <p className="font-medium">Compra X y lleva Y</p>
+                <p className="text-sm text-muted-foreground">Ej: Compra 2 y llévate 1 gratis</p>
+              </div>
+            </Label>
+          </div>
+        </RadioGroup>
+      </CardContent>
+    </Card>
   )
 }
