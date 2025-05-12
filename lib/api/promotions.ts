@@ -2,15 +2,331 @@ import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 import type { Promotion } from "@/types/promotions"
 
-// Función para obtener todas las promociones
+// Función para obtener todas las promociones usando discountnodes
 export async function fetchPromotions() {
   try {
     const query = gql`
       query {
-        codeDiscountNodes(first: 50) {
+        discountNodes(first: 50) {
           edges {
             node {
               id
+              discount {
+                ... on DiscountAutomaticNode {
+                  automaticDiscount {
+                    title
+                    summary
+                    status
+                    startsAt
+                    endsAt
+                    minimumRequirement {
+                      ... on DiscountMinimumSubtotal {
+                        subtotal {
+                          amount
+                          currencyCode
+                        }
+                      }
+                      ... on DiscountMinimumQuantity {
+                        quantity
+                      }
+                    }
+                    customerGets {
+                      value {
+                        ... on DiscountPercentage {
+                          percentage
+                        }
+                        ... on DiscountAmount {
+                          amount {
+                            amount
+                            currencyCode
+                          }
+                        }
+                      }
+                      items {
+                        ... on DiscountProducts {
+                          products(first: 5) {
+                            edges {
+                              node {
+                                id
+                                title
+                              }
+                            }
+                          }
+                        }
+                        ... on DiscountCollections {
+                          collections(first: 5) {
+                            edges {
+                              node {
+                                id
+                                title
+                              }
+                            }
+                          }
+                        }
+                        ... on AllDiscountItems {
+                          all
+                        }
+                      }
+                    }
+                  }
+                }
+                ... on DiscountCodeNode {
+                  codeDiscount {
+                    ... on DiscountCodeBasic {
+                      title
+                      summary
+                      status
+                      codes(first: 1) {
+                        edges {
+                          node {
+                            code
+                          }
+                        }
+                      }
+                      startsAt
+                      endsAt
+                      customerSelection {
+                        all
+                      }
+                      customerGets {
+                        value {
+                          ... on DiscountPercentage {
+                            percentage
+                          }
+                          ... on DiscountAmount {
+                            amount {
+                              amount
+                              currencyCode
+                            }
+                          }
+                        }
+                        items {
+                          ... on DiscountProducts {
+                            products(first: 5) {
+                              edges {
+                                node {
+                                  id
+                                  title
+                                }
+                              }
+                            }
+                          }
+                          ... on DiscountCollections {
+                            collections(first: 5) {
+                              edges {
+                                node {
+                                  id
+                                  title
+                                }
+                              }
+                            }
+                          }
+                          ... on AllDiscountItems {
+                            all
+                          }
+                        }
+                      }
+                    }
+                    ... on DiscountCodeBxgy {
+                      title
+                      summary
+                      status
+                      codes(first: 1) {
+                        edges {
+                          node {
+                            code
+                          }
+                        }
+                      }
+                      startsAt
+                      endsAt
+                      customerSelection {
+                        all
+                      }
+                      customerBuys {
+                        value {
+                          quantity
+                        }
+                        items {
+                          ... on DiscountProducts {
+                            products(first: 5) {
+                              edges {
+                                node {
+                                  id
+                                  title
+                                }
+                              }
+                            }
+                          }
+                          ... on DiscountCollections {
+                            collections(first: 5) {
+                              edges {
+                                node {
+                                  id
+                                  title
+                                }
+                              }
+                            }
+                          }
+                          ... on AllDiscountItems {
+                            all
+                          }
+                        }
+                      }
+                      customerGets {
+                        value {
+                          ... on DiscountPercentage {
+                            percentage
+                          }
+                          ... on DiscountAmount {
+                            amount {
+                              amount
+                              currencyCode
+                            }
+                          }
+                        }
+                        items {
+                          ... on DiscountProducts {
+                            products(first: 5) {
+                              edges {
+                                node {
+                                  id
+                                  title
+                                }
+                              }
+                            }
+                          }
+                          ... on DiscountCollections {
+                            collections(first: 5) {
+                              edges {
+                                node {
+                                  id
+                                  title
+                                }
+                              }
+                            }
+                          }
+                          ... on AllDiscountItems {
+                            all
+                          }
+                        }
+                      }
+                    }
+                    ... on DiscountCodeFreeShipping {
+                      title
+                      summary
+                      status
+                      codes(first: 1) {
+                        edges {
+                          node {
+                            code
+                          }
+                        }
+                      }
+                      startsAt
+                      endsAt
+                      customerSelection {
+                        all
+                      }
+                      destinationSelection {
+                        all
+                      }
+                      minimumRequirement {
+                        ... on DiscountMinimumSubtotal {
+                          subtotal {
+                            amount
+                            currencyCode
+                          }
+                        }
+                        ... on DiscountMinimumQuantity {
+                          quantity
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const data = await shopifyClient.request(query)
+    return data.discountNodes.edges.map((edge) => edge.node)
+  } catch (error) {
+    console.error("Error fetching promotions:", error)
+    throw new Error(`Error al cargar promociones: ${error.message}`)
+  }
+}
+
+// Función para obtener una promoción por ID
+export async function fetchPromotionById(id) {
+  try {
+    const query = gql`
+      query GetPromotion($id: ID!) {
+        discountNode(id: $id) {
+          id
+          discount {
+            ... on DiscountAutomaticNode {
+              automaticDiscount {
+                title
+                summary
+                status
+                startsAt
+                endsAt
+                minimumRequirement {
+                  ... on DiscountMinimumSubtotal {
+                    subtotal {
+                      amount
+                      currencyCode
+                    }
+                  }
+                  ... on DiscountMinimumQuantity {
+                    quantity
+                  }
+                }
+                customerGets {
+                  value {
+                    ... on DiscountPercentage {
+                      percentage
+                    }
+                    ... on DiscountAmount {
+                      amount {
+                        amount
+                        currencyCode
+                      }
+                    }
+                  }
+                  items {
+                    ... on DiscountProducts {
+                      products(first: 20) {
+                        edges {
+                          node {
+                            id
+                            title
+                          }
+                        }
+                      }
+                    }
+                    ... on DiscountCollections {
+                      collections(first: 20) {
+                        edges {
+                          node {
+                            id
+                            title
+                          }
+                        }
+                      }
+                    }
+                    ... on AllDiscountItems {
+                      all
+                    }
+                  }
+                }
+              }
+            }
+            ... on DiscountCodeNode {
               codeDiscount {
                 ... on DiscountCodeBasic {
                   title
@@ -42,7 +358,7 @@ export async function fetchPromotions() {
                     }
                     items {
                       ... on DiscountProducts {
-                        products(first: 5) {
+                        products(first: 20) {
                           edges {
                             node {
                               id
@@ -52,7 +368,7 @@ export async function fetchPromotions() {
                         }
                       }
                       ... on DiscountCollections {
-                        collections(first: 5) {
+                        collections(first: 20) {
                           edges {
                             node {
                               id
@@ -89,7 +405,7 @@ export async function fetchPromotions() {
                     }
                     items {
                       ... on DiscountProducts {
-                        products(first: 5) {
+                        products(first: 20) {
                           edges {
                             node {
                               id
@@ -99,7 +415,7 @@ export async function fetchPromotions() {
                         }
                       }
                       ... on DiscountCollections {
-                        collections(first: 5) {
+                        collections(first: 20) {
                           edges {
                             node {
                               id
@@ -127,7 +443,7 @@ export async function fetchPromotions() {
                     }
                     items {
                       ... on DiscountProducts {
-                        products(first: 5) {
+                        products(first: 20) {
                           edges {
                             node {
                               id
@@ -137,7 +453,7 @@ export async function fetchPromotions() {
                         }
                       }
                       ... on DiscountCollections {
-                        collections(first: 5) {
+                        collections(first: 20) {
                           edges {
                             node {
                               id
@@ -190,204 +506,12 @@ export async function fetchPromotions() {
       }
     `
 
-    const data = await shopifyClient.request(query)
-    return data.codeDiscountNodes.edges.map((edge) => edge.node)
-  } catch (error) {
-    console.error("Error fetching promotions:", error)
-    throw new Error(`Error al cargar promociones: ${error.message}`)
-  }
-}
-
-// Función para obtener una promoción por ID
-export async function fetchPromotionById(id) {
-  try {
-    const query = gql`
-      query GetPromotion($id: ID!) {
-        codeDiscountNode(id: $id) {
-          id
-          codeDiscount {
-            ... on DiscountCodeBasic {
-              title
-              summary
-              status
-              codes(first: 1) {
-                edges {
-                  node {
-                    code
-                  }
-                }
-              }
-              startsAt
-              endsAt
-              customerSelection {
-                all
-              }
-              customerGets {
-                value {
-                  ... on DiscountPercentage {
-                    percentage
-                  }
-                  ... on DiscountAmount {
-                    amount {
-                      amount
-                      currencyCode
-                    }
-                  }
-                }
-                items {
-                  ... on DiscountProducts {
-                    products(first: 20) {
-                      edges {
-                        node {
-                          id
-                          title
-                        }
-                      }
-                    }
-                  }
-                  ... on DiscountCollections {
-                    collections(first: 20) {
-                      edges {
-                        node {
-                          id
-                          title
-                        }
-                      }
-                    }
-                  }
-                  ... on AllDiscountItems {
-                    all
-                  }
-                }
-              }
-            }
-            ... on DiscountCodeBxgy {
-              title
-              summary
-              status
-              codes(first: 1) {
-                edges {
-                  node {
-                    code
-                  }
-                }
-              }
-              startsAt
-              endsAt
-              customerSelection {
-                all
-              }
-              customerBuys {
-                value {
-                  quantity
-                }
-                items {
-                  ... on DiscountProducts {
-                    products(first: 20) {
-                      edges {
-                        node {
-                          id
-                          title
-                        }
-                      }
-                    }
-                  }
-                  ... on DiscountCollections {
-                    collections(first: 20) {
-                      edges {
-                        node {
-                          id
-                          title
-                        }
-                      }
-                    }
-                  }
-                  ... on AllDiscountItems {
-                    all
-                  }
-                }
-              }
-              customerGets {
-                value {
-                  ... on DiscountPercentage {
-                    percentage
-                  }
-                  ... on DiscountAmount {
-                    amount {
-                      amount
-                      currencyCode
-                    }
-                  }
-                }
-                items {
-                  ... on DiscountProducts {
-                    products(first: 20) {
-                      edges {
-                        node {
-                          id
-                          title
-                        }
-                      }
-                    }
-                  }
-                  ... on DiscountCollections {
-                    collections(first: 20) {
-                      edges {
-                        node {
-                          id
-                          title
-                        }
-                      }
-                    }
-                  }
-                  ... on AllDiscountItems {
-                    all
-                  }
-                }
-              }
-            }
-            ... on DiscountCodeFreeShipping {
-              title
-              summary
-              status
-              codes(first: 1) {
-                edges {
-                  node {
-                    code
-                  }
-                }
-              }
-              startsAt
-              endsAt
-              customerSelection {
-                all
-              }
-              destinationSelection {
-                all
-              }
-              minimumRequirement {
-                ... on DiscountMinimumSubtotal {
-                  subtotal {
-                    amount
-                    currencyCode
-                  }
-                }
-                ... on DiscountMinimumQuantity {
-                  quantity
-                }
-              }
-            }
-          }
-        }
-      }
-    `
-
     const variables = {
       id,
     }
 
     const data = await shopifyClient.request(query, variables)
-    return data.codeDiscountNode
+    return data.discountNode
   } catch (error) {
     console.error(`Error fetching promotion with ID ${id}:`, error)
     throw new Error(`Error al cargar la promoción: ${error.message}`)
@@ -490,11 +614,17 @@ export async function updatePriceList(id: string, updateData: any): Promise<Prom
     // Obtener la promoción actual para determinar su tipo
     const currentPromotion = await fetchPromotionById(id)
     let type = "BASIC"
+    let discountType = "CODE"
 
-    if (currentPromotion.codeDiscount.__typename === "DiscountCodeBxgy") {
-      type = "BXGY"
-    } else if (currentPromotion.codeDiscount.__typename === "DiscountCodeFreeShipping") {
-      type = "FREE_SHIPPING"
+    if (currentPromotion.discount.__typename === "DiscountAutomaticNode") {
+      discountType = "AUTOMATIC"
+    } else if (currentPromotion.discount.__typename === "DiscountCodeNode") {
+      const codeDiscount = currentPromotion.discount.codeDiscount
+      if (codeDiscount.__typename === "DiscountCodeBxgy") {
+        type = "BXGY"
+      } else if (codeDiscount.__typename === "DiscountCodeFreeShipping") {
+        type = "FREE_SHIPPING"
+      }
     }
 
     // Preparar los datos de actualización según el tipo
@@ -504,7 +634,12 @@ export async function updatePriceList(id: string, updateData: any): Promise<Prom
     }
 
     // Actualizar la promoción
-    const result = await updatePromotion(id, updatePayload, type)
+    let result
+    if (discountType === "AUTOMATIC") {
+      result = await updateAutomaticDiscount(id, updatePayload)
+    } else {
+      result = await updateCodeDiscount(id, updatePayload, type)
+    }
 
     return transformPromotionData(result)
   } catch (error) {
@@ -515,7 +650,16 @@ export async function updatePriceList(id: string, updateData: any): Promise<Prom
 
 export async function deletePriceList(id: string): Promise<string> {
   try {
-    const result = await deletePromotion(id)
+    // Determinar si es un descuento automático o de código
+    const promotion = await fetchPromotionById(id)
+    let result
+
+    if (promotion.discount.__typename === "DiscountAutomaticNode") {
+      result = await deleteAutomaticDiscount(id)
+    } else {
+      result = await deleteCodeDiscount(id)
+    }
+
     return result
   } catch (error) {
     console.error(`Error deleting price list with ID ${id}:`, error)
@@ -529,50 +673,69 @@ function transformPromotionData(shopifyPromotion: any): Promotion {
     throw new Error("Datos de promoción inválidos")
   }
 
-  const codeDiscount = shopifyPromotion.codeDiscount || {}
-  const code = codeDiscount.codes?.edges[0]?.node?.code || ""
+  const discount = shopifyPromotion.discount || {}
+  let discountDetails
+  let isAutomatic = false
+  let code = ""
+
+  if (discount.__typename === "DiscountAutomaticNode") {
+    discountDetails = discount.automaticDiscount
+    isAutomatic = true
+  } else if (discount.__typename === "DiscountCodeNode") {
+    discountDetails = discount.codeDiscount
+    code = discountDetails.codes?.edges[0]?.node?.code || ""
+  } else {
+    discountDetails = {}
+  }
 
   let type = "PERCENTAGE_DISCOUNT"
   let value = 0
 
-  if (codeDiscount.__typename === "DiscountCodeBasic") {
-    if (codeDiscount.customerGets?.value?.percentage) {
+  if (discountDetails.__typename === "DiscountCodeBasic" || discountDetails.__typename === "DiscountAutomaticBasic") {
+    if (discountDetails.customerGets?.value?.percentage) {
       type = "PERCENTAGE_DISCOUNT"
-      value = codeDiscount.customerGets.value.percentage
-    } else if (codeDiscount.customerGets?.value?.amount) {
+      value = discountDetails.customerGets.value.percentage
+    } else if (discountDetails.customerGets?.value?.amount) {
       type = "FIXED_AMOUNT_DISCOUNT"
-      value = Number.parseFloat(codeDiscount.customerGets.value.amount.amount)
+      value = Number.parseFloat(discountDetails.customerGets.value.amount.amount)
     }
-  } else if (codeDiscount.__typename === "DiscountCodeBxgy") {
+  } else if (
+    discountDetails.__typename === "DiscountCodeBxgy" ||
+    discountDetails.__typename === "DiscountAutomaticBxgy"
+  ) {
     type = "BUY_X_GET_Y"
-    value = codeDiscount.customerBuys?.value?.quantity || 1
-  } else if (codeDiscount.__typename === "DiscountCodeFreeShipping") {
+    value = discountDetails.customerBuys?.value?.quantity || 1
+  } else if (
+    discountDetails.__typename === "DiscountCodeFreeShipping" ||
+    discountDetails.__typename === "DiscountAutomaticFreeShipping"
+  ) {
     type = "FREE_SHIPPING"
     value = 0
   }
 
   return {
     id: shopifyPromotion.id,
-    title: codeDiscount.title || "",
-    description: codeDiscount.summary || "",
+    title: discountDetails.title || "",
+    description: discountDetails.summary || "",
     type,
     target: "CART",
     targetId: "",
     value,
     conditions: [],
-    active: codeDiscount.status === "ACTIVE",
-    startDate: codeDiscount.startsAt || new Date().toISOString(),
-    endDate: codeDiscount.endsAt,
+    active: discountDetails.status === "ACTIVE",
+    startDate: discountDetails.startsAt || new Date().toISOString(),
+    endDate: discountDetails.endsAt,
     code,
     usageLimit: 0,
     usageCount: 0,
-    createdAt: codeDiscount.startsAt || new Date().toISOString(),
+    createdAt: discountDetails.startsAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     prices: [],
+    isAutomatic,
   }
 }
 
-// Función para crear una nueva promoción de descuento básico
+// Función para crear un descuento básico con código
 export async function createBasicDiscount(discountData) {
   try {
     const mutation = gql`
@@ -603,8 +766,14 @@ export async function createBasicDiscount(discountData) {
     `
 
     const variables = {
-      basicCodeDiscount: discountData,
+      basicCodeDiscount: {
+        ...discountData,
+        codes: [{ code: discountData.code }],
+      },
     }
+
+    // Eliminar el código del objeto principal para evitar duplicación
+    delete variables.basicCodeDiscount.code
 
     const data = await shopifyClient.request(mutation, variables)
 
@@ -612,14 +781,20 @@ export async function createBasicDiscount(discountData) {
       throw new Error(data.discountCodeBasicCreate.userErrors[0].message)
     }
 
-    return data.discountCodeBasicCreate.codeDiscountNode
+    return {
+      id: data.discountCodeBasicCreate.codeDiscountNode.id,
+      discount: {
+        __typename: "DiscountCodeNode",
+        codeDiscount: data.discountCodeBasicCreate.codeDiscountNode.codeDiscount,
+      },
+    }
   } catch (error) {
     console.error("Error creating basic discount:", error)
     throw new Error(`Error al crear la promoción: ${error.message}`)
   }
 }
 
-// Función para crear una nueva promoción de compra X, obtén Y
+// Función para crear un descuento de compra X, obtén Y con código
 export async function createBxgyDiscount(discountData) {
   try {
     const mutation = gql`
@@ -650,8 +825,14 @@ export async function createBxgyDiscount(discountData) {
     `
 
     const variables = {
-      bxgyCodeDiscount: discountData,
+      bxgyCodeDiscount: {
+        ...discountData,
+        codes: [{ code: discountData.code }],
+      },
     }
+
+    // Eliminar el código del objeto principal para evitar duplicación
+    delete variables.bxgyCodeDiscount.code
 
     const data = await shopifyClient.request(mutation, variables)
 
@@ -659,14 +840,20 @@ export async function createBxgyDiscount(discountData) {
       throw new Error(data.discountCodeBxgyCreate.userErrors[0].message)
     }
 
-    return data.discountCodeBxgyCreate.codeDiscountNode
+    return {
+      id: data.discountCodeBxgyCreate.codeDiscountNode.id,
+      discount: {
+        __typename: "DiscountCodeNode",
+        codeDiscount: data.discountCodeBxgyCreate.codeDiscountNode.codeDiscount,
+      },
+    }
   } catch (error) {
     console.error("Error creating BXGY discount:", error)
     throw new Error(`Error al crear la promoción: ${error.message}`)
   }
 }
 
-// Función para crear una nueva promoción de envío gratuito
+// Función para crear un descuento de envío gratuito con código
 export async function createFreeShippingDiscount(discountData) {
   try {
     const mutation = gql`
@@ -697,8 +884,14 @@ export async function createFreeShippingDiscount(discountData) {
     `
 
     const variables = {
-      freeShippingCodeDiscount: discountData,
+      freeShippingCodeDiscount: {
+        ...discountData,
+        codes: [{ code: discountData.code }],
+      },
     }
+
+    // Eliminar el código del objeto principal para evitar duplicación
+    delete variables.freeShippingCodeDiscount.code
 
     const data = await shopifyClient.request(mutation, variables)
 
@@ -706,15 +899,63 @@ export async function createFreeShippingDiscount(discountData) {
       throw new Error(data.discountCodeFreeShippingCreate.userErrors[0].message)
     }
 
-    return data.discountCodeFreeShippingCreate.codeDiscountNode
+    return {
+      id: data.discountCodeFreeShippingCreate.codeDiscountNode.id,
+      discount: {
+        __typename: "DiscountCodeNode",
+        codeDiscount: data.discountCodeFreeShippingCreate.codeDiscountNode.codeDiscount,
+      },
+    }
   } catch (error) {
     console.error("Error creating free shipping discount:", error)
     throw new Error(`Error al crear la promoción: ${error.message}`)
   }
 }
 
-// Función para actualizar una promoción
-export async function updatePromotion(id, discountData, type = "BASIC") {
+// Función para actualizar un descuento automático
+export async function updateAutomaticDiscount(id, discountData) {
+  try {
+    const mutation = gql`
+      mutation discountAutomaticBasicUpdate($id: ID!, $automaticBasicDiscount: DiscountAutomaticBasicInput!) {
+        discountAutomaticBasicUpdate(id: $id, automaticBasicDiscount: $automaticBasicDiscount) {
+          automaticDiscountNode {
+            id
+            automaticDiscount {
+              ... on DiscountAutomaticBasic {
+                title
+                status
+              }
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const variables = {
+      id,
+      automaticBasicDiscount: discountData,
+    }
+
+    const data = await shopifyClient.request(mutation, variables)
+
+    if (data.discountAutomaticBasicUpdate.userErrors.length > 0) {
+      throw new Error(data.discountAutomaticBasicUpdate.userErrors[0].message)
+    }
+
+    // Obtener los detalles actualizados
+    return await fetchPromotionById(id)
+  } catch (error) {
+    console.error(`Error updating automatic discount with ID ${id}:`, error)
+    throw new Error(`Error al actualizar la promoción: ${error.message}`)
+  }
+}
+
+// Función para actualizar un descuento con código
+export async function updateCodeDiscount(id, discountData, type = "BASIC") {
   try {
     let mutation
     let variables
@@ -788,15 +1029,48 @@ export async function updatePromotion(id, discountData, type = "BASIC") {
       throw new Error(data[resultKey].userErrors[0].message)
     }
 
-    return data[resultKey].codeDiscountNode
+    // Obtener los detalles actualizados
+    return await fetchPromotionById(id)
   } catch (error) {
-    console.error(`Error updating promotion with ID ${id}:`, error)
+    console.error(`Error updating code discount with ID ${id}:`, error)
     throw new Error(`Error al actualizar la promoción: ${error.message}`)
   }
 }
 
-// Función para eliminar una promoción
-export async function deletePromotion(id) {
+// Función para eliminar un descuento automático
+export async function deleteAutomaticDiscount(id) {
+  try {
+    const mutation = gql`
+      mutation discountAutomaticDelete($id: ID!) {
+        discountAutomaticDelete(id: $id) {
+          deletedAutomaticDiscountId
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const variables = {
+      id,
+    }
+
+    const data = await shopifyClient.request(mutation, variables)
+
+    if (data.discountAutomaticDelete.userErrors.length > 0) {
+      throw new Error(data.discountAutomaticDelete.userErrors[0].message)
+    }
+
+    return data.discountAutomaticDelete.deletedAutomaticDiscountId
+  } catch (error) {
+    console.error(`Error deleting automatic discount with ID ${id}:`, error)
+    throw new Error(`Error al eliminar la promoción: ${error.message}`)
+  }
+}
+
+// Función para eliminar un descuento con código
+export async function deleteCodeDiscount(id) {
   try {
     const mutation = gql`
       mutation discountCodeDelete($id: ID!) {
@@ -822,13 +1096,58 @@ export async function deletePromotion(id) {
 
     return data.discountCodeDelete.deletedCodeDiscountId
   } catch (error) {
-    console.error(`Error deleting promotion with ID ${id}:`, error)
+    console.error(`Error deleting code discount with ID ${id}:`, error)
     throw new Error(`Error al eliminar la promoción: ${error.message}`)
   }
 }
 
-// Función para activar una promoción
-export async function activatePromotion(id) {
+// Función para activar un descuento automático
+export async function activateAutomaticDiscount(id) {
+  try {
+    const mutation = gql`
+      mutation discountAutomaticActivate($id: ID!) {
+        discountAutomaticActivate(id: $id) {
+          automaticDiscountNode {
+            id
+            automaticDiscount {
+              ... on DiscountAutomaticBasic {
+                status
+              }
+              ... on DiscountAutomaticBxgy {
+                status
+              }
+              ... on DiscountAutomaticFreeShipping {
+                status
+              }
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const variables = {
+      id,
+    }
+
+    const data = await shopifyClient.request(mutation, variables)
+
+    if (data.discountAutomaticActivate.userErrors.length > 0) {
+      throw new Error(data.discountAutomaticActivate.userErrors[0].message)
+    }
+
+    return data.discountAutomaticActivate.automaticDiscountNode
+  } catch (error) {
+    console.error(`Error activating automatic discount with ID ${id}:`, error)
+    throw new Error(`Error al activar la promoción: ${error.message}`)
+  }
+}
+
+// Función para activar un descuento con código
+export async function activateCodeDiscount(id) {
   try {
     const mutation = gql`
       mutation discountCodeActivate($id: ID!) {
@@ -867,13 +1186,58 @@ export async function activatePromotion(id) {
 
     return data.discountCodeActivate.codeDiscountNode
   } catch (error) {
-    console.error(`Error activating promotion with ID ${id}:`, error)
+    console.error(`Error activating code discount with ID ${id}:`, error)
     throw new Error(`Error al activar la promoción: ${error.message}`)
   }
 }
 
-// Función para desactivar una promoción
-export async function deactivatePromotion(id) {
+// Función para desactivar un descuento automático
+export async function deactivateAutomaticDiscount(id) {
+  try {
+    const mutation = gql`
+      mutation discountAutomaticDeactivate($id: ID!) {
+        discountAutomaticDeactivate(id: $id) {
+          automaticDiscountNode {
+            id
+            automaticDiscount {
+              ... on DiscountAutomaticBasic {
+                status
+              }
+              ... on DiscountAutomaticBxgy {
+                status
+              }
+              ... on DiscountAutomaticFreeShipping {
+                status
+              }
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const variables = {
+      id,
+    }
+
+    const data = await shopifyClient.request(mutation, variables)
+
+    if (data.discountAutomaticDeactivate.userErrors.length > 0) {
+      throw new Error(data.discountAutomaticDeactivate.userErrors[0].message)
+    }
+
+    return data.discountAutomaticDeactivate.automaticDiscountNode
+  } catch (error) {
+    console.error(`Error deactivating automatic discount with ID ${id}:`, error)
+    throw new Error(`Error al desactivar la promoción: ${error.message}`)
+  }
+}
+
+// Función para desactivar un descuento con código
+export async function deactivateCodeDiscount(id) {
   try {
     const mutation = gql`
       mutation discountCodeDeactivate($id: ID!) {
@@ -912,7 +1276,7 @@ export async function deactivatePromotion(id) {
 
     return data.discountCodeDeactivate.codeDiscountNode
   } catch (error) {
-    console.error(`Error deactivating promotion with ID ${id}:`, error)
+    console.error(`Error deactivating code discount with ID ${id}:`, error)
     throw new Error(`Error al desactivar la promoción: ${error.message}`)
   }
 }
