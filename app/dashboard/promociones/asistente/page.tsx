@@ -16,9 +16,11 @@ import { crearPromocion } from "@/lib/api/promociones"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, ArrowLeft } from "lucide-react"
 import type { TipoPromocion } from "@/types/promociones"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function AsistentePromocionesPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [pasoActual, setPasoActual] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -105,12 +107,17 @@ export default function AsistentePromocionesPage() {
 
       console.log("Promoción creada:", resultado)
 
+      // Mostrar mensaje de éxito
+      toast({
+        title: "Promoción creada",
+        description: "La promoción ha sido creada correctamente",
+      })
+
       // Redirigir a la página de promociones
       router.push("/dashboard/promociones")
     } catch (err) {
       console.error("Error al crear promoción:", err)
       setError(`Error al crear promoción: ${(err as Error).message}`)
-    } finally {
       setIsLoading(false)
     }
   }
