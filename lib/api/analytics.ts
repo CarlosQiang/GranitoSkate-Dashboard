@@ -1,5 +1,116 @@
 import { shopifyFetch } from "@/lib/shopify"
 
+export async function fetchAnalyticsData() {
+  try {
+    // Consulta para obtener datos de ventas
+    const query = `
+      query {
+        orders(first: 50, query: "status:any") {
+          edges {
+            node {
+              id
+              name
+              createdAt
+              totalPriceSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+              }
+              lineItems(first: 5) {
+                edges {
+                  node {
+                    name
+                    quantity
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const response = await shopifyFetch({ query })
+
+    if (!response.data) {
+      throw new Error("No se pudieron obtener los datos de análisis")
+    }
+
+    const orders = response.data.orders.edges.map(({ node }) => node)
+
+    // Procesar datos para análisis
+    const totalRevenue = orders.reduce((sum, order) => sum + Number.parseFloat(order.totalPriceSet.shopMoney.amount), 0)
+    const totalOrders = orders.length
+    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
+
+    // Agrupar pedidos por mes para gráfico de ingresos
+    const revenueByMonth = orders.reduce((acc, order) => {
+      const date = new Date(order.createdAt)
+      const monthYear = `${date.getMonth() + 1}/${date.getFullYear()}`
+
+      if (!acc[monthYear]) {
+        acc[monthYear] = {
+          month: monthYear,
+          total: 0,
+        }
+      }
+
+      acc[monthYear].total += Number.parseFloat(order.totalPriceSet.shopMoney.amount)
+      return acc
+    }, {})
+
+    const revenueData = Object.values(revenueByMonth)
+
+    // Calcular productos más vendidos
+    const productSales = {}
+    orders.forEach((order) => {
+      order.lineItems.edges.forEach((edge) => {
+        const product = edge.node
+        if (!productSales[product.name]) {
+          productSales[product.name] = 0
+        }
+        productSales[product.name] += product.quantity
+      })
+    })
+
+    const topProducts = Object.entries(productSales)
+      .map(([name, sales]) => ({ name, sales }))
+      .sort((a, b) => b.sales - a.sales)
+      .slice(0, 5)
+
+    // Agrupar pedidos por mes para gráfico de pedidos
+    const ordersByMonth = orders.reduce((acc, order) => {
+      const date = new Date(order.createdAt)
+      const monthYear = `${date.getMonth() + 1}/${date.getFullYear()}`
+
+      if (!acc[monthYear]) {
+        acc[monthYear] = {
+          month: monthYear,
+          total: 0,
+        }
+      }
+
+      acc[monthYear].total += 1
+      return acc
+    }, {})
+
+    const ordersData = Object.values(ordersByMonth)
+
+    return {
+      totalRevenue,
+      totalOrders,
+      averageOrderValue,
+      topProducts,
+      revenueData,
+      ordersData,
+    }
+  } catch (error) {
+    console.error("Error fetching analytics data:", error)
+    throw new Error(`Error al obtener datos de análisis: ${error.message}`)
+  }
+}
+
 export async function fetchSalesOverview(period = "7d") {
   try {
     // Calcular fechas basadas en el período
@@ -43,24 +154,21 @@ export async function fetchSalesOverview(period = "7d") {
       }
     `
 
-    const response = await shopifyFetch({
-      query,
-      variables: {},
-    })
+    const response = await shopifyFetch({ query })
 
     if (!response.data) {
       throw new Error("No se pudieron obtener los datos de ventas")
     }
 
     // Procesar los datos para el gráfico
-    const orders = response.data.orders.edges.map(({ node }: any) => ({
+    const orders = response.data.orders.edges.map(({ node }) => ({
       id: node.id.split("/").pop(),
       date: new Date(node.createdAt).toISOString().split("T")[0],
       amount: Number.parseFloat(node.totalPriceSet?.shopMoney?.amount || 0),
     }))
 
     // Agrupar ventas por fecha
-    const salesByDate = orders.reduce((acc: any, order: any) => {
+    const salesByDate = orders.reduce((acc, order) => {
       if (!acc[order.date]) {
         acc[order.date] = 0
       }

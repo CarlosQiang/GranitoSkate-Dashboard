@@ -17,14 +17,21 @@ const shopifyClient = new GraphQLClient(`${getBaseUrl()}/api/shopify/proxy`, {
   },
 })
 
-// Mejorar la función formatShopifyId para manejar todos los casos posibles
+// Función para realizar consultas GraphQL a Shopify
+export async function shopifyFetch({ query, variables = {} }) {
+  try {
+    const result = await shopifyClient.request(query, variables)
+    return { data: result, errors: null }
+  } catch (error) {
+    console.error("Error en la consulta GraphQL:", error)
+    return {
+      data: null,
+      errors: error.response?.errors || [{ message: error.message }],
+    }
+  }
+}
 
-/**
- * Formatea un ID para que sea compatible con la API de Shopify
- * @param id El ID a formatear
- * @param resourceType El tipo de recurso (Product, Collection, etc.)
- * @returns El ID formateado
- */
+// Mejorar la función formatShopifyId para manejar todos los casos posibles
 export function formatShopifyId(id: string | number | null | undefined, resourceType: string): string {
   if (!id) {
     console.warn(`ID inválido proporcionado para ${resourceType}:`, id)

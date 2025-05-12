@@ -42,10 +42,7 @@ export default function SettingsPage() {
           }
         `
 
-        const response = await shopifyFetch({
-          query,
-          variables: {},
-        })
+        const response = await shopifyFetch({ query })
 
         if (!response.data) {
           throw new Error("No se pudo obtener la configuración de la tienda")

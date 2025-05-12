@@ -1,15 +1,17 @@
 import { shopifyFetch } from "@/lib/shopify"
 
-// Función para obtener pedidos recientes
-export async function fetchRecentOrders(limit = 5) {
+export async function fetchRecentOrders(limit = 10) {
   try {
+    console.log(`Fetching ${limit} recent orders from Shopify...`)
+
     const query = `
-      query {
-        orders(first: ${limit}, sortKey: CREATED_AT, reverse: true) {
+      query GetRecentOrders($limit: Int!) {
+        orders(first: $limit, sortKey: PROCESSED_AT, reverse: true) {
           edges {
             node {
               id
               name
+              processedAt
               createdAt
               displayFulfillmentStatus
               displayFinancialStatus
@@ -24,47 +26,72 @@ export async function fetchRecentOrders(limit = 5) {
                 lastName
                 email
               }
+              lineItems(first: 5) {
+                edges {
+                  node {
+                    title
+                    quantity
+                  }
+                }
+              }
             }
           }
         }
       }
     `
 
-    const response = await shopifyFetch({
-      query,
-      variables: {},
-    })
+    const response = await shopifyFetch({ query, variables: { limit } })
 
-    if (!response.data) {
-      throw new Error("No se pudieron obtener los pedidos recientes")
+    if (!response.data || !response.data.orders || !response.data.orders.edges) {
+      console.error("Respuesta de pedidos incompleta:", response)
+      return []
     }
 
-    return response.data.orders.edges.map(({ node }: any) => ({
+    const orders = response.data.orders.edges.map(({ node }) => ({
       id: node.id.split("/").pop(),
       name: node.name,
+      processedAt: node.processedAt,
       createdAt: node.createdAt,
-      status: node.displayFulfillmentStatus,
+      fulfillmentStatus: node.displayFulfillmentStatus,
       financialStatus: node.displayFinancialStatus,
-      total: node.totalPriceSet?.shopMoney?.amount || "0",
-      currency: node.totalPriceSet?.shopMoney?.currencyCode || "EUR",
-      customer: node.customer ? `${node.customer.firstName} ${node.customer.lastName}` : "Cliente anónimo",
-      email: node.customer?.email || "",
+      totalPrice: node.totalPriceSet?.shopMoney?.amount || "0.00",
+      currencyCode: node.totalPriceSet?.shopMoney?.currencyCode || "EUR",
+      customer: node.customer
+        ? {
+            firstName: node.customer.firstName || "",
+            lastName: node.customer.lastName || "",
+            email: node.customer.email || "",
+          }
+        : null,
+      items:
+        node.lineItems?.edges?.map((item) => ({
+          title: item.node.title,
+          quantity: item.node.quantity,
+        })) || [],
     }))
+
+    console.log(`Successfully fetched ${orders.length} orders`)
+    return orders
   } catch (error) {
-    console.error("Error al obtener pedidos recientes:", error)
-    return []
+    console.error("Error fetching recent orders:", error)
+    throw new Error(`Error al cargar pedidos recientes: ${error.message}`)
   }
 }
 
-// Función para obtener un pedido por ID
-export async function fetchOrderById(id: string) {
+export async function fetchOrderById(id) {
   try {
+    // Asegurarse de que el ID tenga el formato correcto
+    const isFullShopifyId = id.includes("gid://shopify/Order/")
+    const formattedId = isFullShopifyId ? id : `gid://shopify/Order/${id}`
+
+    console.log(`Fetching order with ID: ${formattedId}`)
+
     const query = `
-      query getOrder($id: ID!) {
+      query GetOrderById($id: ID!) {
         order(id: $id) {
           id
           name
-          createdAt
+          processedAt
           displayFulfillmentStatus
           displayFinancialStatus
           totalPriceSet {
@@ -102,24 +129,20 @@ export async function fetchOrderById(id: string) {
             address2
             city
             province
-            zip
             country
+            zip
+            phone
           }
           lineItems(first: 20) {
             edges {
               node {
                 title
                 quantity
-                originalUnitPriceSet {
-                  shopMoney {
-                    amount
-                    currencyCode
-                  }
-                }
                 variant {
-                  title
-                  image {
-                    url
+                  price
+                  product {
+                    id
+                    title
                   }
                 }
               }
@@ -129,71 +152,79 @@ export async function fetchOrderById(id: string) {
       }
     `
 
-    const response = await shopifyFetch({
-      query,
-      variables: { id: `gid://shopify/Order/${id}` },
-    })
+    const response = await shopifyFetch({ query, variables: { id: formattedId } })
 
     if (!response.data || !response.data.order) {
-      throw new Error(`No se pudo encontrar el pedido con ID: ${id}`)
+      console.error(`Pedido no encontrado: ${id}`)
+      throw new Error(`Pedido no encontrado: ${id}`)
     }
 
     const order = response.data.order
     return {
       id: order.id.split("/").pop(),
       name: order.name,
-      createdAt: order.createdAt,
-      status: order.displayFulfillmentStatus,
-      financialStatus: order.displayFinancialStatus,
-      total: order.totalPriceSet?.shopMoney?.amount || "0",
-      subtotal: order.subtotalPriceSet?.shopMoney?.amount || "0",
-      shipping: order.totalShippingPriceSet?.shopMoney?.amount || "0",
-      tax: order.totalTaxSet?.shopMoney?.amount || "0",
-      currency: order.totalPriceSet?.shopMoney?.currencyCode || "EUR",
+      processedAt: order.processedAt,
+      displayFulfillmentStatus: order.displayFulfillmentStatus,
+      displayFinancialStatus: order.displayFinancialStatus,
+      totalPrice: order.totalPriceSet?.shopMoney?.amount || "0.00",
+      subtotalPrice: order.subtotalPriceSet?.shopMoney?.amount || "0.00",
+      shippingPrice: order.totalShippingPriceSet?.shopMoney?.amount || "0.00",
+      taxPrice: order.totalTaxSet?.shopMoney?.amount || "0.00",
+      currencyCode: order.totalPriceSet?.shopMoney?.currencyCode || "EUR",
       customer: order.customer
         ? {
-            name: `${order.customer.firstName} ${order.customer.lastName}`,
-            email: order.customer.email,
-            phone: order.customer.phone,
+            firstName: order.customer.firstName || "",
+            lastName: order.customer.lastName || "",
+            email: order.customer.email || "",
+            phone: order.customer.phone || "",
           }
         : null,
       shippingAddress: order.shippingAddress
         ? {
-            address1: order.shippingAddress.address1,
-            address2: order.shippingAddress.address2,
-            city: order.shippingAddress.city,
-            province: order.shippingAddress.province,
-            zip: order.shippingAddress.zip,
-            country: order.shippingAddress.country,
+            address1: order.shippingAddress.address1 || "",
+            address2: order.shippingAddress.address2 || "",
+            city: order.shippingAddress.city || "",
+            province: order.shippingAddress.province || "",
+            country: order.shippingAddress.country || "",
+            zip: order.shippingAddress.zip || "",
+            phone: order.shippingAddress.phone || "",
           }
         : null,
-      lineItems: order.lineItems.edges.map(({ node }: any) => ({
-        title: node.title,
-        quantity: node.quantity,
-        price: node.originalUnitPriceSet?.shopMoney?.amount || "0",
-        currency: node.originalUnitPriceSet?.shopMoney?.currencyCode || "EUR",
-        variantTitle: node.variant?.title || "",
-        imageUrl: node.variant?.image?.url || null,
-      })),
+      items:
+        order.lineItems?.edges?.map((item) => ({
+          title: item.node.title,
+          quantity: item.node.quantity,
+          price: item.node.variant?.price || "0.00",
+          productId: item.node.variant?.product?.id?.split("/").pop() || null,
+          productTitle: item.node.variant?.product?.title || "",
+        })) || [],
     }
   } catch (error) {
-    console.error(`Error al obtener el pedido con ID ${id}:`, error)
-    return null
+    console.error(`Error fetching order ${id}:`, error)
+    throw new Error(`Error al cargar el pedido: ${error.message}`)
   }
 }
 
-// Añadiendo la función fetchCustomerOrders que faltaba
-export async function fetchCustomerOrders(customerId: string) {
+// Añadir la función fetchCustomerOrders que falta
+export async function fetchCustomerOrders(customerId, limit = 50) {
   try {
+    // Formatear el ID correctamente
+    let formattedId = customerId
+    if (!customerId.includes("gid://shopify/")) {
+      formattedId = `gid://shopify/Customer/${customerId}`
+    }
+
+    console.log(`Fetching orders for customer: ${formattedId}`)
+
     const query = `
-      query getCustomerOrders($customerId: ID!) {
+      query GetCustomerOrders($customerId: ID!, $first: Int!) {
         customer(id: $customerId) {
-          orders(first: 10, sortKey: CREATED_AT, reverse: true) {
+          orders(first: $first, sortKey: PROCESSED_AT, reverse: true) {
             edges {
               node {
                 id
                 name
-                createdAt
+                processedAt
                 displayFulfillmentStatus
                 displayFinancialStatus
                 totalPriceSet {
@@ -209,26 +240,34 @@ export async function fetchCustomerOrders(customerId: string) {
       }
     `
 
-    const response = await shopifyFetch({
-      query,
-      variables: { customerId: `gid://shopify/Customer/${customerId}` },
-    })
-
-    if (!response.data || !response.data.customer) {
-      throw new Error(`No se pudo encontrar el cliente con ID: ${customerId}`)
+    const variables = {
+      customerId: formattedId,
+      first: limit,
     }
 
-    return response.data.customer.orders.edges.map(({ node }: any) => ({
+    const response = await shopifyFetch({ query, variables })
+
+    if (
+      !response.data ||
+      !response.data.customer ||
+      !response.data.customer.orders ||
+      !response.data.customer.orders.edges
+    ) {
+      console.warn("No se encontraron pedidos para este cliente o la respuesta está incompleta")
+      return []
+    }
+
+    return response.data.customer.orders.edges.map(({ node }) => ({
       id: node.id.split("/").pop(),
       name: node.name,
-      createdAt: node.createdAt,
-      status: node.displayFulfillmentStatus,
-      financialStatus: node.displayFinancialStatus,
-      total: node.totalPriceSet?.shopMoney?.amount || "0",
-      currency: node.totalPriceSet?.shopMoney?.currencyCode || "EUR",
+      processedAt: node.processedAt,
+      displayFulfillmentStatus: node.displayFulfillmentStatus,
+      displayFinancialStatus: node.displayFinancialStatus,
+      totalPrice: node.totalPriceSet?.shopMoney?.amount || "0.00",
+      currencyCode: node.totalPriceSet?.shopMoney?.currencyCode || "EUR",
     }))
   } catch (error) {
-    console.error(`Error al obtener los pedidos del cliente ${customerId}:`, error)
-    return []
+    console.error(`Error fetching customer orders for ${customerId}:`, error)
+    throw new Error(`Error al obtener pedidos del cliente: ${error.message}`)
   }
 }

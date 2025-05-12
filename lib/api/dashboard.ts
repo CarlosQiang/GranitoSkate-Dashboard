@@ -61,17 +61,20 @@ export async function fetchDashboardStats() {
     `
 
     // Ejecutar consultas
-    const [currentStats, salesData] = await Promise.all([
-      shopifyFetch({ query: currentQuery, variables: {} }),
-      shopifyFetch({ query: salesQuery, variables: {} }),
+    const [currentStatsResponse, salesDataResponse] = await Promise.all([
+      shopifyFetch({ query: currentQuery }),
+      shopifyFetch({ query: salesQuery }),
     ])
 
-    if (!currentStats.data || !salesData.data) {
+    if (!currentStatsResponse.data || !salesDataResponse.data) {
       throw new Error("No se pudieron obtener las estadísticas del dashboard")
     }
 
+    const currentStats = currentStatsResponse.data
+    const salesData = salesDataResponse.data
+
     // Procesar datos de ventas
-    const orders = salesData.data.orders.edges.map(({ node }: any) => ({
+    const orders = salesData.orders.edges.map(({ node }) => ({
       id: node.id.split("/").pop(),
       date: new Date(node.createdAt),
       amount: Number.parseFloat(node.totalPriceSet?.shopMoney?.amount || 0),
@@ -110,9 +113,9 @@ export async function fetchDashboardStats() {
 
     return {
       totalSales: currentMonthSales,
-      totalOrders: currentStats.data.orders.totalCount,
-      totalCustomers: currentStats.data.customers.totalCount,
-      totalProducts: currentStats.data.products.totalCount,
+      totalOrders: currentStats.orders.totalCount,
+      totalCustomers: currentStats.customers.totalCount,
+      totalProducts: currentStats.products.totalCount,
       salesChange,
       ordersChange,
       customersChange,
