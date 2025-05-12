@@ -143,6 +143,9 @@ export async function createCollection(collectionData) {
           collection {
             id
             title
+            productsCount {
+              count
+            }
           }
           userErrors {
             field
@@ -162,7 +165,13 @@ export async function createCollection(collectionData) {
       throw new Error(data.collectionCreate.userErrors[0].message)
     }
 
-    return data.collectionCreate.collection
+    // Transformar los datos para mantener compatibilidad con el código existente
+    const collection = {
+      ...data.collectionCreate.collection,
+      productsCount: data.collectionCreate.collection.productsCount?.count || 0,
+    }
+
+    return collection
   } catch (error) {
     console.error("Error creating collection:", error)
     throw new Error(`Error al crear la colección: ${error.message}`)
@@ -178,6 +187,9 @@ export async function updateCollection(id, collectionData) {
           collection {
             id
             title
+            productsCount {
+              count
+            }
           }
           userErrors {
             field
@@ -200,7 +212,13 @@ export async function updateCollection(id, collectionData) {
       throw new Error(data.collectionUpdate.userErrors[0].message)
     }
 
-    return data.collectionUpdate.collection
+    // Transformar los datos para mantener compatibilidad con el código existente
+    const collection = {
+      ...data.collectionUpdate.collection,
+      productsCount: data.collectionUpdate.collection.productsCount?.count || 0,
+    }
+
+    return collection
   } catch (error) {
     console.error(`Error updating collection with ID ${id}:`, error)
     throw new Error(`Error al actualizar la colección: ${error.message}`)
@@ -345,10 +363,12 @@ export async function addProductsToCollection(collectionId, productIds) {
     }
 
     // Transformar los datos para mantener compatibilidad con el código existente
-    return {
+    const collection = {
       ...data.collectionAddProducts.collection,
-      productsCount: data.collectionAddProducts.collection.productsCount.count,
+      productsCount: data.collectionAddProducts.collection.productsCount?.count || 0,
     }
+
+    return collection
   } catch (error) {
     console.error(`Error adding products to collection with ID ${collectionId}:`, error)
     throw new Error(`Error al añadir productos a la colección: ${error.message}`)
@@ -397,10 +417,12 @@ export async function removeProductsFromCollection(collectionId, productIds) {
     }
 
     // Transformar los datos para mantener compatibilidad con el código existente
-    return {
+    const collection = {
       ...data.collectionRemoveProducts.collection,
-      productsCount: data.collectionRemoveProducts.collection.productsCount.count,
+      productsCount: data.collectionRemoveProducts.collection.productsCount?.count || 0,
     }
+
+    return collection
   } catch (error) {
     console.error(`Error removing products from collection with ID ${collectionId}:`, error)
     throw new Error(`Error al eliminar productos de la colección: ${error.message}`)
