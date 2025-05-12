@@ -1,21 +1,18 @@
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 
-// Función para obtener todos los pedidos
-export async function fetchOrders(limit = 50, cursor = null, query = "") {
+export async function fetchRecentOrders(limit = 5) {
   try {
-    const gqlQuery = gql`
-      query GetOrders($limit: Int!, $cursor: String, $query: String) {
-        orders(first: $limit, after: $cursor, query: $query, sortKey: CREATED_AT, reverse: true) {
-          pageInfo {
-            hasNextPage
-            endCursor
-          }
+    console.log(`Fetching ${limit} recent orders from Shopify...`)
+
+    const query = gql`
+      query GetRecentOrders($limit: Int!) {
+        orders(first: $limit, sortKey: PROCESSED_AT, reverse: true) {
           edges {
             node {
               id
               name
-              createdAt
+              processedAt
               displayFinancialStatus
               displayFulfillmentStatus
               totalPriceSet {
@@ -25,33 +22,17 @@ export async function fetchOrders(limit = 50, cursor = null, query = "") {
                 }
               }
               customer {
-                id
                 firstName
                 lastName
                 email
-                phone
               }
               lineItems(first: 5) {
                 edges {
                   node {
                     title
                     quantity
-                    originalTotalSet {
-                      shopMoney {
-                        amount
-                        currencyCode
-                      }
-                    }
                   }
                 }
-              }
-              shippingAddress {
-                address1
-                address2
-                city
-                province
-                zip
-                country
               }
             }
           }
@@ -59,29 +40,61 @@ export async function fetchOrders(limit = 50, cursor = null, query = "") {
       }
     `
 
-    const variables = {
-      limit,
-      cursor,
-      query,
+    const data = await shopifyClient.request(query, { limit })
+
+    if (!data || !data.orders || !data.orders.edges) {
+      console.error("Respuesta de pedidos incompleta:", data)
+      return []
     }
 
-    const data = await shopifyClient.request(gqlQuery, variables)
-    return data.orders
+    const orders = data.orders.edges.map((edge) => ({
+      id: edge.node.id.split("/").pop(),
+      name: edge.node.name,
+      processedAt: edge.node.processedAt,
+      financialStatus: edge.node.displayFinancialStatus,
+      fulfillmentStatus: edge.node.displayFulfillmentStatus,
+      totalPrice: edge.node.totalPriceSet?.shopMoney?.amount || "0.00",
+      currencyCode: edge.node.totalPriceSet?.shopMoney?.currencyCode || "EUR",
+      customer: edge.node.customer
+        ? {
+            firstName: edge.node.customer.firstName || "",
+            lastName: edge.node.customer.lastName || "",
+            email: edge.node.customer.email || "",
+          }
+        : null,
+      items:
+        edge.node.lineItems?.edges?.map((item) => ({
+          title: item.node.title,
+          quantity: item.node.quantity,
+        })) || [],
+    }))
+
+    console.log(`Successfully fetched ${orders.length} orders`)
+    return orders
   } catch (error) {
-    console.error("Error fetching orders:", error)
-    throw new Error(`Error al cargar pedidos: ${error.message}`)
+    console.error("Error fetching recent orders:", error)
+    throw new Error(`Error al cargar pedidos recientes: ${error.message}`)
   }
 }
 
-// Función para obtener un pedido por ID
+export async function fetchOrders(limit = 20) {
+  return fetchRecentOrders(limit)
+}
+
 export async function fetchOrderById(id) {
   try {
+    // Asegurarse de que el ID tenga el formato correcto
+    const isFullShopifyId = id.includes("gid://shopify/Order/")
+    const formattedId = isFullShopifyId ? id : `gid://shopify/Order/${id}`
+
+    console.log(`Fetching order with ID: ${formattedId}`)
+
     const query = gql`
-      query GetOrder($id: ID!) {
+      query GetOrderById($id: ID!) {
         order(id: $id) {
           id
           name
-          createdAt
+          processedAt
           displayFinancialStatus
           displayFulfillmentStatus
           totalPriceSet {
@@ -109,204 +122,92 @@ export async function fetchOrderById(id) {
             }
           }
           customer {
-            id
             firstName
             lastName
             email
             phone
-            defaultAddress {
-              address1
-              address2
-              city
-              province
-              zip
-              country
-            }
           }
           shippingAddress {
-            firstName
-            lastName
             address1
             address2
             city
             province
-            zip
             country
+            zip
             phone
           }
-          lineItems(first: 50) {
+          lineItems(first: 20) {
             edges {
               node {
-                id
                 title
                 quantity
-                originalUnitPriceSet {
-                  shopMoney {
-                    amount
-                    currencyCode
-                  }
-                }
-                originalTotalSet {
-                  shopMoney {
-                    amount
-                    currencyCode
-                  }
-                }
-                discountedTotalSet {
-                  shopMoney {
-                    amount
-                    currencyCode
-                  }
-                }
                 variant {
-                  id
-                  title
-                  sku
+                  price {
+                    amount
+                    currencyCode
+                  }
                   product {
                     id
                     title
-                    handle
                   }
                 }
               }
             }
           }
-          discountApplications(first: 10) {
-            edges {
-              node {
-                targetType
-                value {
-                  ... on MoneyV2 {
-                    amount
-                    currencyCode
-                  }
-                  ... on PricingPercentageValue {
-                    percentage
-                  }
-                }
-                ... on DiscountCodeApplication {
-                  code
-                }
-              }
-            }
-          }
-          note
-          tags
         }
       }
     `
 
-    const variables = {
-      id,
+    const data = await shopifyClient.request(query, { id: formattedId })
+
+    if (!data || !data.order) {
+      console.error(`Pedido no encontrado: ${id}`)
+      throw new Error(`Pedido no encontrado: ${id}`)
     }
 
-    const data = await shopifyClient.request(query, variables)
-    return data.order
-  } catch (error) {
-    console.error(`Error fetching order with ID ${id}:`, error)
-    throw new Error(`Error al cargar el pedido: ${error.message}`)
-  }
-}
-
-// Función para obtener estadísticas de pedidos
-export async function fetchOrderStats(days = 30) {
-  try {
-    const query = gql`
-      query GetOrderStats($days: Int!) {
-        orders(first: 1, query: "created_at:>=${days}d") {
-          edges {
-            node {
-              id
-            }
-          }
-        }
-        shop {
-          ordersCount
-          totalSales
-          currencyCode
-        }
-      }
-    `
-
-    const variables = {
-      days,
-    }
-
-    const data = await shopifyClient.request(query, variables)
-
-    // Obtener el recuento de pedidos recientes
-    const recentOrdersQuery = gql`
-      query GetRecentOrdersCount($days: Int!) {
-        orders(query: "created_at:>=${days}d") {
-          edges {
-            node {
-              id
-            }
-          }
-        }
-      }
-    `
-
-    const recentOrdersData = await shopifyClient.request(recentOrdersQuery, variables)
-    const recentOrdersCount = recentOrdersData.orders.edges.length
-
+    const order = data.order
     return {
-      totalOrders: data.shop.ordersCount,
-      recentOrders: recentOrdersCount,
-      totalSales: data.shop.totalSales,
-      currencyCode: data.shop.currencyCode,
-    }
-  } catch (error) {
-    console.error("Error fetching order stats:", error)
-    throw new Error(`Error al cargar estadísticas de pedidos: ${error.message}`)
-  }
-}
-
-// Función para actualizar el estado de un pedido
-export async function updateOrderStatus(id, status) {
-  try {
-    const mutation = gql`
-      mutation orderUpdate($input: OrderInput!) {
-        orderUpdate(input: $input) {
-          order {
-            id
-            displayFinancialStatus
-            displayFulfillmentStatus
+      id: order.id.split("/").pop(),
+      name: order.name,
+      processedAt: order.processedAt,
+      financialStatus: order.displayFinancialStatus,
+      fulfillmentStatus: order.displayFulfillmentStatus,
+      totalPrice: order.totalPriceSet?.shopMoney?.amount || "0.00",
+      subtotalPrice: order.subtotalPriceSet?.shopMoney?.amount || "0.00",
+      shippingPrice: order.totalShippingPriceSet?.shopMoney?.amount || "0.00",
+      taxPrice: order.totalTaxSet?.shopMoney?.amount || "0.00",
+      currencyCode: order.totalPriceSet?.shopMoney?.currencyCode || "EUR",
+      customer: order.customer
+        ? {
+            firstName: order.customer.firstName || "",
+            lastName: order.customer.lastName || "",
+            email: order.customer.email || "",
+            phone: order.customer.phone || "",
           }
-          userErrors {
-            field
-            message
+        : null,
+      shippingAddress: order.shippingAddress
+        ? {
+            address1: order.shippingAddress.address1 || "",
+            address2: order.shippingAddress.address2 || "",
+            city: order.shippingAddress.city || "",
+            province: order.shippingAddress.province || "",
+            country: order.shippingAddress.country || "",
+            zip: order.shippingAddress.zip || "",
+            phone: order.shippingAddress.phone || "",
           }
-        }
-      }
-    `
-
-    const variables = {
-      input: {
-        id,
-        tags: status ? [status] : [],
-      },
+        : null,
+      items:
+        order.lineItems?.edges?.map((item) => ({
+          title: item.node.title,
+          quantity: item.node.quantity,
+          price: item.node.variant?.price?.amount || "0.00",
+          currencyCode: item.node.variant?.price?.currencyCode || "EUR",
+          productId: item.node.variant?.product?.id?.split("/").pop() || null,
+          productTitle: item.node.variant?.product?.title || "",
+        })) || [],
     }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.orderUpdate.userErrors.length > 0) {
-      throw new Error(data.orderUpdate.userErrors[0].message)
-    }
-
-    return data.orderUpdate.order
   } catch (error) {
-    console.error(`Error updating order status for ID ${id}:`, error)
-    throw new Error(`Error al actualizar el estado del pedido: ${error.message}`)
-  }
-}
-
-// Función para obtener los pedidos recientes
-export async function fetchRecentOrders(limit = 5) {
-  try {
-    return fetchOrders(limit, null, "")
-  } catch (error) {
-    console.error("Error fetching recent orders:", error)
-    throw new Error(`Error al cargar pedidos recientes: ${error.message}`)
+    console.error(`Error fetching order ${id}:`, error)
+    throw new Error(`Error al cargar el pedido: ${error.message}`)
   }
 }
