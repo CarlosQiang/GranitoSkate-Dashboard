@@ -11,7 +11,7 @@ interface TipoPromocionProps {
   onChange: (value: string) => void
 }
 
-export function SelectorTipoPromocion({ value, onChange }: TipoPromocionProps) {
+export function FormularioTipoPromocion({ value, onChange }: TipoPromocionProps) {
   const [selectedType, setSelectedType] = useState(value || "PORCENTAJE_DESCUENTO")
 
   const handleChange = (value: string) => {

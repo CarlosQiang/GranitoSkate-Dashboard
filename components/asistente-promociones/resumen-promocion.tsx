@@ -25,7 +25,7 @@ interface ResumenPromocionProps {
   onChange: (datos: Partial<DatosAsistentePromocion>) => void
 }
 
-export function ResumenPromocion({ datos, onChange }: ResumenPromocionProps) {
+export function FormularioResumenPromocion({ datos, onChange }: ResumenPromocionProps) {
   const getIconoTipo = () => {
     switch (datos.tipo) {
       case "PORCENTAJE_DESCUENTO":

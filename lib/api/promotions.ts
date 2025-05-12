@@ -6,280 +6,42 @@ let promotionsCache = null
 let lastUpdate = null
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutos
 
-export type PromotionType = "percentage" | "fixed_amount" | "free_shipping" | "BUY_X_GET_Y"
-export type PromotionStatus = "active" | "expired" | "scheduled" | "UNKNOWN"
-
-export type Promotion = {
-  id: string
-  title: string
-  code: string | null
-  isAutomatic: boolean
-  startsAt: string
-  endsAt: string | null
-  status: PromotionStatus
-  valueType: string
-  value: string
-  currencyCode: string
-  summary: string | null
-  prices?: any[]
-  target?: string
-  targetId?: string
-  conditions?: any[]
-  usageCount?: number
-  usageLimit?: number
-  error?: boolean
-}
-
 /**
- * Fetches all promotions from Shopify
- * @param limit Maximum number of promotions to fetch
- * @returns List of promotions
+ * Obtiene todas las promociones de Shopify
+ * @param options Opciones de consulta
+ * @returns Lista de promociones
  */
-export async function fetchPromotions(limit = 20) {
+export async function fetchPromotions(options = {}) {
   try {
-    // Use cache if it exists and is less than 5 minutes old
+    // Usar caché si existe y tiene menos de 5 minutos
     const now = new Date()
     if (promotionsCache && lastUpdate && now.getTime() - lastUpdate.getTime() < CACHE_DURATION) {
-      console.log("Using promotions cache")
+      console.log("Usando caché de promociones")
       return promotionsCache
     }
 
-    console.log(`Fetching ${limit} promotions from Shopify...`)
+    console.log("Obteniendo promociones de Shopify...")
 
-    // Usamos la API REST en lugar de GraphQL para mayor compatibilidad
-    const response = await fetch(`/api/shopify/rest/discount_codes?limit=${limit}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`Error fetching promotions: ${response.status} ${response.statusText}`)
-    }
-
-    const data = await response.json()
-
-    if (!data || !data.discount_codes) {
-      console.error("Incomplete promotions response:", data)
-      return []
-    }
-
-    const promotions = data.discount_codes.map((code) => {
-      return {
-        id: code.id.toString(),
-        title: code.title || code.code,
-        code: code.code,
-        isAutomatic: false,
-        startsAt: code.starts_at || new Date().toISOString(),
-        endsAt: code.ends_at || null,
-        status: code.status === "enabled" ? "active" : "UNKNOWN",
-        valueType: code.value_type === "percentage" ? "percentage" : "fixed_amount",
-        value: code.value.toString(),
-        currencyCode: "EUR",
-        summary: code.usage_limit ? `Límite de uso: ${code.usage_limit}` : null,
-      }
-    })
-
-    // Update cache
-    promotionsCache = promotions
-    lastUpdate = new Date()
-
-    console.log(`Successfully fetched ${promotions.length} promotions`)
-    return promotions
-  } catch (error) {
-    console.error("Error fetching promotions:", error)
-
-    // Intentar obtener promociones usando el método alternativo
-    try {
-      console.log("Trying alternative method to fetch promotions...")
-
-      // Consulta simplificada para la API de Shopify
-      const query = gql`
-        {
-          discountNodes(first: ${limit}) {
-            edges {
-              node {
-                id
-                discount {
-                  ... on DiscountCodeBasic {
-                    title
-                    codes(first: 1) {
-                      edges {
-                        node {
-                          code
-                        }
-                      }
-                    }
-                    startsAt
-                    endsAt
-                    status
-                    discountClass
-                    combinesWith {
-                      orderDiscounts
-                      productDiscounts
-                      shippingDiscounts
-                    }
-                    customerGets {
-                      value {
-                        ... on DiscountPercentageValue {
-                          percentage
-                        }
-                        ... on DiscountAmount {
-                          amount {
-                            amount
-                            currencyCode
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      `
-
-      const graphqlData = await shopifyClient.request(query)
-
-      if (!graphqlData || !graphqlData.discountNodes || !graphqlData.discountNodes.edges) {
-        console.error("Incomplete promotions response from alternative method:", graphqlData)
-        return []
-      }
-
-      const alternativePromotions = graphqlData.discountNodes.edges
-        .map((edge) => {
-          const node = edge.node
-          if (!node || !node.discount) return null
-
-          const discount = node.discount
-          const code = discount.codes?.edges?.[0]?.node?.code || null
-          let value = "0"
-          let valueType = "percentage"
-
-          if (discount.customerGets?.value) {
-            if (discount.customerGets.value.percentage) {
-              value = (discount.customerGets.value.percentage * 100).toString()
-              valueType = "percentage"
-            } else if (discount.customerGets.value.amount?.amount) {
-              value = discount.customerGets.value.amount.amount.toString()
-              valueType = "fixed_amount"
-            }
-          }
-
-          return {
-            id: node.id.split("/").pop(),
-            title: discount.title || "Promoción",
-            code: code,
-            isAutomatic: !code,
-            startsAt: discount.startsAt || new Date().toISOString(),
-            endsAt: discount.endsAt || null,
-            status: discount.status === "ACTIVE" ? "active" : "UNKNOWN",
-            valueType: valueType,
-            value: value,
-            currencyCode: discount.customerGets?.value?.amount?.currencyCode || "EUR",
-            summary: null,
-          }
-        })
-        .filter(Boolean)
-
-      // Update cache
-      promotionsCache = alternativePromotions
-      lastUpdate = new Date()
-
-      console.log(`Successfully fetched ${alternativePromotions.length} promotions using alternative method`)
-      return alternativePromotions
-    } catch (alternativeError) {
-      console.error("Error fetching promotions with alternative method:", alternativeError)
-
-      // Return empty array to avoid breaking the UI
-      return []
-    }
-  }
-}
-
-/**
- * Fetches a promotion by its ID
- * @param id Promotion ID
- * @returns Promotion data or null if not found
- */
-export async function fetchPromotionById(id) {
-  try {
-    // Intentar obtener de la caché primero
-    if (promotionsCache && lastUpdate) {
-      const cachedPromotion = promotionsCache.find((promo) => promo.id === id)
-      if (cachedPromotion) {
-        console.log(`Using cached promotion for ID: ${id}`)
-        return cachedPromotion
-      }
-    }
-
-    console.log(`Fetching promotion with ID: ${id}`)
-
-    // Intentar obtener usando REST API
-    const response = await fetch(`/api/shopify/rest/discount_codes/${id}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
-
-    if (response.ok) {
-      const data = await response.json()
-
-      if (data && data.discount_code) {
-        const code = data.discount_code
-        return {
-          id: code.id.toString(),
-          title: code.title || code.code,
-          code: code.code,
-          isAutomatic: false,
-          startsAt: code.starts_at || new Date().toISOString(),
-          endsAt: code.ends_at || null,
-          status: code.status === "enabled" ? "active" : "UNKNOWN",
-          valueType: code.value_type === "percentage" ? "percentage" : "fixed_amount",
-          value: code.value.toString(),
-          currencyCode: "EUR",
-          summary: code.usage_limit ? `Límite de uso: ${code.usage_limit}` : null,
-        }
-      }
-    }
-
-    // Si REST API falla, intentar con GraphQL
+    // Consulta para obtener las reglas de precio (price rules)
     const query = gql`
       {
-        discountNode(id: "gid://shopify/DiscountNode/${id}") {
-          id
-          discount {
-            ... on DiscountCodeBasic {
+        priceRules(first: 50) {
+          edges {
+            node {
+              id
               title
-              codes(first: 1) {
-                edges {
-                  node {
-                    code
-                  }
-                }
-              }
+              summary
               startsAt
               endsAt
               status
-              discountClass
-              combinesWith {
-                orderDiscounts
-                productDiscounts
-                shippingDiscounts
-              }
-              customerGets {
-                value {
-                  ... on DiscountPercentageValue {
-                    percentage
-                  }
-                  ... on DiscountAmount {
-                    amount {
-                      amount
-                      currencyCode
-                    }
+              target
+              valueType
+              value
+              usageLimit
+              discountCodes(first: 1) {
+                edges {
+                  node {
+                    code
                   }
                 }
               }
@@ -289,230 +51,377 @@ export async function fetchPromotionById(id) {
       }
     `
 
-    const graphqlData = await shopifyClient.request(query)
+    const data = await shopifyClient.request(query)
 
-    if (!graphqlData || !graphqlData.discountNode || !graphqlData.discountNode.discount) {
-      // Si no se encuentra, devolver un objeto con datos mínimos para evitar errores
-      return {
-        id: id,
-        title: "Promoción no encontrada",
-        code: null,
-        isAutomatic: true,
-        startsAt: new Date().toISOString(),
-        endsAt: null,
-        status: "UNKNOWN",
-        valueType: "percentage",
-        value: "10",
-        currencyCode: "EUR",
-        summary: "Esta promoción no se pudo cargar correctamente",
-        error: true,
-      }
+    if (!data || !data.priceRules || !data.priceRules.edges) {
+      console.error("Respuesta incompleta de promociones:", data)
+      return []
     }
 
-    const node = graphqlData.discountNode
-    const discount = node.discount
-    const code = discount.codes?.edges?.[0]?.node?.code || null
-    let value = "0"
-    let valueType = "percentage"
+    const promotions = data.priceRules.edges
+      .map((edge) => {
+        const node = edge.node
 
-    if (discount.customerGets?.value) {
-      if (discount.customerGets.value.percentage) {
-        value = (discount.customerGets.value.percentage * 100).toString()
-        valueType = "percentage"
-      } else if (discount.customerGets.value.amount?.amount) {
-        value = discount.customerGets.value.amount.amount.toString()
-        valueType = "fixed_amount"
-      }
-    }
+        if (!node) return null
 
-    return {
-      id: node.id.split("/").pop(),
-      title: discount.title || "Promoción",
-      code: code,
-      isAutomatic: !code,
-      startsAt: discount.startsAt || new Date().toISOString(),
-      endsAt: discount.endsAt || null,
-      status: discount.status === "ACTIVE" ? "active" : "UNKNOWN",
-      valueType: valueType,
-      value: value,
-      currencyCode: discount.customerGets?.value?.amount?.currencyCode || "EUR",
-      summary: null,
-    }
+        // Determinar si tiene código de descuento
+        const hasDiscountCode = node.discountCodes?.edges?.length > 0
+        const code = hasDiscountCode ? node.discountCodes.edges[0].node.code : null
+
+        // Mapear estado
+        let status = "UNKNOWN"
+        if (node.status === "ACTIVE") status = "ACTIVE"
+        else if (node.status === "EXPIRED") status = "EXPIRED"
+        else if (node.status === "SCHEDULED") status = "SCHEDULED"
+
+        // Mapear tipo de valor
+        let valueType = "percentage"
+        if (node.valueType === "PERCENTAGE") valueType = "percentage"
+        else if (node.valueType === "FIXED_AMOUNT") valueType = "fixed_amount"
+
+        return {
+          id: node.id.split("/").pop(),
+          title: node.title,
+          code: code,
+          isAutomatic: !hasDiscountCode,
+          startsAt: node.startsAt,
+          endsAt: node.endsAt,
+          status: status,
+          valueType: valueType,
+          value: Math.abs(Number.parseFloat(node.value || "0")),
+          summary: node.summary || null,
+        }
+      })
+      .filter(Boolean) // Eliminar valores nulos
+
+    // Actualizar caché
+    promotionsCache = promotions
+    lastUpdate = new Date()
+
+    console.log(`Se obtuvieron ${promotions.length} promociones correctamente`)
+    return promotions
   } catch (error) {
-    console.error(`Error fetching promotion ${id}:`, error)
-
-    // Devolver un objeto con datos mínimos para evitar errores
-    return {
-      id: id,
-      title: "Error al cargar promoción",
-      code: null,
-      isAutomatic: true,
-      startsAt: new Date().toISOString(),
-      endsAt: null,
-      status: "UNKNOWN",
-      valueType: "percentage",
-      value: "10",
-      currencyCode: "EUR",
-      summary: `Error: ${error.message}`,
-      error: true,
-    }
+    console.error("Error al obtener promociones:", error)
+    return []
   }
 }
 
 /**
- * Creates a new promotion
- * @param promotionData Promotion data to create
- * @returns The created promotion
+ * Obtiene una promoción por su ID
+ * @param id ID de la promoción
+ * @returns Datos de la promoción o null si no se encuentra
+ */
+export async function fetchPromotionById(id) {
+  try {
+    // Intentar obtener de la caché primero
+    if (promotionsCache && lastUpdate) {
+      const cachedPromotion = promotionsCache.find((promo) => promo.id === id)
+      if (cachedPromotion) {
+        console.log(`Usando promoción cacheada para ID: ${id}`)
+        return cachedPromotion
+      }
+    }
+
+    console.log(`Obteniendo promoción con ID: ${id}`)
+
+    // Formatear el ID correctamente para PriceRule
+    let formattedId = id
+    if (!id.includes("gid://shopify/")) {
+      formattedId = `gid://shopify/PriceRule/${id}`
+    }
+
+    const query = gql`
+      {
+        priceRule(id: "${formattedId}") {
+          id
+          title
+          summary
+          startsAt
+          endsAt
+          status
+          target
+          valueType
+          value
+          usageLimit
+          discountCodes(first: 1) {
+            edges {
+              node {
+                code
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const data = await shopifyClient.request(query)
+
+    if (!data || !data.priceRule) {
+      return null
+    }
+
+    const node = data.priceRule
+
+    // Determinar si tiene código de descuento
+    const hasDiscountCode = node.discountCodes?.edges?.length > 0
+    const code = hasDiscountCode ? node.discountCodes.edges[0].node.code : null
+
+    // Mapear estado
+    let status = "UNKNOWN"
+    if (node.status === "ACTIVE") status = "ACTIVE"
+    else if (node.status === "EXPIRED") status = "EXPIRED"
+    else if (node.status === "SCHEDULED") status = "SCHEDULED"
+
+    // Mapear tipo de valor
+    let valueType = "percentage"
+    if (node.valueType === "PERCENTAGE") valueType = "percentage"
+    else if (node.valueType === "FIXED_AMOUNT") valueType = "fixed_amount"
+
+    return {
+      id: node.id.split("/").pop(),
+      title: node.title,
+      code: code,
+      isAutomatic: !hasDiscountCode,
+      startsAt: node.startsAt,
+      endsAt: node.endsAt,
+      status: status,
+      valueType: valueType,
+      value: Math.abs(Number.parseFloat(node.value || "0")),
+      summary: node.summary || null,
+    }
+  } catch (error) {
+    console.error(`Error al obtener promoción ${id}:`, error)
+    return null
+  }
+}
+
+/**
+ * Crea una nueva promoción
+ * @param promotionData Datos de la promoción a crear
+ * @returns La promoción creada
  */
 export async function createPromotion(promotionData) {
   try {
     // Validar que el valor sea un número positivo
-    const value = Number.parseFloat(promotionData.value)
+    const value = Number.parseFloat(promotionData.valor)
     if (isNaN(value) || value <= 0) {
       throw new Error("El valor de la promoción debe ser un número mayor que cero")
     }
 
-    // Crear una promoción usando la API REST
-    const response = await fetch(`/api/shopify/rest/discount_codes`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        discount_code: {
-          code: promotionData.code || `PROMO${Math.floor(Math.random() * 10000)}`,
-          value_type: promotionData.valueType,
-          value: promotionData.value,
-          minimum_order_amount: promotionData.minimumPurchase || "0.00",
-          starts_at: promotionData.startsAt || new Date().toISOString(),
-          ends_at: promotionData.endsAt || null,
-          usage_limit: promotionData.usageLimit || null,
-          title: promotionData.title,
-        },
-      }),
-    })
+    // Crear una regla de precio (PriceRule)
+    const mutation = gql`
+      mutation priceRuleCreate($priceRule: PriceRuleInput!) {
+        priceRuleCreate(priceRule: $priceRule) {
+          priceRule {
+            id
+            title
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
 
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(`Error al crear promoción: ${errorData.error || response.statusText}`)
+    // Asegurarse de que el valor sea negativo para descuentos
+    const ruleValue = promotionData.tipo === "PORCENTAJE_DESCUENTO" ? -Math.abs(value) : -Math.abs(value)
+
+    const variables = {
+      priceRule: {
+        title: promotionData.titulo,
+        target: "LINE_ITEM",
+        valueType: promotionData.tipo === "PORCENTAJE_DESCUENTO" ? "PERCENTAGE" : "FIXED_AMOUNT",
+        value: ruleValue.toString(),
+        customerSelection: { all: true },
+        allocationMethod: "ACROSS",
+        startsAt: promotionData.fechaInicio || new Date().toISOString(),
+        endsAt: promotionData.fechaFin || null,
+      },
     }
 
-    const data = await response.json()
+    console.log("Creando promoción con variables:", JSON.stringify(variables, null, 2))
 
-    // Invalidate cache
+    const data = await shopifyClient.request(mutation, variables)
+
+    if (data.priceRuleCreate.userErrors && data.priceRuleCreate.userErrors.length > 0) {
+      throw new Error(data.priceRuleCreate.userErrors[0].message)
+    }
+
+    // Si es un código de descuento, crear el código
+    if (promotionData.codigo) {
+      const discountCodeMutation = gql`
+        mutation discountCodeCreate($discountCode: DiscountCodeInput!) {
+          discountCodeCreate(discountCode: $discountCode) {
+            discountCode {
+              id
+              code
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `
+
+      const discountCodeVariables = {
+        discountCode: {
+          priceRuleId: data.priceRuleCreate.priceRule.id,
+          code: promotionData.codigo,
+        },
+      }
+
+      const discountCodeData = await shopifyClient.request(discountCodeMutation, discountCodeVariables)
+
+      if (discountCodeData.discountCodeCreate.userErrors && discountCodeData.discountCodeCreate.userErrors.length > 0) {
+        throw new Error(discountCodeData.discountCodeCreate.userErrors[0].message)
+      }
+    }
+
+    // Invalidar caché
     promotionsCache = null
     lastUpdate = null
 
     return {
-      id: data.discount_code.id.toString(),
-      title: data.discount_code.title || data.discount_code.code,
+      id: data.priceRuleCreate.priceRule.id.split("/").pop(),
+      title: data.priceRuleCreate.priceRule.title,
     }
   } catch (error) {
-    console.error("Error creating promotion:", error)
+    console.error("Error al crear promoción:", error)
     throw new Error(`Error al crear promoción: ${error.message}`)
   }
 }
 
 /**
- * Deletes a promotion
- * @param id Promotion ID
- * @returns Success status and ID
+ * Elimina una promoción
+ * @param id ID de la promoción
+ * @returns Estado de éxito e ID
  */
 export async function deletePromotion(id) {
   try {
-    console.log(`Deleting promotion with ID: ${id}`)
-
-    // Eliminar usando la API REST
-    const response = await fetch(`/api/shopify/rest/discount_codes/${id}`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`Error al eliminar promoción: ${response.statusText}`)
+    // Formatear el ID correctamente para PriceRule
+    let formattedId = id
+    if (!id.includes("gid://shopify/")) {
+      formattedId = `gid://shopify/PriceRule/${id}`
     }
 
-    // Invalidate cache
+    console.log(`Eliminando promoción con ID: ${formattedId}`)
+
+    const mutation = gql`
+      mutation priceRuleDelete($id: ID!) {
+        priceRuleDelete(id: $id) {
+          deletedPriceRuleId
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const data = await shopifyClient.request(mutation, { id: formattedId })
+
+    if (data.priceRuleDelete.userErrors && data.priceRuleDelete.userErrors.length > 0) {
+      throw new Error(data.priceRuleDelete.userErrors[0].message)
+    }
+
+    // Invalidar caché
     promotionsCache = null
     lastUpdate = null
 
-    return { success: true, id: id }
+    return { success: true, id: data.priceRuleDelete.deletedPriceRuleId }
   } catch (error) {
-    console.error(`Error deleting promotion ${id}:`, error)
-    throw new Error(`Error deleting promotion: ${error.message}`)
+    console.error(`Error al eliminar promoción ${id}:`, error)
+    throw new Error(`Error al eliminar promoción: ${error.message}`)
   }
 }
 
 /**
- * Updates a promotion
- * @param id Promotion ID
- * @param data Updated promotion data
- * @returns Updated promotion
+ * Actualiza una promoción
+ * @param id ID de la promoción
+ * @param data Datos actualizados de la promoción
+ * @returns Promoción actualizada
  */
 export async function updatePromotion(id, data) {
   try {
-    console.log(`Updating promotion ${id} with data:`, data)
+    // Formatear el ID correctamente para PriceRule
+    let formattedId = id
+    if (!id.includes("gid://shopify/")) {
+      formattedId = `gid://shopify/PriceRule/${id}`
+    }
+
+    console.log(`Actualizando promoción ${formattedId} con datos:`, data)
 
     // Validar que el valor sea un número positivo si se está actualizando
-    if (data.value) {
-      const value = Number.parseFloat(data.value)
+    if (data.valor) {
+      const value = Number.parseFloat(data.valor)
       if (isNaN(value) || value <= 0) {
         throw new Error("El valor de la promoción debe ser un número mayor que cero")
       }
     }
 
-    // Actualizar usando la API REST
-    const updateData = {
-      discount_code: {},
+    const mutation = gql`
+      mutation priceRuleUpdate($id: ID!, $priceRule: PriceRuleInput!) {
+        priceRuleUpdate(id: $id, priceRule: $priceRule) {
+          priceRule {
+            id
+            title
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    // Preparar los datos para la actualización
+    const priceRuleInput = {}
+
+    if (data.titulo) priceRuleInput.title = data.titulo
+    if (data.fechaInicio) priceRuleInput.startsAt = data.fechaInicio
+    if (data.fechaFin) priceRuleInput.endsAt = data.fechaFin
+
+    if (data.valor && data.tipo) {
+      priceRuleInput.valueType = data.tipo === "PORCENTAJE_DESCUENTO" ? "PERCENTAGE" : "FIXED_AMOUNT"
+      priceRuleInput.value = (
+        data.tipo === "PORCENTAJE_DESCUENTO"
+          ? -Math.abs(Number.parseFloat(data.valor))
+          : -Math.abs(Number.parseFloat(data.valor))
+      ).toString()
     }
 
-    if (data.title) updateData.discount_code.title = data.title
-    if (data.code) updateData.discount_code.code = data.code
-    if (data.value) updateData.discount_code.value = data.value
-    if (data.valueType) updateData.discount_code.value_type = data.valueType
-    if (data.startsAt) updateData.discount_code.starts_at = data.startsAt
-    if (data.endsAt) updateData.discount_code.ends_at = data.endsAt
-    if (data.minimumPurchase) updateData.discount_code.minimum_order_amount = data.minimumPurchase
-    if (data.usageLimit) updateData.discount_code.usage_limit = data.usageLimit
-
-    const response = await fetch(`/api/shopify/rest/discount_codes/${id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(updateData),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(`Error al actualizar promoción: ${errorData.error || response.statusText}`)
+    const variables = {
+      id: formattedId,
+      priceRule: priceRuleInput,
     }
 
-    const responseData = await response.json()
+    const responseData = await shopifyClient.request(mutation, variables)
 
-    // Invalidate cache
+    if (responseData.priceRuleUpdate.userErrors && responseData.priceRuleUpdate.userErrors.length > 0) {
+      throw new Error(responseData.priceRuleUpdate.userErrors[0].message)
+    }
+
+    // Invalidar caché
     promotionsCache = null
     lastUpdate = null
 
     return {
-      id: responseData.discount_code.id.toString(),
-      title: responseData.discount_code.title || responseData.discount_code.code,
+      id: responseData.priceRuleUpdate.priceRule.id.split("/").pop(),
+      title: responseData.priceRuleUpdate.priceRule.title,
       ...data,
     }
   } catch (error) {
-    console.error(`Error updating promotion ${id}:`, error)
-    throw new Error(`Error updating promotion: ${error.message}`)
+    console.error(`Error al actualizar promoción ${id}:`, error)
+    throw new Error(`Error al actualizar promoción: ${error.message}`)
   }
 }
 
-// Add aliases for compatibility
+// Funciones para compatibilidad con la API anterior
 export const fetchPriceListById = fetchPromotionById
+export const deletePriceList = deletePromotion
 export const createPriceList = createPromotion
 export const updatePriceList = updatePromotion
 export const fetchPriceLists = fetchPromotions
-export const deletePriceList = deletePromotion
-
-// Alias para compatibilidad adicional
 export const getPriceListById = fetchPromotionById

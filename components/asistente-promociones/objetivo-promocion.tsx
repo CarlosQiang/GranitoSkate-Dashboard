@@ -17,7 +17,7 @@ interface SelectorObjetivoPromocionProps {
   onChange: (objetivo: ObjetivoPromocion, objetivoId?: string) => void
 }
 
-export function SelectorObjetivoPromocion({ valor, objetivoId, onChange }: SelectorObjetivoPromocionProps) {
+export function FormularioObjetivoPromocion({ valor, objetivoId, onChange }: SelectorObjetivoPromocionProps) {
   const [colecciones, setColecciones] = useState<Array<{ id: string; titulo: string }>>([])
   const [productos, setProductos] = useState<Array<{ id: string; titulo: string }>>([])
   const [cargandoColecciones, setCargandoColecciones] = useState(false)
