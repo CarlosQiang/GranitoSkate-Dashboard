@@ -2,34 +2,32 @@ import {
   fetchPromotions,
   fetchPromotionById,
   createPromotion,
-  deletePromotion,
   updatePromotion,
+  deletePromotion,
   fetchPriceListById,
+  createPriceList,
+  updatePriceList,
+  fetchPriceLists,
   deletePriceList,
 } from "./promotions"
 
-// Exportar funciones con nombres en español
-export const obtenerPromociones = fetchPromotions
-export const obtenerPromocionPorId = fetchPromotionById
-export const crearPromocion = createPromotion
-export const eliminarPromocion = deletePromotion
-export const actualizarPromocion = updatePromotion
-
-// Alias para compatibilidad
-export const obtenerListasPrecios = fetchPromotions
-export const eliminarListaPrecio = eliminarPromocion
-
+// Exportamos directamente las funciones
 export {
   fetchPromotions,
   fetchPromotionById,
   createPromotion,
-  deletePromotion,
   updatePromotion,
+  deletePromotion,
   fetchPriceListById,
+  createPriceList,
+  updatePriceList,
+  fetchPriceLists,
   deletePriceList,
 }
 
-// Función para obtener promociones
-// export async function obtenerPromociones(limit = 20) {
-//   return fetchPromotions(limit);
-// }
+// Alias en español para compatibilidad
+export const obtenerPromociones = fetchPromotions
+export const obtenerPromocionPorId = fetchPromotionById
+export const crearPromocion = createPromotion
+export const actualizarPromocion = updatePromotion
+export const eliminarPromocion = deletePromotion

@@ -1,158 +1,111 @@
 "use client"
 
-import { useTheme } from "next-themes"
+import {
+  Bar,
+  BarChart,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  Legend,
+} from "recharts"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-export function LineChart() {
-  const { theme } = useTheme()
-  const isDark = theme === "dark"
-  const textColor = isDark ? "#ffffff" : "#000000"
-  const gridColor = isDark ? "#333333" : "#e5e5e5"
-  const lineColor = "#d29a43"
-
+// Componente para gráfico de ingresos
+export function RevenueChart({ data }) {
   return (
-    <div className="w-full h-full flex items-center justify-center">
-      <svg width="100%" height="100%" viewBox="0 0 800 400">
-        <rect width="800" height="400" fill="none" />
-
-        {/* Eje X */}
-        <line x1="50" y1="350" x2="750" y2="350" stroke={gridColor} strokeWidth="1" />
-
-        {/* Eje Y */}
-        <line x1="50" y1="50" x2="50" y2="350" stroke={gridColor} strokeWidth="1" />
-
-        {/* Líneas de cuadrícula horizontales */}
-        <line x1="50" y1="50" x2="750" y2="50" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-        <line x1="50" y1="125" x2="750" y2="125" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-        <line x1="50" y1="200" x2="750" y2="200" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-        <line x1="50" y1="275" x2="750" y2="275" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-
-        {/* Etiquetas del eje X */}
-        <text x="100" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Día 1
-        </text>
-        <text x="200" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Día 6
-        </text>
-        <text x="300" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Día 11
-        </text>
-        <text x="400" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Día 16
-        </text>
-        <text x="500" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Día 21
-        </text>
-        <text x="600" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Día 26
-        </text>
-        <text x="700" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Día 30
-        </text>
-
-        {/* Etiquetas del eje Y */}
-        <text x="40" y="350" fill={textColor} fontSize="12" textAnchor="end">
-          0€
-        </text>
-        <text x="40" y="275" fill={textColor} fontSize="12" textAnchor="end">
-          500€
-        </text>
-        <text x="40" y="200" fill={textColor} fontSize="12" textAnchor="end">
-          1000€
-        </text>
-        <text x="40" y="125" fill={textColor} fontSize="12" textAnchor="end">
-          1500€
-        </text>
-        <text x="40" y="50" fill={textColor} fontSize="12" textAnchor="end">
-          2000€
-        </text>
-
-        {/* Mensaje de datos no disponibles */}
-        <text x="400" y="200" fill={textColor} fontSize="14" textAnchor="middle">
-          Los datos de ventas estarán disponibles próximamente
-        </text>
-      </svg>
-    </div>
+    <ResponsiveContainer width="100%" height={350}>
+      <LineChart data={data}>
+        <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+        <YAxis
+          stroke="#888888"
+          fontSize={12}
+          tickLine={false}
+          axisLine={false}
+          tickFormatter={(value) => `${value}€`}
+        />
+        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+        <Tooltip
+          content={({ active, payload }) => {
+            if (active && payload && payload.length) {
+              return (
+                <div className="rounded-lg border bg-background p-2 shadow-sm">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex flex-col">
+                      <span className="text-[0.70rem] uppercase text-muted-foreground">{payload[0].name}</span>
+                      <span className="font-bold text-muted-foreground">{`${payload[0].value}€`}</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+            return null
+          }}
+        />
+        <Line
+          type="monotone"
+          dataKey="total"
+          stroke="#0ea5e9"
+          strokeWidth={2}
+          activeDot={{
+            r: 6,
+            style: { fill: "#0ea5e9", opacity: 0.25 },
+          }}
+        />
+      </LineChart>
+    </ResponsiveContainer>
   )
 }
 
-export function BarChart() {
-  const { theme } = useTheme()
-  const isDark = theme === "dark"
-  const textColor = isDark ? "#ffffff" : "#000000"
-  const gridColor = isDark ? "#333333" : "#e5e5e5"
-
+// Componente para gráfico de productos
+export function ProductsChart({ data }) {
   return (
-    <div className="w-full h-full flex items-center justify-center">
-      <svg width="100%" height="100%" viewBox="0 0 800 400">
-        <rect width="800" height="400" fill="none" />
-
-        {/* Eje X */}
-        <line x1="50" y1="350" x2="750" y2="350" stroke={gridColor} strokeWidth="1" />
-
-        {/* Eje Y */}
-        <line x1="50" y1="50" x2="50" y2="350" stroke={gridColor} strokeWidth="1" />
-
-        {/* Líneas de cuadrícula horizontales */}
-        <line x1="50" y1="50" x2="750" y2="50" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-        <line x1="50" y1="125" x2="750" y2="125" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-        <line x1="50" y1="200" x2="750" y2="200" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-        <line x1="50" y1="275" x2="750" y2="275" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
-
-        {/* Etiquetas del eje X */}
-        <text x="125" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Tablas
-        </text>
-        <text x="250" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Ruedas
-        </text>
-        <text x="375" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Ejes
-        </text>
-        <text x="500" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Ropa
-        </text>
-        <text x="625" y="370" fill={textColor} fontSize="12" textAnchor="middle">
-          Accesorios
-        </text>
-
-        {/* Etiquetas del eje Y */}
-        <text x="40" y="350" fill={textColor} fontSize="12" textAnchor="end">
-          0€
-        </text>
-        <text x="40" y="275" fill={textColor} fontSize="12" textAnchor="end">
-          1000€
-        </text>
-        <text x="40" y="200" fill={textColor} fontSize="12" textAnchor="end">
-          2000€
-        </text>
-        <text x="40" y="125" fill={textColor} fontSize="12" textAnchor="end">
-          3000€
-        </text>
-        <text x="40" y="50" fill={textColor} fontSize="12" textAnchor="end">
-          4000€
-        </text>
-
-        {/* Mensaje de datos no disponibles */}
-        <text x="400" y="200" fill={textColor} fontSize="14" textAnchor="middle">
-          Los datos por categoría estarán disponibles próximamente
-        </text>
-      </svg>
-    </div>
+    <ResponsiveContainer width="100%" height={350}>
+      <BarChart data={data}>
+        <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+        <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
+        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+        <Tooltip
+          content={({ active, payload }) => {
+            if (active && payload && payload.length) {
+              return (
+                <div className="rounded-lg border bg-background p-2 shadow-sm">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex flex-col">
+                      <span className="text-[0.70rem] uppercase text-muted-foreground">{payload[0].name}</span>
+                      <span className="font-bold text-muted-foreground">{`${payload[0].value} unidades`}</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+            return null
+          }}
+        />
+        <Bar dataKey="sales" fill="#0ea5e9" radius={[4, 4, 0, 0]} className="fill-primary" />
+      </BarChart>
+    </ResponsiveContainer>
   )
 }
 
-export function PieChart() {
-  const { theme } = useTheme()
-  const isDark = theme === "dark"
-  const textColor = isDark ? "#ffffff" : "#000000"
-
+// Componente para tarjeta de estadísticas
+export function StatsCard({ title, value, description, icon }) {
   return (
-    <div className="w-full h-full flex items-center justify-center">
-      <svg width="100%" height="100%" viewBox="0 0 400 400">
-        <text x="200" y="200" fill={textColor} fontSize="14" textAnchor="middle">
-          Los datos de tráfico estarán disponibles próximamente
-        </text>
-      </svg>
-    </div>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        {icon}
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">{value}</div>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </CardContent>
+    </Card>
   )
 }
+
+// Exportar componentes adicionales según sea necesario
+export { LineChart, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Legend, Line, Bar }
