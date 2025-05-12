@@ -11,7 +11,7 @@ import { Eye, RefreshCw } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { formatDate, formatCurrency } from "@/lib/utils"
 
-export default function RecentOrders() {
+export function RecentOrders() {
   const [orders, setOrders] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
