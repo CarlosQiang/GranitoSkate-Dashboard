@@ -160,3 +160,59 @@ export async function fetchSalesData(period = "month") {
     throw new Error(`Error al cargar datos de ventas: ${error.message}`)
   }
 }
+
+export async function fetchTopProducts(limit = 5) {
+  try {
+    // Consulta para obtener productos más vendidos
+    const query = gql`
+      query {
+        products(first: ${limit}, sortKey: BEST_SELLING) {
+          edges {
+            node {
+              id
+              title
+              handle
+              totalInventory
+              featuredImage {
+                url
+                altText
+              }
+              variants(first: 1) {
+                edges {
+                  node {
+                    price
+                    compareAtPrice
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const data = await shopifyClient.request(query)
+
+    if (!data || !data.products || !data.products.edges) {
+      return []
+    }
+
+    return data.products.edges.map((edge) => {
+      const node = edge.node
+      const variant = node.variants.edges[0]?.node || {}
+
+      return {
+        id: node.id.split("/").pop(),
+        title: node.title,
+        handle: node.handle,
+        totalInventory: node.totalInventory,
+        image: node.featuredImage?.url || null,
+        price: variant.price || "0.00",
+        compareAtPrice: variant.compareAtPrice || null,
+      }
+    })
+  } catch (error) {
+    console.error("Error fetching top products:", error)
+    throw new Error(`Error al cargar productos más vendidos: ${error.message}`)
+  }
+}

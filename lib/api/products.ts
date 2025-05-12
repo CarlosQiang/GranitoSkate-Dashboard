@@ -5,11 +5,72 @@ import { gql } from "graphql-request"
 export async function fetchRecentProducts(limit = 5) {
   try {
     // Implementación de la función para obtener productos recientes
-    // Utilizamos la función fetchProducts existente con un límite
-    const products = await fetchProducts(limit)
+    const query = gql`
+      query GetProducts($first: Int!) {
+        products(first: $first, sortKey: CREATED_AT, reverse: true) {
+          edges {
+            node {
+              id
+              title
+              handle
+              description
+              descriptionHtml
+              vendor
+              productType
+              status
+              totalInventory
+              featuredImage {
+                url
+                altText
+              }
+              variants(first: 1) {
+                edges {
+                  node {
+                    id
+                    title
+                    price
+                    compareAtPrice
+                    sku
+                    inventoryQuantity
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const data = await shopifyClient.request(query, { first: limit })
+
+    // Transformar los datos para un formato más fácil de usar
+    const products = data.products.edges.map((edge) => {
+      const node = edge.node
+      const variant = node.variants.edges[0]?.node || {}
+
+      return {
+        id: node.id.split("/").pop(), // Extraer el ID numérico
+        title: node.title,
+        handle: node.handle,
+        description: node.description,
+        descriptionHtml: node.descriptionHtml,
+        vendor: node.vendor,
+        productType: node.productType,
+        status: node.status,
+        totalInventory: node.totalInventory,
+        image: node.featuredImage?.url || null,
+        featuredImage: node.featuredImage,
+        price: variant.price || "0.00",
+        compareAtPrice: variant.compareAtPrice || null,
+        currencyCode: "EUR", // Valor por defecto
+        sku: variant.sku || "",
+        inventoryQuantity: variant.inventoryQuantity || 0,
+      }
+    })
+
     return products
   } catch (error) {
-    console.error("Error fetching recent products:", error)
+    console.error("Error al cargar productos recientes:", error)
     throw new Error(`Error al cargar productos recientes: ${error.message}`)
   }
 }

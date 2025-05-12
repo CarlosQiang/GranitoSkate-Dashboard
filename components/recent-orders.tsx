@@ -33,24 +33,24 @@ export function RecentOrders() {
     loadOrders()
   }, [])
 
-  const getStatusColor = (status) => {
-    if (!status) return "bg-gray-100 text-gray-800"
+  const getStatusBadge = (status) => {
+    if (!status) return <Badge variant="outline">Desconocido</Badge>
 
     switch (status.toUpperCase()) {
       case "FULFILLED":
-        return "bg-green-100 text-green-800"
+        return <Badge variant="success">Enviado</Badge>
       case "UNFULFILLED":
-        return "bg-yellow-100 text-yellow-800"
+        return <Badge variant="warning">Pendiente</Badge>
       case "PARTIALLY_FULFILLED":
-        return "bg-blue-100 text-blue-800"
+        return <Badge variant="secondary">Parcial</Badge>
       case "PAID":
-        return "bg-green-100 text-green-800"
+        return <Badge variant="success">Pagado</Badge>
       case "PENDING":
-        return "bg-yellow-100 text-yellow-800"
+        return <Badge variant="warning">Pendiente</Badge>
       case "REFUNDED":
-        return "bg-red-100 text-red-800"
+        return <Badge variant="destructive">Reembolsado</Badge>
       default:
-        return "bg-gray-100 text-gray-800"
+        return <Badge variant="outline">{status}</Badge>
     }
   }
 
@@ -110,9 +110,7 @@ export function RecentOrders() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Badge className={getStatusColor(order.displayFulfillmentStatus)}>
-              {order.displayFulfillmentStatus || "PENDIENTE"}
-            </Badge>
+            {getStatusBadge(order.displayFulfillmentStatus)}
             <Button
               variant="ghost"
               size="icon"
