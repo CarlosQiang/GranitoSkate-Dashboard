@@ -8,13 +8,13 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Search, MoreHorizontal, Eye, ArrowLeft } from "lucide-react"
+import { Search, MoreHorizontal, Eye, ArrowLeft, AlertCircle, RefreshCw } from "lucide-react"
 import { fetchCustomerOrders } from "@/lib/api/orders"
 import { fetchCustomerById } from "@/lib/api/customers"
 import { useToast } from "@/components/ui/use-toast"
 import { formatDate, formatCurrency } from "@/lib/utils"
 import Link from "next/link"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function CustomerOrdersPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -25,37 +25,39 @@ export default function CustomerOrdersPage({ params }: { params: { id: string } 
   const [searchQuery, setSearchQuery] = useState("")
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setIsLoading(true)
-        setError(null)
+  const loadData = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
 
-        // Cargar información del cliente
-        const customerData = await fetchCustomerById(params.id)
-        setCustomer(customerData)
+      // Cargar información del cliente
+      const customerData = await fetchCustomerById(params.id)
+      setCustomer(customerData)
 
-        // Cargar pedidos del cliente
-        const ordersData = await fetchCustomerOrders(params.id)
-        setOrders(ordersData)
-      } catch (error) {
-        console.error("Error fetching data:", error)
-        setError(`Error al cargar los datos: ${(error as Error).message}`)
-        toast({
-          title: "Error",
-          description: "No se pudieron cargar los pedidos del cliente",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoading(false)
-      }
+      // Cargar pedidos del cliente
+      const ordersData = await fetchCustomerOrders(params.id)
+      setOrders(ordersData)
+    } catch (error) {
+      console.error("Error fetching data:", error)
+      setError(`Error al cargar los datos: ${(error as Error).message}`)
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los pedidos del cliente",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
     }
+  }
 
+  useEffect(() => {
     loadData()
   }, [params.id, toast])
 
   const getStatusColor = (status: string) => {
-    switch (status?.toUpperCase()) {
+    if (!status) return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100"
+
+    switch (status.toUpperCase()) {
       case "FULFILLED":
         return "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100"
       case "UNFULFILLED":
@@ -77,25 +79,31 @@ export default function CustomerOrdersPage({ params }: { params: { id: string } 
 
   if (error) {
     return (
-      <div className="container mx-auto py-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" asChild>
               <Link href={`/dashboard/customers/${params.id}`}>
                 <ArrowLeft className="h-4 w-4" />
               </Link>
             </Button>
-            <h1 className="text-2xl font-bold">Error</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Error</h1>
           </div>
         </div>
 
-        <Card className="mb-8">
+        <Card>
           <CardHeader>
-            <CardTitle className="text-destructive">Error al cargar los pedidos</CardTitle>
-            <CardDescription>No se pudieron cargar los pedidos del cliente</CardDescription>
+            <CardTitle className="flex items-center text-destructive">
+              <AlertCircle className="mr-2 h-5 w-5" />
+              Error al cargar pedidos
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <p>{error}</p>
+            <p className="mb-4">{error}</p>
+            <Button onClick={loadData}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Reintentar
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -197,11 +205,11 @@ export default function CustomerOrdersPage({ params }: { params: { id: string } 
                     </TableCell>
                     <TableCell>{formatDate(order.processedAt)}</TableCell>
                     <TableCell>
-                      <Badge className={getStatusColor(order.displayFulfillmentStatus || "UNFULFILLED")}>
-                        {(order.displayFulfillmentStatus || "UNFULFILLED").replace("_", " ")}
+                      <Badge className={getStatusColor(order.displayFulfillmentStatus)}>
+                        {order.displayFulfillmentStatus || "PENDIENTE"}
                       </Badge>
                     </TableCell>
-                    <TableCell>{formatCurrency(order.totalPrice)}</TableCell>
+                    <TableCell>{formatCurrency(order.totalPrice, order.currencyCode)}</TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

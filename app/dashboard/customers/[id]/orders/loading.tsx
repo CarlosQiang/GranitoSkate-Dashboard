@@ -1,17 +1,26 @@
 import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
+import { ArrowLeft } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
-export default function Loading() {
+export default function LoadingCustomerOrders() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <Skeleton className="h-8 w-64 mb-2" />
-          <Skeleton className="h-4 w-48" />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" disabled>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Pedidos del cliente</h1>
+            <Skeleton className="h-4 w-64 mt-1" />
+          </div>
         </div>
       </div>
 
-      <Skeleton className="h-10 w-64" />
+      <div className="flex items-center">
+        <Skeleton className="h-10 w-64" />
+      </div>
 
       <div className="rounded-md border">
         <Table>

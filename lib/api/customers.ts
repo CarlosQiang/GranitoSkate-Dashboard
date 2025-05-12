@@ -136,7 +136,6 @@ export async function fetchCustomerById(id: string) {
           lastName
           email
           phone
-          acceptsMarketing
           note
           createdAt
           updatedAt
@@ -198,7 +197,6 @@ export async function fetchCustomerById(id: string) {
       lastName: data.customer.lastName || "",
       email: data.customer.email || "",
       phone: data.customer.phone || "",
-      acceptsMarketing: data.customer.acceptsMarketing || false,
       note: data.customer.note || "",
       ordersCount: data.customer.numberOfOrders || 0,
       totalSpent: data.customer.amountSpent || { amount: "0", currencyCode: "EUR" },
@@ -219,6 +217,61 @@ export async function fetchCustomerById(id: string) {
   } catch (error) {
     console.error(`Error fetching customer ${id}:`, error)
     throw new Error(`Error al cargar cliente: ${(error as Error).message}`)
+  }
+}
+
+export async function updateCustomer(id: string, customerData: any) {
+  try {
+    // Formatear el ID correctamente
+    let formattedId = id
+    if (!id.includes("gid://shopify/")) {
+      formattedId = `gid://shopify/Customer/${id}`
+    }
+
+    const mutation = gql`
+      mutation customerUpdate($input: CustomerInput!) {
+        customerUpdate(input: $input) {
+          customer {
+            id
+            firstName
+            lastName
+            email
+            phone
+            note
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    // Preparar los datos para la API de Shopify
+    const input = {
+      id: formattedId,
+      firstName: customerData.firstName,
+      lastName: customerData.lastName,
+      email: customerData.email,
+      phone: customerData.phone,
+      note: customerData.note,
+      tags: customerData.tags,
+    }
+
+    const variables = {
+      input,
+    }
+
+    const result = await shopifyClient.request(mutation, variables)
+
+    if (result.customerUpdate.userErrors && result.customerUpdate.userErrors.length > 0) {
+      throw new Error(result.customerUpdate.userErrors[0].message)
+    }
+
+    return result.customerUpdate.customer
+  } catch (error) {
+    console.error(`Error updating customer ${id}:`, error)
+    throw new Error(`Error al actualizar cliente: ${(error as Error).message}`)
   }
 }
 
@@ -248,7 +301,6 @@ export async function createCustomer(customerData: any) {
       lastName: customerData.lastName,
       email: customerData.email,
       phone: customerData.phone,
-      acceptsMarketing: customerData.acceptsMarketing || false,
       note: customerData.note || "",
       tags: customerData.tags || [],
     }
@@ -282,63 +334,6 @@ export async function createCustomer(customerData: any) {
   } catch (error) {
     console.error("Error creating customer:", error)
     throw new Error(`Error al crear cliente: ${(error as Error).message}`)
-  }
-}
-
-export async function updateCustomer(id: string, customerData: any) {
-  try {
-    // Formatear el ID correctamente
-    let formattedId = id
-    if (!id.includes("gid://shopify/")) {
-      formattedId = `gid://shopify/Customer/${id}`
-    }
-
-    const mutation = gql`
-      mutation customerUpdate($input: CustomerInput!) {
-        customerUpdate(input: $input) {
-          customer {
-            id
-            firstName
-            lastName
-            email
-            phone
-            acceptsMarketing
-            note
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    // Preparar los datos para la API de Shopify
-    const input = {
-      id: formattedId,
-      firstName: customerData.firstName,
-      lastName: customerData.lastName,
-      email: customerData.email,
-      phone: customerData.phone,
-      acceptsMarketing: customerData.acceptsMarketing,
-      note: customerData.note,
-      tags: customerData.tags,
-    }
-
-    const variables = {
-      input,
-    }
-
-    const result = await shopifyClient.request(mutation, variables)
-
-    if (result.customerUpdate.userErrors && result.customerUpdate.userErrors.length > 0) {
-      throw new Error(result.customerUpdate.userErrors[0].message)
-    }
-
-    return result.customerUpdate.customer
-  } catch (error) {
-    console.error(`Error updating customer ${id}:`, error)
-    throw new Error(`Error al actualizar cliente: ${(error as Error).message}`)
   }
 }
 
@@ -483,7 +478,7 @@ export async function saveCustomerDNI(customerId: string, dni: string) {
 
     const result = await shopifyClient.request(mutation, variables)
 
-    if (result.customerUpdate.userErrors.length > 0) {
+    if (result.customerUpdate.userErrors && result.customerUpdate.userErrors.length > 0) {
       throw new Error(result.customerUpdate.userErrors[0].message)
     }
 
@@ -508,7 +503,7 @@ export async function updateCustomerAddress(customerId: string, addressData: any
     if (addressData.id) {
       // Actualizar dirección existente
       mutation = gql`
-        mutation customerAddressUpdate($customerAddressUpdatePayload: CustomerAddressUpdatePayload!) {
+        mutation customerAddressUpdate($customerAddressUpdatePayload: CustomerAddressUpdateInput!) {
           customerAddressUpdate(customerAddressUpdatePayload: $customerAddressUpdatePayload) {
             customerAddress {
               id
@@ -539,7 +534,7 @@ export async function updateCustomerAddress(customerId: string, addressData: any
     } else {
       // Crear nueva dirección
       mutation = gql`
-        mutation customerAddressCreate($customerAddressCreatePayload: CustomerAddressCreatePayload!) {
+        mutation customerAddressCreate($customerAddressCreatePayload: CustomerAddressCreateInput!) {
           customerAddressCreate(customerAddressCreatePayload: $customerAddressCreatePayload) {
             customerAddress {
               id
@@ -597,7 +592,7 @@ export async function deleteCustomerAddress(customerId: string, addressId: strin
     }
 
     const mutation = gql`
-      mutation customerAddressDelete($id: ID!, $customerAddressDeletePayload: CustomerAddressDeletePayload!) {
+      mutation customerAddressDelete($customerAddressDeletePayload: CustomerAddressDeleteInput!) {
         customerAddressDelete(customerAddressDeletePayload: $customerAddressDeletePayload) {
           deletedCustomerAddressId
           userErrors {
@@ -609,7 +604,6 @@ export async function deleteCustomerAddress(customerId: string, addressId: strin
     `
 
     const variables = {
-      id: formattedCustomerId,
       customerAddressDeletePayload: {
         customerId: formattedCustomerId,
         id: addressId,
@@ -638,7 +632,7 @@ export async function setDefaultCustomerAddress(customerId: string, addressId: s
     }
 
     const mutation = gql`
-      mutation customerDefaultAddressUpdate($customerDefaultAddressUpdatePayload: CustomerDefaultAddressUpdatePayload!) {
+      mutation customerDefaultAddressUpdate($customerDefaultAddressUpdatePayload: CustomerDefaultAddressUpdateInput!) {
         customerDefaultAddressUpdate(customerDefaultAddressUpdatePayload: $customerDefaultAddressUpdatePayload) {
           customer {
             id

@@ -8,38 +8,30 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Search, MoreHorizontal, Eye } from "lucide-react"
+import { Search, MoreHorizontal, Eye, AlertCircle, RefreshCw } from "lucide-react"
 import { fetchRecentOrders } from "@/lib/api/orders"
 import { useToast } from "@/components/ui/use-toast"
 import { formatDate, formatCurrency } from "@/lib/utils"
-
-interface Order {
-  id: string
-  name: string
-  processedAt: string
-  fulfillmentStatus: string
-  financialStatus: string
-  totalPrice: string
-  customer: {
-    firstName: string
-    lastName: string
-  }
-}
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function OrdersPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const [orders, setOrders] = useState<Order[]>([])
+  const [orders, setOrders] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const getOrders = async () => {
       try {
+        setIsLoading(true)
+        setError(null)
         const data = await fetchRecentOrders(50)
         setOrders(data)
       } catch (error) {
         console.error("Error fetching orders:", error)
+        setError(`Error al cargar pedidos: ${(error as Error).message}`)
         toast({
           title: "Error",
           description: "No se pudieron cargar los pedidos",
@@ -54,7 +46,9 @@ export default function OrdersPage() {
   }, [toast])
 
   const getStatusColor = (status: string) => {
-    switch (status) {
+    if (!status) return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100"
+
+    switch (status.toUpperCase()) {
       case "FULFILLED":
         return "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100"
       case "UNFULFILLED":
@@ -74,9 +68,59 @@ export default function OrdersPage() {
 
   const filteredOrders = orders.filter(
     (order) =>
-      order.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      `${order.customer.firstName} ${order.customer.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()),
+      order.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      `${order.customer?.firstName || ""} ${order.customer?.lastName || ""}`
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()),
   )
+
+  const handleRetry = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const data = await fetchRecentOrders(50)
+      setOrders(data)
+    } catch (error) {
+      console.error("Error fetching orders:", error)
+      setError(`Error al cargar pedidos: ${(error as Error).message}`)
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los pedidos",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Pedidos</h1>
+            <p className="text-muted-foreground">Gestiona los pedidos de tu tienda</p>
+          </div>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center text-destructive">
+              <AlertCircle className="mr-2 h-5 w-5" />
+              Error al cargar pedidos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-4">{error}</p>
+            <Button onClick={handleRetry}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -167,14 +211,16 @@ export default function OrdersPage() {
                     </TableCell>
                     <TableCell>{formatDate(order.processedAt)}</TableCell>
                     <TableCell>
-                      {order.customer.firstName} {order.customer.lastName}
+                      {order.customer
+                        ? `${order.customer.firstName} ${order.customer.lastName}`
+                        : "Cliente no registrado"}
                     </TableCell>
                     <TableCell>
-                      <Badge className={getStatusColor(order.fulfillmentStatus)}>
-                        {order.fulfillmentStatus.replace("_", " ")}
+                      <Badge className={getStatusColor(order.displayFulfillmentStatus)}>
+                        {order.displayFulfillmentStatus || "PENDIENTE"}
                       </Badge>
                     </TableCell>
-                    <TableCell>{formatCurrency(order.totalPrice)}</TableCell>
+                    <TableCell>{formatCurrency(order.totalPrice, order.currencyCode)}</TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
