@@ -5,9 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RevenueChart, ProductsChart } from "@/components/charts"
 import { Skeleton } from "@/components/ui/skeleton"
+import { fetchAnalyticsData } from "@/lib/api/analytics"
+import { AlertCircle, RefreshCw } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { formatCurrency } from "@/lib/utils"
 
 export default function AnalyticsPage() {
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [data, setData] = useState({
     totalRevenue: 0,
     totalOrders: 0,
@@ -18,49 +23,45 @@ export default function AnalyticsPage() {
   })
 
   useEffect(() => {
-    // Simulación de carga de datos
-    const timer = setTimeout(() => {
-      setData({
-        totalRevenue: 15420.25,
-        totalOrders: 356,
-        averageOrderValue: 43.32,
-        topProducts: [
-          { name: "Zapatillas Skate Pro", sales: 124 },
-          { name: "Tabla Element Classic", sales: 98 },
-          { name: "Ruedas Spitfire 52mm", sales: 87 },
-          { name: "Trucks Independent 149", sales: 65 },
-          { name: "Rodamientos Bones Reds", sales: 59 },
-        ],
-        revenueData: [
-          { name: "Ene", total: 1200 },
-          { name: "Feb", total: 1800 },
-          { name: "Mar", total: 2200 },
-          { name: "Abr", total: 1800 },
-          { name: "May", total: 2400 },
-          { name: "Jun", total: 2800 },
-          { name: "Jul", total: 3200 },
-        ],
-        ordersData: [
-          { name: "Ene", total: 45 },
-          { name: "Feb", total: 52 },
-          { name: "Mar", total: 48 },
-          { name: "Abr", total: 38 },
-          { name: "May", total: 50 },
-          { name: "Jun", total: 55 },
-          { name: "Jul", total: 68 },
-        ],
-      })
-      setIsLoading(false)
-    }, 1500)
-
-    return () => clearTimeout(timer)
+    loadAnalyticsData()
   }, [])
+
+  const loadAnalyticsData = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const analyticsData = await fetchAnalyticsData()
+      setData(analyticsData)
+    } catch (error) {
+      console.error("Error loading analytics data:", error)
+      setError(`Error al cargar datos de análisis: ${(error as Error).message}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Análisis</h2>
+        {!isLoading && (
+          <Button variant="outline" onClick={loadAnalyticsData} size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Actualizar datos
+          </Button>
+        )}
       </div>
+
+      {error && (
+        <div className="bg-destructive/10 border border-destructive text-destructive px-4 py-3 rounded-md flex items-start">
+          <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="font-medium">Error al cargar datos</p>
+            <p className="text-sm">{error}</p>
+          </div>
+        </div>
+      )}
+
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Resumen</TabsTrigger>
@@ -90,10 +91,22 @@ export default function AnalyticsPage() {
                   <Skeleton className="h-8 w-full" />
                 ) : (
                   <>
-                    <div className="text-2xl font-bold">
-                      {data.totalRevenue.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
-                    </div>
-                    <p className="text-xs text-muted-foreground">+20.1% respecto al mes anterior</p>
+                    <div className="text-2xl font-bold">{formatCurrency(data.totalRevenue, "EUR")}</div>
+                    {data.revenueData.length > 1 && (
+                      <p className="text-xs text-muted-foreground">
+                        {data.revenueData[data.revenueData.length - 1].total >
+                        data.revenueData[data.revenueData.length - 2].total
+                          ? "+"
+                          : "-"}
+                        {Math.abs(
+                          ((data.revenueData[data.revenueData.length - 1].total -
+                            data.revenueData[data.revenueData.length - 2].total) /
+                            data.revenueData[data.revenueData.length - 2].total) *
+                            100,
+                        ).toFixed(1)}
+                        % respecto al mes anterior
+                      </p>
+                    )}
                   </>
                 )}
               </CardContent>
@@ -122,7 +135,21 @@ export default function AnalyticsPage() {
                 ) : (
                   <>
                     <div className="text-2xl font-bold">{data.totalOrders}</div>
-                    <p className="text-xs text-muted-foreground">+10.5% respecto al mes anterior</p>
+                    {data.ordersData.length > 1 && (
+                      <p className="text-xs text-muted-foreground">
+                        {data.ordersData[data.ordersData.length - 1].total >
+                        data.ordersData[data.ordersData.length - 2].total
+                          ? "+"
+                          : "-"}
+                        {Math.abs(
+                          ((data.ordersData[data.ordersData.length - 1].total -
+                            data.ordersData[data.ordersData.length - 2].total) /
+                            data.ordersData[data.ordersData.length - 2].total) *
+                            100,
+                        ).toFixed(1)}
+                        % respecto al mes anterior
+                      </p>
+                    )}
                   </>
                 )}
               </CardContent>
@@ -149,10 +176,7 @@ export default function AnalyticsPage() {
                   <Skeleton className="h-8 w-full" />
                 ) : (
                   <>
-                    <div className="text-2xl font-bold">
-                      {data.averageOrderValue.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
-                    </div>
-                    <p className="text-xs text-muted-foreground">+5.2% respecto al mes anterior</p>
+                    <div className="text-2xl font-bold">{formatCurrency(data.averageOrderValue, "EUR")}</div>
                   </>
                 )}
               </CardContent>
@@ -164,13 +188,21 @@ export default function AnalyticsPage() {
                 <CardTitle>Ingresos por Mes</CardTitle>
               </CardHeader>
               <CardContent className="pl-2">
-                {isLoading ? <Skeleton className="h-[300px] w-full" /> : <RevenueChart data={data.revenueData} />}
+                {isLoading ? (
+                  <Skeleton className="h-[300px] w-full" />
+                ) : data.revenueData.length > 0 ? (
+                  <RevenueChart data={data.revenueData} />
+                ) : (
+                  <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                    No hay datos de ingresos disponibles
+                  </div>
+                )}
               </CardContent>
             </Card>
             <Card className="col-span-3">
               <CardHeader>
                 <CardTitle>Productos Más Vendidos</CardTitle>
-                <CardDescription>Los 5 productos más vendidos este mes</CardDescription>
+                <CardDescription>Los productos más vendidos este mes</CardDescription>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
@@ -179,15 +211,17 @@ export default function AnalyticsPage() {
                       <Skeleton key={i} className="h-4 w-full" />
                     ))}
                   </div>
-                ) : (
+                ) : data.topProducts.length > 0 ? (
                   <div className="space-y-4">
-                    {data.topProducts.map((product, index) => (
+                    {data.topProducts.map((product: any, index: number) => (
                       <div key={index} className="flex items-center">
                         <div className="font-medium">{product.name}</div>
                         <div className="ml-auto font-medium">{product.sales} unidades</div>
                       </div>
                     ))}
                   </div>
+                ) : (
+                  <div className="py-8 text-center text-muted-foreground">No hay datos de productos disponibles</div>
                 )}
               </CardContent>
             </Card>
@@ -200,7 +234,15 @@ export default function AnalyticsPage() {
               <CardDescription>Análisis detallado de ingresos mensuales</CardDescription>
             </CardHeader>
             <CardContent className="pl-2">
-              {isLoading ? <Skeleton className="h-[400px] w-full" /> : <RevenueChart data={data.revenueData} />}
+              {isLoading ? (
+                <Skeleton className="h-[400px] w-full" />
+              ) : data.revenueData.length > 0 ? (
+                <RevenueChart data={data.revenueData} />
+              ) : (
+                <div className="flex items-center justify-center h-[400px] text-muted-foreground">
+                  No hay datos de ingresos disponibles
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -211,7 +253,15 @@ export default function AnalyticsPage() {
               <CardDescription>Análisis detallado de ventas por producto</CardDescription>
             </CardHeader>
             <CardContent className="pl-2">
-              {isLoading ? <Skeleton className="h-[400px] w-full" /> : <ProductsChart data={data.topProducts} />}
+              {isLoading ? (
+                <Skeleton className="h-[400px] w-full" />
+              ) : data.topProducts.length > 0 ? (
+                <ProductsChart data={data.topProducts} />
+              ) : (
+                <div className="flex items-center justify-center h-[400px] text-muted-foreground">
+                  No hay datos de productos disponibles
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
