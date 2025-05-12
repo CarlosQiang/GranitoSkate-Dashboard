@@ -85,7 +85,29 @@ export function extractIdFromGid(gid) {
 }
 
 // Función para obtener la URL de la imagen
-export function getImageUrl(url) {
-  if (!url) return null
-  return url
+export function getImageUrl(image) {
+  if (!image) return null
+  return image.url
+}
+
+export async function shopifyFetch({ query, variables }) {
+  const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
+  const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
+
+  const shopifyUrl = `https://${shopDomain}/admin/api/2023-07/graphql.json`
+
+  const response = await fetch(shopifyUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Shopify-Access-Token": accessToken,
+    },
+    body: JSON.stringify({
+      query,
+      variables: variables || {},
+    }),
+  })
+
+  const data = await response.json()
+  return data
 }

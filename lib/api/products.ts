@@ -1,6 +1,7 @@
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 import { extractIdFromGid } from "@/lib/shopify"
+import { shopifyFetch } from "@/lib/shopify"
 
 /**
  * Obtiene productos recientes
@@ -93,6 +94,82 @@ export async function fetchRecentProducts(limit = 5) {
   } catch (error) {
     console.error("Error fetching recent products:", error)
     throw new Error(`Error al cargar productos recientes: ${error.message}`)
+  }
+}
+
+export async function getProducts(limit = 50) {
+  try {
+    console.log(`Fetching products with limit: ${limit}`)
+
+    const query = `
+      query GetProducts($limit: Int!) {
+        products(first: $limit) {
+          edges {
+            node {
+              id
+              title
+              description
+              handle
+              status
+              vendor
+              productType
+              featuredImage {
+                id
+                url
+                altText
+              }
+              priceRangeV2 {
+                minVariantPrice {
+                  amount
+                  currencyCode
+                }
+              }
+              compareAtPriceRange {
+                minVariantPrice {
+                  amount
+                  currencyCode
+                }
+              }
+              collections(first: 5) {
+                edges {
+                  node {
+                    id
+                    title
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+
+    console.log("Enviando consulta a Shopify...")
+    const response = await shopifyFetch({
+      query,
+      variables: { limit },
+    })
+
+    const products = response.data.products.edges.map(({ node }) => ({
+      id: node.id,
+      title: node.title,
+      description: node.description,
+      handle: node.handle,
+      status: node.status,
+      vendor: node.vendor,
+      productType: node.productType,
+      featuredImage: node.featuredImage,
+      price: node.priceRangeV2?.minVariantPrice?.amount,
+      currencyCode: node.priceRangeV2?.minVariantPrice?.currencyCode,
+      compareAtPrice: node.compareAtPriceRange?.minVariantPrice?.amount,
+      collections: node.collections,
+    }))
+
+    console.log(`Successfully fetched ${products.length} products`)
+    return products
+  } catch (error) {
+    console.error("Error fetching products:", error)
+    throw error
   }
 }
 
@@ -209,6 +286,77 @@ export async function fetchProducts(options = {}) {
   }
 }
 
+export async function getProductById(id) {
+  try {
+    const query = `
+      query GetProductById($id: ID!) {
+        product(id: $id) {
+          id
+          title
+          description
+          handle
+          status
+          vendor
+          productType
+          featuredImage {
+            id
+            url
+            altText
+          }
+          priceRangeV2 {
+            minVariantPrice {
+              amount
+              currencyCode
+            }
+          }
+          compareAtPriceRange {
+            minVariantPrice {
+              amount
+              currencyCode
+            }
+          }
+          collections(first: 10) {
+            edges {
+              node {
+                id
+                title
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const response = await shopifyFetch({
+      query,
+      variables: { id },
+    })
+
+    if (!response.data.product) {
+      throw new Error(`Product with ID ${id} not found`)
+    }
+
+    const product = response.data.product
+    return {
+      id: product.id,
+      title: product.title,
+      description: product.description,
+      handle: product.handle,
+      status: product.status,
+      vendor: product.vendor,
+      productType: product.productType,
+      featuredImage: product.featuredImage,
+      price: product.priceRangeV2?.minVariantPrice?.amount,
+      currencyCode: product.priceRangeV2?.minVariantPrice?.currencyCode,
+      compareAtPrice: product.compareAtPriceRange?.minVariantPrice?.amount,
+      collections: product.collections,
+    }
+  } catch (error) {
+    console.error(`Error fetching product with ID ${id}:`, error)
+    throw error
+  }
+}
+
 // Función para obtener un producto por ID
 export async function fetchProductById(id) {
   try {
@@ -308,7 +456,7 @@ export async function fetchProductById(id) {
 }
 
 // Alias para compatibilidad
-export const getProductById = fetchProductById
+export const getProductById_old = fetchProductById
 
 // Función para crear un nuevo producto
 export async function createProduct(productData) {

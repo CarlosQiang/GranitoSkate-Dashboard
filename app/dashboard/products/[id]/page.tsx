@@ -7,14 +7,13 @@ import { LoadingState } from "@/components/loading-state"
 import { ProductForm } from "@/components/product-form"
 import { ProductSeoForm } from "@/components/product-seo-form"
 import { ProductCollections } from "@/components/product-collections"
-import { ProductDeleteSection } from "@/components/product-delete-section"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
 async function getProduct(id) {
   try {
-    // Asegurarnos de que el ID esté en el formato correcto
+    // Asegurarnos de que el ID esté en el formato correcto para la API de Shopify
     const formattedId = id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
 
     return await getProductById(formattedId)
@@ -43,7 +42,6 @@ export default async function ProductPage({ params }) {
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="seo">SEO</TabsTrigger>
           <TabsTrigger value="collections">Colecciones</TabsTrigger>
-          <TabsTrigger value="danger">Zona de peligro</TabsTrigger>
         </TabsList>
         <TabsContent value="general" className="space-y-4 pt-4">
           <Card>
@@ -78,19 +76,6 @@ export default async function ProductPage({ params }) {
             <CardContent>
               <Suspense fallback={<LoadingState message="Cargando colecciones..." />}>
                 <ProductCollections productId={params.id} />
-              </Suspense>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="danger" className="space-y-4 pt-4">
-          <Card className="border-red-200">
-            <CardHeader className="text-red-600">
-              <CardTitle>Zona de peligro</CardTitle>
-              <CardDescription>Acciones destructivas que no se pueden deshacer</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Suspense fallback={<LoadingState message="Cargando opciones..." />}>
-                <ProductDeleteSection product={product} />
               </Suspense>
             </CardContent>
           </Card>

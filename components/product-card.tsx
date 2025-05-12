@@ -44,8 +44,17 @@ export function ProductCard({ product }) {
   // Obtener la URL de la imagen de manera segura
   const imageUrl = product.featuredImage ? getImageUrl(product.featuredImage) : null
 
-  // Asegurarnos de que el ID del producto esté en el formato correcto para la URL
-  const productId = product.id ? product.id.replace("gid://shopify/Product/", "") : ""
+  // Extraer el ID numérico del producto para la URL
+  const getNumericId = (id) => {
+    if (!id) return ""
+    // Si el ID ya es numérico, devolverlo directamente
+    if (/^\d+$/.test(id)) return id
+    // Si tiene formato gid://shopify/Product/123456789, extraer solo el número
+    const match = id.match(/\/Product\/(\d+)$/)
+    return match ? match[1] : id
+  }
+
+  const productId = getNumericId(product.id)
 
   return (
     <Card className="overflow-hidden h-full flex flex-col">
@@ -70,7 +79,7 @@ export function ProductCard({ product }) {
       </div>
       <CardContent className="p-4 flex-grow">
         <h3 className="font-medium text-lg mb-1 line-clamp-1">{product.title || "Sin título"}</h3>
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex flex-wrap items-center gap-2 mb-2">
           {product.vendor && (
             <Badge variant="outline" className="text-xs">
               {product.vendor}
@@ -81,6 +90,14 @@ export function ProductCard({ product }) {
               {product.productType}
             </Badge>
           )}
+          {/* Mostrar las colecciones reales del producto */}
+          {product.collections &&
+            product.collections.edges &&
+            product.collections.edges.map((edge) => (
+              <Badge key={edge.node.id} variant="secondary" className="text-xs">
+                {edge.node.title}
+              </Badge>
+            ))}
         </div>
         <p className="text-sm text-muted-foreground line-clamp-2">{product.description || "Sin descripción"}</p>
       </CardContent>
