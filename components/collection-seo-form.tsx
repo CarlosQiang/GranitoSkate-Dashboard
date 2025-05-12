@@ -8,10 +8,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Globe, Share2, Twitter } from "lucide-react"
+import { Search, Globe, Share2, Twitter, Loader2 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { getCollectionSeoSettings, saveCollectionSeoSettings } from "@/lib/api/seo"
-import type { SeoSettings } from "@/types/seo"
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -63,18 +62,7 @@ export function CollectionSeoForm({
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [seo, setSeo] = useState<SeoSettings>({
-    title: collectionTitle,
-    description: collectionDescription,
-    keywords: [],
-    ogTitle: "",
-    ogDescription: "",
-    ogImage: collectionImage || "",
-    twitterCard: "summary_large_image",
-    twitterTitle: "",
-    twitterDescription: "",
-    twitterImage: collectionImage || "",
-  })
+  const [error, setError] = useState<string | null>(null)
 
   const form = useForm<SeoFormValues>({
     resolver: zodResolver(seoFormSchema),
@@ -90,7 +78,6 @@ export function CollectionSeoForm({
       twitterDescription: "",
       twitterImage: collectionImage || "",
       canonicalUrl: "",
-      structuredData: "",
     },
     mode: "onChange",
   })
@@ -98,18 +85,41 @@ export function CollectionSeoForm({
   useEffect(() => {
     async function loadSeoData() {
       setIsLoading(true)
+      setError(null)
+
       try {
+        // Asegurarse de que el ID tenga el formato correcto
+        const formattedId = collectionId.includes("gid://shopify/Collection/")
+          ? collectionId
+          : `gid://shopify/Collection/${collectionId}`
+
+        console.log("Cargando SEO para colección:", formattedId)
+
         const seoData = await getCollectionSeoSettings(collectionId)
 
         if (seoData) {
-          setSeo(seoData)
-          form.reset(seoData)
+          console.log("Datos SEO cargados:", seoData)
+          form.reset({
+            title: seoData.title || collectionTitle,
+            description: seoData.description || collectionDescription,
+            keywords: seoData.keywords || [],
+            canonicalUrl: seoData.canonicalUrl || "",
+            ogTitle: seoData.ogTitle || "",
+            ogDescription: seoData.ogDescription || "",
+            ogImage: seoData.ogImage || collectionImage || "",
+            twitterCard: seoData.twitterCard || "summary_large_image",
+            twitterTitle: seoData.twitterTitle || "",
+            twitterDescription: seoData.twitterDescription || "",
+            twitterImage: seoData.twitterImage || collectionImage || "",
+          })
         } else {
           // Si no hay datos de SEO, usar los valores de la colección
-          const defaultSeo = {
+          console.log("No hay datos SEO, usando valores por defecto")
+          form.reset({
             title: collectionTitle,
             description: collectionDescription,
             keywords: [],
+            canonicalUrl: "",
             ogTitle: "",
             ogDescription: "",
             ogImage: collectionImage || "",
@@ -117,14 +127,11 @@ export function CollectionSeoForm({
             twitterTitle: "",
             twitterDescription: "",
             twitterImage: collectionImage || "",
-            canonicalUrl: "",
-            structuredData: "",
-          }
-          setSeo(defaultSeo)
-          form.reset(defaultSeo)
+          })
         }
       } catch (error) {
         console.error("Error loading SEO data:", error)
+        setError("No se pudieron cargar los datos de SEO. Por favor, inténtalo de nuevo.")
         toast({
           title: "Error",
           description: "No se pudieron cargar los datos de SEO",
@@ -139,19 +146,31 @@ export function CollectionSeoForm({
   }, [collectionId, collectionTitle, collectionDescription, collectionImage, toast, form])
 
   const handleSave = async () => {
-    setIsSaving(true)
     try {
-      const values = await form.validate()
-      if (!values) {
+      setIsSaving(true)
+      setError(null)
+
+      // Validar el formulario
+      const isValid = await form.trigger()
+      if (!isValid) {
         toast({
           title: "Error",
           description: "Por favor, corrige los errores en el formulario.",
           variant: "destructive",
         })
+        setIsSaving(false)
         return
       }
 
-      const success = await saveCollectionSeoSettings(collectionId, form.getValues())
+      const values = form.getValues()
+      console.log("Guardando configuración SEO:", values)
+
+      // Asegurarse de que el ID tenga el formato correcto
+      const formattedId = collectionId.includes("gid://shopify/Collection/")
+        ? collectionId
+        : `gid://shopify/Collection/${collectionId}`
+
+      const success = await saveCollectionSeoSettings(formattedId, values)
 
       if (success) {
         toast({
@@ -171,6 +190,7 @@ export function CollectionSeoForm({
       }
     } catch (error) {
       console.error("Error saving SEO:", error)
+      setError("Ocurrió un error al guardar la configuración de SEO. Por favor, inténtalo de nuevo.")
       toast({
         title: "Error",
         description: "Ocurrió un error al guardar la configuración de SEO",
@@ -179,13 +199,6 @@ export function CollectionSeoForm({
     } finally {
       setIsSaving(false)
     }
-  }
-
-  const handleInputChange = (field: keyof SeoSettings, value: string | string[] | undefined) => {
-    setSeo((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
   }
 
   if (isLoading) {
@@ -197,8 +210,22 @@ export function CollectionSeoForm({
         </CardHeader>
         <CardContent>
           <div className="h-40 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card className="border-destructive">
+        <CardHeader>
+          <CardTitle className="text-destructive">Error al cargar SEO</CardTitle>
+          <CardDescription>{error}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={() => window.location.reload()}>Reintentar</Button>
         </CardContent>
       </Card>
     )
@@ -217,7 +244,14 @@ export function CollectionSeoForm({
           </CardDescription>
         </div>
         <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving ? "Guardando..." : "Guardar SEO"}
+          {isSaving ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Guardando...
+            </>
+          ) : (
+            "Guardar SEO"
+          )}
         </Button>
       </CardHeader>
       <CardContent>
@@ -537,28 +571,6 @@ export function CollectionSeoForm({
                         <Input placeholder="https://www.granitoskate.com/colecciones/nombre-coleccion" {...field} />
                       </FormControl>
                       <FormDescription>Establece la URL canónica para evitar contenido duplicado</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="structuredData"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Datos estructurados (JSON-LD)</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder='{"@context":"https://schema.org","@type":"CollectionPage",...}'
-                          rows={6}
-                          className="font-mono text-sm"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Datos estructurados en formato JSON-LD para mejorar la visualización en resultados de búsqueda
-                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

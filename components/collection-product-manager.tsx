@@ -20,8 +20,9 @@ interface CollectionProductManagerProps {
 }
 
 export function CollectionProductManager({ collectionId, onComplete, mode }: CollectionProductManagerProps) {
-  const [products, setProducts] = useState<any[]>([])
+  const [allProducts, setAllProducts] = useState<any[]>([])
   const [collectionProducts, setCollectionProducts] = useState<any[]>([])
+  const [filteredProducts, setFilteredProducts] = useState<any[]>([])
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -37,6 +38,7 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
     }
   }, [])
 
+  // Cargar productos y colección
   useEffect(() => {
     async function loadData() {
       try {
@@ -44,47 +46,63 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
         setError(null)
 
         // Cargar todos los productos
-        let allProducts = []
-        let collectionData = null
+        const productsData = await fetchProducts({ limite: 100 })
 
+        if (isMounted.current) {
+          setAllProducts(productsData)
+        }
+
+        // Cargar la colección para obtener sus productos
         try {
-          // Intentar cargar productos
-          allProducts = await fetchProducts({ limite: 50 })
+          const collectionData = await fetchCollectionById(collectionId)
 
-          // Intentar cargar la colección para obtener sus productos
-          collectionData = await fetchCollectionById(collectionId)
-
-          if (collectionData && collectionData.products) {
-            // Extraer los IDs de los productos en la colección
-            const collectionProductIds = collectionData.products.map((product: any) => product.id)
+          if (collectionData && collectionData.products && isMounted.current) {
+            // Extraer los productos de la colección
             setCollectionProducts(collectionData.products)
+
+            // Crear un conjunto de IDs de productos en la colección para búsqueda rápida
+            const collectionProductIds = new Set(collectionData.products.map((product: any) => product.id))
 
             // Filtrar productos según el modo
             if (mode === "add") {
               // Para añadir: mostrar solo productos que NO están en la colección
-              setProducts(allProducts.filter((product: any) => !collectionProductIds.includes(product.id)))
+              setFilteredProducts(productsData.filter((product: any) => !collectionProductIds.has(product.id)))
             } else {
               // Para eliminar: mostrar solo productos que SÍ están en la colección
-              setProducts(allProducts.filter((product: any) => collectionProductIds.includes(product.id)))
+              setFilteredProducts(productsData.filter((product: any) => collectionProductIds.has(product.id)))
             }
-          } else {
-            // Si no hay datos de colección, mostrar todos los productos en modo añadir
-            // o ninguno en modo eliminar
-            setProducts(mode === "add" ? allProducts : [])
+          } else if (isMounted.current) {
+            // Si no hay productos en la colección
+            if (mode === "add") {
+              // En modo añadir, mostrar todos los productos
+              setFilteredProducts(productsData)
+            } else {
+              // En modo eliminar, no mostrar ningún producto
+              setFilteredProducts([])
+            }
           }
         } catch (err) {
-          console.warn(`Error al cargar datos:`, err)
-          // En caso de error, mostrar todos los productos
-          setProducts(allProducts)
-        }
+          console.error("Error al cargar la colección:", err)
 
-        if (isMounted.current) {
-          setIsLoading(false)
+          if (isMounted.current) {
+            // En caso de error, mostrar todos los productos en modo añadir
+            if (mode === "add") {
+              setFilteredProducts(productsData)
+            } else {
+              setFilteredProducts([])
+            }
+
+            setError(`Error al cargar la colección: ${(err as Error).message}`)
+          }
         }
       } catch (err) {
         console.error("Error al cargar productos:", err)
+
         if (isMounted.current) {
-          setError("No se pudieron cargar los productos. Por favor, inténtalo de nuevo.")
+          setError(`Error al cargar productos: ${(err as Error).message}`)
+        }
+      } finally {
+        if (isMounted.current) {
           setIsLoading(false)
         }
       }
@@ -93,17 +111,28 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
     loadData()
   }, [collectionId, mode])
 
+  // Filtrar productos por búsqueda
+  useEffect(() => {
+    if (searchTerm.trim() === "") {
+      // Si no hay término de búsqueda, mostrar todos los productos filtrados
+      return
+    }
+
+    // Filtrar los productos según el término de búsqueda
+    const searchResults = filteredProducts.filter((product) => {
+      const title = product.titulo || product.title || ""
+      return title.toLowerCase().includes(searchTerm.toLowerCase())
+    })
+
+    setFilteredProducts(searchResults)
+  }, [searchTerm])
+
   const handleImageError = (productId: string) => {
     setImageErrors((prev) => ({
       ...prev,
       [productId]: true,
     }))
   }
-
-  const filteredProducts = products.filter((product) => {
-    const title = product.titulo || product.title || ""
-    return title.toLowerCase().includes(searchTerm.toLowerCase())
-  })
 
   const handleToggleProduct = (productId: string) => {
     setSelectedProducts((prev) =>
@@ -178,6 +207,35 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
     )
   }
 
+  // Mensaje cuando no hay productos para mostrar
+  if (filteredProducts.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center space-x-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Buscar productos..."
+              className="pl-8"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="text-center py-12 border-2 border-dashed rounded-lg">
+          <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <p className="text-muted-foreground">
+            {mode === "add"
+              ? "No hay productos disponibles para añadir a esta colección"
+              : "No hay productos en esta colección para eliminar"}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center space-x-2">
@@ -210,68 +268,57 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
         </Button>
       </div>
 
-      {filteredProducts.length === 0 ? (
-        <div className="text-center py-12 border-2 border-dashed rounded-lg">
-          <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">
-            {mode === "add"
-              ? "No hay productos disponibles para añadir a esta colección"
-              : "No hay productos en esta colección para eliminar"}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {filteredProducts.map((product) => {
-            const hasImageError = imageErrors[product.id] || false
-            const imageUrl = getImageUrl(product)
-            const title = product.titulo || product.title || "Producto sin título"
-            const price = product.precio || product.price || 0
-            const status = product.estado || product.status || "DRAFT"
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        {filteredProducts.map((product) => {
+          const hasImageError = imageErrors[product.id] || false
+          const imageUrl = getImageUrl(product)
+          const title = product.titulo || product.title || "Producto sin título"
+          const price = product.precio || product.price || 0
+          const status = product.estado || product.status || "DRAFT"
 
-            return (
-              <Card
-                key={product.id}
-                className={`overflow-hidden cursor-pointer transition-all ${
-                  selectedProducts.includes(product.id) ? "ring-2 ring-granito" : ""
-                }`}
-                onClick={() => handleToggleProduct(product.id)}
-              >
-                <div className="aspect-square relative">
-                  {!hasImageError && imageUrl ? (
-                    <Image
-                      src={imageUrl || "/placeholder.svg"}
-                      alt={title}
-                      fill
-                      className="object-cover"
-                      onError={() => handleImageError(product.id)}
-                    />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center bg-muted">
-                      <Package className="h-12 w-12 text-muted-foreground" />
-                    </div>
-                  )}
-                  <div className="absolute top-2 right-2">
-                    <Checkbox checked={selectedProducts.includes(product.id)} />
+          return (
+            <Card
+              key={product.id}
+              className={`overflow-hidden cursor-pointer transition-all ${
+                selectedProducts.includes(product.id) ? "ring-2 ring-granito" : ""
+              }`}
+              onClick={() => handleToggleProduct(product.id)}
+            >
+              <div className="aspect-square relative">
+                {!hasImageError && imageUrl ? (
+                  <Image
+                    src={imageUrl || "/placeholder.svg"}
+                    alt={title}
+                    fill
+                    className="object-cover"
+                    onError={() => handleImageError(product.id)}
+                  />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center bg-muted">
+                    <Package className="h-12 w-12 text-muted-foreground" />
                   </div>
+                )}
+                <div className="absolute top-2 right-2">
+                  <Checkbox checked={selectedProducts.includes(product.id)} />
                 </div>
-                <CardContent className="p-3">
-                  <h3 className="font-medium truncate">{title}</h3>
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-sm font-medium">{price} €</span>
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full ${
-                        status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {status === "ACTIVE" ? "Visible" : "Oculto"}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      )}
+              </div>
+              <CardContent className="p-3">
+                <h3 className="font-medium truncate">{title}</h3>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-sm font-medium">{price} €</span>
+                  <span
+                    className={`text-xs px-2 py-1 rounded-full ${
+                      status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                    }`}
+                  >
+                    {status === "ACTIVE" ? "Visible" : "Oculto"}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
     </div>
   )
 }

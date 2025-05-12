@@ -142,40 +142,98 @@ export async function createMetafieldDefinition(
 // Modificar la función getMetafields para incluir mejor manejo de errores
 export async function getMetafields(ownerId: string, ownerType: string, namespace?: string): Promise<Metafield[]> {
   try {
-    const query = gql`
-      query GetMetafields($ownerId: ID!, $ownerType: MetafieldOwnerType!, $namespace: String) {
-        owner: ${ownerType.toLowerCase()}(id: $ownerId) {
-          metafields(first: 100, namespace: $namespace) {
-            edges {
-              node {
-                id
-                namespace
-                key
-                value
-                type
-                createdAt
-                updatedAt
+    // Asegurarse de que el ID tenga el formato correcto
+    const formattedId = ownerId.includes("gid://shopify/") ? ownerId : `gid://shopify/${ownerType}/${ownerId}`
+
+    // Construir la consulta GraphQL según el tipo de propietario
+    let query = ""
+
+    if (ownerType === "COLLECTION") {
+      query = gql`
+        query GetCollectionMetafields($id: ID!, $namespace: String) {
+          collection(id: $id) {
+            metafields(first: 100, namespace: $namespace) {
+              edges {
+                node {
+                  id
+                  namespace
+                  key
+                  value
+                  type
+                  createdAt
+                  updatedAt
+                }
               }
             }
           }
         }
-      }
-    `
+      `
+    } else if (ownerType === "PRODUCT") {
+      query = gql`
+        query GetProductMetafields($id: ID!, $namespace: String) {
+          product(id: $id) {
+            metafields(first: 100, namespace: $namespace) {
+              edges {
+                node {
+                  id
+                  namespace
+                  key
+                  value
+                  type
+                  createdAt
+                  updatedAt
+                }
+              }
+            }
+          }
+        }
+      `
+    } else if (ownerType === "SHOP") {
+      query = gql`
+        query GetShopMetafields($namespace: String) {
+          shop {
+            metafields(first: 100, namespace: $namespace) {
+              edges {
+                node {
+                  id
+                  namespace
+                  key
+                  value
+                  type
+                  createdAt
+                  updatedAt
+                }
+              }
+            }
+          }
+        }
+      `
+    } else {
+      throw new Error(`Tipo de propietario no soportado: ${ownerType}`)
+    }
 
-    const variables = {
-      ownerId,
-      ownerType,
-      namespace,
+    // Preparar variables según el tipo de propietario
+    const variables: any = { namespace }
+    if (ownerType !== "SHOP") {
+      variables.id = formattedId
     }
 
     const data = await shopifyClient.request(query, variables)
 
-    if (!data?.owner?.metafields?.edges) {
-      console.error("No metafields data found:", data)
+    // Extraer los metafields según el tipo de propietario
+    let metafieldEdges = []
+    if (ownerType === "COLLECTION" && data.collection) {
+      metafieldEdges = data.collection.metafields.edges
+    } else if (ownerType === "PRODUCT" && data.product) {
+      metafieldEdges = data.product.metafields.edges
+    } else if (ownerType === "SHOP" && data.shop) {
+      metafieldEdges = data.shop.metafields.edges
+    } else {
+      console.warn(`No se encontraron metafields para ${ownerType} con ID ${ownerId}`)
       return []
     }
 
-    return data.owner.metafields.edges.map((edge: any) => ({
+    return metafieldEdges.map((edge: any) => ({
       id: edge.node.id,
       namespace: edge.node.namespace,
       key: edge.node.key,
@@ -199,6 +257,9 @@ export async function setMetafield(
   metafield: Partial<Metafield>,
 ): Promise<Metafield | null> {
   try {
+    // Asegurarse de que el ID tenga el formato correcto
+    const formattedId = ownerId.includes("gid://shopify/") ? ownerId : `gid://shopify/${ownerType}/${ownerId}`
+
     const mutation = gql`
       mutation SetMetafield($input: MetafieldsSetInput!) {
         metafieldsSet(metafields: $input) {
@@ -221,7 +282,7 @@ export async function setMetafield(
 
     const variables = {
       input: {
-        ownerId,
+        ownerId: formattedId,
         metafields: [
           {
             namespace: metafield.namespace,
@@ -757,21 +818,68 @@ export async function saveProductSeoSettings(productId: string, settings: SeoSet
 // Obtener configuración SEO de una colección
 export async function getCollectionSeoSettings(collectionId: string): Promise<SeoSettings | null> {
   try {
-    const metafields = await getMetafields(collectionId, "COLLECTION", "seo")
+    // Asegurarse de que el ID tenga el formato correcto
+    const formattedId = collectionId.includes("gid://shopify/Collection/")
+      ? collectionId
+      : `gid://shopify/Collection/${collectionId}`
 
-    if (!metafields.length) {
-      return null
+    // Primero intentamos obtener los metafields directamente de la colección
+    const query = gql`
+      query GetCollectionSEO($id: ID!) {
+        collection(id: $id) {
+          id
+          title
+          description
+          seo {
+            title
+            description
+          }
+          metafields(first: 10, namespace: "seo") {
+            edges {
+              node {
+                id
+                namespace
+                key
+                value
+                type
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const data = await shopifyClient.request(query, { id: formattedId })
+
+    if (!data?.collection) {
+      throw new Error("No se pudo obtener la información SEO de la colección")
     }
 
-    const seoMetafield = metafields.find((m) => m.key === "settings")
+    // Buscar el metafield de configuración SEO
+    const seoMetafield = data.collection.metafields?.edges?.find((edge: any) => edge.node.key === "settings")
 
-    if (!seoMetafield) {
-      return null
+    // Si existe el metafield, devolver su valor
+    if (seoMetafield) {
+      return JSON.parse(seoMetafield.node.value)
     }
 
-    return JSON.parse(seoMetafield.value)
+    // Si no existe, crear un objeto con los valores por defecto
+    return {
+      title: data.collection.seo?.title || data.collection.title,
+      description: data.collection.seo?.description || data.collection.description,
+      keywords: [],
+      ogTitle: "",
+      ogDescription: "",
+      ogImage: "",
+      twitterCard: "summary_large_image",
+      twitterTitle: "",
+      twitterDescription: "",
+      twitterImage: "",
+      canonicalUrl: "",
+    }
   } catch (error) {
     console.error("Error getting collection SEO settings:", error)
+    // En caso de error, devolver un objeto con valores por defecto
     return null
   }
 }
@@ -779,14 +887,82 @@ export async function getCollectionSeoSettings(collectionId: string): Promise<Se
 // Guardar configuración SEO de una colección
 export async function saveCollectionSeoSettings(collectionId: string, settings: SeoSettings): Promise<boolean> {
   try {
-    const result = await setMetafield(collectionId, "COLLECTION", {
-      namespace: "seo",
-      key: "settings",
-      value: JSON.stringify(settings),
-      type: "json",
-    })
+    // Asegurarse de que el ID tenga el formato correcto
+    const formattedId = collectionId.includes("gid://shopify/Collection/")
+      ? collectionId
+      : `gid://shopify/Collection/${collectionId}`
 
-    return !!result
+    // Primero actualizamos los campos SEO básicos de la colección
+    const updateMutation = gql`
+      mutation UpdateCollectionSEO($input: CollectionInput!) {
+        collectionUpdate(input: $input) {
+          collection {
+            id
+            seo {
+              title
+              description
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const updateVariables = {
+      input: {
+        id: formattedId,
+        seo: {
+          title: settings.title,
+          description: settings.description,
+        },
+      },
+    }
+
+    const updateData = await shopifyClient.request(updateMutation, updateVariables)
+
+    if (updateData.collectionUpdate.userErrors?.length > 0) {
+      throw new Error(updateData.collectionUpdate.userErrors[0].message)
+    }
+
+    // Luego guardamos la configuración completa como metafield
+    const metafieldMutation = gql`
+      mutation SetCollectionMetafield($input: MetafieldsSetInput!) {
+        metafieldsSet(metafields: $input) {
+          metafields {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const metafieldVariables = {
+      input: {
+        ownerId: formattedId,
+        metafields: [
+          {
+            namespace: "seo",
+            key: "settings",
+            value: JSON.stringify(settings),
+            type: "json",
+          },
+        ],
+      },
+    }
+
+    const metafieldData = await shopifyClient.request(metafieldMutation, metafieldVariables)
+
+    if (metafieldData.metafieldsSet.userErrors?.length > 0) {
+      throw new Error(metafieldData.metafieldsSet.userErrors[0].message)
+    }
+
+    return true
   } catch (error) {
     console.error("Error saving collection SEO settings:", error)
     return false

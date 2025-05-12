@@ -204,6 +204,11 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
     )
   }
 
+  // Asegurarse de que collection.products sea un array
+  const collectionProducts = Array.isArray(collection.products)
+    ? collection.products
+    : collection.products?.edges?.map((edge: any) => edge.node) || []
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -326,14 +331,14 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
               </Button>
             </CardHeader>
             <CardContent>
-              {collection.products?.length > 0 ? (
+              {collectionProducts.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {collection.products.map((product: any) => (
+                  {collectionProducts.map((product: any) => (
                     <div key={product.id} className="border rounded-md overflow-hidden">
                       <div className="aspect-square relative">
-                        {product.image ? (
+                        {product.image || product.featuredImage ? (
                           <Image
-                            src={product.image.url || "/placeholder.svg"}
+                            src={(product.image || product.featuredImage)?.url || "/placeholder.svg"}
                             alt={product.title}
                             fill
                             className="object-cover"
@@ -355,7 +360,7 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
                             {product.status === "ACTIVE" ? "Visible" : "Oculto"}
                           </span>
                           <Button variant="ghost" size="sm" asChild className="ml-auto">
-                            <a href={`/dashboard/products/${product.id}`}>Ver</a>
+                            <a href={`/dashboard/products/${product.id.split("/").pop()}`}>Ver</a>
                           </Button>
                         </div>
                       </div>
