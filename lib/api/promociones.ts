@@ -245,4 +245,38 @@ export async function crearPromocion(datos: any): Promise<any> {
   }
 }
 
-export default { fetchPromotions, fetchPriceListById, deletePriceList, crearPromocion }
+async function actualizarPromocion(id: string, datos: any): Promise<any> {
+  try {
+    // Implementar la lógica para actualizar una promoción existente
+    // Esto dependerá de cómo se estructure la API de Shopify para la actualización de promociones
+    console.log(`Actualizando promoción con ID ${id} con los datos:`, datos)
+    return { id, ...datos } // Simulación de la respuesta de la API
+  } catch (error) {
+    console.error(`Error al actualizar la promoción con ID ${id}:`, error)
+    throw new Error(`Error al actualizar la promoción: ${error.message}`)
+  }
+}
+
+async function eliminarPromocion(id: string): Promise<string> {
+  try {
+    // Implementar la lógica para eliminar una promoción por ID
+    // Esto dependerá de cómo se estructure la API de Shopify para la eliminación de promociones
+    console.log(`Eliminando promoción con ID ${id}`)
+    return id // Simulación de la respuesta de la API
+  } catch (error) {
+    console.error(`Error al eliminar la promoción con ID ${id}:`, error)
+    throw new Error(`Error al eliminar la promoción: ${error.message}`)
+  }
+}
+
+async function obtenerPromocionPorId(id: string): Promise<any> {
+  try {
+    console.log(`Obteniendo promoción con ID ${id}`)
+    return { id } // Simulación de la respuesta de la API
+  } catch (error) {
+    console.error(`Error al obtener la promoción con ID ${id}:`, error)
+    throw new Error(`Error al obtener la promoción: ${error.message}`)
+  }
+}
+
+export { obtenerPromocionPorId, actualizarPromocion, eliminarPromocion }

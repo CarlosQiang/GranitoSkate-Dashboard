@@ -10,9 +10,11 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { obtenerPromociones } from "@/lib/api/promociones"
+import { useToast } from "@/hooks/use-toast"
 
 export default function PromocionesPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [promociones, setPromociones] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -27,6 +29,11 @@ export default function PromocionesPage() {
     } catch (err) {
       console.error("Error al cargar promociones:", err)
       setError(`Error al cargar promociones: ${(err as Error).message}`)
+      toast({
+        variant: "destructive",
+        title: "Error al cargar promociones",
+        description: (err as Error).message,
+      })
     } finally {
       setIsLoading(false)
     }
@@ -79,15 +86,29 @@ export default function PromocionesPage() {
         })
 
         if (response.ok) {
+          toast({
+            title: "Promoción eliminada",
+            description: "La promoción ha sido eliminada correctamente",
+          })
           // Recargar promociones después de eliminar
           cargarPromociones()
         } else {
           const errorData = await response.json()
           setError(`Error al eliminar promoción: ${errorData.error || response.statusText}`)
+          toast({
+            variant: "destructive",
+            title: "Error al eliminar promoción",
+            description: errorData.error || response.statusText,
+          })
         }
       } catch (err) {
         console.error("Error al eliminar promoción:", err)
         setError(`Error al eliminar promoción: ${(err as Error).message}`)
+        toast({
+          variant: "destructive",
+          title: "Error al eliminar promoción",
+          description: (err as Error).message,
+        })
       }
     }
   }
