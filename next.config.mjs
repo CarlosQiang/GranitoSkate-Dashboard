@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  swcMinify: true,
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -8,43 +9,41 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    domains: ['cdn.shopify.com', 'burst.shopifycdn.com'],
+    domains: ['cdn.shopify.com', 'res.cloudinary.com'],
     unoptimized: true,
   },
   async headers() {
     return [
       {
-        source: '/site.webmanifest',
+        source: '/(.*)',
         headers: [
           {
-            key: 'Content-Type',
-            value: 'application/manifest+json',
-          },
-          {
-            key: 'Access-Control-Allow-Origin',
-            value: '*',
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
           },
         ],
       },
       {
-        source: '/:path*',
+        // Asegurar que los archivos estáticos sean accesibles sin autenticación
+        source: '/(favicon.ico|site.webmanifest|android-chrome-192x192.png|android-chrome-512x512.png|apple-touch-icon.png|favicon-16x16.png|favicon-32x32.png)',
         headers: [
           {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY',
-          },
-          {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block',
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
           },
         ],
       },
-    ];
+    ]
   },
-};
+  // Asegurar que los archivos estáticos sean accesibles sin autenticación
+  async rewrites() {
+    return [
+      {
+        source: '/(favicon.ico|site.webmanifest|android-chrome-192x192.png|android-chrome-512x512.png|apple-touch-icon.png|favicon-16x16.png|favicon-32x32.png)',
+        destination: '/$1',
+      },
+    ]
+  },
+}
 
-export default nextConfig;
+export default nextConfig

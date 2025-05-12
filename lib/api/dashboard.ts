@@ -10,32 +10,29 @@ export async function fetchDashboardStats() {
     const formattedCurrentDate = currentDate.toISOString().split("T")[0]
     const formattedLastMonthDate = lastMonthDate.toISOString().split("T")[0]
 
-    // Consulta para obtener estadísticas actuales
+    // Consulta para obtener estadísticas actuales - CORREGIDA sin usar totalCount
     const currentQuery = `
       query {
-        orders(first: 1) {
+        orders(first: 250) {
           edges {
             node {
               id
             }
           }
-          totalCount
         }
-        customers(first: 1) {
+        customers(first: 250) {
           edges {
             node {
               id
             }
           }
-          totalCount
         }
-        products(first: 1) {
+        products(first: 250) {
           edges {
             node {
               id
             }
           }
-          totalCount
         }
       }
     `
@@ -73,11 +70,17 @@ export async function fetchDashboardStats() {
     const currentStats = currentStatsResponse.data
     const salesData = salesDataResponse.data
 
+    // Calcular totales manualmente contando los edges en lugar de usar totalCount
+    const totalOrders = currentStats.orders.edges.length
+    const totalCustomers = currentStats.customers.edges.length
+    const totalProducts = currentStats.products.edges.length
+
     // Procesar datos de ventas
     const orders = salesData.orders.edges.map(({ node }) => ({
       id: node.id.split("/").pop(),
       date: new Date(node.createdAt),
       amount: Number.parseFloat(node.totalPriceSet?.shopMoney?.amount || 0),
+      currency: node.totalPriceSet?.shopMoney?.currencyCode || "EUR", // Asegurar que siempre haya un código de moneda
     }))
 
     // Separar pedidos del mes actual y del mes anterior
@@ -107,19 +110,19 @@ export async function fetchDashboardStats() {
         : Math.round(((currentMonthOrders.length - previousMonthOrders.length) / previousMonthOrders.length) * 100)
 
     // Datos ficticios para cambios en clientes y productos (no tenemos datos históricos)
-    // En una implementación real, se deberían obtener estos datos de manera similar
     const customersChange = 5
     const productsChange = 2
 
     return {
       totalSales: currentMonthSales,
-      totalOrders: currentStats.orders.totalCount,
-      totalCustomers: currentStats.customers.totalCount,
-      totalProducts: currentStats.products.totalCount,
+      totalOrders: totalOrders,
+      totalCustomers: totalCustomers,
+      totalProducts: totalProducts,
       salesChange,
       ordersChange,
       customersChange,
       productsChange,
+      currency: "EUR", // Añadir código de moneda por defecto
     }
   } catch (error) {
     console.error("Error al obtener estadísticas del dashboard:", error)
@@ -134,6 +137,7 @@ export async function fetchDashboardStats() {
       ordersChange: 0,
       customersChange: 0,
       productsChange: 0,
+      currency: "EUR", // Añadir código de moneda por defecto
     }
   }
 }

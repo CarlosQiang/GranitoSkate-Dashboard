@@ -31,10 +31,17 @@ export function DashboardStats() {
   }, [])
 
   const formatCurrency = (value: number, currency = "EUR") => {
-    return new Intl.NumberFormat("es-ES", {
-      style: "currency",
-      currency,
-    }).format(value)
+    try {
+      // Asegurarse de que siempre haya un código de moneda válido
+      const currencyCode = currency || "EUR"
+      return new Intl.NumberFormat("es-ES", {
+        style: "currency",
+        currency: currencyCode,
+      }).format(value)
+    } catch (error) {
+      console.error("Error al formatear moneda:", error)
+      return `${value.toFixed(2)} €`
+    }
   }
 
   return (
@@ -72,7 +79,7 @@ export function DashboardStats() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(stats.totalSales)}</div>
+              <div className="text-2xl font-bold">{formatCurrency(stats.totalSales, stats.currency)}</div>
               <p className="text-xs text-muted-foreground">
                 {stats.salesChange >= 0 ? "+" : ""}
                 {stats.salesChange}% desde el mes pasado
