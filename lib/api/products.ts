@@ -329,3 +329,22 @@ export async function deleteProduct(id) {
     throw new Error(`Error al eliminar el producto: ${error.message}`)
   }
 }
+
+// Función para obtener productos recientes
+export async function fetchRecentProducts(limit = 5) {
+  try {
+    const products = await fetchProducts({ limit, sortKey: "CREATED_AT", reverse: true })
+    return products.slice(0, limit)
+  } catch (error) {
+    console.error("Error fetching recent products:", error)
+    return []
+  }
+}
+
+// Alias para compatibilidad
+export const getProductById = fetchProductById
+
+async function crearProducto() {
+  throw new Error("Function not implemented.")
+}
+export const createProduct = crearProducto

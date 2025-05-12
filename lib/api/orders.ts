@@ -390,3 +390,25 @@ export async function updateOrder(id, data) {
     throw new Error(`Error al actualizar el pedido: ${error.message}`)
   }
 }
+
+// Función para obtener pedidos recientes
+export async function fetchRecentOrders(limit = 5) {
+  try {
+    const orders = await fetchOrders({ limit, sortKey: "PROCESSED_AT", reverse: true })
+    return orders.slice(0, limit)
+  } catch (error) {
+    console.error("Error fetching recent orders:", error)
+    return []
+  }
+}
+
+// Función para obtener etiquetas de pedidos
+export async function fetchOrderTags() {
+  try {
+    // Esta es una implementación simplificada
+    return ["Pagado", "Pendiente", "Enviado", "Cancelado", "Reembolsado"]
+  } catch (error) {
+    console.error("Error fetching order tags:", error)
+    return []
+  }
+}
