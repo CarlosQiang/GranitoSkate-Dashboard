@@ -1,19 +1,27 @@
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 
-export async function fetchCollections(limit = 20) {
+// Función para obtener todas las colecciones
+export async function fetchCollections(limit = 50, cursor = null) {
   try {
     const query = gql`
-      query GetCollections($limit: Int!) {
-        collections(first: $limit) {
+      query GetCollections($limit: Int!, $cursor: String) {
+        collections(first: $limit, after: $cursor) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
           edges {
             node {
               id
               title
               handle
+              description
               descriptionHtml
+              updatedAt
               productsCount
               image {
+                id
                 url
                 altText
               }
@@ -23,42 +31,34 @@ export async function fetchCollections(limit = 20) {
       }
     `
 
-    const data = await shopifyClient.request(query, { limit })
+    const variables = {
+      limit,
+      cursor,
+    }
 
-    // Transformar los datos para un formato más fácil de usar
-    const collections = data.collections.edges.map((edge) => {
-      const node = edge.node
-      return {
-        id: node.id.split("/").pop(), // Extraer el ID numérico
-        title: node.title,
-        handle: node.handle,
-        descriptionHtml: node.descriptionHtml,
-        productsCount: node.productsCount,
-        image: node.image?.url || null,
-      }
-    })
-
-    return collections
+    const data = await shopifyClient.request(query, variables)
+    return data.collections
   } catch (error) {
-    console.error("Error al cargar colecciones:", error)
+    console.error("Error fetching collections:", error)
     throw new Error(`Error al cargar colecciones: ${error.message}`)
   }
 }
 
+// Función para obtener una colección por ID
 export async function fetchCollectionById(id) {
   try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const formattedId = id.includes("gid://shopify/Collection/") ? id : `gid://shopify/Collection/${id}`
-
     const query = gql`
       query GetCollection($id: ID!) {
         collection(id: $id) {
           id
           title
           handle
+          description
           descriptionHtml
+          updatedAt
           productsCount
           image {
+            id
             url
             altText
           }
@@ -68,18 +68,32 @@ export async function fetchCollectionById(id) {
                 id
                 title
                 handle
-                featuredImage {
-                  url
-                  altText
+                priceRangeV2 {
+                  minVariantPrice {
+                    amount
+                    currencyCode
+                  }
                 }
-                variants(first: 1) {
+                images(first: 1) {
                   edges {
                     node {
-                      price
-                      compareAtPrice
+                      id
+                      url
+                      altText
                     }
                   }
                 }
+              }
+            }
+          }
+          metafields(first: 20) {
+            edges {
+              node {
+                id
+                namespace
+                key
+                value
+                type
               }
             }
           }
@@ -87,51 +101,62 @@ export async function fetchCollectionById(id) {
       }
     `
 
-    const data = await shopifyClient.request(query, { id: formattedId })
-
-    if (!data.collection) {
-      throw new Error(`No se encontró la colección con ID: ${id}`)
+    const variables = {
+      id,
     }
 
-    // Transformar los datos para un formato más fácil de usar
-    const collection = data.collection
-    const products = collection.products.edges.map((edge) => {
-      const node = edge.node
-      const variant = node.variants.edges[0]?.node || {}
-      return {
-        id: node.id.split("/").pop(),
-        title: node.title,
-        handle: node.handle,
-        image: node.featuredImage?.url || null,
-        price: variant.price || "0.00",
-        compareAtPrice: variant.compareAtPrice || null,
-      }
-    })
-
-    return {
-      id: collection.id.split("/").pop(),
-      title: collection.title,
-      handle: collection.handle,
-      descriptionHtml: collection.descriptionHtml,
-      productsCount: collection.productsCount,
-      image: collection.image?.url || null,
-      products,
-    }
+    const data = await shopifyClient.request(query, variables)
+    return data.collection
   } catch (error) {
-    console.error(`Error al cargar la colección ${id}:`, error)
+    console.error(`Error fetching collection with ID ${id}:`, error)
     throw new Error(`Error al cargar la colección: ${error.message}`)
   }
 }
 
+// Función para crear una nueva colección
 export async function createCollection(collectionData) {
   try {
     const mutation = gql`
-      mutation CreateCollection($input: CollectionInput!) {
+      mutation collectionCreate($input: CollectionInput!) {
         collectionCreate(input: $input) {
           collection {
             id
             title
-            handle
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const variables = {
+      input: collectionData,
+    }
+
+    const data = await shopifyClient.request(mutation, variables)
+
+    if (data.collectionCreate.userErrors.length > 0) {
+      throw new Error(data.collectionCreate.userErrors[0].message)
+    }
+
+    return data.collectionCreate.collection
+  } catch (error) {
+    console.error("Error creating collection:", error)
+    throw new Error(`Error al crear la colección: ${error.message}`)
+  }
+}
+
+// Función para actualizar una colección existente
+export async function updateCollection(id, collectionData) {
+  try {
+    const mutation = gql`
+      mutation collectionUpdate($input: CollectionInput!) {
+        collectionUpdate(input: $input) {
+          collection {
+            id
+            title
           }
           userErrors {
             field
@@ -143,87 +168,29 @@ export async function createCollection(collectionData) {
 
     const variables = {
       input: {
-        title: collectionData.title,
-        descriptionHtml: collectionData.description || "",
-        image: collectionData.image ? { src: collectionData.image } : null,
+        id,
+        ...collectionData,
       },
     }
 
     const data = await shopifyClient.request(mutation, variables)
 
-    if (data.collectionCreate.userErrors && data.collectionCreate.userErrors.length > 0) {
-      throw new Error(data.collectionCreate.userErrors[0].message)
-    }
-
-    return {
-      id: data.collectionCreate.collection.id.split("/").pop(),
-      title: data.collectionCreate.collection.title,
-      handle: data.collectionCreate.collection.handle,
-    }
-  } catch (error) {
-    console.error("Error al crear la colección:", error)
-    throw new Error(`Error al crear la colección: ${error.message}`)
-  }
-}
-
-export async function updateCollection(id, collectionData) {
-  try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const formattedId = id.includes("gid://shopify/Collection/") ? id : `gid://shopify/Collection/${id}`
-
-    const mutation = gql`
-      mutation UpdateCollection($input: CollectionInput!) {
-        collectionUpdate(input: $input) {
-          collection {
-            id
-            title
-            handle
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const input = {
-      id: formattedId,
-      title: collectionData.title,
-      descriptionHtml: collectionData.descriptionHtml || "",
-    }
-
-    // Añadir imagen solo si se proporciona
-    if (collectionData.image) {
-      input.image = { src: collectionData.image }
-    }
-
-    const variables = { input }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.collectionUpdate.userErrors && data.collectionUpdate.userErrors.length > 0) {
+    if (data.collectionUpdate.userErrors.length > 0) {
       throw new Error(data.collectionUpdate.userErrors[0].message)
     }
 
-    return {
-      id: data.collectionUpdate.collection.id.split("/").pop(),
-      title: data.collectionUpdate.collection.title,
-      handle: data.collectionUpdate.collection.handle,
-    }
+    return data.collectionUpdate.collection
   } catch (error) {
-    console.error(`Error al actualizar la colección ${id}:`, error)
+    console.error(`Error updating collection with ID ${id}:`, error)
     throw new Error(`Error al actualizar la colección: ${error.message}`)
   }
 }
 
+// Función para eliminar una colección
 export async function deleteCollection(id) {
   try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const formattedId = id.includes("gid://shopify/Collection/") ? id : `gid://shopify/Collection/${id}`
-
     const mutation = gql`
-      mutation DeleteCollection($input: CollectionDeleteInput!) {
+      mutation collectionDelete($input: CollectionDeleteInput!) {
         collectionDelete(input: $input) {
           deletedCollectionId
           userErrors {
@@ -236,50 +203,61 @@ export async function deleteCollection(id) {
 
     const variables = {
       input: {
-        id: formattedId,
+        id,
       },
     }
 
     const data = await shopifyClient.request(mutation, variables)
 
-    if (data.collectionDelete.userErrors && data.collectionDelete.userErrors.length > 0) {
+    if (data.collectionDelete.userErrors.length > 0) {
       throw new Error(data.collectionDelete.userErrors[0].message)
     }
 
-    return {
-      id: data.collectionDelete.deletedCollectionId,
-    }
+    return data.collectionDelete.deletedCollectionId
   } catch (error) {
-    console.error(`Error al eliminar la colección ${id}:`, error)
+    console.error(`Error deleting collection with ID ${id}:`, error)
     throw new Error(`Error al eliminar la colección: ${error.message}`)
   }
 }
 
-export async function getProductsInCollection(collectionId, limit = 20) {
+// Función para obtener los productos de una colección
+export async function fetchCollectionProducts(collectionId, limit = 50, cursor = null) {
   try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const formattedId = collectionId.includes("gid://shopify/Collection/")
-      ? collectionId
-      : `gid://shopify/Collection/${collectionId}`
-
     const query = gql`
-      query GetProductsInCollection($collectionId: ID!, $limit: Int!) {
+      query GetCollectionProducts($collectionId: ID!, $limit: Int!, $cursor: String) {
         collection(id: $collectionId) {
-          products(first: $limit) {
+          products(first: $limit, after: $cursor) {
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
             edges {
               node {
                 id
                 title
                 handle
-                featuredImage {
-                  url
-                  altText
+                priceRangeV2 {
+                  minVariantPrice {
+                    amount
+                    currencyCode
+                  }
+                }
+                images(first: 1) {
+                  edges {
+                    node {
+                      id
+                      url
+                      altText
+                    }
+                  }
                 }
                 variants(first: 1) {
                   edges {
                     node {
+                      id
                       price
                       compareAtPrice
+                      inventoryQuantity
                     }
                   }
                 }
@@ -290,78 +268,108 @@ export async function getProductsInCollection(collectionId, limit = 20) {
       }
     `
 
-    const data = await shopifyClient.request(query, { collectionId: formattedId, limit })
-
-    if (!data.collection) {
-      throw new Error(`No se encontró la colección con ID: ${collectionId}`)
+    const variables = {
+      collectionId,
+      limit,
+      cursor,
     }
 
-    // Transformar los datos para un formato más fácil de usar
-    const products = data.collection.products.edges.map((edge) => {
-      const node = edge.node
-      const variant = node.variants.edges[0]?.node || {}
-      return {
-        id: node.id.split("/").pop(),
-        title: node.title,
-        handle: node.handle,
-        image: node.featuredImage?.url || null,
-        price: variant.price || "0.00",
-        compareAtPrice: variant.compareAtPrice || null,
-      }
-    })
-
-    return products
+    const data = await shopifyClient.request(query, variables)
+    return data.collection.products
   } catch (error) {
-    console.error(`Error al cargar productos de la colección ${collectionId}:`, error)
-    throw new Error(`Error al cargar productos de la colección: ${error.message}`)
+    console.error(`Error fetching products for collection with ID ${collectionId}:`, error)
+    throw new Error(`Error al cargar los productos de la colección: ${error.message}`)
   }
 }
 
-export async function getCollectionsForProduct(productId, limit = 20) {
+// Función para añadir productos a una colección
+export async function addProductsToCollection(collectionId, productIds) {
   try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const formattedId = productId.includes("gid://shopify/Product/") ? productId : `gid://shopify/Product/${productId}`
+    // Asegurarse de que los IDs tengan el formato correcto
+    const formattedCollectionId = collectionId.includes("gid://shopify/Collection/")
+      ? collectionId
+      : `gid://shopify/Collection/${collectionId}`
 
-    const query = gql`
-      query GetCollectionsForProduct($productId: ID!, $limit: Int!) {
-        product(id: $productId) {
-          collections(first: $limit) {
-            edges {
-              node {
-                id
-                title
-                handle
-                image {
-                  url
-                  altText
-                }
-              }
-            }
+    const formattedProductIds = productIds.map((id) =>
+      id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`,
+    )
+
+    const mutation = gql`
+      mutation collectionAddProducts($id: ID!, $productIds: [ID!]!) {
+        collectionAddProducts(id: $id, productIds: $productIds) {
+          collection {
+            id
+            title
+            productsCount
+          }
+          userErrors {
+            field
+            message
           }
         }
       }
     `
 
-    const data = await shopifyClient.request(query, { productId: formattedId, limit })
-
-    if (!data.product) {
-      throw new Error(`No se encontró el producto con ID: ${productId}`)
+    const variables = {
+      id: formattedCollectionId,
+      productIds: formattedProductIds,
     }
 
-    // Transformar los datos para un formato más fácil de usar
-    const collections = data.product.collections.edges.map((edge) => {
-      const node = edge.node
-      return {
-        id: node.id.split("/").pop(),
-        title: node.title,
-        handle: node.handle,
-        image: node.image?.url || null,
-      }
-    })
+    const data = await shopifyClient.request(mutation, variables)
 
-    return collections
+    if (data.collectionAddProducts.userErrors.length > 0) {
+      throw new Error(data.collectionAddProducts.userErrors[0].message)
+    }
+
+    return data.collectionAddProducts.collection
   } catch (error) {
-    console.error(`Error al cargar colecciones del producto ${productId}:`, error)
-    throw new Error(`Error al cargar colecciones del producto: ${error.message}`)
+    console.error(`Error adding products to collection with ID ${collectionId}:`, error)
+    throw new Error(`Error al añadir productos a la colección: ${error.message}`)
+  }
+}
+
+// Función para eliminar productos de una colección
+export async function removeProductsFromCollection(collectionId, productIds) {
+  try {
+    // Asegurarse de que los IDs tengan el formato correcto
+    const formattedCollectionId = collectionId.includes("gid://shopify/Collection/")
+      ? collectionId
+      : `gid://shopify/Collection/${collectionId}`
+
+    const formattedProductIds = productIds.map((id) =>
+      id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`,
+    )
+
+    const mutation = gql`
+      mutation collectionRemoveProducts($id: ID!, $productIds: [ID!]!) {
+        collectionRemoveProducts(id: $id, productIds: $productIds) {
+          collection {
+            id
+            title
+            productsCount
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const variables = {
+      id: formattedCollectionId,
+      productIds: formattedProductIds,
+    }
+
+    const data = await shopifyClient.request(mutation, variables)
+
+    if (data.collectionRemoveProducts.userErrors.length > 0) {
+      throw new Error(data.collectionRemoveProducts.userErrors[0].message)
+    }
+
+    return data.collectionRemoveProducts.collection
+  } catch (error) {
+    console.error(`Error removing products from collection with ID ${collectionId}:`, error)
+    throw new Error(`Error al eliminar productos de la colección: ${error.message}`)
   }
 }

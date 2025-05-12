@@ -1,26 +1,44 @@
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
-import type { MarketData } from "@/types/markets"
+import type { Market, MarketRegion, WebPresence } from "@/types/markets"
 
-// Función para obtener los mercados disponibles
-export async function fetchMarkets() {
+// Obtener todos los mercados configurados
+export async function fetchMarkets(): Promise<Market[]> {
   try {
     const query = gql`
       query {
-        markets(first: 50) {
+        markets {
           edges {
             node {
               id
               name
               enabled
               primary
-              web {
-                domain {
-                  url
+              currency {
+                code
+                symbol
+              }
+              webPresence {
+                domain
+                subfolderSuffix
+              }
+              regions {
+                edges {
+                  node {
+                    id
+                    name
+                    countryCode
+                    subregions {
+                      code
+                      name
+                    }
+                  }
                 }
-                rootDirectory
-                defaultLocale
-                alternateLocales
+              }
+              languages {
+                locale
+                primary
+                name
               }
             }
           }
@@ -29,177 +47,97 @@ export async function fetchMarkets() {
     `
 
     const data = await shopifyClient.request(query)
-    return data.markets.edges.map((edge) => edge.node)
+
+    // Transformar la respuesta de Shopify al formato que esperamos
+    return data.markets.edges.map((edge: any) => {
+      const node = edge.node
+      return {
+        id: node.id,
+        name: node.name,
+        enabled: node.enabled,
+        primary: node.primary,
+        web: {
+          domain: node.webPresence?.domain || null,
+          subfolderSuffix: node.webPresence?.subfolderSuffix || null,
+        },
+        currency: {
+          code: node.currency.code,
+          symbol: node.currency.symbol,
+        },
+        regions: node.regions.edges.map((regionEdge: any) => {
+          const regionNode = regionEdge.node
+          return {
+            id: regionNode.id,
+            name: regionNode.name,
+            countryCode: regionNode.countryCode,
+            subregions: regionNode.subregions || [],
+          }
+        }),
+        languages: node.languages.map((lang: any) => ({
+          code: lang.locale,
+          name: lang.name,
+          primary: lang.primary,
+        })),
+      }
+    })
   } catch (error) {
     console.error("Error fetching markets:", error)
-    throw new Error(`Error al cargar mercados: ${error.message}`)
+    return []
   }
 }
 
-// Función para obtener un mercado por ID
-export async function fetchMarketById(id: string) {
-  try {
-    const query = gql`
-      query GetMarket($id: ID!) {
-        market(id: $id) {
-          id
-          name
-          enabled
-          primary
-          web {
-            domain {
-              url
-            }
-            rootDirectory
-            defaultLocale
-            alternateLocales
-          }
-        }
-      }
-    `
-
-    const variables = {
-      id,
-    }
-
-    const data = await shopifyClient.request(query, variables)
-    return data.market
-  } catch (error) {
-    console.error(`Error fetching market with ID ${id}:`, error)
-    throw new Error(`Error al cargar el mercado: ${error.message}`)
-  }
-}
-
-// Función para crear un nuevo mercado
-export async function createMarket(marketData: MarketData) {
-  try {
-    const mutation = gql`
-      mutation marketCreate($input: MarketCreateInput!) {
-        marketCreate(input: $input) {
-          market {
-            id
-            name
-            enabled
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const variables = {
-      input: marketData,
-    }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.marketCreate.userErrors.length > 0) {
-      throw new Error(data.marketCreate.userErrors[0].message)
-    }
-
-    return data.marketCreate.market
-  } catch (error) {
-    console.error("Error creating market:", error)
-    throw new Error(`Error al crear el mercado: ${error.message}`)
-  }
-}
-
-// Función para actualizar un mercado existente
-export async function updateMarket(id: string, marketData: Partial<MarketData>) {
-  try {
-    const mutation = gql`
-      mutation marketUpdate($id: ID!, $input: MarketUpdateInput!) {
-        marketUpdate(id: $id, input: $input) {
-          market {
-            id
-            name
-            enabled
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const variables = {
-      id,
-      input: marketData,
-    }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.marketUpdate.userErrors.length > 0) {
-      throw new Error(data.marketUpdate.userErrors[0].message)
-    }
-
-    return data.marketUpdate.market
-  } catch (error) {
-    console.error(`Error updating market with ID ${id}:`, error)
-    throw new Error(`Error al actualizar el mercado: ${error.message}`)
-  }
-}
-
-// Función para eliminar un mercado
-export async function deleteMarket(id: string) {
-  try {
-    const mutation = gql`
-      mutation marketDelete($id: ID!) {
-        marketDelete(id: $id) {
-          deletedId
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const variables = {
-      id,
-    }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.marketDelete.userErrors.length > 0) {
-      throw new Error(data.marketDelete.userErrors[0].message)
-    }
-
-    return data.marketDelete.deletedId
-  } catch (error) {
-    console.error(`Error deleting market with ID ${id}:`, error)
-    throw new Error(`Error al eliminar el mercado: ${error.message}`)
-  }
-}
-
-// Función para obtener la presencia web
-export async function fetchWebPresence() {
+// Obtener la región de respaldo
+export async function fetchBackupRegion(): Promise<MarketRegion | null> {
   try {
     const query = gql`
       query {
         shop {
           id
-          name
-          myshopifyDomain
-          primaryDomain {
-            url
-            host
+          billingAddress {
+            country
+            countryCodeV2
           }
-          domains {
-            id
-            url
-            sslEnabled
-            localization {
-              country {
-                code
-                name
-              }
-              language {
-                code
-                name
+        }
+      }
+    `
+
+    const data = await shopifyClient.request(query)
+
+    if (!data.shop || !data.shop.billingAddress) return null
+
+    // Crear una región de respaldo basada en la dirección de facturación de la tienda
+    return {
+      id: "backup_region",
+      name: data.shop.billingAddress.country || "Default Region",
+      countryCode: data.shop.billingAddress.countryCodeV2 || "ES",
+      subregions: [],
+    }
+  } catch (error) {
+    console.error("Error fetching backup region:", error)
+    // Devolver una región de respaldo predeterminada en caso de error
+    return {
+      id: "backup_region",
+      name: "Default Region",
+      countryCode: "ES",
+      subregions: [],
+    }
+  }
+}
+
+// Obtener información de presencia web (para SEO)
+export async function fetchWebPresence(): Promise<WebPresence | null> {
+  try {
+    const query = gql`
+      query {
+        shop {
+          id
+          url
+          name
+          metafields(first: 20, namespace: "seo") {
+            edges {
+              node {
+                key
+                value
               }
             }
           }
@@ -208,23 +146,173 @@ export async function fetchWebPresence() {
     `
 
     const data = await shopifyClient.request(query)
+
+    if (!data.shop) return null
+
+    // Extraer metafields relacionados con SEO
+    const metafields = data.shop.metafields.edges.reduce((acc: any, edge: any) => {
+      acc[edge.node.key] = edge.node.value
+      return acc
+    }, {})
+
+    // Valores por defecto para la presencia web
     return {
-      shop: data.shop,
-      domains: data.shop.domains,
+      id: data.shop.id,
+      url: data.shop.url,
+      seo: {
+        title: metafields.title || data.shop.name,
+        description: metafields.description || "",
+        keywords: metafields.keywords ? JSON.parse(metafields.keywords) : [],
+      },
+      socialMedia: {
+        facebook: metafields.facebook || "",
+        instagram: metafields.instagram || "",
+        twitter: metafields.twitter || "",
+        youtube: metafields.youtube || "",
+        pinterest: metafields.pinterest || "",
+      },
+      localBusiness: {
+        name: data.shop.name,
+        address: {
+          streetAddress: metafields.streetAddress || "",
+          addressLocality: metafields.addressLocality || "",
+          addressRegion: metafields.addressRegion || "",
+          postalCode: metafields.postalCode || "",
+          addressCountry: metafields.addressCountry || "",
+        },
+        telephone: metafields.telephone || "",
+        email: metafields.email || "",
+        openingHours: metafields.openingHours ? JSON.parse(metafields.openingHours) : [],
+        geo: {
+          latitude: metafields.latitude ? Number.parseFloat(metafields.latitude) : 0,
+          longitude: metafields.longitude ? Number.parseFloat(metafields.longitude) : 0,
+        },
+      },
     }
   } catch (error) {
     console.error("Error fetching web presence:", error)
-    throw new Error(`Error al cargar la presencia web: ${error.message}`)
+    return null
   }
 }
 
-// Función para guardar la configuración de SEO
-export async function saveSeoSettings(settings: any) {
+// Guardar configuración de SEO
+export async function saveSeoSettings(settings: Partial<WebPresence>): Promise<boolean> {
   try {
-    // Implementar la lógica para guardar la configuración de SEO
-    // Esto podría implicar actualizar metafields o usar una API específica
+    // Convertir la configuración a metafields
+    const metafields = [
+      {
+        namespace: "seo",
+        key: "title",
+        value: settings.seo?.title || "",
+        type: "single_line_text_field",
+      },
+      {
+        namespace: "seo",
+        key: "description",
+        value: settings.seo?.description || "",
+        type: "multi_line_text_field",
+      },
+      {
+        namespace: "seo",
+        key: "keywords",
+        value: JSON.stringify(settings.seo?.keywords || []),
+        type: "json",
+      },
+      // Social media
+      {
+        namespace: "seo",
+        key: "facebook",
+        value: settings.socialMedia?.facebook || "",
+        type: "url",
+      },
+      {
+        namespace: "seo",
+        key: "instagram",
+        value: settings.socialMedia?.instagram || "",
+        type: "url",
+      },
+      {
+        namespace: "seo",
+        key: "twitter",
+        value: settings.socialMedia?.twitter || "",
+        type: "url",
+      },
+      {
+        namespace: "seo",
+        key: "youtube",
+        value: settings.socialMedia?.youtube || "",
+        type: "url",
+      },
+      {
+        namespace: "seo",
+        key: "pinterest",
+        value: settings.socialMedia?.pinterest || "",
+        type: "url",
+      },
+      // Local business
+      {
+        namespace: "seo",
+        key: "streetAddress",
+        value: settings.localBusiness?.address?.streetAddress || "",
+        type: "single_line_text_field",
+      },
+      {
+        namespace: "seo",
+        key: "addressLocality",
+        value: settings.localBusiness?.address?.addressLocality || "",
+        type: "single_line_text_field",
+      },
+      {
+        namespace: "seo",
+        key: "addressRegion",
+        value: settings.localBusiness?.address?.addressRegion || "",
+        type: "single_line_text_field",
+      },
+      {
+        namespace: "seo",
+        key: "postalCode",
+        value: settings.localBusiness?.address?.postalCode || "",
+        type: "single_line_text_field",
+      },
+      {
+        namespace: "seo",
+        key: "addressCountry",
+        value: settings.localBusiness?.address?.addressCountry || "",
+        type: "single_line_text_field",
+      },
+      {
+        namespace: "seo",
+        key: "telephone",
+        value: settings.localBusiness?.telephone || "",
+        type: "single_line_text_field",
+      },
+      {
+        namespace: "seo",
+        key: "email",
+        value: settings.localBusiness?.email || "",
+        type: "email",
+      },
+      {
+        namespace: "seo",
+        key: "openingHours",
+        value: JSON.stringify(settings.localBusiness?.openingHours || []),
+        type: "json",
+      },
+      {
+        namespace: "seo",
+        key: "latitude",
+        value: settings.localBusiness?.geo?.latitude?.toString() || "0",
+        type: "single_line_text_field",
+      },
+      {
+        namespace: "seo",
+        key: "longitude",
+        value: settings.localBusiness?.geo?.longitude?.toString() || "0",
+        type: "single_line_text_field",
+      },
+    ]
 
-    // Ejemplo de actualización de metafields
+    // Crear la mutación para actualizar los metafields
     const mutation = gql`
       mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
         metafieldsSet(metafields: $metafields) {
@@ -232,7 +320,6 @@ export async function saveSeoSettings(settings: any) {
             id
             namespace
             key
-            value
           }
           userErrors {
             field
@@ -243,26 +330,22 @@ export async function saveSeoSettings(settings: any) {
     `
 
     const variables = {
-      metafields: [
-        {
-          ownerId: "gid://shopify/Shop/1",
-          namespace: "seo",
-          key: "settings",
-          value: JSON.stringify(settings),
-          type: "json",
-        },
-      ],
+      metafields: metafields.map((metafield) => ({
+        ...metafield,
+        ownerId: "gid://shopify/Shop/1", // ID genérico de la tienda
+      })),
     }
 
     const data = await shopifyClient.request(mutation, variables)
 
     if (data.metafieldsSet.userErrors.length > 0) {
-      throw new Error(data.metafieldsSet.userErrors[0].message)
+      console.error("Error saving SEO settings:", data.metafieldsSet.userErrors)
+      return false
     }
 
-    return data.metafieldsSet.metafields
+    return true
   } catch (error) {
     console.error("Error saving SEO settings:", error)
-    throw new Error(`Error al guardar la configuración de SEO: ${error.message}`)
+    return false
   }
 }

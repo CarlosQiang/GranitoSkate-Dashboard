@@ -1,5 +1,6 @@
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
+import type { Promotion } from "@/types/promotions"
 
 // Función para obtener todas las promociones
 export async function fetchPromotions() {
@@ -390,6 +391,184 @@ export async function fetchPromotionById(id) {
   } catch (error) {
     console.error(`Error fetching promotion with ID ${id}:`, error)
     throw new Error(`Error al cargar la promoción: ${error.message}`)
+  }
+}
+
+// Funciones para compatibilidad con el código existente
+export async function fetchPriceListById(id: string): Promise<Promotion> {
+  try {
+    const promotion = await fetchPromotionById(id)
+    // Convertir el formato de la API de Shopify al formato esperado por la aplicación
+    return transformPromotionData(promotion)
+  } catch (error) {
+    console.error(`Error fetching price list with ID ${id}:`, error)
+    throw new Error(`Error al cargar la lista de precios: ${error.message}`)
+  }
+}
+
+export async function createPriceList(promotionData: any): Promise<Promotion> {
+  try {
+    // Determinar el tipo de descuento y llamar a la función correspondiente
+    let result
+    if (promotionData.type === "PERCENTAGE_DISCOUNT") {
+      result = await createBasicDiscount({
+        title: promotionData.title,
+        startsAt: promotionData.startDate,
+        endsAt: promotionData.endDate,
+        code: promotionData.code,
+        customerGets: {
+          value: {
+            percentage: promotionData.value,
+          },
+          items: {
+            all: true,
+          },
+        },
+      })
+    } else if (promotionData.type === "FIXED_AMOUNT_DISCOUNT") {
+      result = await createBasicDiscount({
+        title: promotionData.title,
+        startsAt: promotionData.startDate,
+        endsAt: promotionData.endDate,
+        code: promotionData.code,
+        customerGets: {
+          value: {
+            amount: {
+              amount: promotionData.value,
+              currencyCode: "EUR",
+            },
+          },
+          items: {
+            all: true,
+          },
+        },
+      })
+    } else if (promotionData.type === "BUY_X_GET_Y") {
+      result = await createBxgyDiscount({
+        title: promotionData.title,
+        startsAt: promotionData.startDate,
+        endsAt: promotionData.endDate,
+        code: promotionData.code,
+        customerBuys: {
+          value: {
+            quantity: promotionData.conditions[0]?.value || 1,
+          },
+          items: {
+            all: true,
+          },
+        },
+        customerGets: {
+          value: {
+            percentage: 100,
+          },
+          items: {
+            all: true,
+          },
+        },
+      })
+    } else if (promotionData.type === "FREE_SHIPPING") {
+      result = await createFreeShippingDiscount({
+        title: promotionData.title,
+        startsAt: promotionData.startDate,
+        endsAt: promotionData.endDate,
+        code: promotionData.code,
+        destinationSelection: {
+          all: true,
+        },
+      })
+    }
+
+    return transformPromotionData(result)
+  } catch (error) {
+    console.error("Error creating price list:", error)
+    throw new Error(`Error al crear la lista de precios: ${error.message}`)
+  }
+}
+
+export async function updatePriceList(id: string, updateData: any): Promise<Promotion> {
+  try {
+    // Obtener la promoción actual para determinar su tipo
+    const currentPromotion = await fetchPromotionById(id)
+    let type = "BASIC"
+
+    if (currentPromotion.codeDiscount.__typename === "DiscountCodeBxgy") {
+      type = "BXGY"
+    } else if (currentPromotion.codeDiscount.__typename === "DiscountCodeFreeShipping") {
+      type = "FREE_SHIPPING"
+    }
+
+    // Preparar los datos de actualización según el tipo
+    const updatePayload = {
+      title: updateData.title,
+      endsAt: updateData.endDate,
+    }
+
+    // Actualizar la promoción
+    const result = await updatePromotion(id, updatePayload, type)
+
+    return transformPromotionData(result)
+  } catch (error) {
+    console.error(`Error updating price list with ID ${id}:`, error)
+    throw new Error(`Error al actualizar la lista de precios: ${error.message}`)
+  }
+}
+
+export async function deletePriceList(id: string): Promise<string> {
+  try {
+    const result = await deletePromotion(id)
+    return result
+  } catch (error) {
+    console.error(`Error deleting price list with ID ${id}:`, error)
+    throw new Error(`Error al eliminar la lista de precios: ${error.message}`)
+  }
+}
+
+// Función auxiliar para transformar los datos de la API de Shopify al formato esperado por la aplicación
+function transformPromotionData(shopifyPromotion: any): Promotion {
+  if (!shopifyPromotion) {
+    throw new Error("Datos de promoción inválidos")
+  }
+
+  const codeDiscount = shopifyPromotion.codeDiscount || {}
+  const code = codeDiscount.codes?.edges[0]?.node?.code || ""
+
+  let type = "PERCENTAGE_DISCOUNT"
+  let value = 0
+
+  if (codeDiscount.__typename === "DiscountCodeBasic") {
+    if (codeDiscount.customerGets?.value?.percentage) {
+      type = "PERCENTAGE_DISCOUNT"
+      value = codeDiscount.customerGets.value.percentage
+    } else if (codeDiscount.customerGets?.value?.amount) {
+      type = "FIXED_AMOUNT_DISCOUNT"
+      value = Number.parseFloat(codeDiscount.customerGets.value.amount.amount)
+    }
+  } else if (codeDiscount.__typename === "DiscountCodeBxgy") {
+    type = "BUY_X_GET_Y"
+    value = codeDiscount.customerBuys?.value?.quantity || 1
+  } else if (codeDiscount.__typename === "DiscountCodeFreeShipping") {
+    type = "FREE_SHIPPING"
+    value = 0
+  }
+
+  return {
+    id: shopifyPromotion.id,
+    title: codeDiscount.title || "",
+    description: codeDiscount.summary || "",
+    type,
+    target: "CART",
+    targetId: "",
+    value,
+    conditions: [],
+    active: codeDiscount.status === "ACTIVE",
+    startDate: codeDiscount.startsAt || new Date().toISOString(),
+    endDate: codeDiscount.endsAt,
+    code,
+    usageLimit: 0,
+    usageCount: 0,
+    createdAt: codeDiscount.startsAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    prices: [],
   }
 }
 
