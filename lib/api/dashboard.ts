@@ -69,7 +69,7 @@ export async function fetchDashboardStats() {
     }
   } catch (error) {
     console.error("Error fetching shop stats:", error)
-    throw new Error(`Error al cargar estadísticas: ${(error as Error).message}`)
+    throw new Error(`Error al cargar estadísticas: ${error.message}`)
   }
 }
 

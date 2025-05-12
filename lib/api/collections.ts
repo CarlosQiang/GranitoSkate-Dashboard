@@ -12,9 +12,7 @@ export async function fetchCollections(first = 20) {
               id
               title
               handle
-              productsCount {
-                count
-              }
+              productsCount
               image {
                 url
                 altText
@@ -42,7 +40,7 @@ export async function fetchCollections(first = 20) {
         id: node.id.split("/").pop(), // Extraer el ID numérico
         title: node.title,
         handle: node.handle,
-        productsCount: node.productsCount?.count || 0,
+        productsCount: node.productsCount || 0,
         image: node.image,
         products: node.products.edges.map((productEdge) => ({
           id: productEdge.node.id.split("/").pop(),
@@ -59,7 +57,7 @@ export async function fetchCollections(first = 20) {
 }
 
 // Obtener una colección por ID
-export async function fetchCollectionById(collectionId: string): Promise<any> {
+export async function fetchCollectionById(collectionId) {
   try {
     // Asegurarse de que el ID tenga el formato correcto
     const formattedId = collectionId.includes("gid://shopify/Collection/")
@@ -107,7 +105,7 @@ export async function fetchCollectionById(collectionId: string): Promise<any> {
     }
 
     // Transformar los productos para tener un formato más sencillo
-    const products = data.collection.products.edges.map((edge: any) => ({
+    const products = data.collection.products.edges.map((edge) => ({
       id: edge.node.id,
       title: edge.node.title,
       status: edge.node.status,
@@ -121,11 +119,11 @@ export async function fetchCollectionById(collectionId: string): Promise<any> {
     }
   } catch (error) {
     console.error("Error fetching collection by ID:", error)
-    throw new Error(`Error al obtener la colección: ${(error as Error).message}`)
+    throw new Error(`Error al obtener la colección: ${error.message}`)
   }
 }
 
-// Función para crear una nueva colección
+// Resto de funciones para colecciones...
 export async function createCollection(collectionData) {
   try {
     const mutation = gql`
@@ -173,7 +171,6 @@ export async function createCollection(collectionData) {
   }
 }
 
-// Función para actualizar una colección
 export async function updateCollection(id, collectionData) {
   try {
     // Asegurarse de que el ID tenga el formato correcto
@@ -225,7 +222,6 @@ export async function updateCollection(id, collectionData) {
   }
 }
 
-// Función para eliminar una colección
 export async function deleteCollection(id) {
   try {
     // Asegurarse de que el ID tenga el formato correcto
@@ -264,7 +260,6 @@ export async function deleteCollection(id) {
   }
 }
 
-// Función para añadir productos a una colección
 export async function addProductsToCollection(collectionId, productIds) {
   try {
     // Asegurarse de que el ID tenga el formato correcto
@@ -313,7 +308,6 @@ export async function addProductsToCollection(collectionId, productIds) {
   }
 }
 
-// Función para eliminar productos de una colección
 export async function removeProductsFromCollection(collectionId, productIds) {
   try {
     // Asegurarse de que el ID tenga el formato correcto

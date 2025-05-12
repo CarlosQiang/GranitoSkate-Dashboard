@@ -3,10 +3,15 @@ import { gql } from "graphql-request"
 
 // Función para obtener productos recientes
 export async function fetchRecentProducts(limit = 5) {
-  // Implementación de la función para obtener productos recientes
-  // Utilizamos la función fetchProducts existente con un límite
-  const products = await fetchProducts({ limit })
-  return products
+  try {
+    // Implementación de la función para obtener productos recientes
+    // Utilizamos la función fetchProducts existente con un límite
+    const products = await fetchProducts(limit)
+    return products
+  } catch (error) {
+    console.error("Error fetching recent products:", error)
+    return []
+  }
 }
 
 // Función para obtener todos los productos

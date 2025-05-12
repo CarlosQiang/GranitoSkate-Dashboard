@@ -1,7 +1,14 @@
 import { GraphQLClient } from "graphql-request"
 
-// Crear un cliente GraphQL para Shopify
-const shopifyClient = new GraphQLClient("/api/shopify/proxy", {
+// Determinar la URL base para las solicitudes GraphQL
+const API_URL = process.env.NEXT_PUBLIC_VERCEL_URL
+  ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}/api/shopify/proxy`
+  : process.env.NEXT_PUBLIC_API_URL
+    ? `${process.env.NEXT_PUBLIC_API_URL}/api/shopify/proxy`
+    : "/api/shopify/proxy"
+
+// Crear un cliente GraphQL que use nuestro proxy
+const shopifyClient = new GraphQLClient(API_URL, {
   headers: {
     "Content-Type": "application/json",
   },
@@ -16,16 +23,21 @@ export function formatShopifyId(id: string, type = "Product") {
 }
 
 // Function to get the base URL
-function getBaseUrl() {
-  return process.env.NEXT_PUBLIC_VERCEL_URL
-    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-    : process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
+export function getBaseUrl() {
+  if (process.env.NEXT_PUBLIC_VERCEL_URL) {
+    return `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+  }
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL
+  }
+  return ""
 }
 
 // Función para realizar una consulta de prueba a Shopify
 export async function testShopifyConnection() {
   try {
-    const response = await fetch(`${getBaseUrl()}/api/shopify/check`, {
+    const baseUrl = getBaseUrl() || window.location.origin
+    const response = await fetch(`${baseUrl}/api/shopify/check`, {
       method: "GET",
       headers: {
         "Cache-Control": "no-cache, no-store, must-revalidate",
