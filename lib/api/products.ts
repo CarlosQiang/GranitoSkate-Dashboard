@@ -1,3 +1,4 @@
+// Función para verificar si las variables de entorno están disponibles
 export function checkShopifyEnvVars() {
   const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
   const accessToken = process.env.SHOPIFY_ACCESS_TOKEN

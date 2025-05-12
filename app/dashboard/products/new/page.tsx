@@ -3,308 +3,293 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Save, AlertCircle } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
+import { Switch } from "@/components/ui/switch"
 import { createProduct } from "@/lib/api/products"
-import { generateSeoMetafields, generateSeoHandle } from "@/lib/seo-utils"
-import { SeoPreview } from "@/components/seo-preview"
+import { useToast } from "@/components/ui/use-toast"
+import { AlertCircle, Save, ArrowLeft } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { ImageUpload } from "@/components/image-upload"
+import { checkShopifyEnvVars } from "@/lib/api/products"
+import Link from "next/link"
 
 export default function NewProductPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const [isSaving, setIsSaving] = useState(false)
-  const [productImage, setProductImage] = useState(null)
-  const [formData, setFormData] = useState({
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [useSampleData, setUseSampleData] = useState(false)
+  const [productData, setProductData] = useState({
     title: "",
     description: "",
-    status: "ACTIVE",
+    productType: "",
     vendor: "GranitoSkate",
-    productType: "SKATEBOARD",
-    variants: [
-      {
-        price: "",
-        compareAtPrice: "",
-        sku: "",
-        title: "Default",
-      },
-    ],
+    status: "DRAFT",
+    tags: "",
+    seo: {
+      title: "",
+      description: "",
+      keywords: "",
+    },
   })
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target
+  const envStatus = checkShopifyEnvVars()
 
-    if (name.startsWith("variants[0].")) {
-      const variantField = name.split(".")[1]
-      const updatedVariants = [...formData.variants]
-      updatedVariants[0] = {
-        ...updatedVariants[0],
-        [variantField]: value,
-      }
-      setFormData({
-        ...formData,
-        variants: updatedVariants,
+  const handleChange = (field, value) => {
+    if (field.includes(".")) {
+      const [parent, child] = field.split(".")
+      setProductData({
+        ...productData,
+        [parent]: {
+          ...productData[parent],
+          [child]: value,
+        },
       })
     } else {
-      setFormData({
-        ...formData,
-        [name]: value,
+      setProductData({
+        ...productData,
+        [field]: value,
       })
     }
   }
 
-  const handleStatusChange = (checked) => {
-    setFormData({
-      ...formData,
-      status: checked ? "ACTIVE" : "DRAFT",
-    })
-  }
-
-  const handleImageChange = (imageData) => {
-    setProductImage(imageData)
-  }
-
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setIsSaving(true)
+    setIsSubmitting(true)
 
     try {
-      // Generar handle SEO-friendly
-      const handle = generateSeoHandle(formData.title)
-
-      // Preparar los datos para la API de Shopify
-      const productData = {
-        title: formData.title,
-        descriptionHtml: formData.description,
-        handle: handle,
-        status: formData.status,
-        vendor: formData.vendor,
-        productType: formData.productType,
-        variants: [
+      // Preparar datos para la API
+      const productInput = {
+        title: productData.title,
+        descriptionHtml: `<p>${productData.description}</p>`,
+        productType: productData.productType,
+        vendor: productData.vendor,
+        status: productData.status,
+        tags: productData.tags
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter((tag) => tag),
+        metafields: [
           {
-            price: formData.variants[0].price || "0.00",
-            compareAtPrice: formData.variants[0].compareAtPrice || null,
-            sku: formData.variants[0].sku || "",
-            title: formData.variants[0].title || "Default Title",
+            namespace: "seo",
+            key: "title",
+            value: productData.seo.title || productData.title,
+            type: "single_line_text_field",
+          },
+          {
+            namespace: "seo",
+            key: "description",
+            value: productData.seo.description || productData.description.substring(0, 160),
+            type: "single_line_text_field",
+          },
+          {
+            namespace: "seo",
+            key: "keywords",
+            value: productData.seo.keywords || productData.tags,
+            type: "single_line_text_field",
           },
         ],
-        // Añadir la imagen si existe
-        image: productImage,
-        // Generar automáticamente los metafields de SEO
-        metafields: generateSeoMetafields(formData.title, formData.description),
       }
 
-      console.log("Enviando datos para crear producto:", productData)
-      const product = await createProduct(productData)
-      console.log("Producto creado:", product)
+      // Crear producto
+      const newProduct = await createProduct(productInput, !envStatus.isValid || useSampleData)
 
       toast({
-        title: "¡Producto creado!",
-        description: "Tu producto ya está disponible en la tienda y optimizado para buscadores",
+        title: "Producto creado",
+        description: `El producto "${newProduct.title}" ha sido creado correctamente.`,
       })
 
-      router.push("/dashboard/products")
+      // Redirigir a la página del producto
+      router.push(`/dashboard/products/${newProduct.id.split("/").pop()}`)
     } catch (error) {
-      console.error("Error creating product:", error)
+      console.error("Error al crear producto:", error)
       toast({
         title: "Error",
-        description: `No se pudo crear el producto: ${error.message}`,
+        description: error.message || "Ha ocurrido un error al crear el producto.",
         variant: "destructive",
       })
     } finally {
-      setIsSaving(false)
+      setIsSubmitting(false)
     }
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4" />
-            <span className="sr-only">Volver</span>
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" size="icon" asChild>
+            <Link href="/dashboard/products">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">Nuevo producto</h1>
+          <h1 className="text-2xl font-bold">Nuevo Producto</h1>
         </div>
-        <Button onClick={handleSubmit} disabled={isSaving || !formData.title || !formData.variants[0].price}>
+        <Button onClick={handleSubmit} disabled={isSubmitting}>
           <Save className="mr-2 h-4 w-4" />
-          {isSaving ? "Guardando..." : "Guardar producto"}
+          {isSubmitting ? "Guardando..." : "Guardar producto"}
         </Button>
       </div>
 
-      <Alert className="bg-blue-50 border-blue-200">
-        <AlertCircle className="h-4 w-4 text-blue-600" />
-        <AlertTitle className="text-blue-800">Posicionamiento automático</AlertTitle>
-        <AlertDescription className="text-blue-700">
-          No te preocupes por el SEO. Tu producto se optimizará automáticamente para aparecer en Google usando el nombre
-          y la descripción que escribas.
-        </AlertDescription>
-      </Alert>
+      {!envStatus.isValid && (
+        <Alert variant="warning">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Modo de prueba</AlertTitle>
+          <AlertDescription>
+            No hay conexión con Shopify. El producto se guardará en modo de prueba y no se sincronizará con tu tienda.
+            <div className="mt-2">
+              <Switch id="use-sample-data" checked={useSampleData} onCheckedChange={setUseSampleData} />
+              <Label htmlFor="use-sample-data" className="ml-2">
+                Usar datos de muestra
+              </Label>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
 
-      <Tabs defaultValue="general">
-        <TabsList>
-          <TabsTrigger value="general">Información básica</TabsTrigger>
-          <TabsTrigger value="variants">Precio y stock</TabsTrigger>
-          <TabsTrigger value="images">Imágenes</TabsTrigger>
-        </TabsList>
+      <form onSubmit={handleSubmit}>
+        <Tabs defaultValue="general">
+          <TabsList>
+            <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="seo">SEO</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="general" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Información del producto</CardTitle>
-              <CardDescription>Datos principales de tu producto</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">
-                  Nombre del producto <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="title"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleInputChange}
-                  placeholder="Ej: Tabla completa Element 8.0"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description">Descripción</Label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  placeholder="Describe tu producto con detalle para que tus clientes lo conozcan mejor"
-                  rows={6}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <TabsContent value="general" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Información básica</CardTitle>
+                <CardDescription>Información general del producto</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="vendor">Marca</Label>
+                  <Label htmlFor="title">Título del producto *</Label>
                   <Input
-                    id="vendor"
-                    name="vendor"
-                    value={formData.vendor}
-                    onChange={handleInputChange}
-                    placeholder="Ej: Element, Santa Cruz, etc."
+                    id="title"
+                    value={productData.title}
+                    onChange={(e) => handleChange("title", e.target.value)}
+                    placeholder="Ej: Skateboard Completo Profesional"
+                    required
                   />
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="productType">Tipo de producto</Label>
-                  <Input
-                    id="productType"
-                    name="productType"
-                    value={formData.productType}
-                    onChange={handleInputChange}
-                    placeholder="Ej: Tabla, Ruedas, Trucks, etc."
+                  <Label htmlFor="description">Descripción</Label>
+                  <Textarea
+                    id="description"
+                    value={productData.description}
+                    onChange={(e) => handleChange("description", e.target.value)}
+                    placeholder="Describe tu producto..."
+                    rows={5}
                   />
                 </div>
-              </div>
 
-              <div className="flex items-center space-x-2">
-                <Switch id="status" checked={formData.status === "ACTIVE"} onCheckedChange={handleStatusChange} />
-                <Label htmlFor="status">
-                  {formData.status === "ACTIVE" ? "Visible en tienda" : "Oculto (borrador)"}
-                </Label>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Vista previa de Google */}
-          {formData.title && <SeoPreview title={formData.title} description={formData.description} />}
-        </TabsContent>
-
-        <TabsContent value="variants" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Precio y disponibilidad</CardTitle>
-              <CardDescription>Configura el precio y stock de tu producto</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="price">
-                    Precio <span className="text-red-500">*</span>
-                  </Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2">€</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="product-type">Tipo de producto</Label>
                     <Input
-                      id="price"
-                      name="variants[0].price"
-                      type="number"
-                      step="0.01"
-                      value={formData.variants[0].price}
-                      onChange={handleInputChange}
-                      placeholder="0.00"
-                      className="pl-8"
-                      required
+                      id="product-type"
+                      value={productData.productType}
+                      onChange={(e) => handleChange("productType", e.target.value)}
+                      placeholder="Ej: Skateboard, Accesorios, etc."
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="vendor">Fabricante</Label>
+                    <Input
+                      id="vendor"
+                      value={productData.vendor}
+                      onChange={(e) => handleChange("vendor", e.target.value)}
+                      placeholder="Ej: GranitoSkate"
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="compareAtPrice">Precio anterior (para ofertas)</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2">€</span>
-                    <Input
-                      id="compareAtPrice"
-                      name="variants[0].compareAtPrice"
-                      type="number"
-                      step="0.01"
-                      value={formData.variants[0].compareAtPrice}
-                      onChange={handleInputChange}
-                      placeholder="0.00"
-                      className="pl-8"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sku">Código de referencia (SKU)</Label>
-                  <Input
-                    id="sku"
-                    name="variants[0].sku"
-                    value={formData.variants[0].sku}
-                    onChange={handleInputChange}
-                    placeholder="Ej: GS-001"
-                  />
-                </div>
-              </div>
-              <div className="bg-yellow-50 p-4 rounded-md border border-yellow-200">
-                <p className="text-sm text-yellow-800">
-                  El inventario se configurará automáticamente después de crear el producto.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
-        <TabsContent value="images" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Imágenes del producto</CardTitle>
-              <CardDescription>Añade imágenes para mostrar tu producto</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-4">
-                <Label>Imagen principal</Label>
-                <ImageUpload onImageChange={handleImageChange} />
+                <div className="space-y-2">
+                  <Label htmlFor="tags">Etiquetas</Label>
+                  <Input
+                    id="tags"
+                    value={productData.tags}
+                    onChange={(e) => handleChange("tags", e.target.value)}
+                    placeholder="Ej: skateboard, profesional, madera (separadas por comas)"
+                  />
+                  <p className="text-sm text-muted-foreground">Separa las etiquetas con comas</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="status">Estado</Label>
+                  <Select value={productData.status} onValueChange={(value) => handleChange("status", value)}>
+                    <SelectTrigger id="status">
+                      <SelectValue placeholder="Selecciona un estado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DRAFT">Borrador</SelectItem>
+                      <SelectItem value="ACTIVE">Activo</SelectItem>
+                      <SelectItem value="ARCHIVED">Archivado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="seo" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Optimización para motores de búsqueda (SEO)</CardTitle>
+                <CardDescription>Mejora la visibilidad de tu producto en los motores de búsqueda</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="seo-title">Título SEO</Label>
+                  <Input
+                    id="seo-title"
+                    value={productData.seo.title}
+                    onChange={(e) => handleChange("seo.title", e.target.value)}
+                    placeholder={productData.title || "Título optimizado para SEO"}
+                  />
+                  <p className="text-sm text-muted-foreground">Si se deja en blanco, se usará el título del producto</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="seo-description">Descripción SEO</Label>
+                  <Textarea
+                    id="seo-description"
+                    value={productData.seo.description}
+                    onChange={(e) => handleChange("seo.description", e.target.value)}
+                    placeholder={productData.description || "Descripción optimizada para SEO"}
+                    rows={3}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Máximo 160 caracteres. Si se deja en blanco, se usará la descripción del producto
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="seo-keywords">Palabras clave</Label>
+                  <Input
+                    id="seo-keywords"
+                    value={productData.seo.keywords}
+                    onChange={(e) => handleChange("seo.keywords", e.target.value)}
+                    placeholder={productData.tags || "skateboard, profesional, madera"}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Separa las palabras clave con comas. Si se deja en blanco, se usarán las etiquetas del producto
+                  </p>
+                </div>
+              </CardContent>
+              <CardFooter>
                 <p className="text-sm text-muted-foreground">
-                  Esta imagen se mostrará como la principal en la tienda y en los listados de productos.
+                  El SEO ayuda a que tu producto aparezca en los resultados de búsqueda de Google y otros motores de
+                  búsqueda.
                 </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              </CardFooter>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </form>
     </div>
   )
 }

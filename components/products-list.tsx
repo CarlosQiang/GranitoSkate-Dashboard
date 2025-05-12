@@ -9,7 +9,7 @@ import { Search, RefreshCw, AlertCircle, Settings } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ShopifyApiStatus } from "@/components/shopify-api-status"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { checkShopifyEnvVars as checkEnvVars } from "@/lib/shopify"
+import { checkShopifyEnvVars } from "@/lib/api/products"
 import Link from "next/link"
 
 export function ProductsList() {
@@ -28,7 +28,7 @@ export function ProductsList() {
       setError(null)
 
       // Verificar variables de entorno
-      const envCheck = checkEnvVars()
+      const envCheck = checkShopifyEnvVars()
       setEnvStatus(envCheck)
 
       // Intentar cargar productos con hasta 3 reintentos
