@@ -1,68 +1,27 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
-import { ThemeProvider } from "@/components/theme-provider"
-import { AuthProvider } from "@/components/auth-provider"
-import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
+import { AuthProvider } from "@/components/auth-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: {
-    default: "Granito Skate Shop - Panel de Administración",
-    template: "%s | Granito Skate Shop",
-  },
-  description: "Panel de administración para la tienda Granito Skate Shop",
-  keywords: ["skate", "skateboard", "tienda", "administración", "dashboard", "shopify"],
-  authors: [
-    {
-      name: "Granito Skate Shop",
-      url: "https://granitoskate.com",
-    },
-  ],
-  creator: "Granito Skate Shop",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "white" },
-    { media: "(prefers-color-scheme: dark)", color: "#111827" },
-  ],
-  openGraph: {
-    type: "website",
-    locale: "es_ES",
-    url: "https://admin.granitoskate.com",
-    title: "Granito Skate Shop - Panel de Administración",
-    description: "Panel de administración para la tienda Granito Skate Shop",
-    siteName: "Granito Skate Shop Admin",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Granito Skate Shop - Panel de Administración",
-    description: "Panel de administración para la tienda Granito Skate Shop",
-    creator: "@granitoskate",
-  },
+  title: "GestionGranito - Dashboard",
+  description: "Panel de administración para GranitoSkate",
+  manifest: "/site.webmanifest",
   icons: {
     icon: "/favicon.ico",
-    shortcut: "/favicon-16x16.png",
     apple: "/apple-touch-icon.png",
   },
-  manifest: "/site.webmanifest",
     generator: 'v0.dev'
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" suppressHydrationWarning>
+    <html lang="es">
       <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-          <AuthProvider>
-            {children}
-            <Toaster />
-          </AuthProvider>
-        </ThemeProvider>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   )

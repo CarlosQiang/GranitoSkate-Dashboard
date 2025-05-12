@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
-import { DollarSign, Package, ShoppingCart, Users } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { ShoppingBag, Users, Package, DollarSign, RefreshCw, AlertCircle } from "lucide-react"
 import { fetchDashboardStats } from "@/lib/api/dashboard"
 import { formatCurrency } from "@/lib/utils"
 
@@ -14,61 +14,43 @@ export function DashboardStats() {
     totalProducts: 0,
     totalCustomers: 0,
     currency: "EUR",
-    isLoading: true,
-    error: null,
   })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadStats = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await fetchDashboardStats()
+      setStats(data)
+    } catch (err) {
+      console.error("Error al cargar estadísticas:", err)
+      setError("No se pudieron cargar las estadísticas")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const loadStats = async () => {
-      try {
-        const data = await fetchDashboardStats()
-        setStats({
-          ...data,
-          isLoading: false,
-          error: null,
-        })
-      } catch (error) {
-        console.error("Error loading dashboard stats:", error)
-        setStats((prev) => ({
-          ...prev,
-          isLoading: false,
-          error: error.message || "Error al cargar estadísticas",
-        }))
-      }
-    }
-
     loadStats()
   }, [])
 
-  if (stats.isLoading) {
+  if (error) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                <Skeleton className="h-4 w-24" />
-              </CardTitle>
-              <Skeleton className="h-4 w-4" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-8 w-36" />
-              <Skeleton className="mt-1 h-4 w-24" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    )
-  }
-
-  if (stats.error) {
-    return (
-      <Card className="col-span-4">
-        <CardHeader>
-          <CardTitle className="text-destructive">Error al cargar estadísticas</CardTitle>
+      <Card className="col-span-full">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium text-destructive flex items-center">
+            <AlertCircle className="h-4 w-4 mr-2" />
+            Error al cargar estadísticas
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <p>{stats.error}</p>
+          <p className="text-sm text-muted-foreground mb-4">{error}</p>
+          <Button variant="outline" size="sm" onClick={loadStats}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Reintentar
+          </Button>
         </CardContent>
       </Card>
     )
@@ -82,18 +64,36 @@ export function DashboardStats() {
           <DollarSign className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{formatCurrency(stats.totalSales, stats.currency)}</div>
-          <p className="text-xs text-muted-foreground">Ingresos totales</p>
+          {loading ? (
+            <div className="flex items-center">
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              <span className="text-2xl font-bold">Cargando...</span>
+            </div>
+          ) : (
+            <>
+              <div className="text-2xl font-bold">{formatCurrency(stats.totalSales, stats.currency)}</div>
+              <p className="text-xs text-muted-foreground">Ingresos totales</p>
+            </>
+          )}
         </CardContent>
       </Card>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Pedidos</CardTitle>
-          <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+          <ShoppingBag className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{stats.totalOrders}</div>
-          <p className="text-xs text-muted-foreground">Pedidos totales</p>
+          {loading ? (
+            <div className="flex items-center">
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              <span className="text-2xl font-bold">Cargando...</span>
+            </div>
+          ) : (
+            <>
+              <div className="text-2xl font-bold">{stats.totalOrders}</div>
+              <p className="text-xs text-muted-foreground">Pedidos totales</p>
+            </>
+          )}
         </CardContent>
       </Card>
       <Card>
@@ -102,8 +102,17 @@ export function DashboardStats() {
           <Package className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{stats.totalProducts}</div>
-          <p className="text-xs text-muted-foreground">Productos activos</p>
+          {loading ? (
+            <div className="flex items-center">
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              <span className="text-2xl font-bold">Cargando...</span>
+            </div>
+          ) : (
+            <>
+              <div className="text-2xl font-bold">{stats.totalProducts}</div>
+              <p className="text-xs text-muted-foreground">Productos activos</p>
+            </>
+          )}
         </CardContent>
       </Card>
       <Card>
@@ -112,8 +121,17 @@ export function DashboardStats() {
           <Users className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{stats.totalCustomers}</div>
-          <p className="text-xs text-muted-foreground">Clientes registrados</p>
+          {loading ? (
+            <div className="flex items-center">
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              <span className="text-2xl font-bold">Cargando...</span>
+            </div>
+          ) : (
+            <>
+              <div className="text-2xl font-bold">{stats.totalCustomers}</div>
+              <p className="text-xs text-muted-foreground">Clientes registrados</p>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>
