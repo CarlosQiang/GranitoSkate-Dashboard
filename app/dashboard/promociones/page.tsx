@@ -10,11 +10,10 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { obtenerPromociones } from "@/lib/api/promociones"
-import type { Promotion, PromotionStatus } from "@/lib/api/promotions"
 
 export default function PromocionesPage() {
   const router = useRouter()
-  const [promociones, setPromociones] = useState<Promotion[]>([])
+  const [promociones, setPromociones] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -23,6 +22,7 @@ export default function PromocionesPage() {
     setError(null)
     try {
       const data = await obtenerPromociones()
+      console.log("Promociones cargadas:", data)
       setPromociones(data)
     } catch (err) {
       console.error("Error al cargar promociones:", err)
@@ -36,26 +36,26 @@ export default function PromocionesPage() {
     cargarPromociones()
   }, [])
 
-  const getStatusColor = (status: PromotionStatus) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case "active":
+      case "activa":
         return "bg-green-100 text-green-800 hover:bg-green-200"
-      case "expired":
+      case "expirada":
         return "bg-gray-100 text-gray-800 hover:bg-gray-200"
-      case "scheduled":
+      case "programada":
         return "bg-blue-100 text-blue-800 hover:bg-blue-200"
       default:
         return "bg-gray-100 text-gray-800 hover:bg-gray-200"
     }
   }
 
-  const getStatusText = (status: PromotionStatus) => {
+  const getStatusText = (status: string) => {
     switch (status) {
-      case "active":
+      case "activa":
         return "Activa"
-      case "expired":
+      case "expirada":
         return "Expirada"
-      case "scheduled":
+      case "programada":
         return "Programada"
       default:
         return "Desconocido"
@@ -135,15 +135,15 @@ export default function PromocionesPage() {
                 <Card key={promocion.id} className="overflow-hidden">
                   <CardHeader className="p-4">
                     <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">{promocion.title}</CardTitle>
-                      <Badge className={getStatusColor(promocion.status)}>{getStatusText(promocion.status)}</Badge>
+                      <CardTitle className="text-lg">{promocion.titulo}</CardTitle>
+                      <Badge className={getStatusColor(promocion.estado)}>{getStatusText(promocion.estado)}</Badge>
                     </div>
                     <CardDescription>
-                      {promocion.type === "percentage"
-                        ? `${promocion.value} de descuento`
-                        : promocion.type === "fixed_amount"
-                          ? `${promocion.value} de descuento`
-                          : promocion.type === "free_shipping"
+                      {promocion.tipo === "PORCENTAJE_DESCUENTO"
+                        ? `${promocion.valor}% de descuento`
+                        : promocion.tipo === "CANTIDAD_FIJA"
+                          ? `${promocion.valor}€ de descuento`
+                          : promocion.tipo === "ENVIO_GRATIS"
                             ? "Envío gratis"
                             : "Compra X y lleva Y"}
                     </CardDescription>
@@ -152,15 +152,15 @@ export default function PromocionesPage() {
                     <div className="flex items-center text-sm text-muted-foreground mb-2">
                       <CalendarIcon className="mr-1 h-4 w-4" />
                       <span>
-                        Desde {formatDate(promocion.startDate)}
-                        {promocion.endDate ? ` hasta ${formatDate(promocion.endDate)}` : ""}
+                        Desde {formatDate(promocion.fechaInicio)}
+                        {promocion.fechaFin ? ` hasta ${formatDate(promocion.fechaFin)}` : ""}
                       </span>
                     </div>
-                    {promocion.code && (
+                    {promocion.codigo && (
                       <div className="flex items-center text-sm">
                         <TagIcon className="mr-1 h-4 w-4" />
                         <span>
-                          Código: <strong>{promocion.code}</strong>
+                          Código: <strong>{promocion.codigo}</strong>
                         </span>
                       </div>
                     )}
@@ -225,20 +225,20 @@ export default function PromocionesPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {promociones
-                .filter((p) => p.status === "active")
+                .filter((p) => p.estado === "activa")
                 .map((promocion) => (
                   <Card key={promocion.id} className="overflow-hidden">
                     <CardHeader className="p-4">
                       <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">{promocion.title}</CardTitle>
+                        <CardTitle className="text-lg">{promocion.titulo}</CardTitle>
                         <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Activa</Badge>
                       </div>
                       <CardDescription>
-                        {promocion.type === "percentage"
-                          ? `${promocion.value} de descuento`
-                          : promocion.type === "fixed_amount"
-                            ? `${promocion.value} de descuento`
-                            : promocion.type === "free_shipping"
+                        {promocion.tipo === "PORCENTAJE_DESCUENTO"
+                          ? `${promocion.valor}% de descuento`
+                          : promocion.tipo === "CANTIDAD_FIJA"
+                            ? `${promocion.valor}€ de descuento`
+                            : promocion.tipo === "ENVIO_GRATIS"
                               ? "Envío gratis"
                               : "Compra X y lleva Y"}
                       </CardDescription>
@@ -247,15 +247,15 @@ export default function PromocionesPage() {
                       <div className="flex items-center text-sm text-muted-foreground mb-2">
                         <CalendarIcon className="mr-1 h-4 w-4" />
                         <span>
-                          Desde {formatDate(promocion.startDate)}
-                          {promocion.endDate ? ` hasta ${formatDate(promocion.endDate)}` : ""}
+                          Desde {formatDate(promocion.fechaInicio)}
+                          {promocion.fechaFin ? ` hasta ${formatDate(promocion.fechaFin)}` : ""}
                         </span>
                       </div>
-                      {promocion.code && (
+                      {promocion.codigo && (
                         <div className="flex items-center text-sm">
                           <TagIcon className="mr-1 h-4 w-4" />
                           <span>
-                            Código: <strong>{promocion.code}</strong>
+                            Código: <strong>{promocion.codigo}</strong>
                           </span>
                         </div>
                       )}
@@ -274,7 +274,7 @@ export default function PromocionesPage() {
                     </CardFooter>
                   </Card>
                 ))}
-              {promociones.filter((p) => p.status === "active").length === 0 && (
+              {promociones.filter((p) => p.estado === "activa").length === 0 && (
                 <Card className="col-span-full">
                   <CardContent className="flex flex-col items-center justify-center p-6">
                     <div className="rounded-full bg-muted p-3">
@@ -319,20 +319,20 @@ export default function PromocionesPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {promociones
-                .filter((p) => p.status === "scheduled")
+                .filter((p) => p.estado === "programada")
                 .map((promocion) => (
                   <Card key={promocion.id} className="overflow-hidden">
                     <CardHeader className="p-4">
                       <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">{promocion.title}</CardTitle>
+                        <CardTitle className="text-lg">{promocion.titulo}</CardTitle>
                         <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">Programada</Badge>
                       </div>
                       <CardDescription>
-                        {promocion.type === "percentage"
-                          ? `${promocion.value} de descuento`
-                          : promocion.type === "fixed_amount"
-                            ? `${promocion.value} de descuento`
-                            : promocion.type === "free_shipping"
+                        {promocion.tipo === "PORCENTAJE_DESCUENTO"
+                          ? `${promocion.valor}% de descuento`
+                          : promocion.tipo === "CANTIDAD_FIJA"
+                            ? `${promocion.valor}€ de descuento`
+                            : promocion.tipo === "ENVIO_GRATIS"
                               ? "Envío gratis"
                               : "Compra X y lleva Y"}
                       </CardDescription>
@@ -341,15 +341,15 @@ export default function PromocionesPage() {
                       <div className="flex items-center text-sm text-muted-foreground mb-2">
                         <CalendarIcon className="mr-1 h-4 w-4" />
                         <span>
-                          Desde {formatDate(promocion.startDate)}
-                          {promocion.endDate ? ` hasta ${formatDate(promocion.endDate)}` : ""}
+                          Desde {formatDate(promocion.fechaInicio)}
+                          {promocion.fechaFin ? ` hasta ${formatDate(promocion.fechaFin)}` : ""}
                         </span>
                       </div>
-                      {promocion.code && (
+                      {promocion.codigo && (
                         <div className="flex items-center text-sm">
                           <TagIcon className="mr-1 h-4 w-4" />
                           <span>
-                            Código: <strong>{promocion.code}</strong>
+                            Código: <strong>{promocion.codigo}</strong>
                           </span>
                         </div>
                       )}
@@ -368,7 +368,7 @@ export default function PromocionesPage() {
                     </CardFooter>
                   </Card>
                 ))}
-              {promociones.filter((p) => p.status === "scheduled").length === 0 && (
+              {promociones.filter((p) => p.estado === "programada").length === 0 && (
                 <Card className="col-span-full">
                   <CardContent className="flex flex-col items-center justify-center p-6">
                     <div className="rounded-full bg-muted p-3">
@@ -413,20 +413,20 @@ export default function PromocionesPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {promociones
-                .filter((p) => p.status === "expired")
+                .filter((p) => p.estado === "expirada")
                 .map((promocion) => (
                   <Card key={promocion.id} className="overflow-hidden">
                     <CardHeader className="p-4">
                       <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">{promocion.title}</CardTitle>
+                        <CardTitle className="text-lg">{promocion.titulo}</CardTitle>
                         <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-200">Expirada</Badge>
                       </div>
                       <CardDescription>
-                        {promocion.type === "percentage"
-                          ? `${promocion.value} de descuento`
-                          : promocion.type === "fixed_amount"
-                            ? `${promocion.value} de descuento`
-                            : promocion.type === "free_shipping"
+                        {promocion.tipo === "PORCENTAJE_DESCUENTO"
+                          ? `${promocion.valor}% de descuento`
+                          : promocion.tipo === "CANTIDAD_FIJA"
+                            ? `${promocion.valor}€ de descuento`
+                            : promocion.tipo === "ENVIO_GRATIS"
                               ? "Envío gratis"
                               : "Compra X y lleva Y"}
                       </CardDescription>
@@ -435,15 +435,15 @@ export default function PromocionesPage() {
                       <div className="flex items-center text-sm text-muted-foreground mb-2">
                         <CalendarIcon className="mr-1 h-4 w-4" />
                         <span>
-                          Desde {formatDate(promocion.startDate)}
-                          {promocion.endDate ? ` hasta ${formatDate(promocion.endDate)}` : ""}
+                          Desde {formatDate(promocion.fechaInicio)}
+                          {promocion.fechaFin ? ` hasta ${formatDate(promocion.fechaFin)}` : ""}
                         </span>
                       </div>
-                      {promocion.code && (
+                      {promocion.codigo && (
                         <div className="flex items-center text-sm">
                           <TagIcon className="mr-1 h-4 w-4" />
                           <span>
-                            Código: <strong>{promocion.code}</strong>
+                            Código: <strong>{promocion.codigo}</strong>
                           </span>
                         </div>
                       )}
@@ -462,7 +462,7 @@ export default function PromocionesPage() {
                     </CardFooter>
                   </Card>
                 ))}
-              {promociones.filter((p) => p.status === "expired").length === 0 && (
+              {promociones.filter((p) => p.estado === "expirada").length === 0 && (
                 <Card className="col-span-full">
                   <CardContent className="flex flex-col items-center justify-center p-6">
                     <div className="rounded-full bg-muted p-3">

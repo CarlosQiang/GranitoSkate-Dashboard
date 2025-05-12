@@ -3,322 +3,237 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, ArrowRight, Check, Percent, Tag, ShoppingBag, Calendar, Target, Code } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
 import { Pasos, Paso } from "@/components/ui/pasos"
-import { SelectorTipoPromocion } from "@/components/asistente-promociones/tipo-promocion"
-import { SelectorObjetivoPromocion } from "@/components/asistente-promociones/objetivo-promocion"
+import { FormularioTipoPromocion } from "@/components/asistente-promociones/tipo-promocion"
+import { FormularioObjetivoPromocion } from "@/components/asistente-promociones/objetivo-promocion"
 import { FormularioValorPromocion } from "@/components/asistente-promociones/valor-promocion"
 import { FormularioCondicionesPromocion } from "@/components/asistente-promociones/condiciones-promocion"
 import { FormularioProgramacionPromocion } from "@/components/asistente-promociones/programacion-promocion"
 import { FormularioCodigoPromocion } from "@/components/asistente-promociones/codigo-promocion"
-import { ResumenPromocion } from "@/components/asistente-promociones/resumen-promocion"
-import { useToast } from "@/components/ui/use-toast"
+import { FormularioResumenPromocion } from "@/components/asistente-promociones/resumen-promocion"
 import { crearPromocion } from "@/lib/api/promociones"
-import type { DatosAsistentePromocion } from "@/types/promociones"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertCircle, ArrowLeft } from "lucide-react"
+import type { TipoPromocion } from "@/types/promociones"
 
-/**
- * Página del asistente de promociones
- *
- * Este asistente guía al usuario a través del proceso de creación de una promoción
- * paso a paso, facilitando la configuración de todos los parámetros necesarios.
- *
- * @author María García
- * @version 1.2.0
- */
-export default function PaginaAsistentePromociones() {
-  // Hooks y estado
+export default function AsistentePromocionesPage() {
   const router = useRouter()
-  const { toast } = useToast()
   const [pasoActual, setPasoActual] = useState(0)
-  const [enviando, setEnviando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
-  // Estado principal del formulario
-  // Inicializamos con valores por defecto
-  const [datosPromo, setDatosPromo] = useState<DatosAsistentePromocion>({
-    titulo: "",
-    descripcion: "",
-    tipo: "PORCENTAJE_DESCUENTO", // El más común
-    objetivo: "CARRITO", // Por defecto a toda la tienda
-    objetivoId: "",
-    valor: "",
-    compraMinima: "",
-    requiereCodigo: false,
-    codigo: "",
-    tieneFechaFin: false,
-    fechaInicio: new Date(), // Hoy
-    fechaFin: new Date(new Date().setMonth(new Date().getMonth() + 1)), // Un mes después
-    limitarUsos: false,
-    limiteUsos: "",
+  // Estado para almacenar los datos de la promoción
+  const [datosPromocion, setDatosPromocion] = useState({
+    titulo: "Nueva promoción",
+    tipo: "PORCENTAJE_DESCUENTO" as TipoPromocion,
+    objetivo: "TODOS_LOS_PRODUCTOS",
+    valor: "10", // Valor por defecto
+    condiciones: {
+      cantidadMinima: "0",
+      gastosEnvio: false,
+      clientesEspecificos: false,
+      clientesSeleccionados: [],
+    },
+    programacion: {
+      fechaInicio: new Date().toISOString(),
+      fechaFin: null as string | null,
+      horaInicio: "00:00",
+      horaFin: "23:59",
+      limitarUsos: false,
+      limiteUsos: "100",
+    },
+    codigo: {
+      usarCodigo: true,
+      codigo: `PROMO${Math.floor(Math.random() * 10000)}`,
+      generarAutomaticamente: true,
+    },
   })
 
-  // Función para actualizar el estado del formulario
-  const actualizarDatos = (datos: Partial<DatosAsistentePromocion>) => {
-    setDatosPromo((prevDatos) => ({ ...prevDatos, ...datos }))
+  // Función para actualizar los datos de la promoción
+  const actualizarDatosPromocion = (seccion, datos) => {
+    setDatosPromocion((prevDatos) => ({
+      ...prevDatos,
+      [seccion]: datos,
+    }))
   }
 
-  // Definición de los pasos del asistente
-  const pasos = [
-    {
-      id: "tipo",
-      nombre: "Tipo de descuento",
-      descripcion: "Elige el tipo de descuento que quieres crear",
-      icono: Percent,
-      componente: <SelectorTipoPromocion valor={datosPromo.tipo} onChange={(tipo) => actualizarDatos({ tipo })} />,
-    },
-    {
-      id: "objetivo",
-      nombre: "Aplicación",
-      descripcion: "Decide dónde aplicar el descuento",
-      icono: Target,
-      componente: (
-        <SelectorObjetivoPromocion
-          valor={datosPromo.objetivo}
-          objetivoId={datosPromo.objetivoId}
-          onChange={(objetivo, objetivoId) => actualizarDatos({ objetivo, objetivoId })}
-        />
-      ),
-    },
-    {
-      id: "valor",
-      nombre: "Valor",
-      descripcion: "Define el valor del descuento",
-      icono: Tag,
-      componente: (
-        <FormularioValorPromocion
-          tipo={datosPromo.tipo}
-          valor={datosPromo.valor}
-          onChange={(valor) => actualizarDatos({ valor })}
-        />
-      ),
-    },
-    {
-      id: "condiciones",
-      nombre: "Condiciones",
-      descripcion: "Establece condiciones adicionales",
-      icono: ShoppingBag,
-      componente: (
-        <FormularioCondicionesPromocion
-          compraMinima={datosPromo.compraMinima}
-          onChange={(datos) => actualizarDatos(datos)}
-        />
-      ),
-    },
-    {
-      id: "programacion",
-      nombre: "Programación",
-      descripcion: "Define cuándo estará activo",
-      icono: Calendar,
-      componente: (
-        <FormularioProgramacionPromocion
-          tieneFechaFin={datosPromo.tieneFechaFin}
-          fechaInicio={datosPromo.fechaInicio}
-          fechaFin={datosPromo.fechaFin}
-          limitarUsos={datosPromo.limitarUsos}
-          limiteUsos={datosPromo.limiteUsos}
-          onChange={(datos) => actualizarDatos(datos)}
-        />
-      ),
-    },
-    {
-      id: "codigo",
-      nombre: "Código",
-      descripcion: "Opcional: añade un código promocional",
-      icono: Code,
-      componente: (
-        <FormularioCodigoPromocion
-          requiereCodigo={datosPromo.requiereCodigo}
-          codigo={datosPromo.codigo}
-          onChange={(datos) => actualizarDatos(datos)}
-        />
-      ),
-    },
-    {
-      id: "resumen",
-      nombre: "Resumen",
-      descripcion: "Revisa y confirma tu promoción",
-      icono: Check,
-      componente: <ResumenPromocion datos={datosPromo} onChange={(datos) => actualizarDatos(datos)} />,
-    },
-  ]
-
-  // Navegación entre pasos
-  const handleSiguiente = () => {
+  // Función para avanzar al siguiente paso
+  const siguientePaso = () => {
     if (pasoActual < pasos.length - 1) {
       setPasoActual(pasoActual + 1)
-      window.scrollTo(0, 0) // Scroll al inicio para mejor UX
+      window.scrollTo(0, 0)
     }
   }
 
-  const handleAnterior = () => {
+  // Función para retroceder al paso anterior
+  const pasoAnterior = () => {
     if (pasoActual > 0) {
       setPasoActual(pasoActual - 1)
       window.scrollTo(0, 0)
     }
   }
 
-  // Envío del formulario
-  const handleEnviar = async () => {
+  // Función para crear la promoción
+  const handleCrearPromocion = async () => {
     try {
-      setEnviando(true)
+      setIsLoading(true)
+      setError(null)
 
-      // Validaciones básicas
-      if (!datosPromo.titulo) {
-        datosPromo.titulo = generarTituloPredeterminado(datosPromo)
+      // Validar que el valor sea un número positivo
+      const valor = Number.parseFloat(datosPromocion.valor)
+      if (isNaN(valor) || valor <= 0) {
+        setError("El valor de la promoción debe ser un número mayor que cero")
+        setIsLoading(false)
+        return
       }
 
-      if (!datosPromo.valor || isNaN(Number(datosPromo.valor)) || Number(datosPromo.valor) <= 0) {
-        throw new Error("El valor de la promoción debe ser un número mayor que cero")
+      // Preparar los datos para la API
+      const promocionData = {
+        titulo: datosPromocion.titulo,
+        tipo: datosPromocion.tipo,
+        valor: datosPromocion.valor,
+        fechaInicio: datosPromocion.programacion.fechaInicio,
+        fechaFin: datosPromocion.programacion.fechaFin,
+        codigo: datosPromocion.codigo.usarCodigo ? datosPromocion.codigo.codigo : null,
       }
 
-      if (datosPromo.requiereCodigo && !datosPromo.codigo) {
-        throw new Error("El código de la promoción es obligatorio si requiere código")
-      }
+      console.log("Datos de promoción a enviar:", promocionData)
 
-      // Preparar datos para la API
-      const datosAPI = {
-        titulo: datosPromo.titulo,
-        descripcion: datosPromo.descripcion,
-        tipo: datosPromo.tipo,
-        objetivo: datosPromo.objetivo,
-        objetivoId: datosPromo.objetivoId || undefined,
-        valor: Number(datosPromo.valor),
-        condiciones: [],
-        activa: true,
-        fechaInicio: datosPromo.fechaInicio.toISOString(),
-        fechaFin: datosPromo.tieneFechaFin ? datosPromo.fechaFin.toISOString() : undefined,
-        codigo: datosPromo.requiereCodigo ? datosPromo.codigo : undefined,
-        limiteUsos: datosPromo.limitarUsos ? Number(datosPromo.limiteUsos) : undefined,
-        contadorUsos: 0,
-        fechaCreacion: new Date().toISOString(),
-        fechaActualizacion: new Date().toISOString(),
-      }
+      // Llamar a la API para crear la promoción
+      const resultado = await crearPromocion(promocionData)
 
-      // Añadir condición de compra mínima si se especifica
-      if (datosPromo.compraMinima && !isNaN(Number(datosPromo.compraMinima)) && Number(datosPromo.compraMinima) > 0) {
-        datosAPI.condiciones.push({
-          tipo: "CANTIDAD_MINIMA",
-          valor: Number(datosPromo.compraMinima),
-        })
-      }
+      console.log("Promoción creada:", resultado)
 
-      // Llamada a la API
-      await crearPromocion(datosAPI)
-
-      // Notificar éxito
-      toast({
-        title: "¡Promoción creada!",
-        description: "La promoción se ha creado correctamente",
-      })
-
-      // Redireccionar a la lista de promociones
+      // Redirigir a la página de promociones
       router.push("/dashboard/promociones")
-    } catch (error) {
-      console.error("Error al crear promoción:", error)
-      toast({
-        title: "Error",
-        description: `No se pudo crear la promoción: ${(error as Error).message}`,
-        variant: "destructive",
-      })
+    } catch (err) {
+      console.error("Error al crear promoción:", err)
+      setError(`Error al crear promoción: ${(err as Error).message}`)
     } finally {
-      setEnviando(false)
+      setIsLoading(false)
     }
   }
 
-  // Genera un título predeterminado basado en los datos de la promoción
-  const generarTituloPredeterminado = (datos: DatosAsistentePromocion) => {
-    let textoTipo = ""
-
-    // Texto según el tipo de promoción
-    switch (datos.tipo) {
-      case "PORCENTAJE_DESCUENTO":
-        textoTipo = `${datos.valor}% de descuento`
-        break
-      case "CANTIDAD_FIJA":
-        textoTipo = `${datos.valor}€ de descuento`
-        break
-      case "COMPRA_X_LLEVA_Y":
-        textoTipo = `Compra y lleva ${datos.valor} gratis`
-        break
-      case "ENVIO_GRATIS":
-        textoTipo = `Envío gratis`
-        break
-    }
-
-    // Texto según el objetivo
-    let textoObjetivo = ""
-    switch (datos.objetivo) {
-      case "CARRITO":
-        textoObjetivo = "en toda la tienda"
-        break
-      case "COLECCION":
-        textoObjetivo = "en colección"
-        break
-      case "PRODUCTO":
-        textoObjetivo = "en producto"
-        break
-    }
-
-    return `${textoTipo} ${textoObjetivo}`
-  }
+  // Definir los pasos del asistente
+  const pasos = [
+    {
+      titulo: "Tipo de promoción",
+      descripcion: "Selecciona el tipo de promoción que quieres crear",
+      contenido: (
+        <FormularioTipoPromocion
+          tipo={datosPromocion.tipo}
+          onChange={(tipo) => actualizarDatosPromocion("tipo", tipo)}
+        />
+      ),
+    },
+    {
+      titulo: "Objetivo",
+      descripcion: "Define a qué productos se aplicará la promoción",
+      contenido: (
+        <FormularioObjetivoPromocion
+          objetivo={datosPromocion.objetivo}
+          onChange={(objetivo) => actualizarDatosPromocion("objetivo", objetivo)}
+        />
+      ),
+    },
+    {
+      titulo: "Valor",
+      descripcion: "Establece el valor del descuento",
+      contenido: (
+        <FormularioValorPromocion
+          tipo={datosPromocion.tipo}
+          valor={datosPromocion.valor}
+          onChange={(valor) => actualizarDatosPromocion("valor", valor)}
+        />
+      ),
+    },
+    {
+      titulo: "Condiciones",
+      descripcion: "Define las condiciones para aplicar la promoción",
+      contenido: (
+        <FormularioCondicionesPromocion
+          condiciones={datosPromocion.condiciones}
+          onChange={(condiciones) => actualizarDatosPromocion("condiciones", condiciones)}
+        />
+      ),
+    },
+    {
+      titulo: "Programación",
+      descripcion: "Establece cuándo estará activa la promoción",
+      contenido: (
+        <FormularioProgramacionPromocion
+          programacion={datosPromocion.programacion}
+          onChange={(programacion) => actualizarDatosPromocion("programacion", programacion)}
+        />
+      ),
+    },
+    {
+      titulo: "Código promocional",
+      descripcion: "Configura el código de descuento",
+      contenido: (
+        <FormularioCodigoPromocion
+          codigo={datosPromocion.codigo}
+          onChange={(codigo) => actualizarDatosPromocion("codigo", codigo)}
+        />
+      ),
+    },
+    {
+      titulo: "Resumen",
+      descripcion: "Revisa y confirma los detalles de la promoción",
+      contenido: (
+        <FormularioResumenPromocion
+          datosPromocion={datosPromocion}
+          onTituloChange={(titulo) => setDatosPromocion({ ...datosPromocion, titulo })}
+        />
+      ),
+    },
+  ]
 
   return (
     <div className="space-y-6">
-      {/* Cabecera con botón de volver */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={() => router.push("/dashboard/promociones")}>
             <ArrowLeft className="h-4 w-4" />
-            <span className="sr-only">Volver</span>
           </Button>
           <h1 className="text-3xl font-bold tracking-tight">Asistente de promociones</h1>
         </div>
       </div>
 
-      {/* Tarjeta principal */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       <Card>
-        <CardHeader>
-          <CardTitle>Crea una promoción en simples pasos</CardTitle>
-          <CardDescription>
-            Este asistente te guiará en la creación de una promoción personalizada para tu tienda
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {/* Indicador de pasos */}
-          <div className="mb-8">
-            <Pasos pasoActual={pasoActual}>
-              {pasos.map((paso, index) => (
-                <Paso
-                  key={paso.id}
-                  titulo={paso.nombre}
-                  descripcion={paso.descripcion}
-                  icono={paso.icono}
-                  esActivo={pasoActual === index}
-                  esCompletado={pasoActual > index}
-                />
-              ))}
-            </Pasos>
-          </div>
+        <CardContent className="p-6">
+          <Pasos pasoActual={pasoActual} className="mb-8">
+            {pasos.map((paso, index) => (
+              <Paso key={index} titulo={paso.titulo} descripcion={paso.descripcion} />
+            ))}
+          </Pasos>
 
-          {/* Contenido del paso actual */}
-          <div className="py-4">{pasos[pasoActual].componente}</div>
+          <div className="mb-8">{pasos[pasoActual].contenido}</div>
 
-          {/* Botones de navegación */}
-          <div className="flex justify-between mt-8">
-            <Button variant="outline" onClick={handleAnterior} disabled={pasoActual === 0}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
+          <div className="flex justify-between">
+            <Button variant="outline" onClick={pasoAnterior} disabled={pasoActual === 0 || isLoading}>
               Anterior
             </Button>
-
             {pasoActual < pasos.length - 1 ? (
-              <Button onClick={handleSiguiente} className="bg-granito hover:bg-granito-dark">
+              <Button onClick={siguientePaso} disabled={isLoading}>
                 Siguiente
-                <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             ) : (
-              <Button onClick={handleEnviar} disabled={enviando} className="bg-granito hover:bg-granito-dark">
-                {enviando ? "Creando..." : "Crear promoción"}
-                <Check className="ml-2 h-4 w-4" />
+              <Button
+                onClick={handleCrearPromocion}
+                className="bg-granito hover:bg-granito/90 text-white"
+                disabled={isLoading}
+              >
+                {isLoading ? "Creando..." : "Crear promoción"}
               </Button>
             )}
           </div>

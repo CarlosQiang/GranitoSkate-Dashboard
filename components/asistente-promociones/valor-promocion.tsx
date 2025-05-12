@@ -46,7 +46,7 @@ export function FormularioValorPromocion({ tipo, valor, onChange }: FormularioVa
       setValorSlider(Number.parseFloat(nuevoValor))
       onChange(nuevoValor)
     }
-  }, [tipo])
+  }, [tipo, valor, onChange])
 
   // Actualizar slider cuando el valor cambia externamente
   useEffect(() => {
@@ -59,7 +59,7 @@ export function FormularioValorPromocion({ tipo, valor, onChange }: FormularioVa
       setValorSlider(Number.parseFloat(nuevoValor))
       onChange(nuevoValor)
     }
-  }, [valor])
+  }, [valor, onChange])
 
   const handleSliderChange = (nuevoValor: number[]) => {
     const value = nuevoValor[0]
