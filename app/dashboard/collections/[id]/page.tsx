@@ -96,7 +96,7 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
     try {
       const updateData = {
         title: formData.title,
-        descriptionHtml: formData.description,
+        description: formData.description,
         // Generar automáticamente los metafields de SEO
         metafields: generateSeoMetafields(formData.title, formData.description),
       }
@@ -326,15 +326,15 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
               </Button>
             </CardHeader>
             <CardContent>
-              {collection.products?.edges.length > 0 ? (
+              {collection.products?.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {collection.products.edges.map((edge: any) => (
-                    <div key={edge.node.id} className="border rounded-md overflow-hidden">
+                  {collection.products.map((product: any) => (
+                    <div key={product.id} className="border rounded-md overflow-hidden">
                       <div className="aspect-square relative">
-                        {edge.node.featuredImage ? (
+                        {product.image ? (
                           <Image
-                            src={edge.node.featuredImage.url || "/placeholder.svg"}
-                            alt={edge.node.title}
+                            src={product.image.url || "/placeholder.svg"}
+                            alt={product.title}
                             fill
                             className="object-cover"
                           />
@@ -345,19 +345,17 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
                         )}
                       </div>
                       <div className="p-3">
-                        <h3 className="font-medium truncate">{edge.node.title}</h3>
+                        <h3 className="font-medium truncate">{product.title}</h3>
                         <div className="flex items-center justify-between mt-2">
                           <span
                             className={`text-xs px-2 py-1 rounded-full ${
-                              edge.node.status === "ACTIVE"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-gray-100 text-gray-800"
+                              product.status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
                             }`}
                           >
-                            {edge.node.status === "ACTIVE" ? "Visible" : "Oculto"}
+                            {product.status === "ACTIVE" ? "Visible" : "Oculto"}
                           </span>
                           <Button variant="ghost" size="sm" asChild className="ml-auto">
-                            <a href={`/dashboard/products/${edge.node.id.split("/").pop()}`}>Ver</a>
+                            <a href={`/dashboard/products/${product.id}`}>Ver</a>
                           </Button>
                         </div>
                       </div>

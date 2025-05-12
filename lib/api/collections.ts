@@ -78,7 +78,7 @@ export async function fetchCollectionById(id) {
             url
             altText
           }
-          products(first: 10) {
+          products(first: 50) {
             edges {
               node {
                 id
@@ -87,6 +87,7 @@ export async function fetchCollectionById(id) {
                   url
                   altText
                 }
+                status
                 variants(first: 1) {
                   edges {
                     node {
@@ -120,6 +121,7 @@ export async function fetchCollectionById(id) {
         id: edge.node.id.split("/").pop(),
         title: edge.node.title,
         image: edge.node.featuredImage,
+        status: edge.node.status,
         price: edge.node.variants.edges[0]?.node.price || "0.00",
         currencyCode: "EUR", // Valor por defecto
       })),

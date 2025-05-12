@@ -7,7 +7,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent } from "@/components/ui/card"
 import { Loader2, Search, Package, AlertCircle } from "lucide-react"
 import { fetchProducts } from "@/lib/api/productos"
-import { addProductsToCollection, removeProductsFromCollection } from "@/lib/api/colecciones"
+import { fetchCollectionById } from "@/lib/api/collections"
+import { addProductsToCollection, removeProductsFromCollection } from "@/lib/api/collections"
 import Image from "next/image"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { getImageUrl } from "@/lib/utils"
@@ -20,6 +21,7 @@ interface CollectionProductManagerProps {
 
 export function CollectionProductManager({ collectionId, onComplete, mode }: CollectionProductManagerProps) {
   const [products, setProducts] = useState<any[]>([])
+  const [collectionProducts, setCollectionProducts] = useState<any[]>([])
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -36,27 +38,47 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
   }, [])
 
   useEffect(() => {
-    async function loadProducts() {
+    async function loadData() {
       try {
         setIsLoading(true)
         setError(null)
 
-        // Intentar cargar productos
-        let intentos = 0
-        let productsData = []
+        // Cargar todos los productos
+        let allProducts = []
+        let collectionData = null
 
-        while (intentos < 3 && productsData.length === 0) {
-          try {
-            productsData = await fetchProducts({ limite: 50 })
-            intentos++
-          } catch (err) {
-            console.warn(`Intento ${intentos} fallido:`, err)
-            await new Promise((resolve) => setTimeout(resolve, 1000)) // Esperar 1 segundo entre intentos
+        try {
+          // Intentar cargar productos
+          allProducts = await fetchProducts({ limite: 50 })
+
+          // Intentar cargar la colección para obtener sus productos
+          collectionData = await fetchCollectionById(collectionId)
+
+          if (collectionData && collectionData.products) {
+            // Extraer los IDs de los productos en la colección
+            const collectionProductIds = collectionData.products.map((product: any) => product.id)
+            setCollectionProducts(collectionData.products)
+
+            // Filtrar productos según el modo
+            if (mode === "add") {
+              // Para añadir: mostrar solo productos que NO están en la colección
+              setProducts(allProducts.filter((product: any) => !collectionProductIds.includes(product.id)))
+            } else {
+              // Para eliminar: mostrar solo productos que SÍ están en la colección
+              setProducts(allProducts.filter((product: any) => collectionProductIds.includes(product.id)))
+            }
+          } else {
+            // Si no hay datos de colección, mostrar todos los productos en modo añadir
+            // o ninguno en modo eliminar
+            setProducts(mode === "add" ? allProducts : [])
           }
+        } catch (err) {
+          console.warn(`Error al cargar datos:`, err)
+          // En caso de error, mostrar todos los productos
+          setProducts(allProducts)
         }
 
         if (isMounted.current) {
-          setProducts(productsData)
           setIsLoading(false)
         }
       } catch (err) {
@@ -68,8 +90,8 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
       }
     }
 
-    loadProducts()
-  }, [])
+    loadData()
+  }, [collectionId, mode])
 
   const handleImageError = (productId: string) => {
     setImageErrors((prev) => ({
@@ -191,7 +213,11 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
       {filteredProducts.length === 0 ? (
         <div className="text-center py-12 border-2 border-dashed rounded-lg">
           <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">No se encontraron productos</p>
+          <p className="text-muted-foreground">
+            {mode === "add"
+              ? "No hay productos disponibles para añadir a esta colección"
+              : "No hay productos en esta colección para eliminar"}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">

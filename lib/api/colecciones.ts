@@ -267,7 +267,7 @@ export async function removeProductsFromCollection(collectionId, productIds) {
   }
 }
 
-// Importar todas las funciones necesarias desde el archivo de collections
+// Importar las funciones de collections.ts
 import {
   fetchCollections,
   fetchCollectionById,
@@ -276,14 +276,14 @@ import {
   deleteCollection,
 } from "./collections"
 
-// Reexportar todas las funciones para mantener compatibilidad
-export { fetchCollections, fetchCollectionById, createCollection, updateCollection, deleteCollection }
-
-// Alias en español para compatibilidad
-export const obtenerColeccionesAlias = fetchCollections
-export const obtenerColeccionPorIdAlias = fetchCollectionById
-export const crearColeccionAlias = createCollection
+// Exportar las funciones con nombres en español
+export const obtenerColeccionesDesdeArchivo = fetchCollections
+export const obtenerColeccionPorIdDesdeArchivo = fetchCollectionById
+export const crearColeccionDesdeArchivo = createCollection
 export const actualizarColeccion = updateCollection
 export const eliminarColeccion = deleteCollection
 export const agregarProductosAColeccion = addProductsToCollection
 export const eliminarProductosDeColeccion = removeProductsFromCollection
+
+// Re-exportar las funciones originales para mantener compatibilidad
+export { fetchCollections, fetchCollectionById, createCollection, updateCollection, deleteCollection }
