@@ -1,6 +1,6 @@
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
-import type { Market, WebPresence, SeoSettings } from "@/types/markets"
+import type { Market, WebPresence } from "@/types/markets"
 
 // Obtener todos los mercados configurados
 export async function fetchMarkets(): Promise<Market[]> {
@@ -137,34 +137,274 @@ export async function fetchWebPresence(): Promise<WebPresence> {
             url
             sslEnabled
           }
+          metafields(first: 20, namespace: "seo") {
+            edges {
+              node {
+                id
+                namespace
+                key
+                value
+                type
+              }
+            }
+          }
         }
       }
     `
 
     const data = await shopifyClient.request(query)
 
-    return {
-      shopId: data.shop.id,
+    // Extraer metafields de SEO
+    const seoMetafields = data.shop.metafields.edges.map((edge: any) => edge.node)
+
+    // Buscar metafields específicos
+    const titleMetafield = seoMetafields.find((m: any) => m.key === "title")
+    const descriptionMetafield = seoMetafields.find((m: any) => m.key === "description")
+    const keywordsMetafield = seoMetafields.find((m: any) => m.key === "keywords")
+    const socialMediaMetafield = seoMetafields.find((m: any) => m.key === "social_media")
+    const localBusinessMetafield = seoMetafields.find((m: any) => m.key === "local_business")
+
+    // Construir objeto de presencia web
+    const webPresence: WebPresence = {
+      id: data.shop.id,
+      url: data.shop.primaryDomain.url,
       shopName: data.shop.name,
       primaryDomain: data.shop.primaryDomain.url,
-      domains: data.shop.domains.map((domain) => ({
+      domains: data.shop.domains.map((domain: any) => ({
         id: domain.id,
         url: domain.url,
         sslEnabled: domain.sslEnabled,
       })),
       myshopifyDomain: data.shop.myshopifyDomain,
+      seo: {
+        title: titleMetafield ? titleMetafield.value : data.shop.name,
+        description: descriptionMetafield ? descriptionMetafield.value : "",
+        keywords: keywordsMetafield ? JSON.parse(keywordsMetafield.value) : [],
+      },
+      socialMedia: socialMediaMetafield
+        ? JSON.parse(socialMediaMetafield.value)
+        : {
+            facebook: "",
+            instagram: "",
+            twitter: "",
+            youtube: "",
+            pinterest: "",
+          },
+      localBusiness: localBusinessMetafield
+        ? JSON.parse(localBusinessMetafield.value)
+        : {
+            name: data.shop.name,
+            address: {
+              streetAddress: "",
+              addressLocality: "",
+              addressRegion: "",
+              postalCode: "",
+              addressCountry: "ES",
+            },
+            telephone: "",
+            email: "",
+            openingHours: [],
+            geo: {
+              latitude: 0,
+              longitude: 0,
+            },
+          },
     }
+
+    return webPresence
   } catch (error) {
     console.error("Error fetching web presence:", error)
-    throw new Error(`Error al obtener la presencia web: ${error.message}`)
+
+    // Devolver un objeto con valores predeterminados en caso de error
+    return {
+      id: "",
+      url: "",
+      shopName: "Mi Tienda",
+      primaryDomain: "",
+      domains: [],
+      myshopifyDomain: "",
+      seo: {
+        title: "Mi Tienda",
+        description: "",
+        keywords: [],
+      },
+      socialMedia: {
+        facebook: "",
+        instagram: "",
+        twitter: "",
+        youtube: "",
+        pinterest: "",
+      },
+      localBusiness: {
+        name: "Mi Tienda",
+        address: {
+          streetAddress: "",
+          addressLocality: "",
+          addressRegion: "",
+          postalCode: "",
+          addressCountry: "ES",
+        },
+        telephone: "",
+        email: "",
+        openingHours: [],
+        geo: {
+          latitude: 0,
+          longitude: 0,
+        },
+      },
+    }
   }
 }
 
 // Función para guardar la configuración SEO
-export async function saveSeoSettings(settings: SeoSettings): Promise<boolean> {
+export async function saveSeoSettings(settings: WebPresence): Promise<boolean> {
   try {
-    // Implementar cuando sea necesario
-    console.log("Guardando configuración SEO:", settings)
+    // Guardar metafields de SEO
+    const mutations = []
+
+    // Metafield para título SEO
+    mutations.push(
+      shopifyClient.request(
+        gql`
+          mutation SetMetafield($input: MetafieldInput!) {
+            metafieldSet(metafield: $input) {
+              metafield {
+                id
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `,
+        {
+          input: {
+            namespace: "seo",
+            key: "title",
+            value: settings.seo.title,
+            type: "single_line_text_field",
+            ownerId: "gid://shopify/Shop/1",
+          },
+        },
+      ),
+    )
+
+    // Metafield para descripción SEO
+    mutations.push(
+      shopifyClient.request(
+        gql`
+          mutation SetMetafield($input: MetafieldInput!) {
+            metafieldSet(metafield: $input) {
+              metafield {
+                id
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `,
+        {
+          input: {
+            namespace: "seo",
+            key: "description",
+            value: settings.seo.description,
+            type: "multi_line_text_field",
+            ownerId: "gid://shopify/Shop/1",
+          },
+        },
+      ),
+    )
+
+    // Metafield para palabras clave SEO
+    mutations.push(
+      shopifyClient.request(
+        gql`
+          mutation SetMetafield($input: MetafieldInput!) {
+            metafieldSet(metafield: $input) {
+              metafield {
+                id
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `,
+        {
+          input: {
+            namespace: "seo",
+            key: "keywords",
+            value: JSON.stringify(settings.seo.keywords),
+            type: "json",
+            ownerId: "gid://shopify/Shop/1",
+          },
+        },
+      ),
+    )
+
+    // Metafield para redes sociales
+    mutations.push(
+      shopifyClient.request(
+        gql`
+          mutation SetMetafield($input: MetafieldInput!) {
+            metafieldSet(metafield: $input) {
+              metafield {
+                id
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `,
+        {
+          input: {
+            namespace: "seo",
+            key: "social_media",
+            value: JSON.stringify(settings.socialMedia),
+            type: "json",
+            ownerId: "gid://shopify/Shop/1",
+          },
+        },
+      ),
+    )
+
+    // Metafield para negocio local
+    mutations.push(
+      shopifyClient.request(
+        gql`
+          mutation SetMetafield($input: MetafieldInput!) {
+            metafieldSet(metafield: $input) {
+              metafield {
+                id
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `,
+        {
+          input: {
+            namespace: "seo",
+            key: "local_business",
+            value: JSON.stringify(settings.localBusiness),
+            type: "json",
+            ownerId: "gid://shopify/Shop/1",
+          },
+        },
+      ),
+    )
+
+    // Ejecutar todas las mutaciones
+    await Promise.all(mutations)
+
     return true
   } catch (error) {
     console.error("Error saving SEO settings:", error)

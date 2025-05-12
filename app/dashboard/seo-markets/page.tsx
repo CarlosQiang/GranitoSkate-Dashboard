@@ -9,15 +9,29 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/components/ui/use-toast"
-import { Save, Globe, MapPin, Search, Facebook, Instagram, Twitter, Youtube } from "lucide-react"
+import {
+  Save,
+  Globe,
+  MapPin,
+  Search,
+  Facebook,
+  Instagram,
+  Twitter,
+  Youtube,
+  AlertTriangle,
+  RefreshCw,
+} from "lucide-react"
 import { fetchWebPresence, saveSeoSettings } from "@/lib/api/markets"
 import type { WebPresence } from "@/types/markets"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function SeoMarketsPage() {
   const { toast } = useToast()
   const [isSaving, setIsSaving] = useState(false)
   const [webPresence, setWebPresence] = useState<WebPresence | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadData() {
@@ -25,13 +39,10 @@ export default function SeoMarketsPage() {
       try {
         const data = await fetchWebPresence()
         setWebPresence(data)
+        setError(null)
       } catch (error) {
         console.error("Error loading web presence data:", error)
-        toast({
-          title: "Error",
-          description: "No se pudo cargar la información de SEO y mercados",
-          variant: "destructive",
-        })
+        setError(`No se pudo cargar la información de SEO y mercados: ${error.message}`)
       } finally {
         setIsLoading(false)
       }
@@ -63,7 +74,7 @@ export default function SeoMarketsPage() {
       console.error("Error saving settings:", error)
       toast({
         title: "Error",
-        description: "Ocurrió un error al guardar la configuración",
+        description: `Ocurrió un error al guardar la configuración: ${error.message}`,
         variant: "destructive",
       })
     } finally {
@@ -104,20 +115,50 @@ export default function SeoMarketsPage() {
             <h1 className="text-3xl font-bold tracking-tight">SEO y Mercados</h1>
             <p className="text-muted-foreground">Gestiona la configuración de SEO y mercados de tu tienda</p>
           </div>
+          <Skeleton className="h-10 w-40" />
         </div>
         <div className="grid gap-4">
           <Card>
             <CardHeader>
-              <CardTitle>Cargando...</CardTitle>
-              <CardDescription>Obteniendo información de SEO y mercados</CardDescription>
+              <Skeleton className="h-7 w-40" />
+              <Skeleton className="h-5 w-80" />
             </CardHeader>
             <CardContent>
-              <div className="h-40 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+              <div className="space-y-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
               </div>
             </CardContent>
           </Card>
         </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">SEO y Mercados</h1>
+            <p className="text-muted-foreground">Gestiona la configuración de SEO y mercados de tu tienda</p>
+          </div>
+        </div>
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            {error}
+            <div className="mt-2">
+              <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Reintentar
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
       </div>
     )
   }
@@ -191,7 +232,10 @@ export default function SeoMarketsPage() {
                   onChange={(e) =>
                     updateWebPresence(
                       "seo.keywords",
-                      e.target.value.split(",").map((k) => k.trim()),
+                      e.target.value
+                        .split(",")
+                        .map((k) => k.trim())
+                        .filter(Boolean),
                     )
                   }
                 />
@@ -313,7 +357,9 @@ export default function SeoMarketsPage() {
                   id="opening-hours"
                   placeholder="Lun-Vie: 10:00-20:00, Sáb: 10:00-14:00"
                   value={webPresence?.localBusiness?.openingHours?.join("\n") || ""}
-                  onChange={(e) => updateWebPresence("localBusiness.openingHours", e.target.value.split("\n"))}
+                  onChange={(e) =>
+                    updateWebPresence("localBusiness.openingHours", e.target.value.split("\n").filter(Boolean))
+                  }
                 />
                 <p className="text-xs text-muted-foreground">
                   Introduce cada horario en una línea nueva (ej: Lun-Vie: 10:00-20:00)

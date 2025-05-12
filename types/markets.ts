@@ -32,6 +32,14 @@ export interface MarketRegion {
 export interface WebPresence {
   id: string
   url: string
+  shopName: string
+  primaryDomain: string
+  domains: {
+    id: string
+    url: string
+    sslEnabled: boolean
+  }[]
+  myshopifyDomain: string
   seo: {
     title: string
     description: string
