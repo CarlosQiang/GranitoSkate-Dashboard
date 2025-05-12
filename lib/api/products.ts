@@ -424,43 +424,43 @@ export async function updateProduct(id, productData) {
 }
 
 // Función para eliminar un producto
-export async function deleteProduct(id) {
-  try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const formattedId = id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
+// export async function deleteProduct(id) {
+//   try {
+//     // Asegurarse de que el ID tenga el formato correcto
+//     const formattedId = id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
 
-    const mutation = gql`
-      mutation DeleteProduct($input: ProductDeleteInput!) {
-        productDelete(input: $input) {
-          deletedProductId
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
+//     const mutation = gql`
+//       mutation DeleteProduct($input: ProductDeleteInput!) {
+//         productDelete(input: $input) {
+//           deletedProductId
+//           userErrors {
+//             field
+//             message
+//           }
+//         }
+//       }
+//     `
 
-    const variables = {
-      input: {
-        id: formattedId,
-      },
-    }
+//     const variables = {
+//       input: {
+//         id: formattedId,
+//       },
+//     }
 
-    const data = await shopifyClient.request(mutation, variables)
+//     const data = await shopifyClient.request(mutation, variables)
 
-    if (data.productDelete.userErrors && data.productDelete.userErrors.length > 0) {
-      throw new Error(data.productDelete.userErrors[0].message)
-    }
+//     if (data.productDelete.userErrors && data.productDelete.userErrors.length > 0) {
+//       throw new Error(data.productDelete.userErrors[0].message)
+//     }
 
-    return {
-      id: data.productDelete.deletedProductId,
-    }
-  } catch (error) {
-    console.error(`Error al eliminar el producto ${id}:`, error)
-    throw new Error(`Error al eliminar el producto: ${error.message}`)
-  }
-}
+//     return {
+//       id: data.productDelete.deletedProductId,
+//     }
+//   } catch (error) {
+//     console.error(`Error al eliminar el producto ${id}:`, error)
+//     throw new Error(`Error al eliminar el producto: ${error.message}`)
+//   }
+// }
 
 // Añadir funciones para gestionar productos en colecciones
 export async function addProductsToCollection(collectionId, productIds) {
@@ -558,5 +558,56 @@ export async function removeProductsFromCollection(collectionId, productIds) {
   } catch (error) {
     console.error(`Error removing products from collection ${collectionId}:`, error)
     throw new Error(`Error al eliminar productos de la colección: ${error.message}`)
+  }
+}
+
+// Añadir esta función al final del archivo
+export async function deleteProduct(id) {
+  try {
+    // Asegurarnos de que el ID esté en el formato correcto
+    const formattedId = id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
+
+    const response = await fetch(`/api/shopify/proxy`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query: `
+          mutation productDelete($input: ProductDeleteInput!) {
+            productDelete(input: $input) {
+              deletedProductId
+              shop {
+                id
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `,
+        variables: {
+          input: {
+            id: formattedId,
+          },
+        },
+      }),
+    })
+
+    const result = await response.json()
+
+    if (result.errors) {
+      throw new Error(result.errors[0].message)
+    }
+
+    if (result.data.productDelete.userErrors.length > 0) {
+      throw new Error(result.data.productDelete.userErrors[0].message)
+    }
+
+    return result.data.productDelete
+  } catch (error) {
+    console.error("Error al eliminar el producto:", error)
+    throw error
   }
 }

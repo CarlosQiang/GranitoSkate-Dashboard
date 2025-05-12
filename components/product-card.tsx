@@ -44,6 +44,9 @@ export function ProductCard({ product }) {
   // Obtener la URL de la imagen de manera segura
   const imageUrl = product.featuredImage ? getImageUrl(product.featuredImage) : null
 
+  // Asegurarnos de que el ID del producto esté en el formato correcto para la URL
+  const productId = product.id ? product.id.replace("gid://shopify/Product/", "") : ""
+
   return (
     <Card className="overflow-hidden h-full flex flex-col">
       <div className="relative h-48 bg-gray-100">
@@ -92,7 +95,7 @@ export function ProductCard({ product }) {
           )}
         </div>
         <Button asChild size="sm" variant="outline">
-          <Link href={`/dashboard/products/${product.id}`}>
+          <Link href={`/dashboard/products/${productId}`}>
             <Pencil className="h-4 w-4 mr-1" />
             Editar
           </Link>
