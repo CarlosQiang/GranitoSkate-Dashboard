@@ -19,3 +19,6 @@ export function LoadingState({ message = "Cargando...", size = "md" }: LoadingSt
     </div>
   )
 }
+
+// Añadir exportación por defecto para compatibilidad
+export default LoadingState
