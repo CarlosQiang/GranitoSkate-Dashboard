@@ -49,14 +49,15 @@ export default function NewCollectionPage() {
         metafields: generateSeoMetafields(formData.title, formData.description),
       }
 
-      const collection = await createCollection(collectionData)
+      await createCollection(collectionData)
 
       toast({
         title: "¡Colección creada!",
         description: "Tu colección ya está disponible en la tienda y optimizada para buscadores",
       })
 
-      router.push(`/dashboard/collections/${collection.id.split("/").pop()}`)
+      // Redirigir a la página de colecciones después de crear
+      router.push("/dashboard/collections")
     } catch (error) {
       console.error("Error creating collection:", error)
       toast({
@@ -64,7 +65,6 @@ export default function NewCollectionPage() {
         description: "No se pudo crear la colección. Por favor, inténtalo de nuevo.",
         variant: "destructive",
       })
-    } finally {
       setIsSaving(false)
     }
   }
@@ -73,7 +73,7 @@ export default function NewCollectionPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => router.back()}>
+          <Button variant="outline" size="icon" onClick={() => router.push("/dashboard/collections")}>
             <ArrowLeft className="h-4 w-4" />
             <span className="sr-only">Volver</span>
           </Button>

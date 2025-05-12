@@ -103,7 +103,7 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
 
       const updateData = {
         title: formData.title,
-        description: formData.description,
+        descriptionHtml: formData.description,
         // Generar automáticamente los metafields de SEO
         metafields: generateSeoMetafields(formData.title, formData.description),
       }
@@ -116,8 +116,8 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
         description: "Los cambios se han guardado y optimizado para buscadores",
       })
 
-      // Recargar los datos de la colección
-      fetchCollectionData()
+      // Redirigir a la página de colecciones después de guardar
+      router.push("/dashboard/collections")
     } catch (error) {
       console.error("Error updating collection:", error)
       setError(`No se pudo actualizar la colección: ${(error as Error).message}`)
@@ -126,7 +126,6 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
         description: `No se pudo actualizar la colección: ${(error as Error).message}`,
         variant: "destructive",
       })
-    } finally {
       setIsSaving(false)
     }
   }
@@ -223,7 +222,7 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => router.back()}>
+          <Button variant="outline" size="icon" onClick={() => router.push("/dashboard/collections")}>
             <ArrowLeft className="h-4 w-4" />
             <span className="sr-only">Volver</span>
           </Button>
@@ -396,6 +395,10 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
             collectionTitle={formData.title}
             collectionDescription={formData.description}
             collectionImage={collection.image?.url}
+            onSaveSuccess={() => {
+              // Redirigir a la página de colecciones después de guardar SEO
+              router.push("/dashboard/collections")
+            }}
           />
         </TabsContent>
       </Tabs>
