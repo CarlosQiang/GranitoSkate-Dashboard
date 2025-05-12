@@ -38,8 +38,8 @@ export async function POST(request: Request) {
 
     console.log("Enviando consulta a Shopify:", query.substring(0, 100) + "...")
 
-    // Hacer la solicitud a la API de Shopify con la versión 2023-01 que es más estable para estas consultas
-    const response = await fetch(`https://${shopDomain}/admin/api/2023-01/graphql.json`, {
+    // Hacer la solicitud a la API de Shopify con la versión más reciente que soporta los nuevos endpoints de descuentos
+    const response = await fetch(`https://${shopDomain}/admin/api/2024-01/graphql.json`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -91,7 +91,20 @@ export async function POST(request: Request) {
       )
     }
 
-    return NextResponse.json(data)
+    // Verificar si la respuesta contiene los datos esperados
+    if (!data.data) {
+      console.error("Respuesta GraphQL sin datos:", JSON.stringify(data, null, 2))
+      return NextResponse.json(
+        {
+          error: "La respuesta de GraphQL no contiene datos",
+          details: data,
+        },
+        { status: 400 },
+      )
+    }
+
+    // Devolver solo los datos de la respuesta, no toda la estructura
+    return NextResponse.json(data.data)
   } catch (error) {
     console.error("Error en el proxy de Shopify:", error)
     return NextResponse.json(

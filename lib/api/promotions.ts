@@ -22,27 +22,66 @@ export async function fetchPromotions(limit = 20) {
 
     console.log(`Fetching ${limit} promotions from Shopify...`)
 
-    // Consulta simplificada para la API de Shopify
-    // Usamos directamente priceRules que es más estable
+    // Modificar la consulta GraphQL para usar los endpoints correctos de la API de Shopify
+    // Reemplazar la consulta actual por esta versión actualizada:
     const query = gql`
-      {
-        priceRules(first: ${limit}) {
-          edges {
-            node {
-              id
+  {
+    discountNodes(first: ${limit}) {
+      edges {
+        node {
+          id
+          discount {
+            ... on DiscountAutomaticNode {
               title
               summary
               startsAt
               endsAt
               status
-              target
-              valueType
-              value
-              usageLimit
-              discountCodes(first: 1) {
-                edges {
-                  node {
-                    code
+              discountClass
+              combinesWith {
+                orderDiscounts
+                productDiscounts
+                shippingDiscounts
+              }
+              customerGets {
+                value {
+                  ... on DiscountPercentage {
+                    percentage
+                  }
+                  ... on DiscountAmount {
+                    amount {
+                      amount
+                      currencyCode
+                    }
+                  }
+                }
+              }
+            }
+            ... on DiscountCodeNode {
+              codeDiscount {
+                title
+                summary
+                startsAt
+                endsAt
+                status
+                codes(first: 1) {
+                  edges {
+                    node {
+                      code
+                    }
+                  }
+                }
+                customerGets {
+                  value {
+                    ... on DiscountPercentage {
+                      percentage
+                    }
+                    ... on DiscountAmount {
+                      amount {
+                        amount
+                        currencyCode
+                      }
+                    }
                   }
                 }
               }
@@ -50,51 +89,67 @@ export async function fetchPromotions(limit = 20) {
           }
         }
       }
-    `
+    }
+  }
+`
 
     const data = await shopifyClient.request(query)
 
-    if (!data || !data.priceRules || !data.priceRules.edges) {
+    if (!data || !data.discountNodes || !data.discountNodes.edges) {
       console.error("Incomplete promotions response:", data)
       return []
     }
 
-    const promotions = data.priceRules.edges
+    // Modificar el procesamiento de la respuesta para adaptarse a la nueva estructura:
+    const promotions = data.discountNodes.edges
       .map((edge) => {
         const node = edge.node
+        if (!node || !node.discount) return null
 
-        if (!node) return null
+        // Determinar si es un descuento automático o un código de descuento
+        const isCodeDiscount = node.discount.codeDiscount
+        const discountData = isCodeDiscount ? node.discount.codeDiscount : node.discount
 
-        // Determine if it has a discount code
-        const hasDiscountCode = node.discountCodes?.edges?.length > 0
-        const code = hasDiscountCode ? node.discountCodes.edges[0].node.code : null
+        // Obtener el código si existe
+        const code =
+          isCodeDiscount && discountData.codes?.edges?.length > 0 ? discountData.codes.edges[0].node.code : null
 
-        // Map status
-        let status = "ACTIVE"
-        if (node.status === "ACTIVE") status = "ACTIVE"
-        else if (node.status === "EXPIRED") status = "EXPIRED"
-        else if (node.status === "SCHEDULED") status = "SCHEDULED"
+        // Mapear el estado
+        let status = "active"
+        if (discountData.status === "ACTIVE") status = "active"
+        else if (discountData.status === "EXPIRED") status = "expired"
+        else if (discountData.status === "SCHEDULED") status = "scheduled"
 
-        // Map value type
-        let valueType = "percentage"
-        if (node.valueType === "PERCENTAGE") valueType = "percentage"
-        else if (node.valueType === "FIXED_AMOUNT") valueType = "fixed_amount"
+        // Determinar el tipo y valor del descuento
+        let type = "percentage"
+        let value = "0"
+
+        if (discountData.customerGets?.value) {
+          const discountValue = discountData.customerGets.value
+          if (discountValue.percentage) {
+            type = "percentage"
+            value = (Number.parseFloat(discountValue.percentage) * 100).toString()
+          } else if (discountValue.amount) {
+            type = "fixed_amount"
+            value = discountValue.amount.amount
+          }
+        }
 
         return {
           id: node.id.split("/").pop(),
-          title: node.title,
+          title: discountData.title,
           code: code,
-          isAutomatic: !hasDiscountCode,
-          startsAt: node.startsAt,
-          endsAt: node.endsAt,
+          isAutomatic: !isCodeDiscount,
+          startDate: discountData.startsAt,
+          endDate: discountData.endsAt,
           status: status,
-          valueType: valueType,
-          value: Math.abs(Number.parseFloat(node.value)).toString(), // Aseguramos que el valor sea positivo
+          type: type,
+          value: value,
           currencyCode: "EUR",
-          summary: node.summary || null,
+          summary: discountData.summary || null,
         }
       })
-      .filter(Boolean) // Remove any null values
+      .filter(Boolean) // Eliminar valores nulos
 
     // Update cache
     promotionsCache = promotions
