@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent } from "@/components/ui/card"
-import { Loader2, Search, Package, AlertCircle } from "lucide-react"
+import { Loader2, Search, Package, AlertCircle, RefreshCw } from "lucide-react"
 import { fetchProducts } from "@/lib/api/productos"
 import { fetchCollectionById } from "@/lib/api/collections"
 import { addProductsToCollection, removeProductsFromCollection } from "@/lib/api/collections"
@@ -43,112 +43,112 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
 
   // Cargar productos y colección
   useEffect(() => {
-    async function loadData() {
+    loadData()
+  }, [collectionId, mode])
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      // Cargar todos los productos
+      const productsData = await fetchProducts({ limite: 250 })
+
+      if (!productsData || !Array.isArray(productsData)) {
+        throw new Error("No se pudieron cargar los productos correctamente")
+      }
+
+      if (isMounted.current) {
+        setAllProducts(productsData)
+      }
+
+      // Cargar la colección para obtener sus productos
       try {
-        setIsLoading(true)
-        setError(null)
+        const collectionData = await fetchCollectionById(collectionId)
 
-        // Cargar todos los productos
-        const productsData = await fetchProducts({ limite: 250 })
+        if (!collectionData) {
+          throw new Error("No se pudo cargar la información de la colección")
+        }
 
-        if (!productsData || !Array.isArray(productsData)) {
-          throw new Error("No se pudieron cargar los productos correctamente")
+        // Asegurarse de que collectionData.products sea un array
+        let collectionProductsArray = []
+        if (collectionData.products) {
+          if (Array.isArray(collectionData.products)) {
+            collectionProductsArray = collectionData.products
+          } else if (collectionData.products.edges && Array.isArray(collectionData.products.edges)) {
+            collectionProductsArray = collectionData.products.edges.map((edge: any) => edge.node)
+          }
         }
 
         if (isMounted.current) {
-          setAllProducts(productsData)
-        }
+          setCollectionProducts(collectionProductsArray)
 
-        // Cargar la colección para obtener sus productos
-        try {
-          const collectionData = await fetchCollectionById(collectionId)
+          // Crear un conjunto de IDs de productos en la colección para búsqueda rápida
+          const collectionProductIds = new Set(
+            collectionProductsArray.map((product: any) => {
+              // Normalizar IDs para comparación
+              const productId =
+                typeof product.id === "string" && product.id.includes("/") ? product.id.split("/").pop() : product.id
+              return productId
+            }),
+          )
 
-          if (!collectionData) {
-            throw new Error("No se pudo cargar la información de la colección")
-          }
+          console.log("IDs de productos en la colección:", Array.from(collectionProductIds))
+          console.log("Total de productos en la colección:", collectionProductIds.size)
 
-          // Asegurarse de que collectionData.products sea un array
-          let collectionProductsArray = []
-          if (collectionData.products) {
-            if (Array.isArray(collectionData.products)) {
-              collectionProductsArray = collectionData.products
-            } else if (collectionData.products.edges && Array.isArray(collectionData.products.edges)) {
-              collectionProductsArray = collectionData.products.edges.map((edge: any) => edge.node)
-            }
-          }
+          // Filtrar productos según el modo
+          if (mode === "add") {
+            // Para añadir: mostrar solo productos que NO están en la colección
+            const productsToAdd = productsData.filter((product: any) => {
+              const productId =
+                typeof product.id === "string" && product.id.includes("/") ? product.id.split("/").pop() : product.id
+              return !collectionProductIds.has(productId)
+            })
 
-          if (isMounted.current) {
-            setCollectionProducts(collectionProductsArray)
+            console.log("Productos disponibles para añadir:", productsToAdd.length)
+            setDisplayProducts(productsToAdd)
+            setFilteredProducts(productsToAdd)
+          } else {
+            // Para eliminar: mostrar solo productos que SÍ están en la colección
+            const productsToRemove = productsData.filter((product: any) => {
+              const productId =
+                typeof product.id === "string" && product.id.includes("/") ? product.id.split("/").pop() : product.id
+              return collectionProductIds.has(productId)
+            })
 
-            // Crear un conjunto de IDs de productos en la colección para búsqueda rápida
-            const collectionProductIds = new Set(
-              collectionProductsArray.map((product: any) => {
-                // Normalizar IDs para comparación
-                const productId =
-                  typeof product.id === "string" && product.id.includes("/") ? product.id.split("/").pop() : product.id
-                return productId
-              }),
-            )
-
-            console.log("IDs de productos en la colección:", Array.from(collectionProductIds))
-            console.log("Total de productos en la colección:", collectionProductIds.size)
-
-            // Filtrar productos según el modo
-            if (mode === "add") {
-              // Para añadir: mostrar solo productos que NO están en la colección
-              const productsToAdd = productsData.filter((product: any) => {
-                const productId =
-                  typeof product.id === "string" && product.id.includes("/") ? product.id.split("/").pop() : product.id
-                return !collectionProductIds.has(productId)
-              })
-
-              console.log("Productos disponibles para añadir:", productsToAdd.length)
-              setDisplayProducts(productsToAdd)
-              setFilteredProducts(productsToAdd)
-            } else {
-              // Para eliminar: mostrar solo productos que SÍ están en la colección
-              const productsToRemove = productsData.filter((product: any) => {
-                const productId =
-                  typeof product.id === "string" && product.id.includes("/") ? product.id.split("/").pop() : product.id
-                return collectionProductIds.has(productId)
-              })
-
-              console.log("Productos disponibles para eliminar:", productsToRemove.length)
-              setDisplayProducts(productsToRemove)
-              setFilteredProducts(productsToRemove)
-            }
-          }
-        } catch (err) {
-          console.error("Error al cargar la colección:", err)
-
-          if (isMounted.current) {
-            // En caso de error, mostrar todos los productos en modo añadir
-            if (mode === "add") {
-              setDisplayProducts(productsData)
-              setFilteredProducts(productsData)
-            } else {
-              setDisplayProducts([])
-              setFilteredProducts([])
-            }
-
-            setError(`Error al cargar la colección: ${(err as Error).message}`)
+            console.log("Productos disponibles para eliminar:", productsToRemove.length)
+            setDisplayProducts(productsToRemove)
+            setFilteredProducts(productsToRemove)
           }
         }
       } catch (err) {
-        console.error("Error al cargar productos:", err)
+        console.error("Error al cargar la colección:", err)
 
         if (isMounted.current) {
-          setError(`Error al cargar productos: ${(err as Error).message}`)
-        }
-      } finally {
-        if (isMounted.current) {
-          setIsLoading(false)
+          // En caso de error, mostrar todos los productos en modo añadir
+          if (mode === "add") {
+            setDisplayProducts(productsData)
+            setFilteredProducts(productsData)
+          } else {
+            setDisplayProducts([])
+            setFilteredProducts([])
+          }
+
+          setError(`Error al cargar la colección: ${(err as Error).message}`)
         }
       }
-    }
+    } catch (err) {
+      console.error("Error al cargar productos:", err)
 
-    loadData()
-  }, [collectionId, mode])
+      if (isMounted.current) {
+        setError(`Error al cargar productos: ${(err as Error).message}`)
+      }
+    } finally {
+      if (isMounted.current) {
+        setIsLoading(false)
+      }
+    }
+  }
 
   // Filtrar productos por búsqueda
   useEffect(() => {
@@ -196,23 +196,60 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
         productIds: selectedProducts,
       })
 
-      if (mode === "add") {
-        await addProductsToCollection(collectionId, selectedProducts)
-        toast({
-          title: "Productos añadidos",
-          description: `Se han añadido ${selectedProducts.length} productos a la colección correctamente.`,
-        })
-      } else {
-        await removeProductsFromCollection(collectionId, selectedProducts)
-        toast({
-          title: "Productos eliminados",
-          description: `Se han eliminado ${selectedProducts.length} productos de la colección correctamente.`,
-        })
+      // Procesar los productos en lotes más pequeños para evitar problemas
+      const BATCH_SIZE = 5
+      const batches = []
+
+      for (let i = 0; i < selectedProducts.length; i += BATCH_SIZE) {
+        batches.push(selectedProducts.slice(i, i + BATCH_SIZE))
+      }
+
+      let successCount = 0
+      let errorCount = 0
+      let lastError = null
+
+      for (const batch of batches) {
+        try {
+          if (mode === "add") {
+            await addProductsToCollection(collectionId, batch)
+            successCount += batch.length
+          } else {
+            await removeProductsFromCollection(collectionId, batch)
+            successCount += batch.length
+          }
+        } catch (err) {
+          console.error(`Error al procesar lote de productos:`, err)
+          errorCount += batch.length
+          lastError = err
+        }
       }
 
       if (isMounted.current) {
         setIsSubmitting(false)
-        onComplete()
+
+        if (errorCount === 0) {
+          toast({
+            title: "Operación completada",
+            description: `${successCount} productos ${mode === "add" ? "añadidos a" : "eliminados de"} la colección correctamente.`,
+          })
+          onComplete()
+        } else if (successCount > 0) {
+          toast({
+            title: "Operación parcialmente completada",
+            description: `${successCount} productos procesados correctamente, pero ${errorCount} fallaron. ${lastError?.message || ""}`,
+            variant: "destructive",
+          })
+          onComplete()
+        } else {
+          setError(
+            `No se pudieron ${mode === "add" ? "añadir" : "eliminar"} los productos. ${lastError?.message || ""}`,
+          )
+          toast({
+            title: "Error",
+            description: `Error al ${mode === "add" ? "añadir" : "eliminar"} productos: ${lastError?.message || "Error desconocido"}`,
+            variant: "destructive",
+          })
+        }
       }
     } catch (err) {
       console.error(`Error al ${mode === "add" ? "añadir" : "eliminar"} productos:`, err)
@@ -248,7 +285,8 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>Error</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
-        <Button variant="outline" className="mt-2" onClick={() => window.location.reload()}>
+        <Button variant="outline" className="mt-2" onClick={() => loadData()}>
+          <RefreshCw className="h-4 w-4 mr-2" />
           Reintentar
         </Button>
       </Alert>
