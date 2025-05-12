@@ -823,7 +823,9 @@ export async function getCollectionSeoSettings(collectionId: string): Promise<Se
       ? collectionId
       : `gid://shopify/Collection/${collectionId}`
 
-    // Primero intentamos obtener los metafields directamente de la colección
+    console.log("Obteniendo configuración SEO para colección:", formattedId)
+
+    // Consulta para obtener la información SEO de la colección
     const query = gql`
       query GetCollectionSEO($id: ID!) {
         collection(id: $id) {
@@ -852,18 +854,28 @@ export async function getCollectionSeoSettings(collectionId: string): Promise<Se
     const data = await shopifyClient.request(query, { id: formattedId })
 
     if (!data?.collection) {
-      throw new Error("No se pudo obtener la información SEO de la colección")
+      console.error("No se encontró la colección:", formattedId)
+      return null
     }
+
+    console.log("Datos SEO obtenidos:", data.collection)
 
     // Buscar el metafield de configuración SEO
     const seoMetafield = data.collection.metafields?.edges?.find((edge: any) => edge.node.key === "settings")
 
     // Si existe el metafield, devolver su valor
     if (seoMetafield) {
-      return JSON.parse(seoMetafield.node.value)
+      try {
+        const seoSettings = JSON.parse(seoMetafield.node.value)
+        console.log("Configuración SEO encontrada en metafields:", seoSettings)
+        return seoSettings
+      } catch (e) {
+        console.error("Error al parsear metafield SEO:", e)
+      }
     }
 
-    // Si no existe, crear un objeto con los valores por defecto
+    // Si no existe o hay error, crear un objeto con los valores por defecto
+    console.log("Usando valores SEO por defecto")
     return {
       title: data.collection.seo?.title || data.collection.title,
       description: data.collection.seo?.description || data.collection.description,
@@ -879,7 +891,6 @@ export async function getCollectionSeoSettings(collectionId: string): Promise<Se
     }
   } catch (error) {
     console.error("Error getting collection SEO settings:", error)
-    // En caso de error, devolver un objeto con valores por defecto
     return null
   }
 }
@@ -891,6 +902,9 @@ export async function saveCollectionSeoSettings(collectionId: string, settings: 
     const formattedId = collectionId.includes("gid://shopify/Collection/")
       ? collectionId
       : `gid://shopify/Collection/${collectionId}`
+
+    console.log("Guardando configuración SEO para colección:", formattedId)
+    console.log("Datos a guardar:", settings)
 
     // Primero actualizamos los campos SEO básicos de la colección
     const updateMutation = gql`
@@ -924,6 +938,7 @@ export async function saveCollectionSeoSettings(collectionId: string, settings: 
     const updateData = await shopifyClient.request(updateMutation, updateVariables)
 
     if (updateData.collectionUpdate.userErrors?.length > 0) {
+      console.error("Error al actualizar SEO básico:", updateData.collectionUpdate.userErrors)
       throw new Error(updateData.collectionUpdate.userErrors[0].message)
     }
 
@@ -933,6 +948,10 @@ export async function saveCollectionSeoSettings(collectionId: string, settings: 
         metafieldsSet(metafields: $input) {
           metafields {
             id
+            namespace
+            key
+            value
+            type
           }
           userErrors {
             field
@@ -956,12 +975,16 @@ export async function saveCollectionSeoSettings(collectionId: string, settings: 
       },
     }
 
+    console.log("Enviando metafield:", metafieldVariables)
+
     const metafieldData = await shopifyClient.request(metafieldMutation, metafieldVariables)
 
     if (metafieldData.metafieldsSet.userErrors?.length > 0) {
+      console.error("Error al guardar metafield SEO:", metafieldData.metafieldsSet.userErrors)
       throw new Error(metafieldData.metafieldsSet.userErrors[0].message)
     }
 
+    console.log("Configuración SEO guardada correctamente:", metafieldData.metafieldsSet.metafields)
     return true
   } catch (error) {
     console.error("Error saving collection SEO settings:", error)

@@ -58,43 +58,39 @@ export async function fetchCollections(first = 20) {
   }
 }
 
-// Función para obtener una colección por ID
-export async function fetchCollectionById(id) {
+// Obtener una colección por ID
+export async function fetchCollectionById(collectionId: string): Promise<any> {
   try {
     // Asegurarse de que el ID tenga el formato correcto
-    const formattedId = id.includes("gid://shopify/Collection/") ? id : `gid://shopify/Collection/${id}`
+    const formattedId = collectionId.includes("gid://shopify/Collection/")
+      ? collectionId
+      : `gid://shopify/Collection/${collectionId}`
+
+    console.log("Obteniendo colección con ID:", formattedId)
 
     const query = gql`
       query GetCollection($id: ID!) {
         collection(id: $id) {
           id
           title
+          description
           handle
-          descriptionHtml
-          productsCount {
-            count
-          }
+          updatedAt
           image {
+            id
             url
             altText
           }
-          products(first: 50) {
+          products(first: 100) {
             edges {
               node {
                 id
                 title
+                status
                 featuredImage {
+                  id
                   url
                   altText
-                }
-                status
-                variants(first: 1) {
-                  edges {
-                    node {
-                      price
-                      compareAtPrice
-                    }
-                  }
                 }
               }
             }
@@ -105,32 +101,27 @@ export async function fetchCollectionById(id) {
 
     const data = await shopifyClient.request(query, { id: formattedId })
 
-    if (!data.collection) {
-      throw new Error(`No se encontró la colección con ID: ${id}`)
+    if (!data?.collection) {
+      console.error("No se encontró la colección:", formattedId)
+      return null
     }
 
-    // Transformar los datos para un formato más fácil de usar
-    const collection = {
-      id: data.collection.id.split("/").pop(),
-      title: data.collection.title,
-      handle: data.collection.handle,
-      description: data.collection.descriptionHtml,
-      productsCount: data.collection.productsCount?.count || 0,
-      image: data.collection.image,
-      products: data.collection.products.edges.map((edge) => ({
-        id: edge.node.id.split("/").pop(),
-        title: edge.node.title,
-        image: edge.node.featuredImage,
-        status: edge.node.status,
-        price: edge.node.variants.edges[0]?.node.price || "0.00",
-        currencyCode: "EUR", // Valor por defecto
-      })),
-    }
+    // Transformar los productos para tener un formato más sencillo
+    const products = data.collection.products.edges.map((edge: any) => ({
+      id: edge.node.id,
+      title: edge.node.title,
+      status: edge.node.status,
+      image: edge.node.featuredImage,
+    }))
 
-    return collection
+    // Devolver la colección con los productos en formato plano
+    return {
+      ...data.collection,
+      products,
+    }
   } catch (error) {
-    console.error(`Error al cargar la colección ${id}:`, error)
-    throw new Error(`Error al cargar la colección: ${error.message}`)
+    console.error("Error fetching collection by ID:", error)
+    throw new Error(`Error al obtener la colección: ${(error as Error).message}`)
   }
 }
 

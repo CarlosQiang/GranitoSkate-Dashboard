@@ -22,7 +22,7 @@ interface CollectionProductManagerProps {
 export function CollectionProductManager({ collectionId, onComplete, mode }: CollectionProductManagerProps) {
   const [allProducts, setAllProducts] = useState<any[]>([])
   const [collectionProducts, setCollectionProducts] = useState<any[]>([])
-  const [filteredProducts, setFilteredProducts] = useState<any[]>([])
+  const [displayProducts, setDisplayProducts] = useState<any[]>([])
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -46,7 +46,11 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
         setError(null)
 
         // Cargar todos los productos
-        const productsData = await fetchProducts({ limite: 100 })
+        const productsData = await fetchProducts({ limite: 250 })
+
+        if (!productsData || !Array.isArray(productsData)) {
+          throw new Error("No se pudieron cargar los productos correctamente")
+        }
 
         if (isMounted.current) {
           setAllProducts(productsData)
@@ -56,29 +60,57 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
         try {
           const collectionData = await fetchCollectionById(collectionId)
 
-          if (collectionData && collectionData.products && isMounted.current) {
-            // Extraer los productos de la colección
-            setCollectionProducts(collectionData.products)
+          if (!collectionData) {
+            throw new Error("No se pudo cargar la información de la colección")
+          }
+
+          // Asegurarse de que collectionData.products sea un array
+          let collectionProductsArray = []
+          if (collectionData.products) {
+            if (Array.isArray(collectionData.products)) {
+              collectionProductsArray = collectionData.products
+            } else if (collectionData.products.edges && Array.isArray(collectionData.products.edges)) {
+              collectionProductsArray = collectionData.products.edges.map((edge: any) => edge.node)
+            }
+          }
+
+          if (isMounted.current) {
+            setCollectionProducts(collectionProductsArray)
 
             // Crear un conjunto de IDs de productos en la colección para búsqueda rápida
-            const collectionProductIds = new Set(collectionData.products.map((product: any) => product.id))
+            const collectionProductIds = new Set(
+              collectionProductsArray.map((product: any) => {
+                // Normalizar IDs para comparación
+                const productId =
+                  typeof product.id === "string" && product.id.includes("/") ? product.id.split("/").pop() : product.id
+                return productId
+              }),
+            )
+
+            console.log("IDs de productos en la colección:", Array.from(collectionProductIds))
+            console.log("Total de productos en la colección:", collectionProductIds.size)
 
             // Filtrar productos según el modo
             if (mode === "add") {
               // Para añadir: mostrar solo productos que NO están en la colección
-              setFilteredProducts(productsData.filter((product: any) => !collectionProductIds.has(product.id)))
+              const productsToAdd = productsData.filter((product: any) => {
+                const productId =
+                  typeof product.id === "string" && product.id.includes("/") ? product.id.split("/").pop() : product.id
+                return !collectionProductIds.has(productId)
+              })
+
+              console.log("Productos disponibles para añadir:", productsToAdd.length)
+              setDisplayProducts(productsToAdd)
             } else {
               // Para eliminar: mostrar solo productos que SÍ están en la colección
-              setFilteredProducts(productsData.filter((product: any) => collectionProductIds.has(product.id)))
-            }
-          } else if (isMounted.current) {
-            // Si no hay productos en la colección
-            if (mode === "add") {
-              // En modo añadir, mostrar todos los productos
-              setFilteredProducts(productsData)
-            } else {
-              // En modo eliminar, no mostrar ningún producto
-              setFilteredProducts([])
+              const productsToRemove = productsData.filter((product: any) => {
+                const productId =
+                  typeof product.id === "string" && product.id.includes("/") ? product.id.split("/").pop() : product.id
+                return collectionProductIds.has(productId)
+              })
+
+              console.log("Productos disponibles para eliminar:", productsToRemove.length)
+              setDisplayProducts(productsToRemove)
             }
           }
         } catch (err) {
@@ -87,9 +119,9 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
           if (isMounted.current) {
             // En caso de error, mostrar todos los productos en modo añadir
             if (mode === "add") {
-              setFilteredProducts(productsData)
+              setDisplayProducts(productsData)
             } else {
-              setFilteredProducts([])
+              setDisplayProducts([])
             }
 
             setError(`Error al cargar la colección: ${(err as Error).message}`)
@@ -114,17 +146,18 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
   // Filtrar productos por búsqueda
   useEffect(() => {
     if (searchTerm.trim() === "") {
-      // Si no hay término de búsqueda, mostrar todos los productos filtrados
       return
     }
 
+    const lowerSearchTerm = searchTerm.toLowerCase()
+
     // Filtrar los productos según el término de búsqueda
-    const searchResults = filteredProducts.filter((product) => {
-      const title = product.titulo || product.title || ""
-      return title.toLowerCase().includes(searchTerm.toLowerCase())
+    const searchResults = displayProducts.filter((product) => {
+      const title = (product.titulo || product.title || "").toLowerCase()
+      return title.includes(lowerSearchTerm)
     })
 
-    setFilteredProducts(searchResults)
+    setDisplayProducts(searchResults)
   }, [searchTerm])
 
   const handleImageError = (productId: string) => {
@@ -206,6 +239,15 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
       </Alert>
     )
   }
+
+  // Filtrar productos por búsqueda
+  const filteredProducts =
+    searchTerm.trim() === ""
+      ? displayProducts
+      : displayProducts.filter((product) => {
+          const title = (product.titulo || product.title || "").toLowerCase()
+          return title.includes(searchTerm.toLowerCase())
+        })
 
   // Mensaje cuando no hay productos para mostrar
   if (filteredProducts.length === 0) {
