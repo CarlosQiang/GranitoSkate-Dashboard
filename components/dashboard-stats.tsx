@@ -1,106 +1,125 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { fetchDashboardStats } from "@/lib/api/dashboard"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { fetchAnalyticsData } from "@/lib/api/analytics"
 import { Skeleton } from "@/components/ui/skeleton"
-import { AlertCircle, DollarSign, Package, ShoppingCart } from "lucide-react"
+import { AlertCircle, DollarSign, Package, ShoppingCart, Users } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export function DashboardStats() {
   const [stats, setStats] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const loadStats = async () => {
       try {
-        setIsLoading(true)
-        setError(null)
-        const data = await fetchAnalyticsData()
+        setLoading(true)
+        const data = await fetchDashboardStats()
         setStats(data)
+        setError(null)
       } catch (err) {
-        console.error("Error loading dashboard stats:", err)
-        setError("No se pudieron cargar las estadísticas")
+        console.error("Error al cargar estadísticas del dashboard:", err)
+        setError("Error al cargar estadísticas")
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
     loadStats()
   }, [])
 
-  if (isLoading) {
-    return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                <Skeleton className="h-4 w-24" />
-              </CardTitle>
-              <Skeleton className="h-4 w-4" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-8 w-36" />
-              <Skeleton className="mt-1 h-4 w-24" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-24 bg-destructive/10 text-destructive rounded-md">
-        <AlertCircle className="h-5 w-5 mr-2" />
-        <p>{error}</p>
-      </div>
-    )
+  const formatCurrency = (value: number, currency = "EUR") => {
+    return new Intl.NumberFormat("es-ES", {
+      style: "currency",
+      currency,
+    }).format(value)
   }
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Ventas Totales</CardTitle>
-          <DollarSign className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats?.totalRevenue?.toFixed(2) || "0.00"} €</div>
-          <p className="text-xs text-muted-foreground">Ingresos totales</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Pedidos</CardTitle>
-          <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats?.totalOrders || "0"}</div>
-          <p className="text-xs text-muted-foreground">Pedidos totales</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Valor Medio</CardTitle>
-          <DollarSign className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats?.averageOrderValue?.toFixed(2) || "0.00"} €</div>
-          <p className="text-xs text-muted-foreground">Por pedido</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Productos</CardTitle>
-          <Package className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats?.topProducts?.length || "0"}</div>
-          <p className="text-xs text-muted-foreground">Productos vendidos</p>
-        </CardContent>
-      </Card>
+      {loading ? (
+        <>
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  <Skeleton className="h-4 w-[120px]" />
+                </CardTitle>
+                <Skeleton className="h-4 w-4" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-7 w-[100px]" />
+                <Skeleton className="h-4 w-[80px] mt-1" />
+              </CardContent>
+            </Card>
+          ))}
+        </>
+      ) : error ? (
+        <div className="col-span-4">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        </div>
+      ) : stats ? (
+        <>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Ventas Totales</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(stats.totalSales)}</div>
+              <p className="text-xs text-muted-foreground">
+                {stats.salesChange >= 0 ? "+" : ""}
+                {stats.salesChange}% desde el mes pasado
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pedidos</CardTitle>
+              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalOrders}</div>
+              <p className="text-xs text-muted-foreground">
+                {stats.ordersChange >= 0 ? "+" : ""}
+                {stats.ordersChange}% desde el mes pasado
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Clientes</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalCustomers}</div>
+              <p className="text-xs text-muted-foreground">
+                {stats.customersChange >= 0 ? "+" : ""}
+                {stats.customersChange}% desde el mes pasado
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Productos</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalProducts}</div>
+              <p className="text-xs text-muted-foreground">
+                {stats.productsChange >= 0 ? "+" : ""}
+                {stats.productsChange}% desde el mes pasado
+              </p>
+            </CardContent>
+          </Card>
+        </>
+      ) : null}
     </div>
   )
 }

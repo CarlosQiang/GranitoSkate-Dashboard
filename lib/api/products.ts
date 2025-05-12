@@ -1,20 +1,60 @@
-import shopifyClient from "@/lib/shopify"
-import { gql } from "graphql-request"
+import { shopifyFetch } from "@/lib/shopify"
 
-// Función para obtener productos con stock bajo
-export async function fetchLowStockProducts() {
+// Función para obtener productos recientes
+export async function fetchRecentProducts(limit = 5) {
   try {
-    const query = gql`
-      query LowInventoryProducts($first: Int!) {
-        products(first: $first) {
+    const query = `
+      query {
+        products(first: ${limit}, sortKey: CREATED_AT, reverse: true) {
           edges {
             node {
               id
               title
-              totalInventory
+              status
+              featuredImage {
+                url
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const response = await shopifyFetch({
+      query,
+      variables: {},
+    })
+
+    if (!response.data) {
+      throw new Error("No se pudieron obtener los productos recientes")
+    }
+
+    return response.data.products.edges.map(({ node }: any) => ({
+      id: node.id.split("/").pop(),
+      title: node.title,
+      status: node.status,
+      image: node.featuredImage?.url || null,
+    }))
+  } catch (error) {
+    console.error("Error al obtener productos recientes:", error)
+    return []
+  }
+}
+
+// Función para obtener productos con stock bajo
+export async function fetchLowStockProducts(threshold = 10) {
+  try {
+    const query = `
+      query {
+        products(first: 20) {
+          edges {
+            node {
+              id
+              title
               variants(first: 1) {
                 edges {
                   node {
+                    id
                     inventoryQuantity
                     inventoryPolicy
                   }
@@ -26,213 +66,93 @@ export async function fetchLowStockProducts() {
       }
     `
 
-    const data = await shopifyClient.request(query, { first: 20 })
+    const response = await shopifyFetch({
+      query,
+      variables: {},
+    })
 
-    // Filtrar productos con inventario bajo (menos de 15 unidades)
-    const lowStockProducts = data.products.edges
-      .map(({ node }) => {
-        const inventory = node.totalInventory || node.variants.edges[0]?.node.inventoryQuantity || 0
+    if (!response.data) {
+      throw new Error("No se pudieron obtener los productos")
+    }
 
-        // Calcular el porcentaje de inventario (considerando 20 como 100%)
-        const maxInventory = 20
-        const inventoryPercentage = Math.min(Math.round((inventory / maxInventory) * 100), 100)
+    const products = response.data.products.edges
+      .map(({ node }: any) => {
+        const variant = node.variants.edges[0]?.node
+        if (!variant) return null
 
         return {
-          id: node.id,
+          id: node.id.split("/").pop(),
           title: node.title,
-          inventory,
-          inventoryPercentage,
+          quantity: variant.inventoryQuantity || 0,
+          inventoryPolicy: variant.inventoryPolicy,
         }
       })
-      .filter((product) => product.inventory < 15)
-      .sort((a, b) => a.inventory - b.inventory)
-      .slice(0, 5)
+      .filter((product: any) => product && product.quantity <= threshold)
+      .sort((a: any, b: any) => a.quantity - b.quantity)
 
-    return lowStockProducts
+    return products.slice(0, 5) // Devolver solo los 5 productos con menor stock
   } catch (error) {
-    console.error("Error fetching low stock products:", error)
-    throw new Error("No se pudieron obtener los productos con stock bajo")
-  }
-}
-
-// Función para obtener productos recientes
-export async function fetchRecentProducts(limit = 5) {
-  try {
-    // Implementación de la función para obtener productos recientes
-    const query = gql`
-      query GetProducts($first: Int!) {
-        products(first: $first, sortKey: CREATED_AT, reverse: true) {
-          edges {
-            node {
-              id
-              title
-              handle
-              description
-              descriptionHtml
-              vendor
-              productType
-              status
-              totalInventory
-              featuredImage {
-                url
-                altText
-              }
-              variants(first: 1) {
-                edges {
-                  node {
-                    id
-                    title
-                    price
-                    compareAtPrice
-                    sku
-                    inventoryQuantity
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    `
-
-    const data = await shopifyClient.request(query, { first: limit })
-
-    // Transformar los datos para un formato más fácil de usar
-    const products = data.products.edges.map((edge) => {
-      const node = edge.node
-      const variant = node.variants.edges[0]?.node || {}
-
-      return {
-        id: node.id.split("/").pop(), // Extraer el ID numérico
-        title: node.title,
-        handle: node.handle,
-        description: node.description,
-        descriptionHtml: node.descriptionHtml,
-        vendor: node.vendor,
-        productType: node.productType,
-        status: node.status,
-        totalInventory: node.totalInventory,
-        image: node.featuredImage?.url || null,
-        featuredImage: node.featuredImage,
-        price: variant.price || "0.00",
-        compareAtPrice: variant.compareAtPrice || null,
-        currencyCode: "EUR", // Valor por defecto
-        sku: variant.sku || "",
-        inventoryQuantity: variant.inventoryQuantity || 0,
-      }
-    })
-
-    return products
-  } catch (error) {
-    console.error("Error al cargar productos recientes:", error)
-    throw new Error(`Error al cargar productos recientes: ${error.message}`)
-  }
-}
-
-// Función para obtener todos los productos
-export async function fetchProducts(limit = 20) {
-  try {
-    const query = gql`
-      query GetProducts($first: Int!) {
-        products(first: $first) {
-          edges {
-            node {
-              id
-              title
-              handle
-              description
-              descriptionHtml
-              vendor
-              productType
-              status
-              totalInventory
-              featuredImage {
-                url
-                altText
-              }
-              variants(first: 1) {
-                edges {
-                  node {
-                    id
-                    title
-                    price
-                    compareAtPrice
-                    sku
-                    inventoryQuantity
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    `
-
-    const data = await shopifyClient.request(query, { first: limit })
-
-    // Transformar los datos para un formato más fácil de usar
-    const products = data.products.edges.map((edge) => {
-      const node = edge.node
-      const variant = node.variants.edges[0]?.node || {}
-
-      return {
-        id: node.id.split("/").pop(), // Extraer el ID numérico
-        title: node.title,
-        handle: node.handle,
-        description: node.description,
-        descriptionHtml: node.descriptionHtml,
-        vendor: node.vendor,
-        productType: node.productType,
-        status: node.status,
-        totalInventory: node.totalInventory,
-        image: node.featuredImage?.url || null,
-        featuredImage: node.featuredImage,
-        price: variant.price || "0.00",
-        compareAtPrice: variant.compareAtPrice || null,
-        currencyCode: "EUR", // Valor por defecto
-        sku: variant.sku || "",
-        inventoryQuantity: variant.inventoryQuantity || 0,
-      }
-    })
-
-    return products
-  } catch (error) {
-    console.error("Error al cargar productos:", error)
-    throw new Error(`Error al cargar productos: ${error.message}`)
+    console.error("Error al obtener productos con stock bajo:", error)
+    return []
   }
 }
 
 // Función para obtener un producto por ID
-export async function fetchProductById(id) {
+export async function fetchProductById(id: string) {
   try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const formattedId = id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
-
-    const query = gql`
-      query GetProduct($id: ID!) {
+    const query = `
+      query getProduct($id: ID!) {
         product(id: $id) {
           id
           title
-          handle
           description
-          descriptionHtml
+          status
           vendor
           productType
-          status
-          totalInventory
+          tags
           featuredImage {
             url
             altText
           }
-          variants(first: 5) {
+          images(first: 10) {
+            edges {
+              node {
+                id
+                url
+                altText
+              }
+            }
+          }
+          variants(first: 10) {
             edges {
               node {
                 id
                 title
                 price
                 compareAtPrice
-                sku
                 inventoryQuantity
+                inventoryPolicy
+                sku
+                barcode
+              }
+            }
+          }
+          collections(first: 10) {
+            edges {
+              node {
+                id
+                title
+              }
+            }
+          }
+          metafields(first: 10) {
+            edges {
+              node {
+                id
+                namespace
+                key
+                value
+                type
               }
             }
           }
@@ -240,51 +160,130 @@ export async function fetchProductById(id) {
       }
     `
 
-    const data = await shopifyClient.request(query, { id: formattedId })
+    const response = await shopifyFetch({
+      query,
+      variables: { id: `gid://shopify/Product/${id}` },
+    })
 
-    if (!data.product) {
-      throw new Error(`No se encontró el producto con ID: ${id}`)
+    if (!response.data || !response.data.product) {
+      throw new Error(`No se pudo encontrar el producto con ID: ${id}`)
     }
 
-    // Transformar los datos para un formato más fácil de usar
-    const product = data.product
-
+    const product = response.data.product
     return {
       id: product.id.split("/").pop(),
       title: product.title,
-      handle: product.handle,
       description: product.description,
-      descriptionHtml: product.descriptionHtml,
+      status: product.status,
       vendor: product.vendor,
       productType: product.productType,
-      status: product.status,
-      totalInventory: product.totalInventory,
-      featuredImage: product.featuredImage,
-      variants: product.variants.edges.map((edge) => ({
-        id: edge.node.id.split("/").pop(),
-        title: edge.node.title,
-        price: edge.node.price,
-        compareAtPrice: edge.node.compareAtPrice,
-        sku: edge.node.sku,
-        inventoryQuantity: edge.node.inventoryQuantity,
+      tags: product.tags,
+      featuredImage: product.featuredImage
+        ? {
+            url: product.featuredImage.url,
+            altText: product.featuredImage.altText,
+          }
+        : null,
+      images: product.images.edges.map(({ node }: any) => ({
+        id: node.id.split("/").pop(),
+        url: node.url,
+        altText: node.altText,
+      })),
+      variants: product.variants.edges.map(({ node }: any) => ({
+        id: node.id.split("/").pop(),
+        title: node.title,
+        price: node.price,
+        compareAtPrice: node.compareAtPrice,
+        inventoryQuantity: node.inventoryQuantity,
+        inventoryPolicy: node.inventoryPolicy,
+        sku: node.sku,
+        barcode: node.barcode,
+      })),
+      collections: product.collections.edges.map(({ node }: any) => ({
+        id: node.id.split("/").pop(),
+        title: node.title,
+      })),
+      metafields: product.metafields.edges.map(({ node }: any) => ({
+        id: node.id.split("/").pop(),
+        namespace: node.namespace,
+        key: node.key,
+        value: node.value,
+        type: node.type,
       })),
     }
   } catch (error) {
-    console.error(`Error al cargar el producto ${id}:`, error)
-    throw new Error(`Error al cargar el producto: ${error.message}`)
+    console.error(`Error al obtener el producto con ID ${id}:`, error)
+    return null
+  }
+}
+
+// Función para obtener todos los productos
+export async function fetchAllProducts(limit = 20) {
+  try {
+    const query = `
+      query {
+        products(first: ${limit}) {
+          edges {
+            node {
+              id
+              title
+              status
+              featuredImage {
+                url
+              }
+              variants(first: 1) {
+                edges {
+                  node {
+                    price
+                    inventoryQuantity
+                  }
+                }
+              }
+              productType
+              vendor
+            }
+          }
+        }
+      }
+    `
+
+    const response = await shopifyFetch({
+      query,
+      variables: {},
+    })
+
+    if (!response.data) {
+      throw new Error("No se pudieron obtener los productos")
+    }
+
+    return response.data.products.edges.map(({ node }: any) => {
+      const variant = node.variants.edges[0]?.node
+      return {
+        id: node.id.split("/").pop(),
+        title: node.title,
+        status: node.status,
+        image: node.featuredImage?.url || null,
+        price: variant?.price || "0",
+        inventoryQuantity: variant?.inventoryQuantity || 0,
+        productType: node.productType,
+        vendor: node.vendor,
+      }
+    })
+  } catch (error) {
+    console.error("Error al obtener todos los productos:", error)
+    return []
   }
 }
 
 // Función para crear un nuevo producto
-export async function createProduct(productData) {
+export async function createProduct(productData: any) {
   try {
-    const mutation = gql`
-      mutation CreateProduct($input: ProductInput!) {
+    const mutation = `
+      mutation createProduct($input: ProductInput!) {
         productCreate(input: $input) {
           product {
             id
             title
-            handle
           }
           userErrors {
             field
@@ -294,58 +293,49 @@ export async function createProduct(productData) {
       }
     `
 
-    const variables = {
-      input: {
-        title: productData.title,
-        descriptionHtml: productData.description || "",
-        vendor: productData.vendor || "",
-        productType: productData.productType || "",
-        status: productData.status || "ACTIVE",
-        images: productData.image ? [{ src: productData.image }] : [],
-        variants: [
-          {
-            price: productData.price || "0.00",
-            compareAtPrice: productData.compareAtPrice || null,
-            sku: productData.sku || "",
-            inventoryQuantities: {
-              availableQuantity: productData.inventoryQuantity || 0,
-              locationId: "gid://shopify/Location/1", // Ubicación por defecto
+    const response = await shopifyFetch({
+      query: mutation,
+      variables: {
+        input: {
+          title: productData.title,
+          descriptionHtml: productData.description,
+          vendor: productData.vendor,
+          productType: productData.productType,
+          tags: productData.tags,
+          variants: [
+            {
+              price: productData.price,
+              compareAtPrice: productData.compareAtPrice,
+              inventoryQuantity: Number.parseInt(productData.inventoryQuantity),
+              inventoryPolicy: productData.inventoryPolicy,
+              sku: productData.sku,
+              barcode: productData.barcode,
             },
-          },
-        ],
+          ],
+        },
       },
+    })
+
+    if (response.data?.productCreate?.userErrors?.length > 0) {
+      throw new Error(response.data.productCreate.userErrors[0].message)
     }
 
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.productCreate.userErrors && data.productCreate.userErrors.length > 0) {
-      throw new Error(data.productCreate.userErrors[0].message)
-    }
-
-    return {
-      id: data.productCreate.product.id.split("/").pop(),
-      title: data.productCreate.product.title,
-      handle: data.productCreate.product.handle,
-    }
+    return response.data?.productCreate?.product
   } catch (error) {
     console.error("Error al crear el producto:", error)
-    throw new Error(`Error al crear el producto: ${error.message}`)
+    throw error
   }
 }
 
 // Función para actualizar un producto
-export async function updateProduct(id, productData) {
+export async function updateProduct(id: string, productData: any) {
   try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const formattedId = id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
-
-    const mutation = gql`
-      mutation UpdateProduct($input: ProductInput!) {
+    const mutation = `
+      mutation updateProduct($input: ProductInput!) {
         productUpdate(input: $input) {
           product {
             id
             title
-            handle
           }
           userErrors {
             field
@@ -355,47 +345,36 @@ export async function updateProduct(id, productData) {
       }
     `
 
-    const input = {
-      id: formattedId,
-      title: productData.title,
-      descriptionHtml: productData.descriptionHtml || "",
-      vendor: productData.vendor || "",
-      productType: productData.productType || "",
-      status: productData.status || "ACTIVE",
+    const response = await shopifyFetch({
+      query: mutation,
+      variables: {
+        input: {
+          id: `gid://shopify/Product/${id}`,
+          title: productData.title,
+          descriptionHtml: productData.description,
+          vendor: productData.vendor,
+          productType: productData.productType,
+          tags: productData.tags,
+        },
+      },
+    })
+
+    if (response.data?.productUpdate?.userErrors?.length > 0) {
+      throw new Error(response.data.productUpdate.userErrors[0].message)
     }
 
-    // Añadir imagen solo si se proporciona
-    if (productData.image) {
-      input.images = [{ src: productData.image }]
-    }
-
-    const variables = { input }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.productUpdate.userErrors && data.productUpdate.userErrors.length > 0) {
-      throw new Error(data.productUpdate.userErrors[0].message)
-    }
-
-    return {
-      id: data.productUpdate.product.id.split("/").pop(),
-      title: data.productUpdate.product.title,
-      handle: data.productUpdate.product.handle,
-    }
+    return response.data?.productUpdate?.product
   } catch (error) {
-    console.error(`Error al actualizar el producto ${id}:`, error)
-    throw new Error(`Error al actualizar el producto: ${error.message}`)
+    console.error(`Error al actualizar el producto con ID ${id}:`, error)
+    throw error
   }
 }
 
 // Función para eliminar un producto
-export async function deleteProduct(id) {
+export async function deleteProduct(id: string) {
   try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const formattedId = id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
-
-    const mutation = gql`
-      mutation DeleteProduct($input: ProductDeleteInput!) {
+    const mutation = `
+      mutation deleteProduct($input: ProductDeleteInput!) {
         productDelete(input: $input) {
           deletedProductId
           userErrors {
@@ -406,122 +385,22 @@ export async function deleteProduct(id) {
       }
     `
 
-    const variables = {
-      input: {
-        id: formattedId,
+    const response = await shopifyFetch({
+      query: mutation,
+      variables: {
+        input: {
+          id: `gid://shopify/Product/${id}`,
+        },
       },
+    })
+
+    if (response.data?.productDelete?.userErrors?.length > 0) {
+      throw new Error(response.data.productDelete.userErrors[0].message)
     }
 
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.productDelete.userErrors && data.productDelete.userErrors.length > 0) {
-      throw new Error(data.productDelete.userErrors[0].message)
-    }
-
-    return {
-      id: data.productDelete.deletedProductId,
-    }
+    return response.data?.productDelete?.deletedProductId
   } catch (error) {
-    console.error(`Error al eliminar el producto ${id}:`, error)
-    throw new Error(`Error al eliminar el producto: ${error.message}`)
-  }
-}
-
-// Añadir funciones para gestionar productos en colecciones
-export async function addProductsToCollection(collectionId, productIds) {
-  try {
-    // Asegurarse de que el ID de la colección tenga el formato correcto
-    const isFullCollectionId = collectionId.includes("gid://shopify/Collection/")
-    const formattedCollectionId = isFullCollectionId ? collectionId : `gid://shopify/Collection/${collectionId}`
-
-    // Formatear los IDs de los productos
-    const formattedProductIds = productIds.map((id) => {
-      const isFullProductId = id.includes("gid://shopify/Product/")
-      return isFullProductId ? id : `gid://shopify/Product/${id}`
-    })
-
-    console.log(`Adding ${formattedProductIds.length} products to collection ${formattedCollectionId}`)
-
-    const mutation = gql`
-      mutation CollectionAddProducts($id: ID!, $productIds: [ID!]!) {
-        collectionAddProducts(id: $id, productIds: $productIds) {
-          collection {
-            id
-            title
-            productsCount
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const data = await shopifyClient.request(mutation, {
-      id: formattedCollectionId,
-      productIds: formattedProductIds,
-    })
-
-    if (data.collectionAddProducts.userErrors && data.collectionAddProducts.userErrors.length > 0) {
-      throw new Error(data.collectionAddProducts.userErrors[0].message)
-    }
-
-    console.log(
-      `Successfully added products to collection: ${data.collectionAddProducts.collection.title} (${data.collectionAddProducts.collection.productsCount} products)`,
-    )
-    return data.collectionAddProducts.collection
-  } catch (error) {
-    console.error(`Error adding products to collection ${collectionId}:`, error)
-    throw new Error(`Error al añadir productos a la colección: ${error.message}`)
-  }
-}
-
-export async function removeProductsFromCollection(collectionId, productIds) {
-  try {
-    // Asegurarse de que el ID de la colección tenga el formato correcto
-    const isFullCollectionId = collectionId.includes("gid://shopify/Collection/")
-    const formattedCollectionId = isFullCollectionId ? collectionId : `gid://shopify/Collection/${collectionId}`
-
-    // Formatear los IDs de los productos
-    const formattedProductIds = productIds.map((id) => {
-      const isFullProductId = id.includes("gid://shopify/Product/")
-      return isFullProductId ? id : `gid://shopify/Product/${id}`
-    })
-
-    console.log(`Removing ${formattedProductIds.length} products from collection ${formattedCollectionId}`)
-
-    const mutation = gql`
-      mutation CollectionRemoveProducts($id: ID!, $productIds: [ID!]!) {
-        collectionRemoveProducts(id: $id, productIds: $productIds) {
-          collection {
-            id
-            title
-            productsCount
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const data = await shopifyClient.request(mutation, {
-      id: formattedCollectionId,
-      productIds: formattedProductIds,
-    })
-
-    if (data.collectionRemoveProducts.userErrors && data.collectionRemoveProducts.userErrors.length > 0) {
-      throw new Error(data.collectionRemoveProducts.userErrors[0].message)
-    }
-
-    console.log(
-      `Successfully removed products from collection: ${data.collectionRemoveProducts.collection.title} (${data.collectionRemoveProducts.collection.productsCount} products)`,
-    )
-    return data.collectionRemoveProducts.collection
-  } catch (error) {
-    console.error(`Error removing products from collection ${collectionId}:`, error)
-    throw new Error(`Error al eliminar productos de la colección: ${error.message}`)
+    console.error(`Error al eliminar el producto con ID ${id}:`, error)
+    throw error
   }
 }

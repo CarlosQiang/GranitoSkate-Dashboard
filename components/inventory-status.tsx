@@ -1,103 +1,51 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
+import { fetchLowStockProducts } from "@/lib/api/products"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { AlertCircle, AlertTriangle, CheckCircle } from "lucide-react"
-import { fetchLowStockProducts } from "@/lib/api/products"
-
-interface Product {
-  id: string
-  title: string
-  inventory: number
-  inventoryPercentage: number
-}
+import { AlertCircle, AlertTriangle, CheckCircle2 } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export function InventoryStatus() {
-  const [products, setProducts] = useState<Product[]>([])
+  const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const getInventoryData = async () => {
+    const loadProducts = async () => {
       try {
         setLoading(true)
         const data = await fetchLowStockProducts()
         setProducts(data)
         setError(null)
       } catch (err) {
-        console.error("Error al cargar el inventario:", err)
-        setError("No se pudo cargar la información del inventario")
-        // Usar datos vacíos en caso de error
-        setProducts([])
+        console.error("Error al cargar productos con stock bajo:", err)
+        setError("Error al cargar el inventario")
       } finally {
         setLoading(false)
       }
     }
 
-    getInventoryData()
+    loadProducts()
   }, [])
 
-  const getStatusIcon = (percentage: number) => {
-    if (percentage === 0) return <AlertCircle className="h-5 w-5 text-destructive" />
-    if (percentage < 50) return <AlertTriangle className="h-5 w-5 text-warning" />
-    return <CheckCircle className="h-5 w-5 text-success" />
+  const getStockIcon = (quantity: number, inventoryPolicy: string) => {
+    if (inventoryPolicy === "DENY" && quantity <= 0) {
+      return <AlertCircle className="h-5 w-5 text-red-500" />
+    } else if (quantity <= 5) {
+      return <AlertTriangle className="h-5 w-5 text-amber-500" />
+    } else {
+      return <CheckCircle2 className="h-5 w-5 text-green-500" />
+    }
   }
 
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Estado del inventario</CardTitle>
-          <CardDescription>Cargando datos de inventario...</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse">
-                <div className="h-4 w-1/3 bg-muted rounded mb-2"></div>
-                <div className="h-2 w-full bg-muted rounded"></div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  if (error) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Estado del inventario</CardTitle>
-          <CardDescription>Productos con stock bajo o agotados</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-4 text-center">
-            <AlertCircle className="h-10 w-10 text-destructive mb-2" />
-            <p className="text-sm text-muted-foreground">{error}</p>
-            <p className="text-xs text-muted-foreground mt-2">Verifica la conexión con Shopify e intenta nuevamente</p>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  if (products.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Estado del inventario</CardTitle>
-          <CardDescription>Productos con stock bajo o agotados</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-4 text-center">
-            <CheckCircle className="h-10 w-10 text-success mb-2" />
-            <p className="text-sm text-muted-foreground">No hay productos con stock bajo</p>
-          </div>
-        </CardContent>
-      </Card>
-    )
+  const getStockPercentage = (quantity: number, initialQuantity = 20) => {
+    if (quantity <= 0) return 0
+    const percentage = (quantity / initialQuantity) * 100
+    return Math.min(percentage, 100)
   }
 
   return (
@@ -106,20 +54,49 @@ export function InventoryStatus() {
         <CardTitle>Estado del inventario</CardTitle>
         <CardDescription>Productos con stock bajo o agotados</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {products.map((product) => (
-          <div key={product.id} className="space-y-2">
-            <div className="flex items-center justify-between">
-              {getStatusIcon(product.inventoryPercentage)}
-              <span className="ml-2 flex-1">{product.title}</span>
-              <span className={`${product.inventory === 0 ? "text-destructive" : "text-primary"} font-medium`}>
-                {product.inventory} unidades
-              </span>
-            </div>
-            <Progress value={product.inventoryPercentage} className="h-2" />
-            <div className="text-right text-xs text-muted-foreground">{product.inventoryPercentage}%</div>
+      <CardContent>
+        {loading ? (
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="space-y-2">
+                <div className="flex justify-between">
+                  <Skeleton className="h-5 w-[150px]" />
+                  <Skeleton className="h-5 w-[60px]" />
+                </div>
+                <Skeleton className="h-2 w-full" />
+              </div>
+            ))}
           </div>
-        ))}
+        ) : error ? (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : products.length === 0 ? (
+          <p className="text-center text-muted-foreground py-4">No hay productos con stock bajo</p>
+        ) : (
+          <div className="space-y-4">
+            {products.map((product) => (
+              <div key={product.id} className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    {getStockIcon(product.quantity, product.inventoryPolicy)}
+                    <Link href={`/dashboard/products/${product.id}`} className="font-medium hover:underline">
+                      {product.title}
+                    </Link>
+                  </div>
+                  <span
+                    className={`${product.quantity <= 0 ? "text-red-500" : product.quantity <= 5 ? "text-amber-500" : "text-green-500"}`}
+                  >
+                    {product.quantity} unidades
+                  </span>
+                </div>
+                <Progress value={getStockPercentage(product.quantity)} className="h-2" />
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   )
