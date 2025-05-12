@@ -6,12 +6,30 @@ let promotionsCache = null
 let lastUpdate = null
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutos
 
+export type PromotionStatus = "active" | "expired" | "scheduled" | "UNKNOWN"
+export type PromotionValueType = "percentage" | "fixed_amount" | "free_shipping" | "buy_x_get_y"
+
+export type Promotion = {
+  id: string
+  title: string
+  code: string | null
+  isAutomatic: boolean
+  startsAt: string
+  endsAt: string | null
+  status: PromotionStatus
+  valueType: PromotionValueType
+  value: string | number
+  currencyCode?: string
+  summary?: string | null
+  error?: boolean
+}
+
 /**
  * Obtiene todas las promociones de Shopify
- * @param options Opciones de consulta
+ * @param limit Número máximo de promociones a obtener
  * @returns Lista de promociones
  */
-export async function fetchPromotions(options = {}) {
+export async function fetchPromotions(limit = 20) {
   try {
     // Usar caché si existe y tiene menos de 5 minutos
     const now = new Date()
@@ -20,12 +38,12 @@ export async function fetchPromotions(options = {}) {
       return promotionsCache
     }
 
-    console.log("Obteniendo promociones de Shopify...")
+    console.log(`Obteniendo ${limit} promociones de Shopify...`)
 
     // Consulta para obtener las reglas de precio (price rules)
     const query = gql`
       {
-        priceRules(first: 50) {
+        priceRules(first: ${limit}) {
           edges {
             node {
               id
@@ -69,15 +87,19 @@ export async function fetchPromotions(options = {}) {
         const code = hasDiscountCode ? node.discountCodes.edges[0].node.code : null
 
         // Mapear estado
-        let status = "UNKNOWN"
-        if (node.status === "ACTIVE") status = "ACTIVE"
-        else if (node.status === "EXPIRED") status = "EXPIRED"
-        else if (node.status === "SCHEDULED") status = "SCHEDULED"
+        let status: PromotionStatus = "UNKNOWN"
+        if (node.status === "ACTIVE") status = "active"
+        else if (node.status === "EXPIRED") status = "expired"
+        else if (node.status === "SCHEDULED") status = "scheduled"
 
         // Mapear tipo de valor
-        let valueType = "percentage"
+        let valueType: PromotionValueType = "percentage"
         if (node.valueType === "PERCENTAGE") valueType = "percentage"
         else if (node.valueType === "FIXED_AMOUNT") valueType = "fixed_amount"
+
+        // Asegurar que el valor sea positivo
+        const valueNumeric = Math.abs(Number.parseFloat(node.value || "0"))
+        const value = valueNumeric.toString()
 
         return {
           id: node.id.split("/").pop(),
@@ -88,7 +110,8 @@ export async function fetchPromotions(options = {}) {
           endsAt: node.endsAt,
           status: status,
           valueType: valueType,
-          value: Math.abs(Number.parseFloat(node.value || "0")),
+          value: value,
+          currencyCode: "EUR",
           summary: node.summary || null,
         }
       })
@@ -157,7 +180,20 @@ export async function fetchPromotionById(id) {
     const data = await shopifyClient.request(query)
 
     if (!data || !data.priceRule) {
-      return null
+      return {
+        id: id,
+        title: "Promoción no encontrada",
+        code: null,
+        isAutomatic: true,
+        startsAt: new Date().toISOString(),
+        endsAt: null,
+        status: "UNKNOWN" as PromotionStatus,
+        valueType: "percentage" as PromotionValueType,
+        value: "10",
+        currencyCode: "EUR",
+        summary: "Esta promoción no se pudo cargar correctamente",
+        error: true,
+      }
     }
 
     const node = data.priceRule
@@ -167,15 +203,19 @@ export async function fetchPromotionById(id) {
     const code = hasDiscountCode ? node.discountCodes.edges[0].node.code : null
 
     // Mapear estado
-    let status = "UNKNOWN"
-    if (node.status === "ACTIVE") status = "ACTIVE"
-    else if (node.status === "EXPIRED") status = "EXPIRED"
-    else if (node.status === "SCHEDULED") status = "SCHEDULED"
+    let status: PromotionStatus = "UNKNOWN"
+    if (node.status === "ACTIVE") status = "active"
+    else if (node.status === "EXPIRED") status = "expired"
+    else if (node.status === "SCHEDULED") status = "scheduled"
 
     // Mapear tipo de valor
-    let valueType = "percentage"
+    let valueType: PromotionValueType = "percentage"
     if (node.valueType === "PERCENTAGE") valueType = "percentage"
     else if (node.valueType === "FIXED_AMOUNT") valueType = "fixed_amount"
+
+    // Asegurar que el valor sea positivo
+    const valueNumeric = Math.abs(Number.parseFloat(node.value || "0"))
+    const value = valueNumeric.toString()
 
     return {
       id: node.id.split("/").pop(),
@@ -186,12 +226,26 @@ export async function fetchPromotionById(id) {
       endsAt: node.endsAt,
       status: status,
       valueType: valueType,
-      value: Math.abs(Number.parseFloat(node.value || "0")),
+      value: value,
+      currencyCode: "EUR",
       summary: node.summary || null,
     }
   } catch (error) {
     console.error(`Error al obtener promoción ${id}:`, error)
-    return null
+    return {
+      id: id,
+      title: "Error al cargar promoción",
+      code: null,
+      isAutomatic: true,
+      startsAt: new Date().toISOString(),
+      endsAt: null,
+      status: "UNKNOWN" as PromotionStatus,
+      valueType: "percentage" as PromotionValueType,
+      value: "10",
+      currencyCode: "EUR",
+      summary: `Error: ${error.message}`,
+      error: true,
+    }
   }
 }
 
@@ -203,7 +257,7 @@ export async function fetchPromotionById(id) {
 export async function createPromotion(promotionData) {
   try {
     // Validar que el valor sea un número positivo
-    const value = Number.parseFloat(promotionData.valor)
+    const value = Number.parseFloat(promotionData.valor || promotionData.value || "0")
     if (isNaN(value) || value <= 0) {
       throw new Error("El valor de la promoción debe ser un número mayor que cero")
     }
@@ -224,19 +278,25 @@ export async function createPromotion(promotionData) {
       }
     `
 
+    // Determinar el tipo de valor
+    const valueType =
+      promotionData.tipo === "PORCENTAJE_DESCUENTO" || promotionData.valueType === "percentage"
+        ? "PERCENTAGE"
+        : "FIXED_AMOUNT"
+
     // Asegurarse de que el valor sea negativo para descuentos
-    const ruleValue = promotionData.tipo === "PORCENTAJE_DESCUENTO" ? -Math.abs(value) : -Math.abs(value)
+    const ruleValue = -Math.abs(value)
 
     const variables = {
       priceRule: {
-        title: promotionData.titulo,
+        title: promotionData.titulo || promotionData.title || "Nueva promoción",
         target: "LINE_ITEM",
-        valueType: promotionData.tipo === "PORCENTAJE_DESCUENTO" ? "PERCENTAGE" : "FIXED_AMOUNT",
+        valueType: valueType,
         value: ruleValue.toString(),
         customerSelection: { all: true },
         allocationMethod: "ACROSS",
-        startsAt: promotionData.fechaInicio || new Date().toISOString(),
-        endsAt: promotionData.fechaFin || null,
+        startsAt: promotionData.fechaInicio || promotionData.startsAt || new Date().toISOString(),
+        endsAt: promotionData.fechaFin || promotionData.endsAt || null,
       },
     }
 
@@ -249,7 +309,8 @@ export async function createPromotion(promotionData) {
     }
 
     // Si es un código de descuento, crear el código
-    if (promotionData.codigo) {
+    const code = promotionData.codigo || promotionData.code
+    if (code) {
       const discountCodeMutation = gql`
         mutation discountCodeCreate($discountCode: DiscountCodeInput!) {
           discountCodeCreate(discountCode: $discountCode) {
@@ -268,7 +329,7 @@ export async function createPromotion(promotionData) {
       const discountCodeVariables = {
         discountCode: {
           priceRuleId: data.priceRuleCreate.priceRule.id,
-          code: promotionData.codigo,
+          code: code,
         },
       }
 
@@ -354,8 +415,8 @@ export async function updatePromotion(id, data) {
     console.log(`Actualizando promoción ${formattedId} con datos:`, data)
 
     // Validar que el valor sea un número positivo si se está actualizando
-    if (data.valor) {
-      const value = Number.parseFloat(data.valor)
+    if (data.valor || data.value) {
+      const value = Number.parseFloat(data.valor || data.value)
       if (isNaN(value) || value <= 0) {
         throw new Error("El valor de la promoción debe ser un número mayor que cero")
       }
@@ -379,17 +440,17 @@ export async function updatePromotion(id, data) {
     // Preparar los datos para la actualización
     const priceRuleInput = {}
 
-    if (data.titulo) priceRuleInput.title = data.titulo
-    if (data.fechaInicio) priceRuleInput.startsAt = data.fechaInicio
-    if (data.fechaFin) priceRuleInput.endsAt = data.fechaFin
+    if (data.titulo || data.title) priceRuleInput.title = data.titulo || data.title
+    if (data.fechaInicio || data.startsAt) priceRuleInput.startsAt = data.fechaInicio || data.startsAt
+    if (data.fechaFin || data.endsAt) priceRuleInput.endsAt = data.fechaFin || data.endsAt
 
-    if (data.valor && data.tipo) {
-      priceRuleInput.valueType = data.tipo === "PORCENTAJE_DESCUENTO" ? "PERCENTAGE" : "FIXED_AMOUNT"
-      priceRuleInput.value = (
-        data.tipo === "PORCENTAJE_DESCUENTO"
-          ? -Math.abs(Number.parseFloat(data.valor))
-          : -Math.abs(Number.parseFloat(data.valor))
-      ).toString()
+    const tipo = data.tipo || data.valueType
+    const valor = data.valor || data.value
+
+    if (valor && tipo) {
+      priceRuleInput.valueType =
+        tipo === "PORCENTAJE_DESCUENTO" || tipo === "percentage" ? "PERCENTAGE" : "FIXED_AMOUNT"
+      priceRuleInput.value = (-Math.abs(Number.parseFloat(valor))).toString()
     }
 
     const variables = {

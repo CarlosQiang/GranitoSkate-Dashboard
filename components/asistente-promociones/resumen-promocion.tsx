@@ -1,196 +1,133 @@
 "use client"
-
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
 import {
-  Percent,
-  Tag,
-  ShoppingBag,
-  Truck,
-  Calendar,
-  Target,
-  Code,
-  ShoppingCart,
-  FolderOpen,
-  Package,
+  CalendarIcon,
+  PercentIcon,
+  CreditCardIcon,
+  ShoppingBagIcon,
+  PackageIcon,
+  TagIcon,
+  ShoppingCartIcon,
 } from "lucide-react"
-import type { DatosAsistentePromocion } from "@/types/promociones"
+import type { TipoPromocion } from "./tipo-promocion"
+import type { ObjetivoPromocion } from "./objetivo-promocion"
 
-interface ResumenPromocionProps {
-  datos: DatosAsistentePromocion
-  onChange: (datos: Partial<DatosAsistentePromocion>) => void
+interface FormularioResumenPromocionProps {
+  datos: {
+    titulo: string
+    descripcion: string
+    tipo: TipoPromocion
+    objetivo: ObjetivoPromocion
+    valor: string
+    codigo: string
+    fechaInicio: Date
+    fechaFin?: Date
+    limiteUsos?: number
+  }
 }
 
-export function FormularioResumenPromocion({ datos, onChange }: ResumenPromocionProps) {
-  const getIconoTipo = () => {
-    switch (datos.tipo) {
-      case "PORCENTAJE_DESCUENTO":
-        return <Percent className="h-5 w-5 text-granito" />
-      case "CANTIDAD_FIJA":
-        return <Tag className="h-5 w-5 text-granito" />
-      case "COMPRA_X_LLEVA_Y":
-        return <ShoppingBag className="h-5 w-5 text-granito" />
-      case "ENVIO_GRATIS":
-        return <Truck className="h-5 w-5 text-granito" />
-      default:
-        return <Percent className="h-5 w-5 text-granito" />
-    }
-  }
-
-  const getTextoTipo = () => {
-    switch (datos.tipo) {
-      case "PORCENTAJE_DESCUENTO":
-        return `${datos.valor}% de descuento`
-      case "CANTIDAD_FIJA":
-        return `${datos.valor}€ de descuento`
-      case "COMPRA_X_LLEVA_Y":
-        return `Compra y llévate ${datos.valor} gratis`
-      case "ENVIO_GRATIS":
-        return `Envío gratuito (mín. ${datos.valor}€)`
-      default:
-        return "Descuento"
-    }
-  }
-
-  const getIconoObjetivo = () => {
-    switch (datos.objetivo) {
-      case "CARRITO":
-        return <ShoppingCart className="h-5 w-5 text-granito" />
-      case "COLECCION":
-        return <FolderOpen className="h-5 w-5 text-granito" />
-      case "PRODUCTO":
-        return <Package className="h-5 w-5 text-granito" />
-      default:
-        return <ShoppingCart className="h-5 w-5 text-granito" />
-    }
-  }
-
-  const getTextoObjetivo = () => {
-    switch (datos.objetivo) {
-      case "CARRITO":
-        return "Toda la tienda"
-      case "COLECCION":
-        return "Una colección específica"
-      case "PRODUCTO":
-        return "Un producto específico"
-      default:
-        return "Toda la tienda"
-    }
+export function FormularioResumenPromocion({ datos }: FormularioResumenPromocionProps) {
+  const formatDate = (date: Date) => {
+    if (!date) return ""
+    return date.toLocaleDateString("es-ES", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    })
   }
 
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold">Resumen de la promoción</h2>
-      <p className="text-muted-foreground">Revisa los detalles de tu promoción y añade un título y descripción</p>
+      <p className="text-muted-foreground">Revisa los detalles de tu promoción antes de crearla.</p>
 
-      <div className="space-y-6 pt-4">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="titulo">Título de la promoción</Label>
-            <Input
-              id="titulo"
-              placeholder="Ej: Descuento de verano 20%"
-              value={datos.titulo}
-              onChange={(e) => onChange({ titulo: e.target.value })}
-            />
-            <p className="text-sm text-muted-foreground">Un nombre claro y atractivo para tu promoción</p>
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle>{datos.titulo}</CardTitle>
+              <CardDescription>{datos.descripcion}</CardDescription>
+            </div>
+            <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800">
+              Borrador
+            </Badge>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="descripcion">Descripción (opcional)</Label>
-            <Textarea
-              id="descripcion"
-              placeholder="Ej: Aprovecha este descuento especial en todas nuestras tablas de skate"
-              value={datos.descripcion}
-              onChange={(e) => onChange({ descripcion: e.target.value })}
-              rows={3}
-            />
-            <p className="text-sm text-muted-foreground">Una descripción detallada de la promoción para uso interno</p>
-          </div>
-        </div>
-
-        <div className="border rounded-lg overflow-hidden">
-          <div className="bg-muted p-4 border-b">
-            <h3 className="font-medium">Detalles de la promoción</h3>
-          </div>
-          <div className="p-4 space-y-4">
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <div className="text-sm text-muted-foreground">Tipo de descuento</div>
-                <div className="flex items-center space-x-2">
-                  {getIconoTipo()}
-                  <span className="font-medium">{getTextoTipo()}</span>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="text-sm text-muted-foreground">Aplicado a</div>
-                <div className="flex items-center space-x-2">
-                  {getIconoObjetivo()}
-                  <span className="font-medium">{getTextoObjetivo()}</span>
-                </div>
-              </div>
-
-              {datos.compraMinima && (
-                <div className="space-y-2">
-                  <div className="text-sm text-muted-foreground">Compra mínima</div>
-                  <div className="flex items-center space-x-2">
-                    <ShoppingBag className="h-5 w-5 text-granito" />
-                    <span className="font-medium">{datos.compraMinima}€</span>
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <div className="text-sm text-muted-foreground">Periodo</div>
-                <div className="flex items-center space-x-2">
-                  <Calendar className="h-5 w-5 text-granito" />
-                  <span className="font-medium">
-                    {format(datos.fechaInicio, "dd MMM yyyy", { locale: es })}
-                    {datos.tieneFechaFin
-                      ? ` - ${format(datos.fechaFin, "dd MMM yyyy", { locale: es })}`
-                      : " - Sin fecha fin"}
+                <div className="text-sm font-medium text-muted-foreground">Tipo de promoción</div>
+                <div className="flex items-center gap-2">
+                  {datos.tipo === "PORCENTAJE_DESCUENTO" && <PercentIcon className="h-4 w-4 text-primary" />}
+                  {datos.tipo === "CANTIDAD_FIJA" && <CreditCardIcon className="h-4 w-4 text-primary" />}
+                  {datos.tipo === "COMPRA_X_LLEVA_Y" && <ShoppingBagIcon className="h-4 w-4 text-primary" />}
+                  {datos.tipo === "ENVIO_GRATIS" && <PackageIcon className="h-4 w-4 text-primary" />}
+                  <span>
+                    {datos.tipo === "PORCENTAJE_DESCUENTO" && `${datos.valor}% de descuento`}
+                    {datos.tipo === "CANTIDAD_FIJA" && `${datos.valor}€ de descuento`}
+                    {datos.tipo === "COMPRA_X_LLEVA_Y" && "Compra X y lleva Y"}
+                    {datos.tipo === "ENVIO_GRATIS" && "Envío gratis"}
                   </span>
                 </div>
               </div>
 
-              {datos.limitarUsos && (
-                <div className="space-y-2">
-                  <div className="text-sm text-muted-foreground">Límite de usos</div>
-                  <div className="flex items-center space-x-2">
-                    <Target className="h-5 w-5 text-granito" />
-                    <span className="font-medium">{datos.limiteUsos} usos</span>
-                  </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-muted-foreground">Objetivo</div>
+                <div className="flex items-center gap-2">
+                  {datos.objetivo === "CART" && <ShoppingCartIcon className="h-4 w-4 text-primary" />}
+                  {datos.objetivo === "COLLECTION" && <TagIcon className="h-4 w-4 text-primary" />}
+                  {datos.objetivo === "PRODUCT" && <PackageIcon className="h-4 w-4 text-primary" />}
+                  <span>
+                    {datos.objetivo === "CART" && "Todo el carrito"}
+                    {datos.objetivo === "COLLECTION" && "Colección específica"}
+                    {datos.objetivo === "PRODUCT" && "Producto específico"}
+                  </span>
                 </div>
-              )}
+              </div>
 
-              {datos.requiereCodigo && (
-                <div className="space-y-2">
-                  <div className="text-sm text-muted-foreground">Código promocional</div>
-                  <div className="flex items-center space-x-2">
-                    <Code className="h-5 w-5 text-granito" />
-                    <Badge variant="outline" className="text-base font-mono bg-granito/10 text-granito-dark">
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-muted-foreground">Código de promoción</div>
+                <div className="flex items-center">
+                  {datos.codigo ? (
+                    <Badge variant="secondary" className="font-mono">
                       {datos.codigo}
                     </Badge>
-                  </div>
+                  ) : (
+                    <span className="text-muted-foreground">Aplicación automática (sin código)</span>
+                  )}
                 </div>
-              )}
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-muted-foreground">Límite de usos</div>
+                <div>
+                  {datos.limiteUsos ? (
+                    <span>{datos.limiteUsos} usos</span>
+                  ) : (
+                    <span className="text-muted-foreground">Sin límite</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t">
+              <div className="text-sm font-medium text-muted-foreground mb-2">Periodo de validez</div>
+              <div className="flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4 text-primary" />
+                <span>
+                  Desde {formatDate(datos.fechaInicio)}
+                  {datos.fechaFin ? ` hasta ${formatDate(datos.fechaFin)}` : " (sin fecha de finalización)"}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div className="p-4 bg-granito-light/10 border border-granito-light/20 rounded-md">
-          <h3 className="text-sm font-medium text-granito-dark">¡Todo listo!</h3>
-          <p className="text-sm text-granito-dark/80">
-            Tu promoción está lista para ser creada. Revisa todos los detalles y haz clic en "Crear promoción" para
-            finalizar.
-          </p>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
+
+// Exportar también como ResumenPromocion para mantener compatibilidad
+export const ResumenPromocion = FormularioResumenPromocion
