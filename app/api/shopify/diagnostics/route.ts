@@ -1,49 +1,95 @@
 import { NextResponse } from "next/server"
-import { fetchProducts } from "@/lib/api/products"
-import shopifyClient from "@/lib/shopify"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { checkShopifyConnection } from "@/lib/system-check"
 
 export async function GET() {
   try {
-    // Realizar varias comprobaciones para diagnosticar la conexión con Shopify
-    const diagnostics = {
-      connection: false,
-      products: false,
-      collections: false,
-      orders: false,
-      customers: false,
-      errors: [] as string[],
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "No autorizado. Debe iniciar sesión para acceder a esta función.",
+          details: "Se requiere autenticación para acceder a los diagnósticos de Shopify",
+        },
+        { status: 401 },
+      )
     }
 
-    // Comprobar conexión básica
-    try {
-      const query = `
-        query {
-          shop {
-            name
-          }
-        }
-      `
+    // Verificar variables de entorno
+    const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
+    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
 
-      const data = await shopifyClient.request(query)
-      diagnostics.connection = !!data?.shop?.name
-    } catch (error: any) {
-      diagnostics.errors.push(`Error de conexión: ${error.message}`)
+    if (!shopDomain || !accessToken) {
+      const missingVars = []
+      if (!shopDomain) missingVars.push("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN")
+      if (!accessToken) missingVars.push("SHOPIFY_ACCESS_TOKEN")
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Configuración de Shopify incompleta: faltan variables de entorno`,
+          details: {
+            missingVariables: missingVars,
+            environment: process.env.NODE_ENV,
+          },
+        },
+        { status: 500 },
+      )
     }
 
-    // Comprobar acceso a productos
-    try {
-      const products = await fetchProducts({ limit: 1 })
-      diagnostics.products = products && products.length > 0
-    } catch (error: any) {
-      diagnostics.errors.push(`Error al acceder a productos: ${error.message}`)
+    // Medir el tiempo de respuesta
+    const startTime = Date.now()
+
+    // Verificar la conexión a Shopify
+    const shopifyStatus = await checkShopifyConnection()
+
+    // Calcular la latencia
+    const latency = Date.now() - startTime
+
+    // Verificar endpoints específicos
+    const endpoints = {
+      graphql: { status: shopifyStatus.status },
+      rest: { status: "not_tested" }, // Podríamos implementar pruebas adicionales aquí
     }
 
-    // Devolver resultados del diagnóstico
-    return NextResponse.json(diagnostics)
-  } catch (error: any) {
-    console.error("Error en diagnóstico de Shopify:", error)
+    // Preparar la respuesta
+    const diagnosticResult = {
+      success: shopifyStatus.status === "ok",
+      message: shopifyStatus.message,
+      shopInfo: {
+        name: shopifyStatus.shopName,
+        id: shopifyStatus.shopId,
+        url: shopifyStatus.shopUrl,
+        domain: shopifyStatus.domain,
+      },
+      apiStatus: {
+        status: shopifyStatus.status,
+        version: "2023-10", // Versión de la API que estamos usando
+        latency,
+      },
+      endpoints,
+      environment: process.env.NODE_ENV,
+      timestamp: new Date().toISOString(),
+    }
+
+    if (shopifyStatus.status !== "ok") {
+      diagnosticResult.details = shopifyStatus.details
+    }
+
+    return NextResponse.json(diagnosticResult)
+  } catch (error) {
+    console.error("Error al realizar diagnósticos de Shopify:", error)
+
     return NextResponse.json(
-      { status: "error", message: `Error en diagnóstico: ${error.message}`, errors: [error.message] },
+      {
+        success: false,
+        message: "Error al realizar diagnósticos de Shopify",
+        details: error instanceof Error ? error.message : "Error desconocido",
+        timestamp: new Date().toISOString(),
+      },
       { status: 500 },
     )
   }

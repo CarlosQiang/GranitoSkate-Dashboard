@@ -4,11 +4,13 @@ import { useState, useEffect } from "react"
 import { CheckCircle2, AlertCircle, RefreshCw } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
 export function ShopifyApiStatus() {
   const [status, setStatus] = useState<"loading" | "connected" | "error" | "hidden">("loading")
   const [shopName, setShopName] = useState<string>("")
   const [error, setError] = useState<string>("")
+  const [details, setDetails] = useState<any>(null)
   const [isChecking, setIsChecking] = useState(false)
   const [hasData, setHasData] = useState(false)
 
@@ -55,11 +57,14 @@ export function ShopifyApiStatus() {
         return
       }
 
-      const response = await fetch("/api/shopify/check", {
+      // Añadir un parámetro de timestamp para evitar caché
+      const timestamp = new Date().getTime()
+      const response = await fetch(`/api/shopify/check?t=${timestamp}`, {
         method: "GET",
         headers: {
           "Cache-Control": "no-cache",
           Pragma: "no-cache",
+          Expires: "0",
         },
       })
 
@@ -103,6 +108,7 @@ export function ShopifyApiStatus() {
       if (data.success) {
         setStatus("connected")
         setShopName(data.shopName || "")
+        setDetails(data)
       } else {
         // Si hay un error pero hay datos, ocultamos el estado
         if (checkForDataOrSuccessMessage()) {
@@ -112,7 +118,8 @@ export function ShopifyApiStatus() {
         }
 
         setStatus("error")
-        setError(data.error || "Error desconocido al conectar con Shopify")
+        setError(data.message || "Error desconocido al conectar con Shopify")
+        setDetails(data)
       }
     } catch (err) {
       console.error("Error al verificar la conexión con Shopify:", err)
@@ -162,6 +169,18 @@ export function ShopifyApiStatus() {
         <AlertTitle>Error de conexión con Shopify</AlertTitle>
         <AlertDescription className="flex flex-col gap-2">
           <p>{error}</p>
+
+          {details && details.details && (
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="details">
+                <AccordionTrigger className="text-sm font-normal">Ver detalles técnicos</AccordionTrigger>
+                <AccordionContent>
+                  <pre className="bg-red-50 p-2 rounded text-xs overflow-auto max-h-32">{details.details}</pre>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -182,7 +201,46 @@ export function ShopifyApiStatus() {
       <CheckCircle2 className="h-4 w-4 text-green-600" />
       <AlertTitle className="text-green-800">Conectado a Shopify</AlertTitle>
       <AlertDescription className="text-green-700">
-        Conexión establecida correctamente con la tienda: <strong>{shopName}</strong>
+        <div>
+          Conexión establecida correctamente con la tienda: <strong>{shopName}</strong>
+        </div>
+
+        {details && (
+          <Accordion type="single" collapsible className="w-full mt-2">
+            <AccordionItem value="details">
+              <AccordionTrigger className="text-sm font-normal">Ver detalles de conexión</AccordionTrigger>
+              <AccordionContent>
+                <div className="text-xs space-y-1">
+                  {details.shopId && (
+                    <div>
+                      <strong>ID de tienda:</strong> {details.shopId}
+                    </div>
+                  )}
+                  {details.shopUrl && (
+                    <div>
+                      <strong>URL de tienda:</strong> {details.shopUrl}
+                    </div>
+                  )}
+                  {details.domain && (
+                    <div>
+                      <strong>Dominio principal:</strong> {details.domain}
+                    </div>
+                  )}
+                  {details.apiVersion && (
+                    <div>
+                      <strong>Versión de API:</strong> {details.apiVersion}
+                    </div>
+                  )}
+                  {details.timestamp && (
+                    <div>
+                      <strong>Última verificación:</strong> {new Date(details.timestamp).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        )}
       </AlertDescription>
     </Alert>
   )

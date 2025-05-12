@@ -267,7 +267,23 @@ export async function removeProductsFromCollection(collectionId, productIds) {
   }
 }
 
-// Alias para compatibilidad
-export const fetchCollections = obtenerColecciones
-export const fetchCollectionById = obtenerColeccionPorId
-export const createCollection = crearColeccion
+// Importar todas las funciones necesarias desde el archivo de collections
+import {
+  fetchCollections,
+  fetchCollectionById,
+  createCollection,
+  updateCollection,
+  deleteCollection,
+} from "./collections"
+
+// Reexportar todas las funciones para mantener compatibilidad
+export { fetchCollections, fetchCollectionById, createCollection, updateCollection, deleteCollection }
+
+// Alias en español para compatibilidad
+export const obtenerColeccionesAlias = fetchCollections
+export const obtenerColeccionPorIdAlias = fetchCollectionById
+export const crearColeccionAlias = createCollection
+export const actualizarColeccion = updateCollection
+export const eliminarColeccion = deleteCollection
+export const agregarProductosAColeccion = addProductsToCollection
+export const eliminarProductosDeColeccion = removeProductsFromCollection

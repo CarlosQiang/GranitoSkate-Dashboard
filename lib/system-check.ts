@@ -28,11 +28,22 @@ export async function checkSystemStatus() {
 export async function checkShopifyConnection() {
   try {
     // Verificar si las variables de entorno están configuradas
-    if (!process.env.SHOPIFY_API_URL || !process.env.SHOPIFY_ACCESS_TOKEN) {
+    const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
+    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
+
+    if (!shopDomain || !accessToken) {
+      const missingVars = []
+      if (!shopDomain) missingVars.push("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN")
+      if (!accessToken) missingVars.push("SHOPIFY_ACCESS_TOKEN")
+
       return {
         status: "warning",
-        message: "Faltan variables de entorno para Shopify (SHOPIFY_API_URL, SHOPIFY_ACCESS_TOKEN)",
+        message: `Faltan variables de entorno para Shopify: ${missingVars.join(", ")}`,
         timestamp: new Date().toISOString(),
+        details: {
+          missingVariables: missingVars,
+          environment: process.env.NODE_ENV,
+        },
       }
     }
 
@@ -41,10 +52,18 @@ export async function checkShopifyConnection() {
       {
         shop {
           name
+          id
+          url
+          primaryDomain {
+            url
+          }
         }
       }
     `
 
+    console.log(`Verificando conexión con Shopify (${shopDomain})...`)
+
+    // Usar el cliente de Shopify para hacer la consulta
     const data = await shopifyClient.request(query)
 
     if (data && data.shop && data.shop.name) {
@@ -53,20 +72,44 @@ export async function checkShopifyConnection() {
         message: `Conexión exitosa a la tienda: ${data.shop.name}`,
         timestamp: new Date().toISOString(),
         shopName: data.shop.name,
+        shopId: data.shop.id,
+        shopUrl: data.shop.url,
+        domain: data.shop.primaryDomain?.url,
       }
     } else {
       return {
         status: "error",
         message: "No se pudo obtener información de la tienda",
         timestamp: new Date().toISOString(),
+        response: data,
       }
     }
   } catch (error) {
     console.error("Error al verificar la conexión a Shopify:", error)
+
+    // Intentar extraer más información del error
+    let errorDetails = {}
+    if (error instanceof Error) {
+      errorDetails = {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      }
+
+      // Si es un error de GraphQL, puede tener información adicional
+      if ("response" in error && error.response) {
+        errorDetails = {
+          ...errorDetails,
+          response: error.response,
+        }
+      }
+    }
+
     return {
       status: "error",
       message: `Error al verificar la conexión a Shopify: ${(error as Error).message}`,
       timestamp: new Date().toISOString(),
+      details: errorDetails,
     }
   }
 }
@@ -152,6 +195,9 @@ export async function checkSystemConfiguration() {
       nextAuthUrl: process.env.NEXTAUTH_URL ? "configurado" : "no configurado",
       shopifyApiUrl: process.env.SHOPIFY_API_URL ? "configurado" : "no configurado",
       shopifyAccessToken: process.env.SHOPIFY_ACCESS_TOKEN ? "configurado" : "no configurado",
+      shopifyShopDomain: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN ? "configurado" : "no configurado",
+      vercelUrl: process.env.NEXT_PUBLIC_VERCEL_URL ? "configurado" : "no configurado",
+      apiUrl: process.env.NEXT_PUBLIC_API_URL ? "configurado" : "no configurado",
     }
 
     return {

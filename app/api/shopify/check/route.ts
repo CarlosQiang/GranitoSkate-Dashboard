@@ -2,24 +2,20 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
-// Aumentar el tiempo de timeout para la solicitud
-export const maxDuration = 30 // 30 segundos
-
-export async function GET(request: Request) {
+export async function GET() {
   try {
     // Verificar autenticación
     const session = await getServerSession(authOptions)
     if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+      return NextResponse.json(
+        {
+          success: false,
+          message: "No autorizado. Debe iniciar sesión para acceder a esta función.",
+          details: "Se requiere autenticación para acceder a la API de Shopify",
+        },
+        { status: 401 },
+      )
     }
-
-    console.log("Verificando conexión con Shopify...")
-
-    // Obtener la URL de la solicitud para extraer parámetros
-    const url = new URL(request.url)
-    const retry = url.searchParams.get("retry") || "0"
-
-    console.log(`Intento de conexión #${retry}`)
 
     // Verificar variables de entorno
     const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
@@ -28,122 +24,114 @@ export async function GET(request: Request) {
     if (!shopDomain) {
       console.error("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está configurado")
       return NextResponse.json(
-        { success: false, error: "Falta el dominio de la tienda Shopify" },
-        { status: 200 }, // Devolvemos 200 para manejar el error en el cliente
+        {
+          success: false,
+          message: "Configuración de Shopify incompleta",
+          details: "Falta el dominio de la tienda (NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN)",
+        },
+        { status: 500 },
       )
     }
 
     if (!accessToken) {
       console.error("SHOPIFY_ACCESS_TOKEN no está configurado")
       return NextResponse.json(
-        { success: false, error: "Falta el token de acceso de Shopify" },
-        { status: 200 }, // Devolvemos 200 para manejar el error en el cliente
+        {
+          success: false,
+          message: "Configuración de Shopify incompleta",
+          details: "Falta el token de acceso (SHOPIFY_ACCESS_TOKEN)",
+        },
+        { status: 500 },
       )
     }
 
-    // Hacer la solicitud a la API de Shopify
+    // Hacer una consulta simple a la API de Shopify para verificar la conexión
+    const query = `
+      {
+        shop {
+          name
+          id
+          url
+          primaryDomain {
+            url
+          }
+        }
+      }
+    `
+
+    console.log(`Verificando conexión con Shopify (${shopDomain})...`)
+
     const response = await fetch(`https://${shopDomain}/admin/api/2023-10/graphql.json`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-Shopify-Access-Token": accessToken,
       },
-      body: JSON.stringify({
-        query: `
-          {
-            shop {
-              name
-              url
-              primaryDomain {
-                url
-              }
-            }
-          }
-        `,
-      }),
+      body: JSON.stringify({ query }),
     })
 
-    // Verificar si la respuesta es exitosa
     if (!response.ok) {
       const errorText = await response.text()
       console.error(`Error en la respuesta de Shopify (${response.status}): ${errorText}`)
+
       return NextResponse.json(
         {
           success: false,
-          error: `Error en la respuesta de Shopify: ${response.status} ${response.statusText}`,
+          message: `Error en la respuesta de Shopify: ${response.status} ${response.statusText}`,
+          details: errorText,
         },
-        { status: 200 }, // Devolvemos 200 para manejar el error en el cliente
+        { status: response.status },
       )
     }
 
-    // Intentar parsear la respuesta JSON
-    let data
-    try {
-      data = await response.json()
-    } catch (error) {
-      console.error("Error al parsear la respuesta JSON:", error)
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Error al parsear la respuesta JSON de Shopify",
-        },
-        { status: 200 }, // Devolvemos 200 para manejar el error en el cliente
-      )
-    }
+    const data = await response.json()
 
-    // Verificar si hay errores en la respuesta GraphQL
     if (data.errors) {
       console.error("Errores GraphQL:", JSON.stringify(data.errors, null, 2))
+
       return NextResponse.json(
         {
           success: false,
-          error: "Error en la consulta GraphQL",
-          details: data.errors,
+          message: "Error en la consulta GraphQL",
+          details: JSON.stringify(data.errors),
         },
-        { status: 200 }, // Devolvemos 200 para manejar el error en el cliente
+        { status: 400 },
       )
     }
 
-    console.log("Conexión con Shopify establecida correctamente:", data)
+    if (!data.data || !data.data.shop) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Respuesta de Shopify incompleta",
+          details: "No se pudo obtener información de la tienda",
+        },
+        { status: 500 },
+      )
+    }
+
+    console.log("Conexión con Shopify verificada correctamente")
 
     return NextResponse.json({
       success: true,
-      shopName: data?.data?.shop?.name || "Tienda Shopify",
-      shopUrl: data?.data?.shop?.primaryDomain?.url || data?.data?.shop?.url,
-      message: "Conexión establecida correctamente",
+      message: "Conexión con Shopify verificada correctamente",
+      shopName: data.data.shop.name,
+      shopId: data.data.shop.id,
+      shopUrl: data.data.shop.url,
+      domain: data.data.shop.primaryDomain?.url,
+      apiVersion: "2023-10",
+      timestamp: new Date().toISOString(),
     })
   } catch (error) {
-    console.error("Error de conexión con Shopify:", error)
-
-    // Extraer mensaje de error más detallado
-    let errorMessage = "Error desconocido al conectar con Shopify"
-
-    if (error instanceof Error) {
-      errorMessage = error.message
-
-      // Detectar errores comunes y dar mensajes más útiles
-      if (errorMessage.includes("401")) {
-        errorMessage = "Error de autenticación: Verifica tu SHOPIFY_ACCESS_TOKEN"
-      } else if (errorMessage.includes("404")) {
-        errorMessage = "Error 404: Verifica tu NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN"
-      } else if (errorMessage.includes("429")) {
-        errorMessage = "Error 429: Has excedido el límite de solicitudes a la API"
-      } else if (errorMessage.includes("timeout")) {
-        errorMessage = "Timeout: La solicitud a Shopify ha tardado demasiado tiempo"
-      }
-    }
+    console.error("Error al verificar la conexión con Shopify:", error)
 
     return NextResponse.json(
       {
         success: false,
-        error: errorMessage,
+        message: "Error al verificar la conexión con Shopify",
+        details: error instanceof Error ? error.message : "Error desconocido",
       },
-      { status: 200 }, // Devolvemos 200 para manejar el error en el cliente
+      { status: 500 },
     )
   }
-}
-
-// También permitimos POST para mantener compatibilidad con código existente
-export async function POST() {
-  return GET(new Request("https://example.com"))
 }

@@ -1,3 +1,4 @@
+// Importar todas las funciones necesarias desde el archivo de promotions
 import {
   fetchPromotions,
   fetchPromotionById,
@@ -9,9 +10,10 @@ import {
   updatePriceList,
   fetchPriceLists,
   deletePriceList,
+  getPriceListById,
 } from "./promotions"
 
-// Exportamos directamente las funciones
+// Reexportar todas las funciones para mantener compatibilidad
 export {
   fetchPromotions,
   fetchPromotionById,
@@ -23,6 +25,7 @@ export {
   updatePriceList,
   fetchPriceLists,
   deletePriceList,
+  getPriceListById,
 }
 
 // Alias en español para compatibilidad
