@@ -3,10 +3,10 @@ import { gql } from "graphql-request"
 
 export async function fetchAnalyticsData() {
   try {
-    // Obtener datos de pedidos
-    const ordersQuery = gql`
+    // Consulta para obtener datos de ventas
+    const revenueQuery = gql`
       query {
-        orders(first: 250, sortKey: CREATED_AT, reverse: true) {
+        orders(first: 50, query: "status:any") {
           edges {
             node {
               id
@@ -18,15 +18,11 @@ export async function fetchAnalyticsData() {
                   currencyCode
                 }
               }
-              lineItems(first: 10) {
+              lineItems(first: 5) {
                 edges {
                   node {
                     name
                     quantity
-                    product {
-                      id
-                      title
-                    }
                   }
                 }
               }
@@ -36,95 +32,147 @@ export async function fetchAnalyticsData() {
       }
     `
 
-    const ordersData = await shopifyClient.request(ordersQuery)
-    const orders = ordersData.orders.edges.map((edge: any) => edge.node)
+    const data = await shopifyClient.request(revenueQuery)
+    const orders = data.orders.edges.map((edge) => edge.node)
 
-    // Calcular ingresos totales
-    const totalRevenue = orders.reduce(
-      (sum: number, order: any) => sum + Number.parseFloat(order.totalPriceSet.shopMoney.amount),
-      0,
-    )
+    // Procesar datos para análisis
+    const totalRevenue = orders.reduce((sum, order) => sum + Number.parseFloat(order.totalPriceSet.shopMoney.amount), 0)
 
-    // Calcular valor promedio de pedido
-    const averageOrderValue = orders.length > 0 ? totalRevenue / orders.length : 0
+    const totalOrders = orders.length
 
-    // Agrupar pedidos por mes
-    const ordersByMonth = orders.reduce((acc: any, order: any) => {
+    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
+
+    // Agrupar pedidos por mes para gráfico de ingresos
+    const revenueByMonth = orders.reduce((acc, order) => {
       const date = new Date(order.createdAt)
-      const month = date.toLocaleString("es-ES", { month: "short" })
-      const year = date.getFullYear()
-      const key = `${month} ${year}`
+      const monthYear = `${date.getMonth() + 1}/${date.getFullYear()}`
 
-      if (!acc[key]) {
-        acc[key] = {
-          orders: 0,
-          revenue: 0,
+      if (!acc[monthYear]) {
+        acc[monthYear] = {
+          month: monthYear,
+          total: 0,
         }
       }
 
-      acc[key].orders += 1
-      acc[key].revenue += Number.parseFloat(order.totalPriceSet.shopMoney.amount)
-
+      acc[monthYear].total += Number.parseFloat(order.totalPriceSet.shopMoney.amount)
       return acc
     }, {})
 
-    // Convertir a arrays para los gráficos
-    const revenueData = Object.keys(ordersByMonth).map((key) => ({
-      name: key,
-      total: ordersByMonth[key].revenue,
-    }))
-
-    const chartOrdersData = Object.keys(ordersByMonth).map((key) => ({
-      name: key,
-      total: ordersByMonth[key].orders,
-    }))
-
-    // Ordenar por fecha
-    revenueData.sort((a, b) => {
-      const [monthA, yearA] = a.name.split(" ")
-      const [monthB, yearB] = b.name.split(" ")
-      return new Date(`${monthA} 1, ${yearA}`).getTime() - new Date(`${monthB} 1, ${yearB}`).getTime()
-    })
-
-    chartOrdersData.sort((a, b) => {
-      const [monthA, yearA] = a.name.split(" ")
-      const [monthB, yearB] = b.name.split(" ")
-      return new Date(`${monthA} 1, ${yearA}`).getTime() - new Date(`${monthB} 1, ${yearB}`).getTime()
-    })
+    const revenueData = Object.values(revenueByMonth)
 
     // Calcular productos más vendidos
-    const productSales: Record<string, { name: string; sales: number }> = {}
-
-    orders.forEach((order: any) => {
-      order.lineItems.edges.forEach((edge: any) => {
-        const { name, quantity, product } = edge.node
-        if (product) {
-          const productId = product.id
-          if (!productSales[productId]) {
-            productSales[productId] = {
-              name: name,
-              sales: 0,
-            }
-          }
-          productSales[productId].sales += quantity
+    const productSales = {}
+    orders.forEach((order) => {
+      order.lineItems.edges.forEach((edge) => {
+        const product = edge.node
+        if (!productSales[product.name]) {
+          productSales[product.name] = 0
         }
+        productSales[product.name] += product.quantity
       })
     })
 
-    const topProducts = Object.values(productSales)
-      .sort((a: any, b: any) => b.sales - a.sales)
+    const topProducts = Object.entries(productSales)
+      .map(([name, sales]) => ({ name, sales }))
+      .sort((a, b) => b.sales - a.sales)
       .slice(0, 5)
+
+    // Agrupar pedidos por mes para gráfico de pedidos
+    const ordersByMonth = orders.reduce((acc, order) => {
+      const date = new Date(order.createdAt)
+      const monthYear = `${date.getMonth() + 1}/${date.getFullYear()}`
+
+      if (!acc[monthYear]) {
+        acc[monthYear] = {
+          month: monthYear,
+          total: 0,
+        }
+      }
+
+      acc[monthYear].total += 1
+      return acc
+    }, {})
+
+    const ordersData = Object.values(ordersByMonth)
 
     return {
       totalRevenue,
-      totalOrders: orders.length,
+      totalOrders,
       averageOrderValue,
       topProducts,
       revenueData,
-      ordersData: chartOrdersData,
+      ordersData,
     }
   } catch (error) {
     console.error("Error fetching analytics data:", error)
-    throw new Error(`Error al obtener datos de análisis: ${(error as Error).message}`)
+    throw new Error(`Error al obtener datos de análisis: ${error.message}`)
+  }
+}
+
+export async function fetchSalesOverview() {
+  try {
+    // Obtener los últimos 30 días de ventas
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+    const query = gql`
+      query($date: DateTime!) {
+        orders(first: 250, query: "created_at:>=$date status:any") {
+          edges {
+            node {
+              id
+              createdAt
+              totalPriceSet {
+                shopMoney {
+                  amount
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const data = await shopifyClient.request(query, {
+      date: thirtyDaysAgo.toISOString(),
+    })
+
+    // Agrupar ventas por día
+    const salesByDay = {}
+
+    data.orders.edges.forEach(({ node }) => {
+      const date = new Date(node.createdAt)
+      const dateString = date.toISOString().split("T")[0] // YYYY-MM-DD
+
+      if (!salesByDay[dateString]) {
+        salesByDay[dateString] = {
+          date: dateString,
+          amount: 0,
+        }
+      }
+
+      salesByDay[dateString].amount += Number.parseFloat(node.totalPriceSet.shopMoney.amount)
+    })
+
+    // Asegurarse de que todos los días estén representados
+    const result = []
+    const currentDate = new Date(thirtyDaysAgo)
+    const today = new Date()
+
+    while (currentDate <= today) {
+      const dateString = currentDate.toISOString().split("T")[0]
+
+      result.push({
+        date: dateString,
+        amount: salesByDay[dateString] ? Math.round(salesByDay[dateString].amount * 100) / 100 : 0,
+      })
+
+      currentDate.setDate(currentDate.getDate() + 1)
+    }
+
+    return result
+  } catch (error) {
+    console.error("Error fetching sales overview:", error)
+    throw new Error(`Error al obtener visión general de ventas: ${error.message}`)
   }
 }
