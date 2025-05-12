@@ -170,21 +170,32 @@ export function CollectionSeoForm({
         ? collectionId
         : `gid://shopify/Collection/${collectionId}`
 
-      const success = await saveCollectionSeoSettings(formattedId, values)
+      // Primero actualizamos los campos SEO básicos de la colección
+      try {
+        const success = await saveCollectionSeoSettings(formattedId, values)
 
-      if (success) {
-        toast({
-          title: "SEO guardado",
-          description: "La configuración de SEO se ha guardado correctamente",
-        })
+        if (success) {
+          toast({
+            title: "SEO guardado",
+            description: "La configuración de SEO se ha guardado correctamente",
+          })
 
-        if (onSave) {
-          onSave()
+          if (onSave) {
+            onSave()
+          }
+        } else {
+          toast({
+            title: "Error",
+            description: "No se pudo guardar la configuración de SEO",
+            variant: "destructive",
+          })
         }
-      } else {
+      } catch (error) {
+        console.error("Error saving SEO:", error)
+        setError("Ocurrió un error al guardar la configuración de SEO. Por favor, inténtalo de nuevo.")
         toast({
           title: "Error",
-          description: "No se pudo guardar la configuración de SEO",
+          description: "Ocurrió un error al guardar la configuración de SEO",
           variant: "destructive",
         })
       }

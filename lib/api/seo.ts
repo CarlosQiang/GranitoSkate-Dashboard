@@ -935,6 +935,7 @@ export async function saveCollectionSeoSettings(collectionId: string, settings: 
       },
     }
 
+    console.log("Enviando actualización SEO básica:", updateVariables)
     const updateData = await shopifyClient.request(updateMutation, updateVariables)
 
     if (updateData.collectionUpdate.userErrors?.length > 0) {

@@ -13,6 +13,7 @@ import Image from "next/image"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { getImageUrl } from "@/lib/utils"
 import { formatShopifyId } from "@/lib/shopify"
+import { useToast } from "@/components/ui/use-toast"
 
 interface CollectionProductManagerProps {
   collectionId: string
@@ -21,6 +22,7 @@ interface CollectionProductManagerProps {
 }
 
 export function CollectionProductManager({ collectionId, onComplete, mode }: CollectionProductManagerProps) {
+  const { toast } = useToast()
   const [allProducts, setAllProducts] = useState<any[]>([])
   const [collectionProducts, setCollectionProducts] = useState<any[]>([])
   const [displayProducts, setDisplayProducts] = useState<any[]>([])
@@ -189,19 +191,27 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
       // Asegurarse de que el ID de la colección tenga el formato correcto
       const formattedCollectionId = formatShopifyId(collectionId, "Collection")
 
-      // Extraer los IDs limpios
-      const cleanIds = selectedProducts.map((id) => {
-        return formatShopifyId(id, "Product")
+      // Extraer los IDs limpios y formatearlos correctamente
+      const formattedProductIds = selectedProducts.map((id) => formatShopifyId(id, "Product"))
+
+      console.log("Operación de productos en colección:", {
+        mode,
+        collectionId: formattedCollectionId,
+        productIds: formattedProductIds,
       })
 
       if (mode === "add") {
-        await addProductsToCollection(formattedCollectionId, cleanIds)
+        await addProductsToCollection(formattedCollectionId, formattedProductIds)
       } else {
-        await removeProductsFromCollection(formattedCollectionId, cleanIds)
+        await removeProductsFromCollection(formattedCollectionId, formattedProductIds)
       }
 
       if (isMounted.current) {
         setIsSubmitting(false)
+        toast({
+          title: "Operación completada",
+          description: `Productos ${mode === "add" ? "añadidos a" : "eliminados de"} la colección correctamente`,
+        })
         onComplete()
       }
     } catch (err) {
@@ -214,6 +224,11 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
           } los productos a la colección. Por favor, inténtalo de nuevo.`,
         )
         setIsSubmitting(false)
+        toast({
+          title: "Error",
+          description: `Error al ${mode === "add" ? "añadir" : "eliminar"} productos: ${(err as Error).message}`,
+          variant: "destructive",
+        })
       }
     }
   }

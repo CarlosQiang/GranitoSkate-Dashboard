@@ -181,12 +181,35 @@ export async function createCollection(collectionData) {
 // Función para actualizar una colección existente
 export async function updateCollection(id, collectionData) {
   try {
+    // Asegurarse de que el ID tenga el formato correcto
+    const formattedId = id.includes("gid://shopify/Collection/") ? id : `gid://shopify/Collection/${id}`
+
+    // Preparar los datos de la colección, asegurándose de que los campos sean válidos
+    const input = {
+      id: formattedId,
+      title: collectionData.title,
+    }
+
+    // Solo incluir la descripción si está definida y no es null
+    if (collectionData.description !== undefined && collectionData.description !== null) {
+      input.descriptionHtml = collectionData.description
+    }
+
+    // Incluir metafields si están definidos
+    if (collectionData.metafields && Array.isArray(collectionData.metafields)) {
+      input.metafields = collectionData.metafields
+    }
+
+    console.log("Datos de actualización de colección:", input)
+
     const mutation = gql`
       mutation collectionUpdate($input: CollectionInput!) {
         collectionUpdate(input: $input) {
           collection {
             id
             title
+            description
+            descriptionHtml
             productsCount {
               count
             }
@@ -200,15 +223,13 @@ export async function updateCollection(id, collectionData) {
     `
 
     const variables = {
-      input: {
-        id,
-        ...collectionData,
-      },
+      input,
     }
 
     const data = await shopifyClient.request(mutation, variables)
 
-    if (data.collectionUpdate.userErrors.length > 0) {
+    if (data.collectionUpdate.userErrors && data.collectionUpdate.userErrors.length > 0) {
+      console.error("Errores al actualizar colección:", data.collectionUpdate.userErrors)
       throw new Error(data.collectionUpdate.userErrors[0].message)
     }
 
@@ -329,9 +350,25 @@ export async function addProductsToCollection(collectionId, productIds) {
       ? collectionId
       : `gid://shopify/Collection/${collectionId}`
 
-    const formattedProductIds = productIds.map((id) =>
-      id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`,
-    )
+    // Asegurarse de que los IDs de productos tengan el formato correcto
+    const formattedProductIds = productIds
+      .map((id) => {
+        if (typeof id !== "string") {
+          console.warn("ID de producto no es una cadena:", id)
+          return null
+        }
+        return id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
+      })
+      .filter(Boolean) // Eliminar cualquier ID nulo
+
+    if (formattedProductIds.length === 0) {
+      throw new Error("No se proporcionaron IDs de productos válidos")
+    }
+
+    console.log("Añadiendo productos a colección:", {
+      collectionId: formattedCollectionId,
+      productIds: formattedProductIds,
+    })
 
     const mutation = gql`
       mutation collectionAddProducts($id: ID!, $productIds: [ID!]!) {
@@ -358,7 +395,8 @@ export async function addProductsToCollection(collectionId, productIds) {
 
     const data = await shopifyClient.request(mutation, variables)
 
-    if (data.collectionAddProducts.userErrors.length > 0) {
+    if (data.collectionAddProducts.userErrors && data.collectionAddProducts.userErrors.length > 0) {
+      console.error("Errores al añadir productos:", data.collectionAddProducts.userErrors)
       throw new Error(data.collectionAddProducts.userErrors[0].message)
     }
 
@@ -383,9 +421,25 @@ export async function removeProductsFromCollection(collectionId, productIds) {
       ? collectionId
       : `gid://shopify/Collection/${collectionId}`
 
-    const formattedProductIds = productIds.map((id) =>
-      id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`,
-    )
+    // Asegurarse de que los IDs de productos tengan el formato correcto
+    const formattedProductIds = productIds
+      .map((id) => {
+        if (typeof id !== "string") {
+          console.warn("ID de producto no es una cadena:", id)
+          return null
+        }
+        return id.includes("gid://shopify/Product/") ? id : `gid://shopify/Product/${id}`
+      })
+      .filter(Boolean) // Eliminar cualquier ID nulo
+
+    if (formattedProductIds.length === 0) {
+      throw new Error("No se proporcionaron IDs de productos válidos")
+    }
+
+    console.log("Eliminando productos de colección:", {
+      collectionId: formattedCollectionId,
+      productIds: formattedProductIds,
+    })
 
     const mutation = gql`
       mutation collectionRemoveProducts($id: ID!, $productIds: [ID!]!) {
@@ -412,7 +466,8 @@ export async function removeProductsFromCollection(collectionId, productIds) {
 
     const data = await shopifyClient.request(mutation, variables)
 
-    if (data.collectionRemoveProducts.userErrors.length > 0) {
+    if (data.collectionRemoveProducts.userErrors && data.collectionRemoveProducts.userErrors.length > 0) {
+      console.error("Errores al eliminar productos:", data.collectionRemoveProducts.userErrors)
       throw new Error(data.collectionRemoveProducts.userErrors[0].message)
     }
 

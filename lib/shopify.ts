@@ -17,22 +17,37 @@ const shopifyClient = new GraphQLClient(`${getBaseUrl()}/api/shopify/proxy`, {
   },
 })
 
-// Función para formatear correctamente los IDs de Shopify
-export function formatShopifyId(id: string, type = "Product") {
-  if (!id) return ""
+// Mejorar la función formatShopifyId para manejar todos los casos posibles
 
-  // Si ya tiene el formato correcto, devolverlo tal cual
-  if (id.startsWith("gid://shopify/")) {
+/**
+ * Formatea un ID para que sea compatible con la API de Shopify
+ * @param id El ID a formatear
+ * @param resourceType El tipo de recurso (Product, Collection, etc.)
+ * @returns El ID formateado
+ */
+export function formatShopifyId(id: string | number | null | undefined, resourceType: string): string {
+  if (!id) {
+    console.warn(`ID inválido proporcionado para ${resourceType}:`, id)
+    return `gid://shopify/${resourceType}/0` // ID por defecto para evitar errores
+  }
+
+  // Si el ID ya tiene el formato correcto, devolverlo tal cual
+  if (typeof id === "string" && id.startsWith(`gid://shopify/${resourceType}/`)) {
     return id
   }
 
-  // Si contiene barras, extraer solo el ID numérico
-  if (id.includes("/")) {
-    const parts = id.split("/")
-    id = parts[parts.length - 1]
+  // Si el ID es un número o una cadena que representa un número
+  const idStr = String(id)
+
+  // Si el ID ya contiene el prefijo gid://shopify/ pero no el tipo de recurso correcto
+  if (idStr.startsWith("gid://shopify/")) {
+    const parts = idStr.split("/")
+    const numericId = parts[parts.length - 1]
+    return `gid://shopify/${resourceType}/${numericId}`
   }
 
-  return `gid://shopify/${type}/${id}`
+  // Si el ID es solo el número
+  return `gid://shopify/${resourceType}/${idStr}`
 }
 
 // Función para realizar una consulta de prueba a Shopify
