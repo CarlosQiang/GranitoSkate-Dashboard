@@ -71,6 +71,27 @@ export default function PromocionesPage() {
     })
   }
 
+  const handleEliminarPromocion = async (id: string) => {
+    if (confirm("¿Estás seguro de que deseas eliminar esta promoción?")) {
+      try {
+        const response = await fetch(`/api/shopify/rest/discount_codes/${id}`, {
+          method: "DELETE",
+        })
+
+        if (response.ok) {
+          // Recargar promociones después de eliminar
+          cargarPromociones()
+        } else {
+          const errorData = await response.json()
+          setError(`Error al eliminar promoción: ${errorData.error || response.statusText}`)
+        }
+      } catch (err) {
+        console.error("Error al eliminar promoción:", err)
+        setError(`Error al eliminar promoción: ${(err as Error).message}`)
+      }
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -92,7 +113,7 @@ export default function PromocionesPage() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
           <AlertDescription className="flex flex-col gap-2">
-            <span>No se pudieron cargar las promociones. Por favor, inténtalo de nuevo.</span>
+            <span>{error}</span>
             <Button variant="outline" size="sm" className="w-fit" onClick={cargarPromociones}>
               <RefreshCw className="mr-2 h-4 w-4" />
               Reintentar
@@ -173,7 +194,12 @@ export default function PromocionesPage() {
                     >
                       Ver detalles
                     </Button>
-                    <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => handleEliminarPromocion(promocion.id)}
+                    >
                       Eliminar
                     </Button>
                   </CardFooter>
@@ -268,7 +294,12 @@ export default function PromocionesPage() {
                       >
                         Ver detalles
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleEliminarPromocion(promocion.id)}
+                      >
                         Eliminar
                       </Button>
                     </CardFooter>
@@ -362,7 +393,12 @@ export default function PromocionesPage() {
                       >
                         Ver detalles
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleEliminarPromocion(promocion.id)}
+                      >
                         Eliminar
                       </Button>
                     </CardFooter>
@@ -456,7 +492,12 @@ export default function PromocionesPage() {
                       >
                         Ver detalles
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleEliminarPromocion(promocion.id)}
+                      >
                         Eliminar
                       </Button>
                     </CardFooter>

@@ -1,12 +1,7 @@
 import { GraphQLClient } from "graphql-request"
 
-// Determinar la URL base para las solicitudes GraphQL
-const API_URL = process.env.NEXT_PUBLIC_VERCEL_URL
-  ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}/api/shopify/proxy`
-  : process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/shopify/proxy"
-
-// Crear un cliente GraphQL que use nuestro proxy
-const shopifyClient = new GraphQLClient(API_URL, {
+// Crear un cliente GraphQL para Shopify
+const shopifyClient = new GraphQLClient("/api/shopify/proxy", {
   headers: {
     "Content-Type": "application/json",
   },
