@@ -19,9 +19,19 @@ const shopifyClient = new GraphQLClient(`${getBaseUrl()}/api/shopify/proxy`, {
 
 // Función para formatear correctamente los IDs de Shopify
 export function formatShopifyId(id: string, type = "Product") {
-  if (id.startsWith("gid://")) {
+  if (!id) return ""
+
+  // Si ya tiene el formato correcto, devolverlo tal cual
+  if (id.startsWith("gid://shopify/")) {
     return id
   }
+
+  // Si contiene barras, extraer solo el ID numérico
+  if (id.includes("/")) {
+    const parts = id.split("/")
+    id = parts[parts.length - 1]
+  }
+
   return `gid://shopify/${type}/${id}`
 }
 

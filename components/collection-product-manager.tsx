@@ -12,6 +12,7 @@ import { addProductsToCollection, removeProductsFromCollection } from "@/lib/api
 import Image from "next/image"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { getImageUrl } from "@/lib/utils"
+import { formatShopifyId } from "@/lib/shopify"
 
 interface CollectionProductManagerProps {
   collectionId: string
@@ -45,6 +46,9 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
         setIsLoading(true)
         setError(null)
 
+        // Asegurarse de que el ID de la colección tenga el formato correcto
+        const formattedCollectionId = formatShopifyId(collectionId, "Collection")
+
         // Cargar todos los productos
         const productsData = await fetchProducts({ limite: 250 })
 
@@ -58,7 +62,7 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
 
         // Cargar la colección para obtener sus productos
         try {
-          const collectionData = await fetchCollectionById(collectionId)
+          const collectionData = await fetchCollectionById(formattedCollectionId)
 
           if (!collectionData) {
             throw new Error("No se pudo cargar la información de la colección")
@@ -182,22 +186,18 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
       setIsSubmitting(true)
       setError(null)
 
+      // Asegurarse de que el ID de la colección tenga el formato correcto
+      const formattedCollectionId = formatShopifyId(collectionId, "Collection")
+
       // Extraer los IDs limpios
       const cleanIds = selectedProducts.map((id) => {
-        if (typeof id === "string" && id.includes("/")) {
-          return id.split("/").pop()
-        }
-        return id
+        return formatShopifyId(id, "Product")
       })
 
-      // Extraer el ID limpio de la colección
-      const cleanCollectionId =
-        typeof collectionId === "string" && collectionId.includes("/") ? collectionId.split("/").pop() : collectionId
-
       if (mode === "add") {
-        await addProductsToCollection(cleanCollectionId, cleanIds)
+        await addProductsToCollection(formattedCollectionId, cleanIds)
       } else {
-        await removeProductsFromCollection(cleanCollectionId, cleanIds)
+        await removeProductsFromCollection(formattedCollectionId, cleanIds)
       }
 
       if (isMounted.current) {

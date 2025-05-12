@@ -30,6 +30,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { CollectionSeoForm } from "@/components/collection-seo-form"
+import { formatShopifyId } from "@/lib/shopify"
 
 export default function CollectionPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -49,8 +50,11 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
     setError(null)
 
     try {
-      console.log(`Intentando cargar colección con ID: ${params.id}`)
-      const collectionData = await fetchCollectionById(params.id)
+      // Asegurarse de que el ID tenga el formato correcto
+      const formattedId = formatShopifyId(params.id, "Collection")
+
+      console.log(`Intentando cargar colección con ID: ${formattedId}`)
+      const collectionData = await fetchCollectionById(formattedId)
 
       if (!collectionData) {
         throw new Error("No se pudo encontrar la colección")
@@ -94,6 +98,9 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
     setError(null)
 
     try {
+      // Asegurarse de que el ID tenga el formato correcto
+      const formattedId = formatShopifyId(params.id, "Collection")
+
       const updateData = {
         title: formData.title,
         description: formData.description,
@@ -102,7 +109,7 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
       }
 
       console.log("Enviando datos para actualizar colección:", updateData)
-      await updateCollection(params.id, updateData)
+      await updateCollection(formattedId, updateData)
 
       toast({
         title: "¡Colección actualizada!",
@@ -127,7 +134,10 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
   const handleDelete = async () => {
     setIsDeleting(true)
     try {
-      await deleteCollection(params.id)
+      // Asegurarse de que el ID tenga el formato correcto
+      const formattedId = formatShopifyId(params.id, "Collection")
+
+      await deleteCollection(formattedId)
       toast({
         title: "Colección eliminada",
         description: "La colección ha sido eliminada correctamente",
@@ -382,7 +392,7 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
         </TabsContent>
         <TabsContent value="seo">
           <CollectionSeoForm
-            collectionId={params.id}
+            collectionId={formatShopifyId(params.id, "Collection")}
             collectionTitle={formData.title}
             collectionDescription={formData.description}
             collectionImage={collection.image?.url}
