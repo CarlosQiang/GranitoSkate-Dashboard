@@ -1,25 +1,58 @@
 import { GraphQLClient } from "graphql-request"
 
+// Función para verificar si las variables de entorno están disponibles
+export function checkShopifyEnvVars() {
+  const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
+  const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
+
+  const missingVars = []
+  if (!shopDomain) missingVars.push("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN")
+  if (!accessToken) missingVars.push("SHOPIFY_ACCESS_TOKEN")
+
+  return {
+    isValid: missingVars.length === 0,
+    missingVars,
+    shopDomain,
+    accessToken,
+  }
+}
+
 // Determinar si estamos en el cliente o en el servidor
 const isClient = typeof window !== "undefined"
 
 // Configuración del cliente GraphQL para Shopify
-const shopifyClient = new GraphQLClient(
-  isClient
-    ? "/api/shopify/proxy" // Usar el proxy en el cliente
-    : `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-07/graphql.json`, // Usar la API directamente en el servidor
-  {
-    headers: isClient
-      ? {
-          "Content-Type": "application/json",
-        }
-      : {
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN || "",
-        },
-    timeout: 30000, // 30 segundos
-  },
-)
+const createShopifyClient = () => {
+  const envCheck = checkShopifyEnvVars()
+
+  if (!envCheck.isValid) {
+    console.warn(`Faltan variables de entorno para la API de Shopify: ${envCheck.missingVars.join(", ")}`)
+    // Devolvemos un cliente que lanzará un error descriptivo cuando se use
+    return new GraphQLClient(isClient ? "/api/shopify/proxy" : "https://example.com/invalid", {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+  }
+
+  return new GraphQLClient(
+    isClient
+      ? "/api/shopify/proxy" // Usar el proxy en el cliente
+      : `https://${envCheck.shopDomain}/admin/api/2023-07/graphql.json`, // Usar la API directamente en el servidor
+    {
+      headers: isClient
+        ? {
+            "Content-Type": "application/json",
+          }
+        : {
+            "Content-Type": "application/json",
+            "X-Shopify-Access-Token": envCheck.accessToken || "",
+          },
+      timeout: 30000, // 30 segundos
+    },
+  )
+}
+
+const shopifyClient = createShopifyClient()
 
 // Exportar como default para mantener compatibilidad con el código existente
 export default shopifyClient
@@ -27,6 +60,15 @@ export default shopifyClient
 // Función para verificar la conexión con Shopify
 export async function checkShopifyConnection() {
   try {
+    const envCheck = checkShopifyEnvVars()
+    if (!envCheck.isValid) {
+      return {
+        connected: false,
+        error: `Faltan variables de entorno: ${envCheck.missingVars.join(", ")}`,
+        missingVars: envCheck.missingVars,
+      }
+    }
+
     if (isClient) {
       // En el cliente, usar el endpoint de verificación
       const baseUrl =
@@ -56,10 +98,10 @@ export async function checkShopifyConnection() {
           }
         }
       `
-      const data = await shopifyClient.request(query)
+      const data = await shopifyFetch({ query })
       return {
         success: true,
-        shop: data.shop,
+        shop: data.data.shop,
       }
     }
   } catch (error) {
@@ -94,24 +136,21 @@ export function getImageUrl(url) {
 // Función para realizar solicitudes a la API de Shopify
 export async function shopifyFetch({ query, variables }) {
   try {
-    // Obtener las variables de entorno
-    const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
-    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
-
-    // Verificar que las variables de entorno estén definidas
-    if (!shopDomain || !accessToken) {
-      throw new Error("Faltan variables de entorno para la API de Shopify")
+    // Verificar variables de entorno
+    const envCheck = checkShopifyEnvVars()
+    if (!envCheck.isValid) {
+      throw new Error(`Faltan variables de entorno para la API de Shopify: ${envCheck.missingVars.join(", ")}`)
     }
 
     // Construir la URL de la API de Shopify
-    const apiUrl = `https://${shopDomain}/admin/api/2023-07/graphql.json`
+    const apiUrl = `https://${envCheck.shopDomain}/admin/api/2023-07/graphql.json`
 
     // Realizar la solicitud a la API
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Shopify-Access-Token": accessToken,
+        "X-Shopify-Access-Token": envCheck.accessToken,
       },
       body: JSON.stringify({
         query,

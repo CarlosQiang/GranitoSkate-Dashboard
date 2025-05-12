@@ -5,10 +5,12 @@ import { fetchProducts } from "@/lib/api/products"
 import { ProductCard } from "@/components/product-card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Search, RefreshCw, AlertCircle } from "lucide-react"
+import { Search, RefreshCw, AlertCircle, Settings } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ShopifyApiStatus } from "@/components/shopify-api-status"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { checkShopifyEnvVars as checkEnvVars } from "@/lib/shopify"
+import Link from "next/link"
 
 export function ProductsList() {
   const [products, setProducts] = useState([])
@@ -17,11 +19,17 @@ export function ProductsList() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [usingSampleData, setUsingSampleData] = useState(false)
+  const [envStatus, setEnvStatus] = useState({ isValid: false, missingVars: [] })
 
-  const loadProducts = async () => {
+  const loadProducts = async (useSampleData = false) => {
     try {
       setLoading(true)
       setError(null)
+
+      // Verificar variables de entorno
+      const envCheck = checkEnvVars()
+      setEnvStatus(envCheck)
 
       // Intentar cargar productos con hasta 3 reintentos
       let attempts = 0
@@ -30,8 +38,9 @@ export function ProductsList() {
 
       while (attempts < 3 && !success) {
         try {
-          data = await fetchProducts({ limit: 50 })
+          data = await fetchProducts({ limit: 50, useSampleData: useSampleData || !envCheck.isValid })
           success = true
+          setUsingSampleData(useSampleData || !envCheck.isValid)
         } catch (err) {
           console.warn(`Intento ${attempts + 1} fallido:`, err)
           attempts++
@@ -49,6 +58,16 @@ export function ProductsList() {
     } catch (err) {
       console.error("Error al cargar productos:", err)
       setError(err.message || "Error al cargar productos")
+
+      // Si hay un error, intentar cargar datos de muestra
+      try {
+        const sampleData = await fetchProducts({ limit: 50, useSampleData: true })
+        setProducts(sampleData)
+        setFilteredProducts(sampleData)
+        setUsingSampleData(true)
+      } catch (sampleErr) {
+        console.error("Error al cargar datos de muestra:", sampleErr)
+      }
     } finally {
       setLoading(false)
     }
@@ -75,22 +94,34 @@ export function ProductsList() {
     setFilteredProducts(filtered)
   }, [searchTerm, statusFilter, products])
 
-  if (error) {
+  const renderEnvironmentWarning = () => {
+    if (envStatus.isValid || !envStatus.missingVars.length) return null
+
     return (
-      <div className="space-y-4">
-        <ShopifyApiStatus />
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error al cargar productos</AlertTitle>
-          <AlertDescription className="flex flex-col gap-2">
-            <p>{error}</p>
-            <Button variant="outline" size="sm" onClick={loadProducts} className="w-fit">
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Reintentar
+      <Alert variant="warning" className="mb-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Variables de entorno faltantes</AlertTitle>
+        <AlertDescription className="flex flex-col gap-2">
+          <p>Faltan las siguientes variables de entorno necesarias para conectar con Shopify:</p>
+          <ul className="list-disc pl-5">
+            {envStatus.missingVars.map((variable) => (
+              <li key={variable}>{variable}</li>
+            ))}
+          </ul>
+          <div className="flex flex-col sm:flex-row gap-2 mt-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/dashboard/settings">
+                <Settings className="mr-2 h-4 w-4" />
+                Configurar variables
+              </Link>
             </Button>
-          </AlertDescription>
-        </Alert>
-      </div>
+            <Button variant="outline" size="sm" onClick={() => loadProducts(true)}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Usar datos de muestra
+            </Button>
+          </div>
+        </AlertDescription>
+      </Alert>
     )
   }
 
@@ -108,6 +139,42 @@ export function ProductsList() {
   return (
     <div className="space-y-4">
       <ShopifyApiStatus />
+
+      {renderEnvironmentWarning()}
+
+      {usingSampleData && !error && (
+        <Alert variant="warning" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Usando datos de muestra</AlertTitle>
+          <AlertDescription>
+            Se están mostrando datos de muestra porque no hay conexión con Shopify.
+            <Button variant="outline" size="sm" onClick={() => loadProducts(false)} className="ml-2">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Intentar conectar
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error al cargar productos</AlertTitle>
+          <AlertDescription className="flex flex-col gap-2">
+            <p>{error}</p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => loadProducts(false)}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Reintentar
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => loadProducts(true)}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Usar datos de muestra
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">

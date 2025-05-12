@@ -1,121 +1,86 @@
 import Link from "next/link"
 import Image from "next/image"
-import { Card, CardContent, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Pencil, Tag, Package } from "lucide-react"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, getImageUrl } from "@/lib/utils"
+import { extractIdFromGid } from "@/lib/shopify"
+import { Package, Tag, Edit, Eye } from "lucide-react"
 
 export function ProductCard({ product }) {
-  if (!product) return null
+  // Extraer el ID numérico para la URL
+  const productId = extractIdFromGid(product.id) || product.id
 
-  const statusColors = {
-    ACTIVE: "bg-green-100 text-green-800",
-    DRAFT: "bg-gray-100 text-gray-800",
-    ARCHIVED: "bg-red-100 text-red-800",
-  }
-
-  const statusText = {
-    ACTIVE: "Activo",
-    DRAFT: "Borrador",
-    ARCHIVED: "Archivado",
-  }
-
-  // Función segura para obtener la URL de la imagen
-  const getImageUrl = (image) => {
-    if (!image) return null
-
-    // Si image es un objeto con propiedad url
-    if (typeof image === "object" && image.url) {
-      const url = image.url
-      if (typeof url === "string") {
-        return url.startsWith("http") ? url : `https:${url}`
-      }
+  // Determinar el estado del producto
+  const getStatusBadge = () => {
+    switch (product.status) {
+      case "ACTIVE":
+        return <Badge className="bg-green-500">Activo</Badge>
+      case "DRAFT":
+        return <Badge variant="outline">Borrador</Badge>
+      case "ARCHIVED":
+        return <Badge variant="secondary">Archivado</Badge>
+      default:
+        return null
     }
-
-    // Si image es directamente una string (url)
-    if (typeof image === "string") {
-      return image.startsWith("http") ? image : `https:${image}`
-    }
-
-    return null
   }
-
-  // Obtener la URL de la imagen de manera segura
-  const imageUrl = product.featuredImage ? getImageUrl(product.featuredImage) : null
-
-  // Extraer el ID numérico del producto para la URL
-  const getNumericId = (id) => {
-    if (!id) return ""
-    // Si el ID ya es numérico, devolverlo directamente
-    if (/^\d+$/.test(id)) return id
-    // Si tiene formato gid://shopify/Product/123456789, extraer solo el número
-    const match = id.match(/\/Product\/(\d+)$/)
-    return match ? match[1] : id
-  }
-
-  const productId = getNumericId(product.id)
 
   return (
-    <Card className="overflow-hidden h-full flex flex-col">
-      <div className="relative h-48 bg-gray-100">
-        {imageUrl ? (
+    <Card className="overflow-hidden">
+      <div className="aspect-[4/3] relative bg-gray-100">
+        {product.image ? (
           <Image
-            src={imageUrl || "/placeholder.svg"}
-            alt={product.featuredImage?.altText || product.title || "Producto"}
+            src={getImageUrl(product.image.url) || "/placeholder.svg?height=300&width=400&query=product"}
+            alt={product.image.altText || product.title}
             fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className="object-cover"
           />
         ) : (
-          <div className="flex items-center justify-center h-full text-gray-400">
-            <Package size={48} />
+          <div className="w-full h-full flex items-center justify-center">
+            <Package className="h-12 w-12 text-gray-400" />
           </div>
         )}
-        <div className="absolute top-2 right-2">
-          <Badge variant="outline" className={`${statusColors[product.status] || "bg-gray-100 text-gray-800"}`}>
-            {statusText[product.status] || product.status || "Desconocido"}
-          </Badge>
-        </div>
       </div>
-      <CardContent className="p-4 flex-grow">
-        <h3 className="font-medium text-lg mb-1 line-clamp-1">{product.title || "Sin título"}</h3>
-        <div className="flex flex-wrap items-center gap-2 mb-2">
-          {product.vendor && (
-            <Badge variant="outline" className="text-xs">
-              {product.vendor}
-            </Badge>
-          )}
-          {product.productType && (
-            <Badge variant="outline" className="text-xs">
-              {product.productType}
-            </Badge>
-          )}
-          {/* Mostrar las colecciones reales del producto */}
-          {product.collections &&
-            product.collections.edges &&
-            product.collections.edges.map((edge) => (
-              <Badge key={edge.node.id} variant="secondary" className="text-xs">
-                {edge.node.title}
+      <CardHeader className="p-4 pb-0">
+        <div className="flex justify-between items-start">
+          <CardTitle className="text-lg line-clamp-2">{product.title}</CardTitle>
+          {getStatusBadge()}
+        </div>
+      </CardHeader>
+      <CardContent className="p-4 pt-2">
+        <div className="flex flex-col gap-2">
+          <div className="flex justify-between items-center">
+            <span className="text-lg font-bold">{formatCurrency(product.price, "EUR")}</span>
+            <span className="text-sm text-muted-foreground">{product.vendor}</span>
+          </div>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {product.productType && (
+              <Badge variant="outline" className="flex items-center gap-1">
+                <Tag className="h-3 w-3" />
+                {product.productType}
               </Badge>
-            ))}
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{product.description}</p>
         </div>
-        <p className="text-sm text-muted-foreground line-clamp-2">{product.description || "Sin descripción"}</p>
       </CardContent>
-      <CardFooter className="p-4 pt-0 flex justify-between items-center">
-        <div className="flex items-center gap-1">
-          <Tag className="h-4 w-4 text-muted-foreground" />
-          <span className="font-medium">{formatCurrency(product.price || 0, product.currencyCode || "EUR")}</span>
-          {product.compareAtPrice && (
-            <span className="text-sm text-muted-foreground line-through ml-1">
-              {formatCurrency(product.compareAtPrice, product.currencyCode || "EUR")}
-            </span>
-          )}
-        </div>
-        <Button asChild size="sm" variant="outline">
+      <CardFooter className="p-4 pt-0 flex gap-2">
+        <Button asChild variant="outline" className="flex-1">
           <Link href={`/dashboard/products/${productId}`}>
-            <Pencil className="h-4 w-4 mr-1" />
+            <Edit className="mr-2 h-4 w-4" />
             Editar
           </Link>
+        </Button>
+        <Button asChild variant="secondary" className="flex-1">
+          <a
+            href={`https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/products/${product.handle}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Eye className="mr-2 h-4 w-4" />
+            Ver
+          </a>
         </Button>
       </CardFooter>
     </Card>
