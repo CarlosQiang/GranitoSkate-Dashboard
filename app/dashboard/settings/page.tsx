@@ -80,7 +80,8 @@ export default function SettingsPage() {
       try {
         setIsLoading(true)
 
-        // Consulta para obtener la configuración de la tienda
+        // Consulta corregida para obtener la configuración de la tienda
+        // Eliminados los campos shippingSettings y taxSettings que no existen
         const query = gql`
           query {
             shop {
@@ -101,30 +102,6 @@ export default function SettingsPage() {
               currencyCode
               paymentSettings {
                 supportedDigitalWallets
-              }
-              shippingSettings {
-                zones {
-                  name
-                  countries {
-                    code
-                  }
-                  carrierServices {
-                    name
-                    active
-                  }
-                  priceRules {
-                    name
-                    price {
-                      amount
-                    }
-                    minOrderSubtotal {
-                      amount
-                    }
-                  }
-                }
-              }
-              taxSettings {
-                chargeTaxOnShipping
               }
             }
           }
@@ -162,9 +139,10 @@ export default function SettingsPage() {
         console.error("Error al cargar la configuración:", error)
         toast({
           title: "Error",
-          description: "No se pudo cargar la configuración de la tienda",
+          description: "No se pudo cargar la configuración de la tienda. Usando configuración por defecto.",
           variant: "destructive",
         })
+        // No cambiamos el estado de isLoading aquí para permitir que se muestre la interfaz con datos por defecto
       } finally {
         setIsLoading(false)
       }

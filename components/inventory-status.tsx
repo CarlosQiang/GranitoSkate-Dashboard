@@ -1,94 +1,126 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Skeleton } from "@/components/ui/skeleton"
-import { AlertCircle, AlertTriangle, CheckCircle } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
+import { AlertCircle, AlertTriangle, CheckCircle } from "lucide-react"
 import { fetchLowStockProducts } from "@/lib/api/products"
-import Link from "next/link"
+
+interface Product {
+  id: string
+  title: string
+  inventory: number
+  inventoryPercentage: number
+}
 
 export function InventoryStatus() {
-  const [products, setProducts] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const loadData = async () => {
+    const getInventoryData = async () => {
       try {
-        setIsLoading(true)
-        setError(null)
-
-        // Obtener datos reales de la API
+        setLoading(true)
         const data = await fetchLowStockProducts()
         setProducts(data)
+        setError(null)
       } catch (err) {
-        console.error("Error loading inventory status:", err)
-        setError("No se pudo cargar el estado del inventario")
+        console.error("Error al cargar el inventario:", err)
+        setError("No se pudo cargar la información del inventario")
+        // Usar datos vacíos en caso de error
+        setProducts([])
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
-    loadData()
+    getInventoryData()
   }, [])
 
-  if (isLoading) {
-    return <Skeleton className="h-[200px] w-full" />
+  const getStatusIcon = (percentage: number) => {
+    if (percentage === 0) return <AlertCircle className="h-5 w-5 text-destructive" />
+    if (percentage < 50) return <AlertTriangle className="h-5 w-5 text-warning" />
+    return <CheckCircle className="h-5 w-5 text-success" />
+  }
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Estado del inventario</CardTitle>
+          <CardDescription>Cargando datos de inventario...</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="animate-pulse">
+                <div className="h-4 w-1/3 bg-muted rounded mb-2"></div>
+                <div className="h-2 w-full bg-muted rounded"></div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    )
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-[200px] bg-destructive/10 text-destructive rounded-md p-4">
-        <AlertCircle className="h-5 w-5 mr-2" />
-        <p>{error}</p>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Estado del inventario</CardTitle>
+          <CardDescription>Productos con stock bajo o agotados</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center py-4 text-center">
+            <AlertCircle className="h-10 w-10 text-destructive mb-2" />
+            <p className="text-sm text-muted-foreground">{error}</p>
+            <p className="text-xs text-muted-foreground mt-2">Verifica la conexión con Shopify e intenta nuevamente</p>
+          </div>
+        </CardContent>
+      </Card>
     )
   }
 
-  if (!products || products.length === 0) {
+  if (products.length === 0) {
     return (
-      <div className="flex items-center justify-center h-[200px] bg-green-100 text-green-800 rounded-md p-4">
-        <CheckCircle className="h-5 w-5 mr-2" />
-        <p>Todos los productos tienen stock suficiente</p>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Estado del inventario</CardTitle>
+          <CardDescription>Productos con stock bajo o agotados</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center py-4 text-center">
+            <CheckCircle className="h-10 w-10 text-success mb-2" />
+            <p className="text-sm text-muted-foreground">No hay productos con stock bajo</p>
+          </div>
+        </CardContent>
+      </Card>
     )
   }
 
   return (
-    <div className="space-y-4">
-      {products.map((product) => {
-        const stockPercentage = Math.min(100, Math.round((product.inventoryQuantity / product.lowStockThreshold) * 100))
-        let statusIcon = <CheckCircle className="h-5 w-5 text-green-500" />
-        let statusClass = "text-green-500"
-
-        if (product.inventoryQuantity === 0) {
-          statusIcon = <AlertCircle className="h-5 w-5 text-red-500" />
-          statusClass = "text-red-500"
-        } else if (product.inventoryQuantity < product.lowStockThreshold) {
-          statusIcon = <AlertTriangle className="h-5 w-5 text-amber-500" />
-          statusClass = "text-amber-500"
-        }
-
-        return (
-          <Link
-            href={`/dashboard/products/${product.id}`}
-            key={product.id}
-            className="flex flex-col space-y-2 p-3 rounded-lg hover:bg-muted transition-colors"
-          >
+    <Card>
+      <CardHeader>
+        <CardTitle>Estado del inventario</CardTitle>
+        <CardDescription>Productos con stock bajo o agotados</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {products.map((product) => (
+          <div key={product.id} className="space-y-2">
             <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                {statusIcon}
-                <span className="ml-2 font-medium">{product.title}</span>
-              </div>
-              <span className={`font-medium ${statusClass}`}>{product.inventoryQuantity} unidades</span>
+              {getStatusIcon(product.inventoryPercentage)}
+              <span className="ml-2 flex-1">{product.title}</span>
+              <span className={`${product.inventory === 0 ? "text-destructive" : "text-primary"} font-medium`}>
+                {product.inventory} unidades
+              </span>
             </div>
-            <div className="flex items-center space-x-2">
-              <Progress value={stockPercentage} className="h-2" />
-              <span className="text-xs text-muted-foreground w-12 text-right">{stockPercentage}%</span>
-            </div>
-          </Link>
-        )
-      })}
-    </div>
+            <Progress value={product.inventoryPercentage} className="h-2" />
+            <div className="text-right text-xs text-muted-foreground">{product.inventoryPercentage}%</div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   )
 }

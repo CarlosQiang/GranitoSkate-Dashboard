@@ -1,6 +1,6 @@
 {
-  "name": "GestionGranito",
-  "short_name": "GestionGranito",
+  "name": "Granito Skate Dashboard",
+  "short_name": "Granito",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",

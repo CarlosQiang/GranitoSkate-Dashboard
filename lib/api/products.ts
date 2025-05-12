@@ -1,36 +1,22 @@
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 
-// Añadir esta función para obtener productos con stock bajo
-export async function fetchLowStockProducts(limit = 5) {
+// Función para obtener productos con stock bajo
+export async function fetchLowStockProducts() {
   try {
     const query = gql`
-      query {
-        products(first: 50) {
+      query LowInventoryProducts($first: Int!) {
+        products(first: $first) {
           edges {
             node {
               id
               title
-              handle
               totalInventory
-              featuredImage {
-                url
-              }
               variants(first: 1) {
                 edges {
                   node {
-                    id
                     inventoryQuantity
-                    sku
-                  }
-                }
-              }
-              metafields(first: 10) {
-                edges {
-                  node {
-                    namespace
-                    key
-                    value
+                    inventoryPolicy
                   }
                 }
               }
@@ -40,42 +26,32 @@ export async function fetchLowStockProducts(limit = 5) {
       }
     `
 
-    const data = await shopifyClient.request(query)
+    const data = await shopifyClient.request(query, { first: 20 })
 
-    // Procesar los productos y filtrar los que tienen stock bajo
-    const products = data.products.edges.map(({ node }) => {
-      // Buscar el metafield de umbral de stock bajo o usar un valor predeterminado
-      const lowStockThresholdMetafield = node.metafields.edges.find(
-        ({ node: metafield }) => metafield.namespace === "inventory" && metafield.key === "low_stock_threshold",
-      )
+    // Filtrar productos con inventario bajo (menos de 15 unidades)
+    const lowStockProducts = data.products.edges
+      .map(({ node }) => {
+        const inventory = node.totalInventory || node.variants.edges[0]?.node.inventoryQuantity || 0
 
-      const lowStockThreshold = lowStockThresholdMetafield
-        ? Number.parseInt(lowStockThresholdMetafield.node.value, 10)
-        : 10 // Valor predeterminado
+        // Calcular el porcentaje de inventario (considerando 20 como 100%)
+        const maxInventory = 20
+        const inventoryPercentage = Math.min(Math.round((inventory / maxInventory) * 100), 100)
 
-      const inventoryQuantity = node.variants.edges[0]?.node.inventoryQuantity || 0
-
-      return {
-        id: node.id.split("/").pop(),
-        title: node.title,
-        handle: node.handle,
-        featuredImage: node.featuredImage,
-        inventoryQuantity,
-        lowStockThreshold,
-        sku: node.variants.edges[0]?.node.sku || "",
-      }
-    })
-
-    // Filtrar productos con stock bajo
-    const lowStockProducts = products
-      .filter((product) => product.inventoryQuantity <= product.lowStockThreshold)
-      .sort((a, b) => a.inventoryQuantity - b.inventoryQuantity)
-      .slice(0, limit)
+        return {
+          id: node.id,
+          title: node.title,
+          inventory,
+          inventoryPercentage,
+        }
+      })
+      .filter((product) => product.inventory < 15)
+      .sort((a, b) => a.inventory - b.inventory)
+      .slice(0, 5)
 
     return lowStockProducts
   } catch (error) {
     console.error("Error fetching low stock products:", error)
-    throw new Error(`Error al obtener productos con stock bajo: ${error.message}`)
+    throw new Error("No se pudieron obtener los productos con stock bajo")
   }
 }
 
