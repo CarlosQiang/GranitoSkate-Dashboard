@@ -251,6 +251,10 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
     }
   }
 
+  const handleViewOrders = () => {
+    router.push(`/dashboard/orders/customer/${params.id}`)
+  }
+
   if (loading) {
     return (
       <div className="container mx-auto py-6 flex items-center justify-center min-h-[400px]">
@@ -694,8 +698,10 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
               <CardDescription>Historial de pedidos del cliente</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                La información de pedidos se cargará desde la sección de pedidos
+              <div className="text-center py-4">
+                <Button onClick={handleViewOrders} className="mx-auto">
+                  Ver pedidos del cliente
+                </Button>
               </div>
             </CardContent>
           </Card>

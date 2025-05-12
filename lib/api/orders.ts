@@ -1,38 +1,25 @@
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 
-export async function fetchRecentOrders(limit = 5) {
+export async function fetchRecentOrders(limit = 10) {
   try {
-    console.log(`Fetching ${limit} recent orders from Shopify...`)
-
     const query = gql`
-      query GetRecentOrders($limit: Int!) {
-        orders(first: $limit, sortKey: PROCESSED_AT, reverse: true) {
+      query GetOrders($first: Int!) {
+        orders(first: $first, sortKey: PROCESSED_AT, reverse: true) {
           edges {
             node {
               id
               name
               processedAt
-              displayFinancialStatus
-              displayFulfillmentStatus
-              totalPriceSet {
-                shopMoney {
-                  amount
-                  currencyCode
-                }
+              fulfillmentStatus
+              financialStatus
+              totalPrice {
+                amount
+                currencyCode
               }
               customer {
                 firstName
                 lastName
-                email
-              }
-              lineItems(first: 5) {
-                edges {
-                  node {
-                    title
-                    quantity
-                  }
-                }
               }
             }
           }
@@ -40,88 +27,72 @@ export async function fetchRecentOrders(limit = 5) {
       }
     `
 
-    const data = await shopifyClient.request(query, { limit })
+    const variables = {
+      first: limit,
+    }
+
+    const data = await shopifyClient.request(query, variables)
 
     if (!data || !data.orders || !data.orders.edges) {
-      console.error("Respuesta de pedidos incompleta:", data)
+      console.warn("No se encontraron pedidos o la respuesta está incompleta")
       return []
     }
 
-    const orders = data.orders.edges.map((edge) => ({
+    return data.orders.edges.map((edge: any) => ({
       id: edge.node.id.split("/").pop(),
       name: edge.node.name,
       processedAt: edge.node.processedAt,
-      financialStatus: edge.node.displayFinancialStatus,
-      fulfillmentStatus: edge.node.displayFulfillmentStatus,
-      totalPrice: edge.node.totalPriceSet?.shopMoney?.amount || "0.00",
-      currencyCode: edge.node.totalPriceSet?.shopMoney?.currencyCode || "EUR",
+      fulfillmentStatus: edge.node.fulfillmentStatus || "UNFULFILLED",
+      financialStatus: edge.node.financialStatus || "PENDING",
+      totalPrice: edge.node.totalPrice.amount,
+      currencyCode: edge.node.totalPrice.currencyCode,
       customer: edge.node.customer
         ? {
             firstName: edge.node.customer.firstName || "",
             lastName: edge.node.customer.lastName || "",
-            email: edge.node.customer.email || "",
           }
-        : null,
-      items:
-        edge.node.lineItems?.edges?.map((item) => ({
-          title: item.node.title,
-          quantity: item.node.quantity,
-        })) || [],
+        : { firstName: "", lastName: "" },
     }))
-
-    console.log(`Successfully fetched ${orders.length} orders`)
-    return orders
   } catch (error) {
-    console.error("Error fetching recent orders:", error)
-    throw new Error(`Error al cargar pedidos recientes: ${error.message}`)
+    console.error("Error fetching orders:", error)
+    throw new Error(`Error al obtener pedidos: ${(error as Error).message}`)
   }
 }
 
-export async function fetchOrders(limit = 20) {
-  return fetchRecentOrders(limit)
-}
-
-export async function fetchOrderById(id) {
+export async function fetchOrderById(id: string) {
   try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const isFullShopifyId = id.includes("gid://shopify/Order/")
-    const formattedId = isFullShopifyId ? id : `gid://shopify/Order/${id}`
-
-    console.log(`Fetching order with ID: ${formattedId}`)
+    // Formatear el ID correctamente
+    let formattedId = id
+    if (!id.includes("gid://shopify/")) {
+      formattedId = `gid://shopify/Order/${id}`
+    }
 
     const query = gql`
-      query GetOrderById($id: ID!) {
+      query GetOrder($id: ID!) {
         order(id: $id) {
           id
           name
           processedAt
-          displayFinancialStatus
-          displayFulfillmentStatus
-          totalPriceSet {
-            shopMoney {
-              amount
-              currencyCode
-            }
+          fulfillmentStatus
+          financialStatus
+          totalPrice {
+            amount
+            currencyCode
           }
-          subtotalPriceSet {
-            shopMoney {
-              amount
-              currencyCode
-            }
+          subtotalPrice {
+            amount
+            currencyCode
           }
-          totalShippingPriceSet {
-            shopMoney {
-              amount
-              currencyCode
-            }
+          totalShippingPrice {
+            amount
+            currencyCode
           }
-          totalTaxSet {
-            shopMoney {
-              amount
-              currencyCode
-            }
+          totalTax {
+            amount
+            currencyCode
           }
           customer {
+            id
             firstName
             lastName
             email
@@ -132,24 +103,30 @@ export async function fetchOrderById(id) {
             address2
             city
             province
-            country
             zip
+            country
             phone
           }
-          lineItems(first: 20) {
+          lineItems(first: 50) {
             edges {
               node {
+                id
                 title
                 quantity
                 variant {
+                  id
+                  title
                   price {
                     amount
                     currencyCode
                   }
-                  product {
-                    id
-                    title
+                  image {
+                    url
                   }
+                }
+                originalTotalPrice {
+                  amount
+                  currencyCode
                 }
               }
             }
@@ -158,56 +135,114 @@ export async function fetchOrderById(id) {
       }
     `
 
-    const data = await shopifyClient.request(query, { id: formattedId })
+    const variables = {
+      id: formattedId,
+    }
+
+    const data = await shopifyClient.request(query, variables)
 
     if (!data || !data.order) {
-      console.error(`Pedido no encontrado: ${id}`)
       throw new Error(`Pedido no encontrado: ${id}`)
     }
 
-    const order = data.order
+    // Transformar los datos para mantener la consistencia con el resto de la aplicación
     return {
-      id: order.id.split("/").pop(),
-      name: order.name,
-      processedAt: order.processedAt,
-      financialStatus: order.displayFinancialStatus,
-      fulfillmentStatus: order.displayFulfillmentStatus,
-      totalPrice: order.totalPriceSet?.shopMoney?.amount || "0.00",
-      subtotalPrice: order.subtotalPriceSet?.shopMoney?.amount || "0.00",
-      shippingPrice: order.totalShippingPriceSet?.shopMoney?.amount || "0.00",
-      taxPrice: order.totalTaxSet?.shopMoney?.amount || "0.00",
-      currencyCode: order.totalPriceSet?.shopMoney?.currencyCode || "EUR",
-      customer: order.customer
+      id: data.order.id.split("/").pop(),
+      name: data.order.name,
+      processedAt: data.order.processedAt,
+      fulfillmentStatus: data.order.fulfillmentStatus || "UNFULFILLED",
+      financialStatus: data.order.financialStatus || "PENDING",
+      totalPrice: data.order.totalPrice.amount,
+      currencyCode: data.order.totalPrice.currencyCode,
+      subtotalPrice: data.order.subtotalPrice.amount,
+      shippingPrice: data.order.totalShippingPrice.amount,
+      taxPrice: data.order.totalTax.amount,
+      customer: data.order.customer
         ? {
-            firstName: order.customer.firstName || "",
-            lastName: order.customer.lastName || "",
-            email: order.customer.email || "",
-            phone: order.customer.phone || "",
+            id: data.order.customer.id.split("/").pop(),
+            firstName: data.order.customer.firstName || "",
+            lastName: data.order.customer.lastName || "",
+            email: data.order.customer.email || "",
+            phone: data.order.customer.phone || "",
           }
         : null,
-      shippingAddress: order.shippingAddress
-        ? {
-            address1: order.shippingAddress.address1 || "",
-            address2: order.shippingAddress.address2 || "",
-            city: order.shippingAddress.city || "",
-            province: order.shippingAddress.province || "",
-            country: order.shippingAddress.country || "",
-            zip: order.shippingAddress.zip || "",
-            phone: order.shippingAddress.phone || "",
-          }
-        : null,
-      items:
-        order.lineItems?.edges?.map((item) => ({
-          title: item.node.title,
-          quantity: item.node.quantity,
-          price: item.node.variant?.price?.amount || "0.00",
-          currencyCode: item.node.variant?.price?.currencyCode || "EUR",
-          productId: item.node.variant?.product?.id?.split("/").pop() || null,
-          productTitle: item.node.variant?.product?.title || "",
-        })) || [],
+      shippingAddress: data.order.shippingAddress || null,
+      lineItems: data.order.lineItems.edges.map((edge: any) => ({
+        id: edge.node.id.split("/").pop(),
+        title: edge.node.title,
+        quantity: edge.node.quantity,
+        variant: edge.node.variant
+          ? {
+              id: edge.node.variant.id.split("/").pop(),
+              title: edge.node.variant.title,
+              price: edge.node.variant.price.amount,
+              currencyCode: edge.node.variant.price.currencyCode,
+              image: edge.node.variant.image ? edge.node.variant.image.url : null,
+            }
+          : null,
+        totalPrice: edge.node.originalTotalPrice.amount,
+        currencyCode: edge.node.originalTotalPrice.currencyCode,
+      })),
     }
   } catch (error) {
     console.error(`Error fetching order ${id}:`, error)
-    throw new Error(`Error al cargar el pedido: ${error.message}`)
+    throw new Error(`Error al cargar pedido: ${(error as Error).message}`)
+  }
+}
+
+export async function fetchCustomerOrders(customerId: string, limit = 50) {
+  try {
+    // Formatear el ID correctamente
+    let formattedId = customerId
+    if (!customerId.includes("gid://shopify/")) {
+      formattedId = `gid://shopify/Customer/${customerId}`
+    }
+
+    const query = gql`
+      query GetCustomerOrders($customerId: ID!, $first: Int!) {
+        customer(id: $customerId) {
+          orders(first: $first, sortKey: PROCESSED_AT, reverse: true) {
+            edges {
+              node {
+                id
+                name
+                processedAt
+                fulfillmentStatus
+                financialStatus
+                totalPrice {
+                  amount
+                  currencyCode
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const variables = {
+      customerId: formattedId,
+      first: limit,
+    }
+
+    const data = await shopifyClient.request(query, variables)
+
+    if (!data || !data.customer || !data.customer.orders || !data.customer.orders.edges) {
+      console.warn("No se encontraron pedidos para este cliente o la respuesta está incompleta")
+      return []
+    }
+
+    return data.customer.orders.edges.map((edge: any) => ({
+      id: edge.node.id.split("/").pop(),
+      name: edge.node.name,
+      processedAt: edge.node.processedAt,
+      fulfillmentStatus: edge.node.fulfillmentStatus || "UNFULFILLED",
+      financialStatus: edge.node.financialStatus || "PENDING",
+      totalPrice: edge.node.totalPrice.amount,
+      currencyCode: edge.node.totalPrice.currencyCode,
+    }))
+  } catch (error) {
+    console.error(`Error fetching customer orders for ${customerId}:`, error)
+    throw new Error(`Error al obtener pedidos del cliente: ${(error as Error).message}`)
   }
 }
