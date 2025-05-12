@@ -1,6 +1,6 @@
 {
-  "name": "GestionGranito",
-  "short_name": "GestionGranito",
+  "name": "GestionGranito Dashboard",
+  "short_name": "GranitoApp",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",

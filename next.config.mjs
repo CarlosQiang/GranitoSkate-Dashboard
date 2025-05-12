@@ -1,35 +1,30 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  images: {
-    domains: ['cdn.shopify.com'],
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**.shopify.com',
-      },
-    ],
-    unoptimized: true,
-  },
-  // Optimizaciones para producción
-  poweredByHeader: false,
-  // Configuración para Vercel
-  env: {
-    NEXT_PUBLIC_VERCEL_URL: process.env.VERCEL_URL,
-  },
-  // Ignorar errores de ESLint y TypeScript durante la compilación para evitar fallos en el despliegue
   eslint: {
     ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Optimización de compilación
-  compiler: {
-    removeConsole: process.env.NODE_ENV === 'production' ? {
-      exclude: ['error', 'warn'],
-    } : false,
+  images: {
+    domains: ['cdn.shopify.com'],
+    unoptimized: true,
   },
-};
+  async headers() {
+    return [
+      {
+        // Configurar encabezados para archivos estáticos
+        source: '/(site.webmanifest|favicon.ico|android-chrome-192x192.png|android-chrome-512x512.png|apple-touch-icon.png|favicon-16x16.png|favicon-32x32.png)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+    ]
+  },
+}
 
-export default nextConfig;
+export default nextConfig

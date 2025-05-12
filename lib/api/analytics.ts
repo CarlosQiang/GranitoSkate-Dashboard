@@ -111,13 +111,15 @@ export async function fetchAnalyticsData() {
 
 export async function fetchSalesOverview() {
   try {
-    // Obtener los últimos 30 días de ventas
+    // En lugar de usar una consulta con variable $date que causa problemas,
+    // usamos una consulta sin variables
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const dateString = thirtyDaysAgo.toISOString().split("T")[0]
 
     const query = gql`
-      query($date: DateTime!) {
-        orders(first: 250, query: "created_at:>=$date status:any") {
+      query {
+        orders(first: 250, query: "created_at:>=${dateString} status:any") {
           edges {
             node {
               id
@@ -133,9 +135,7 @@ export async function fetchSalesOverview() {
       }
     `
 
-    const data = await shopifyClient.request(query, {
-      date: thirtyDaysAgo.toISOString(),
-    })
+    const data = await shopifyClient.request(query)
 
     // Agrupar ventas por día
     const salesByDay = {}
