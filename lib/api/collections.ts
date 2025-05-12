@@ -441,43 +441,40 @@ export async function removeProductsFromCollection(collectionId, productIds) {
       productIds: formattedProductIds,
     })
 
-    const mutation = gql`
-      mutation collectionRemoveProducts($id: ID!, $productIds: [ID!]!) {
-        collectionRemoveProducts(id: $id, productIds: $productIds) {
-          collection {
-            id
-            title
-            productsCount {
-              count
-            }
-          }
-          userErrors {
-            field
-            message
-          }
-        }
+    // Usar la API REST para eliminar productos de la colección
+    // ya que la API GraphQL está dando problemas con el campo 'collection'
+    const collectionIdNumeric = formattedCollectionId.split("/").pop()
+
+    // Crear un array de promesas para eliminar cada producto individualmente
+    const removePromises = formattedProductIds.map(async (productId) => {
+      const productIdNumeric = productId.split("/").pop()
+
+      // Construir la URL para la API REST
+      const url = `/api/shopify/rest/collections/${collectionIdNumeric}/products/${productIdNumeric}`
+
+      // Realizar la solicitud DELETE
+      const response = await fetch(url, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(`Error al eliminar producto ${productIdNumeric}: ${errorData.message || response.statusText}`)
       }
-    `
 
-    const variables = {
-      id: formattedCollectionId,
-      productIds: formattedProductIds,
-    }
+      return productIdNumeric
+    })
 
-    const data = await shopifyClient.request(mutation, variables)
+    // Esperar a que todas las eliminaciones se completen
+    await Promise.all(removePromises)
 
-    if (data.collectionRemoveProducts.userErrors && data.collectionRemoveProducts.userErrors.length > 0) {
-      console.error("Errores al eliminar productos:", data.collectionRemoveProducts.userErrors)
-      throw new Error(data.collectionRemoveProducts.userErrors[0].message)
-    }
+    // Obtener la colección actualizada para devolver
+    const updatedCollection = await fetchCollectionById(formattedCollectionId)
 
-    // Transformar los datos para mantener compatibilidad con el código existente
-    const collection = {
-      ...data.collectionRemoveProducts.collection,
-      productsCount: data.collectionRemoveProducts.collection.productsCount?.count || 0,
-    }
-
-    return collection
+    return updatedCollection
   } catch (error) {
     console.error(`Error removing products from collection with ID ${collectionId}:`, error)
     throw new Error(`Error al eliminar productos de la colección: ${error.message}`)

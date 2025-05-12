@@ -12,7 +12,6 @@ import { addProductsToCollection, removeProductsFromCollection } from "@/lib/api
 import Image from "next/image"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { getImageUrl } from "@/lib/utils"
-import { formatShopifyId } from "@/lib/shopify"
 import { useToast } from "@/components/ui/use-toast"
 
 interface CollectionProductManagerProps {
@@ -26,6 +25,7 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
   const [allProducts, setAllProducts] = useState<any[]>([])
   const [collectionProducts, setCollectionProducts] = useState<any[]>([])
   const [displayProducts, setDisplayProducts] = useState<any[]>([])
+  const [filteredProducts, setFilteredProducts] = useState<any[]>([])
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -48,9 +48,6 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
         setIsLoading(true)
         setError(null)
 
-        // Asegurarse de que el ID de la colección tenga el formato correcto
-        const formattedCollectionId = formatShopifyId(collectionId, "Collection")
-
         // Cargar todos los productos
         const productsData = await fetchProducts({ limite: 250 })
 
@@ -64,7 +61,7 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
 
         // Cargar la colección para obtener sus productos
         try {
-          const collectionData = await fetchCollectionById(formattedCollectionId)
+          const collectionData = await fetchCollectionById(collectionId)
 
           if (!collectionData) {
             throw new Error("No se pudo cargar la información de la colección")
@@ -107,6 +104,7 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
 
               console.log("Productos disponibles para añadir:", productsToAdd.length)
               setDisplayProducts(productsToAdd)
+              setFilteredProducts(productsToAdd)
             } else {
               // Para eliminar: mostrar solo productos que SÍ están en la colección
               const productsToRemove = productsData.filter((product: any) => {
@@ -117,6 +115,7 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
 
               console.log("Productos disponibles para eliminar:", productsToRemove.length)
               setDisplayProducts(productsToRemove)
+              setFilteredProducts(productsToRemove)
             }
           }
         } catch (err) {
@@ -126,8 +125,10 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
             // En caso de error, mostrar todos los productos en modo añadir
             if (mode === "add") {
               setDisplayProducts(productsData)
+              setFilteredProducts(productsData)
             } else {
               setDisplayProducts([])
+              setFilteredProducts([])
             }
 
             setError(`Error al cargar la colección: ${(err as Error).message}`)
@@ -152,6 +153,7 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
   // Filtrar productos por búsqueda
   useEffect(() => {
     if (searchTerm.trim() === "") {
+      setFilteredProducts(displayProducts)
       return
     }
 
@@ -163,8 +165,8 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
       return title.includes(lowerSearchTerm)
     })
 
-    setDisplayProducts(searchResults)
-  }, [searchTerm])
+    setFilteredProducts(searchResults)
+  }, [searchTerm, displayProducts])
 
   const handleImageError = (productId: string) => {
     setImageErrors((prev) => ({
@@ -188,30 +190,28 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
       setIsSubmitting(true)
       setError(null)
 
-      // Asegurarse de que el ID de la colección tenga el formato correcto
-      const formattedCollectionId = formatShopifyId(collectionId, "Collection")
-
-      // Extraer los IDs limpios y formatearlos correctamente
-      const formattedProductIds = selectedProducts.map((id) => formatShopifyId(id, "Product"))
-
       console.log("Operación de productos en colección:", {
         mode,
-        collectionId: formattedCollectionId,
-        productIds: formattedProductIds,
+        collectionId,
+        productIds: selectedProducts,
       })
 
       if (mode === "add") {
-        await addProductsToCollection(formattedCollectionId, formattedProductIds)
+        await addProductsToCollection(collectionId, selectedProducts)
+        toast({
+          title: "Productos añadidos",
+          description: `Se han añadido ${selectedProducts.length} productos a la colección correctamente.`,
+        })
       } else {
-        await removeProductsFromCollection(formattedCollectionId, formattedProductIds)
+        await removeProductsFromCollection(collectionId, selectedProducts)
+        toast({
+          title: "Productos eliminados",
+          description: `Se han eliminado ${selectedProducts.length} productos de la colección correctamente.`,
+        })
       }
 
       if (isMounted.current) {
         setIsSubmitting(false)
-        toast({
-          title: "Operación completada",
-          description: `Productos ${mode === "add" ? "añadidos a" : "eliminados de"} la colección correctamente`,
-        })
         onComplete()
       }
     } catch (err) {
@@ -254,15 +254,6 @@ export function CollectionProductManager({ collectionId, onComplete, mode }: Col
       </Alert>
     )
   }
-
-  // Filtrar productos por búsqueda
-  const filteredProducts =
-    searchTerm.trim() === ""
-      ? displayProducts
-      : displayProducts.filter((product) => {
-          const title = (product.titulo || product.title || "").toLowerCase()
-          return title.includes(searchTerm.toLowerCase())
-        })
 
   // Mensaje cuando no hay productos para mostrar
   if (filteredProducts.length === 0) {
