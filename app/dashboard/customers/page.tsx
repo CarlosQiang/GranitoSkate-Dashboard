@@ -48,6 +48,7 @@ export default function CustomersPage() {
   const [endCursor, setEndCursor] = useState<string | null>(null)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const [filters, setFilters] = useState<CustomerFilter>({
     query: searchParams.get("query") || "",
@@ -109,6 +110,7 @@ export default function CustomersPage() {
       try {
         setIsLoading(resetList)
         if (!resetList) setIsLoadingMore(true)
+        setError(null)
 
         const apiFilters = buildApiFilters()
         if (!resetList && endCursor) {
@@ -127,6 +129,7 @@ export default function CustomersPage() {
         setEndCursor(result.pageInfo.endCursor)
       } catch (error) {
         console.error("Error fetching customers:", error)
+        setError(`No se pudieron cargar los clientes: ${(error as Error).message}`)
         toast({
           title: "Error",
           description: "No se pudieron cargar los clientes",
@@ -197,6 +200,16 @@ export default function CustomersPage() {
       </div>
 
       <CustomerFilters filters={filters} onFilterChange={handleFilterChange} onReset={resetFilters} />
+
+      {error && (
+        <div className="bg-destructive/15 border border-destructive text-destructive px-4 py-3 rounded-md">
+          <p>{error}</p>
+          <Button variant="outline" size="sm" onClick={() => loadCustomers()} className="mt-2">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Reintentar
+          </Button>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="rounded-md border">

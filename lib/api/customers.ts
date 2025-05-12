@@ -28,8 +28,8 @@ export async function fetchCustomers(filters: CustomerFilters = {}) {
               lastName
               email
               phone
-              ordersCount
-              totalSpent {
+              numberOfOrders
+              amountSpent {
                 amount
                 currencyCode
               }
@@ -46,19 +46,15 @@ export async function fetchCustomers(filters: CustomerFilters = {}) {
                 country
                 phone
               }
-              addresses(first: 5) {
-                edges {
-                  node {
-                    id
-                    address1
-                    address2
-                    city
-                    province
-                    zip
-                    country
-                    phone
-                  }
-                }
+              addresses {
+                id
+                address1
+                address2
+                city
+                province
+                zip
+                country
+                phone
               }
               tags
               metafields(first: 10) {
@@ -99,13 +95,13 @@ export async function fetchCustomers(filters: CustomerFilters = {}) {
         lastName: edge.node.lastName || "",
         email: edge.node.email || "",
         phone: edge.node.phone || "",
-        ordersCount: edge.node.ordersCount || 0,
-        totalSpent: edge.node.totalSpent || { amount: "0", currencyCode: "EUR" },
+        ordersCount: edge.node.numberOfOrders || 0,
+        totalSpent: edge.node.amountSpent || { amount: "0", currencyCode: "EUR" },
         createdAt: edge.node.createdAt,
         updatedAt: edge.node.updatedAt,
         verifiedEmail: edge.node.verifiedEmail || false,
         defaultAddress: edge.node.defaultAddress || null,
-        addresses: edge.node.addresses?.edges.map((addrEdge: any) => addrEdge.node) || [],
+        addresses: edge.node.addresses || [],
         tags: edge.node.tags || [],
         metafields:
           edge.node.metafields?.edges.map((metaEdge: any) => ({
