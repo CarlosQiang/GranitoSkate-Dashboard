@@ -6,7 +6,7 @@ export async function fetchLowStockProducts(limit = 5) {
   try {
     const query = gql`
       query {
-        products(first: 50, sortKey: INVENTORY_TOTAL, reverse: true) {
+        products(first: 50) {
           edges {
             node {
               id

@@ -2,18 +2,9 @@
 
 import { useEffect, useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { AlertCircle } from "lucide-react"
+import { fetchSalesOverview } from "@/lib/api/analytics"
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts"
-
-// Datos de ejemplo para cuando la API falla
-const fallbackData = [
-  { date: "2025-04-01", amount: 0 },
-  { date: "2025-04-02", amount: 0 },
-  { date: "2025-04-03", amount: 0 },
-  { date: "2025-04-04", amount: 0 },
-  { date: "2025-04-05", amount: 0 },
-  { date: "2025-04-06", amount: 0 },
-  { date: "2025-04-07", amount: 0 },
-]
 
 export function SalesOverview() {
   const [data, setData] = useState<any[]>([])
@@ -26,17 +17,12 @@ export function SalesOverview() {
         setIsLoading(true)
         setError(null)
 
-        // Simulamos la carga de datos para evitar errores de API
-        // En un entorno real, aquí llamaríamos a la API
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        // Usamos datos de ejemplo en lugar de llamar a la API
-        setData(fallbackData)
+        // Obtener datos reales de la API
+        const salesData = await fetchSalesOverview()
+        setData(salesData)
       } catch (err) {
         console.error("Error loading sales overview:", err)
         setError("No se pudieron cargar los datos de ventas")
-        // Usar datos de respaldo en caso de error
-        setData(fallbackData)
       } finally {
         setIsLoading(false)
       }
@@ -47,6 +33,23 @@ export function SalesOverview() {
 
   if (isLoading) {
     return <Skeleton className="h-[300px] w-full" />
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-[300px] bg-destructive/10 text-destructive rounded-md p-4">
+        <AlertCircle className="h-5 w-5 mr-2" />
+        <p>{error}</p>
+      </div>
+    )
+  }
+
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
+        <p>No hay datos de ventas disponibles para el período seleccionado</p>
+      </div>
+    )
   }
 
   return (

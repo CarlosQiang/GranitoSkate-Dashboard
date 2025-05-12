@@ -111,15 +111,17 @@ export async function fetchAnalyticsData() {
 
 export async function fetchSalesOverview() {
   try {
-    // En lugar de usar una consulta con variable $date que causa problemas,
-    // usamos una consulta sin variables
+    // Obtener los últimos 30 días de ventas
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-    const dateString = thirtyDaysAgo.toISOString().split("T")[0]
 
+    // Formatear la fecha para la consulta
+    const formattedDate = thirtyDaysAgo.toISOString().split("T")[0]
+
+    // Consulta sin usar variables para evitar errores
     const query = gql`
-      query {
-        orders(first: 250, query: "created_at:>=${dateString} status:any") {
+      {
+        orders(first: 250, query: "created_at:>=${formattedDate} status:any") {
           edges {
             node {
               id

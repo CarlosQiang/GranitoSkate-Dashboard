@@ -1,14 +1,15 @@
 import type React from "react"
-import type { Metadata } from "next"
-import { Inter } from "next/font/google"
 import "./globals.css"
+import { Inter } from "next/font/google"
 import { AuthProvider } from "@/components/auth-provider"
+import type { Metadata } from "next"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "GestionGranito Dashboard",
-  description: "Dashboard para gestionar tu tienda Shopify",
+  title: "GestionGranito - Dashboard",
+  description: "Panel de administración para la tienda Granito Skate",
+  manifest: "/site.webmanifest",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
@@ -17,10 +18,8 @@ export const metadata: Metadata = {
     ],
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
     other: [
-      {
-        rel: "manifest",
-        url: "/site.webmanifest",
-      },
+      { url: "/android-chrome-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/android-chrome-512x512.png", sizes: "512x512", type: "image/png" },
     ],
   },
     generator: 'v0.dev'

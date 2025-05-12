@@ -4,18 +4,11 @@ import { useEffect, useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AlertCircle, AlertTriangle, CheckCircle } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
-
-// Datos de ejemplo para cuando la API falla
-const fallbackData = [
-  { id: "1", title: "Tabla Skate Pro", inventory: 3, lowStockThreshold: 5 },
-  { id: "2", title: "Ruedas Premium", inventory: 8, lowStockThreshold: 10 },
-  { id: "3", title: "Trucks de Aluminio", inventory: 0, lowStockThreshold: 5 },
-  { id: "4", title: "Rodamientos ABEC-7", inventory: 12, lowStockThreshold: 10 },
-  { id: "5", title: "Grip Tape Antideslizante", inventory: 2, lowStockThreshold: 5 },
-]
+import { fetchLowStockProducts } from "@/lib/api/products"
+import Link from "next/link"
 
 export function InventoryStatus() {
-  const [data, setData] = useState<any[]>([])
+  const [products, setProducts] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -25,16 +18,12 @@ export function InventoryStatus() {
         setIsLoading(true)
         setError(null)
 
-        // Simulamos la carga de datos para evitar errores de API
-        await new Promise((resolve) => setTimeout(resolve, 800))
-
-        // Usamos datos de ejemplo en lugar de llamar a la API
-        setData(fallbackData)
+        // Obtener datos reales de la API
+        const data = await fetchLowStockProducts()
+        setProducts(data)
       } catch (err) {
         console.error("Error loading inventory status:", err)
         setError("No se pudo cargar el estado del inventario")
-        // Usar datos de respaldo en caso de error
-        setData(fallbackData)
       } finally {
         setIsLoading(false)
       }
@@ -49,50 +38,55 @@ export function InventoryStatus() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-[200px] bg-destructive/10 text-destructive rounded-md">
+      <div className="flex items-center justify-center h-[200px] bg-destructive/10 text-destructive rounded-md p-4">
         <AlertCircle className="h-5 w-5 mr-2" />
         <p>{error}</p>
       </div>
     )
   }
 
-  if (!data || data.length === 0) {
+  if (!products || products.length === 0) {
     return (
-      <div className="flex items-center justify-center h-[200px] text-muted-foreground">
-        No hay datos de inventario disponibles
+      <div className="flex items-center justify-center h-[200px] bg-green-100 text-green-800 rounded-md p-4">
+        <CheckCircle className="h-5 w-5 mr-2" />
+        <p>Todos los productos tienen stock suficiente</p>
       </div>
     )
   }
 
   return (
     <div className="space-y-4">
-      {data.map((product) => {
-        const stockPercentage = Math.min(100, Math.round((product.inventory / product.lowStockThreshold) * 100))
+      {products.map((product) => {
+        const stockPercentage = Math.min(100, Math.round((product.inventoryQuantity / product.lowStockThreshold) * 100))
         let statusIcon = <CheckCircle className="h-5 w-5 text-green-500" />
         let statusClass = "text-green-500"
 
-        if (product.inventory === 0) {
+        if (product.inventoryQuantity === 0) {
           statusIcon = <AlertCircle className="h-5 w-5 text-red-500" />
           statusClass = "text-red-500"
-        } else if (product.inventory < product.lowStockThreshold) {
+        } else if (product.inventoryQuantity < product.lowStockThreshold) {
           statusIcon = <AlertTriangle className="h-5 w-5 text-amber-500" />
           statusClass = "text-amber-500"
         }
 
         return (
-          <div key={product.id} className="flex flex-col space-y-2">
+          <Link
+            href={`/dashboard/products/${product.id}`}
+            key={product.id}
+            className="flex flex-col space-y-2 p-3 rounded-lg hover:bg-muted transition-colors"
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 {statusIcon}
                 <span className="ml-2 font-medium">{product.title}</span>
               </div>
-              <span className={`font-medium ${statusClass}`}>{product.inventory} unidades</span>
+              <span className={`font-medium ${statusClass}`}>{product.inventoryQuantity} unidades</span>
             </div>
             <div className="flex items-center space-x-2">
               <Progress value={stockPercentage} className="h-2" />
               <span className="text-xs text-muted-foreground w-12 text-right">{stockPercentage}%</span>
             </div>
-          </div>
+          </Link>
         )
       })}
     </div>
