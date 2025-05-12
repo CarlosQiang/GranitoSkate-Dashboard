@@ -1,31 +1,29 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { RefreshCw, AlertCircle, Eye } from "lucide-react"
+import { Eye, RefreshCw, AlertCircle } from "lucide-react"
 import { fetchRecentOrders } from "@/lib/api/orders"
-import { formatCurrency, formatDate } from "@/lib/utils"
-import { useRouter } from "next/navigation"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { formatDate } from "@/lib/utils"
 
 export function RecentOrders() {
+  const router = useRouter()
   const [orders, setOrders] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
-  const router = useRouter()
 
   const loadOrders = async () => {
-    setIsLoading(true)
-    setError(null)
     try {
+      setIsLoading(true)
+      setError(null)
       const data = await fetchRecentOrders(5)
       setOrders(data)
-    } catch (err) {
-      console.error("Error al cargar pedidos recientes:", err)
-      setError(err.message || "No se pudieron cargar los pedidos recientes")
+    } catch (error) {
+      console.error("Error loading recent orders:", error)
+      setError(error.message || "Error al cargar pedidos recientes")
     } finally {
       setIsLoading(false)
     }
@@ -35,124 +33,98 @@ export function RecentOrders() {
     loadOrders()
   }, [])
 
-  const getStatusBadge = (status) => {
-    if (!status) return <Badge variant="outline">Desconocido</Badge>
+  const getStatusColor = (status) => {
+    if (!status) return "bg-gray-100 text-gray-800"
 
-    const statusMap = {
-      PAID: { variant: "default", label: "Pagado" },
-      PARTIALLY_PAID: { variant: "default", label: "Pago parcial" },
-      PENDING: { variant: "secondary", label: "Pendiente" },
-      REFUNDED: { variant: "destructive", label: "Reembolsado" },
-      VOIDED: { variant: "destructive", label: "Anulado" },
-      FULFILLED: { variant: "success", label: "Enviado" },
-      PARTIALLY_FULFILLED: { variant: "warning", label: "Enviado parcial" },
-      UNFULFILLED: { variant: "outline", label: "Pendiente de envío" },
+    switch (status.toUpperCase()) {
+      case "FULFILLED":
+        return "bg-green-100 text-green-800"
+      case "UNFULFILLED":
+        return "bg-yellow-100 text-yellow-800"
+      case "PARTIALLY_FULFILLED":
+        return "bg-blue-100 text-blue-800"
+      case "PAID":
+        return "bg-green-100 text-green-800"
+      case "PENDING":
+        return "bg-yellow-100 text-yellow-800"
+      case "REFUNDED":
+        return "bg-red-100 text-red-800"
+      default:
+        return "bg-gray-100 text-gray-800"
     }
-
-    const statusInfo = statusMap[status] || { variant: "outline", label: status }
-
-    return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
   }
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Pedidos recientes</CardTitle>
-          <CardDescription>Los últimos pedidos de tu tienda</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="flex items-center justify-between py-2">
-              <div className="space-y-1">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-3 w-32" />
-              </div>
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-6 w-16" />
-                <Skeleton className="h-6 w-20" />
-              </div>
+      <div className="space-y-4">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-3 w-32" />
             </div>
-          ))}
-        </CardContent>
-      </Card>
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-6 w-16" />
+              <Skeleton className="h-8 w-8 rounded-full" />
+            </div>
+          </div>
+        ))}
+      </div>
     )
   }
 
   if (error) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Pedidos recientes</span>
-            <Button variant="outline" size="sm" onClick={loadOrders}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Reintentar
-            </Button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center p-4 text-sm border rounded-md bg-red-50 border-red-200 text-red-800">
-            <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-            <p>{error}</p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col items-center justify-center py-4 text-center">
+        <AlertCircle className="h-8 w-8 text-destructive mb-2" />
+        <p className="mb-4 text-destructive">{error}</p>
+        <Button size="sm" onClick={loadOrders}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Reintentar
+        </Button>
+      </div>
+    )
+  }
+
+  if (orders.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 text-center">
+        <p className="text-muted-foreground mb-2">No hay pedidos recientes</p>
+      </div>
     )
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span>Pedidos recientes</span>
-          <Button variant="outline" size="sm" onClick={loadOrders}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Actualizar
-          </Button>
-        </CardTitle>
-        <CardDescription>Los últimos pedidos de tu tienda</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {orders.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4 text-center">No hay pedidos recientes para mostrar</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Pedido</TableHead>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead className="text-right">Ver</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {orders.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell>
-                    <div className="font-medium">{order.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {order.customer
-                        ? `${order.customer.firstName} ${order.customer.lastName}`
-                        : "Cliente no registrado"}
-                    </div>
-                  </TableCell>
-                  <TableCell>{formatDate(order.processedAt)}</TableCell>
-                  <TableCell>{getStatusBadge(order.displayFulfillmentStatus)}</TableCell>
-                  <TableCell>{formatCurrency(order.totalPrice, order.currencyCode)}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => router.push(`/dashboard/orders/${order.id}`)}>
-                      <Eye className="h-4 w-4" />
-                      <span className="sr-only">Ver pedido</span>
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      {orders.map((order) => (
+        <div key={order.id} className="flex items-center justify-between">
+          <div className="space-y-1">
+            <p className="font-medium">{order.name}</p>
+            <div className="flex items-center text-sm text-muted-foreground">
+              <span>{formatDate(order.processedAt)}</span>
+              {order.customer && (
+                <span className="ml-2">
+                  • {order.customer.firstName} {order.customer.lastName}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge className={getStatusColor(order.displayFulfillmentStatus)}>
+              {order.displayFulfillmentStatus || "PENDIENTE"}
+            </Badge>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push(`/dashboard/orders/${order.id}`)}
+              title="Ver detalles"
+            >
+              <Eye className="h-4 w-4" />
+              <span className="sr-only">Ver detalles</span>
+            </Button>
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,22 +9,60 @@ import { SeoForm } from "@/components/seo-form"
 import { LocalBusinessForm } from "@/components/local-business-form"
 import { SocialMediaForm } from "@/components/social-media-form"
 import { StructuredDataGenerator } from "@/components/structured-data-generator"
-// Añadir indicadores de carga para mejorar la experiencia del usuario
 import { Skeleton } from "@/components/ui/skeleton"
+import { getShopSeoSettings } from "@/lib/api/seo"
 
-// Modificar el componente para incluir estado de carga
 export default function SeoPage() {
   const [activeTab, setActiveTab] = useState("general")
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [shopInfo, setShopInfo] = useState(null)
+  const [error, setError] = useState(null)
 
-  // Añadir esta función para simular carga al cambiar de pestaña
-  const handleTabChange = (value: string) => {
+  useEffect(() => {
+    const fetchShopInfo = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+        const seoSettings = await getShopSeoSettings()
+        setShopInfo(seoSettings)
+      } catch (error) {
+        console.error("Error fetching shop SEO settings:", error)
+        setError(error.message || "Error al cargar la configuración SEO")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchShopInfo()
+  }, [])
+
+  // Simular tiempo de carga al cambiar de pestaña
+  const handleTabChange = (value) => {
     setIsLoading(true)
     setActiveTab(value)
     // Simular tiempo de carga
     setTimeout(() => {
       setIsLoading(false)
     }, 500)
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">SEO y Posicionamiento</h1>
+          <p className="text-muted-foreground">
+            Gestiona la configuración de SEO, negocio local y redes sociales para mejorar tu posicionamiento
+          </p>
+        </div>
+
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      </div>
+    )
   }
 
   return (
@@ -84,8 +122,11 @@ export default function SeoPage() {
                   <SeoForm
                     ownerId="gid://shopify/Shop/1"
                     ownerType="SHOP"
-                    defaultTitle="Granito Skate Shop - Tienda de skate online"
-                    defaultDescription="Tienda especializada en productos de skate. Encuentra tablas, ruedas, trucks y accesorios de las mejores marcas."
+                    defaultTitle={shopInfo?.title || "Granito Skate Shop - Tienda de skate online"}
+                    defaultDescription={
+                      shopInfo?.description ||
+                      "Tienda especializada en productos de skate. Encuentra tablas, ruedas, trucks y accesorios de las mejores marcas."
+                    }
                   />
                 </CardContent>
               </Card>

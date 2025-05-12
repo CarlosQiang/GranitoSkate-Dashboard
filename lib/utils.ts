@@ -5,45 +5,74 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatCurrency(amount: number | string, currencyCode = "EUR") {
+export function formatDate(dateString: string): string {
+  if (!dateString) return ""
+
+  const date = new Date(dateString)
+
+  // Verificar si la fecha es válida
+  if (isNaN(date.getTime())) return ""
+
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date)
+}
+
+export function formatCurrency(amount: string | number, currencyCode = "EUR"): string {
+  if (amount === null || amount === undefined) return ""
+
   const numericAmount = typeof amount === "string" ? Number.parseFloat(amount) : amount
 
-  if (isNaN(numericAmount)) {
-    return "0,00 €"
-  }
+  // Verificar si el monto es un número válido
+  if (isNaN(numericAmount)) return ""
 
   return new Intl.NumberFormat("es-ES", {
     style: "currency",
     currency: currencyCode,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(numericAmount)
 }
 
-export function formatDate(dateString: string) {
-  if (!dateString) return ""
+export function truncateText(text: string, maxLength: number): string {
+  if (!text) return ""
+  if (text.length <= maxLength) return text
 
-  try {
-    const date = new Date(dateString)
-    return new Intl.DateTimeFormat("es-ES", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }).format(date)
-  } catch (error) {
-    console.error("Error al formatear fecha:", error)
-    return dateString
-  }
-}
-
-export function truncateText(text: string, maxLength = 100) {
-  if (!text || text.length <= maxLength) return text
   return text.slice(0, maxLength) + "..."
 }
 
-export function generateSlug(text: string) {
+export function generateSlug(text: string): string {
+  if (!text) return ""
+
   return text
     .toLowerCase()
-    .replace(/[^\w\s]/g, "")
-    .replace(/\s+/g, "-")
+    .replace(/[^\w\s-]/g, "") // Eliminar caracteres especiales
+    .replace(/\s+/g, "-") // Reemplazar espacios con guiones
+    .replace(/-+/g, "-") // Eliminar guiones duplicados
+}
+
+export function getImageUrl(src: string | null | undefined, fallback = "/placeholder.svg"): string {
+  if (!src) return fallback
+
+  // Si ya es una URL completa, devolverla
+  if (src.startsWith("http")) return src
+
+  // Si es una ruta relativa, asegurarse de que comience con /
+  return src.startsWith("/") ? src : `/${src}`
+}
+
+export function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout | null = null
+
+  return (...args: Parameters<T>) => {
+    if (timeout) clearTimeout(timeout)
+
+    timeout = setTimeout(() => {
+      func(...args)
+    }, wait)
+  }
 }
 
 export function getErrorMessage(error: unknown): string {
@@ -51,41 +80,29 @@ export function getErrorMessage(error: unknown): string {
   return String(error)
 }
 
-// Función auxiliar para obtener la URL de la imagen
-export function getImageUrl(product) {
-  if (!product) return null
-
-  // Intentar obtener la imagen de diferentes propiedades
-  if (product.imagen) return product.imagen
-  if (product.image) return typeof product.image === "string" ? product.image : product.image?.url || product.image?.src
-
-  if (product.featuredImage) return product.featuredImage.url || product.featuredImage.src
-
-  if (product.imagenes && product.imagenes.length > 0) {
-    return product.imagenes[0].src || product.imagenes[0].url
-  }
-
-  if (product.images && product.images.length > 0) {
-    if (Array.isArray(product.images)) {
-      return typeof product.images[0] === "string"
-        ? product.images[0]
-        : product.images[0]?.url || product.images[0]?.src
-    }
-  }
-
-  // Si hay edges en las imágenes (formato GraphQL)
-  if (product.images && product.images.edges && product.images.edges.length > 0) {
-    return product.images.edges[0].node.url || product.images.edges[0].node.src
-  }
-
-  return null
+export function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(email)
 }
 
-// Función para extraer el ID limpio
-export function cleanId(id) {
-  if (!id) return ""
-  if (typeof id === "string" && id.includes("/")) {
-    return id.split("/").pop()
-  }
-  return id
+export function isValidPhone(phone: string): boolean {
+  // Regex básico para validar números de teléfono internacionales
+  const phoneRegex = /^\+?[0-9\s\-()]{8,20}$/
+  return phoneRegex.test(phone)
+}
+
+export function getInitials(name: string): string {
+  if (!name) return ""
+
+  const parts = name.split(" ")
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
+
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
+}
+
+export function calculateDiscount(originalPrice: number, discountedPrice: number): number {
+  if (!originalPrice || !discountedPrice || originalPrice <= 0) return 0
+
+  const discount = ((originalPrice - discountedPrice) / originalPrice) * 100
+  return Math.round(discount)
 }
