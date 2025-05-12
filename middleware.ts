@@ -1,36 +1,23 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { getToken } from "next-auth/jwt"
 
-export async function middleware(request: NextRequest) {
-  // Verificar si la ruta es /api/health, permitir acceso sin autenticación
-  if (request.nextUrl.pathname === "/api/health") {
-    return NextResponse.next()
-  }
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
 
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  })
-
-  // Si el usuario no está autenticado y está intentando acceder al dashboard o a la API
-  if (
-    !token &&
-    (request.nextUrl.pathname.startsWith("/dashboard") || request.nextUrl.pathname.startsWith("/api/shopify"))
-  ) {
-    const url = new URL("/login", request.url)
-    url.searchParams.set("callbackUrl", encodeURI(request.nextUrl.pathname))
-    return NextResponse.redirect(url)
-  }
-
-  // Si el usuario está autenticado y está intentando acceder a la página de login
-  if (token && request.nextUrl.pathname === "/login") {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
+  // Detectar URLs de promociones con formato Shopify gid
+  if (pathname.includes("/promociones/gid:")) {
+    // Extraer el ID numérico del final de la URL
+    const matches = pathname.match(/\/(\d+)$/)
+    if (matches && matches[1]) {
+      const numericId = matches[1]
+      // Redirigir a la ruta correcta usando solo el ID numérico
+      return NextResponse.redirect(new URL(`/dashboard/promociones/${numericId}`, request.url))
+    }
   }
 
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/login", "/api/shopify/:path*", "/api/health"],
+  matcher: ["/dashboard/promociones/:path*"],
 }

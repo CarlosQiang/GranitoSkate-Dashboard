@@ -51,12 +51,25 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
     async function loadPromotion() {
       try {
         setIsLoading(true)
-        const data = await fetchPriceListById(params.id)
+
+        // Determinar si el ID es numérico o un gid completo
+        let promotionId = params.id
+        if (promotionId.includes("gid:")) {
+          // Si es un gid completo, extraer solo el ID numérico
+          const matches = promotionId.match(/\/(\d+)$/)
+          if (matches && matches[1]) {
+            promotionId = matches[1]
+          }
+        }
+
+        console.log("Cargando promoción con ID:", promotionId)
+        const data = await fetchPriceListById(promotionId)
+        console.log("Datos de promoción recibidos:", data)
         setPromotion(data)
 
         // Si la promoción tiene un error, mostrarlo
         if (data.error) {
-          setError(`No se pudo cargar la promoción correctamente: ${data.summary}`)
+          setError(`No se pudo cargar la promoción correctamente: ${data.summary || "Error desconocido"}`)
         } else {
           setError(null)
         }

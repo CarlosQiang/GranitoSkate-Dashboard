@@ -49,22 +49,27 @@ export const fetchPromociones = obtenerPromociones
 // Función para obtener una promoción por ID
 export async function fetchPriceListById(id: string): Promise<Promotion> {
   try {
-    // Implementación simplificada para evitar errores
-    return {
-      id,
-      title: `Promoción ${id.split("/").pop()}`,
-      code: null,
-      isAutomatic: true,
-      startsAt: new Date().toISOString(),
-      endsAt: null,
-      status: "ACTIVE",
-      valueType: "percentage",
-      value: 10,
-      target: "CART",
-    } as Promotion
+    // Determinar si el ID es un gid completo o solo un ID numérico
+    let promotionId = id
+    if (promotionId.includes("gid:")) {
+      // Si es un gid completo, extraer solo el ID numérico
+      const matches = promotionId.match(/\/(\d+)$/)
+      if (matches && matches[1]) {
+        promotionId = matches[1]
+      }
+    }
+
+    // Construir el gid completo si solo tenemos el ID numérico
+    if (!promotionId.includes("gid:")) {
+      promotionId = `gid://shopify/DiscountAutomaticNode/${promotionId}`
+    }
+
+    console.log("Fetching promotion with ID:", promotionId)
+    const promotion = await fetchPromotionById(promotionId)
+    return promotion
   } catch (error) {
-    console.error(`Error al obtener la promoción con ID ${id}:`, error)
-    throw new Error(`Error al cargar la promoción: ${error.message}`)
+    console.error(`Error fetching price list with ID ${id}:`, error)
+    throw new Error(`Error al cargar la lista de precios: ${error.message}`)
   }
 }
 
@@ -174,5 +179,63 @@ export async function obtenerPromocionPorId(id: string): Promise<any> {
   } catch (error) {
     console.error(`Error al obtener la promoción con ID ${id}:`, error)
     throw new Error(`Error al obtener la promoción: ${error.message}`)
+  }
+}
+
+async function fetchPromotionById(promotionId: string): Promise<any> {
+  try {
+    const query = gql`
+      query ($id: ID!) {
+        node(id: $id) {
+          ... on DiscountAutomaticNode {
+            discount {
+              ... on DiscountAutomaticBasic {
+                title
+                startsAt
+                endsAt
+                customerGets {
+                  items {
+                    ... on DiscountAllItems {
+                      all
+                    }
+                  }
+                  value {
+                    ... on DiscountPercentage {
+                      percentage
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const variables = {
+      id: promotionId,
+    }
+
+    const data = await shopifyClient.request(query, variables)
+
+    if (!data.node) {
+      throw new Error(`Promotion with ID ${promotionId} not found`)
+    }
+
+    const discount = data.node.discount
+
+    const promotion = {
+      id: promotionId,
+      title: discount.title,
+      startsAt: discount.startsAt,
+      endsAt: discount.endsAt,
+      value: discount.customerGets.value.percentage,
+      target: discount.customerGets.items.all ? "ALL" : "SPECIFIC",
+    }
+
+    return promotion
+  } catch (error) {
+    console.error(`Error fetching promotion with ID ${promotionId}:`, error)
+    throw new Error(`Error fetching promotion: ${error.message}`)
   }
 }
