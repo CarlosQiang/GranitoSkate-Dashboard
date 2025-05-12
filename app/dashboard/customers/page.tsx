@@ -1,272 +1,186 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
-import { LoadingState } from "@/components/loading-state"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Search, MoreHorizontal, Pencil, ShoppingCart } from "lucide-react"
 import { fetchCustomers } from "@/lib/api/customers"
-import { formatDate } from "@/lib/utils"
-import { Search, UserPlus } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
+import { formatDate, formatCurrency } from "@/lib/utils"
+
+interface Customer {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string | null
+  ordersCount: number
+  totalSpent: {
+    amount: string
+    currencyCode: string
+  }
+  createdAt: string
+}
 
 export default function CustomersPage() {
-  const { data: session } = useSession()
   const router = useRouter()
-  const [customers, setCustomers] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [sortOrder, setSortOrder] = useState("desc")
-  const customersPerPage = 10
+  const { toast } = useToast()
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
 
   useEffect(() => {
-    const getCustomersList = async () => {
-      if (!session?.user) return
-
-      setLoading(true)
+    const getCustomers = async () => {
       try {
-        // Usamos la función fetchCustomers directamente
-        const data = await fetchCustomers(50)
-
-        if (data && data.length > 0) {
-          // Filtramos y ordenamos los clientes en el cliente
-          let filteredCustomers = [...data]
-
-          // Aplicar búsqueda si hay término
-          if (searchTerm) {
-            const term = searchTerm.toLowerCase()
-            filteredCustomers = filteredCustomers.filter(
-              (customer) =>
-                (customer.firstName && customer.firstName.toLowerCase().includes(term)) ||
-                (customer.lastName && customer.lastName.toLowerCase().includes(term)) ||
-                (customer.email && customer.email.toLowerCase().includes(term)) ||
-                (customer.phone && customer.phone.includes(term)),
-            )
-          }
-
-          // Ordenar clientes
-          filteredCustomers.sort((a, b) => {
-            if (sortOrder === "asc") {
-              return new Date(a.createdAt) - new Date(b.createdAt)
-            } else if (sortOrder === "desc") {
-              return new Date(b.createdAt) - new Date(a.createdAt)
-            } else if (sortOrder === "name_asc") {
-              return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`)
-            } else if (sortOrder === "name_desc") {
-              return `${b.firstName} ${b.lastName}`.localeCompare(`${a.firstName} ${a.lastName}`)
-            }
-            return 0
-          })
-
-          // Paginación
-          const totalItems = filteredCustomers.length
-          setTotalPages(Math.ceil(totalItems / customersPerPage))
-
-          const startIndex = (currentPage - 1) * customersPerPage
-          const paginatedCustomers = filteredCustomers.slice(startIndex, startIndex + customersPerPage)
-
-          setCustomers(paginatedCustomers)
-          setError(null)
-        } else {
-          setCustomers([])
-          setError("No se encontraron clientes")
-        }
-      } catch (err) {
-        console.error("Error al cargar clientes:", err)
-        setError("Error al cargar los clientes: " + (err.message || "Intente nuevamente"))
-        setCustomers([])
+        const data = await fetchCustomers()
+        setCustomers(data)
+      } catch (error) {
+        console.error("Error fetching customers:", error)
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los clientes",
+          variant: "destructive",
+        })
       } finally {
-        setLoading(false)
+        setIsLoading(false)
       }
     }
 
-    getCustomersList()
-  }, [session, currentPage, searchTerm, sortOrder])
+    getCustomers()
+  }, [toast])
 
-  const handlePageChange = (page) => {
-    setCurrentPage(page)
-  }
-
-  const handleCustomerClick = (customerId) => {
-    router.push(`/dashboard/customers/${customerId}`)
-  }
-
-  if (loading) {
-    return <LoadingState message="Cargando clientes..." />
-  }
+  const filteredCustomers = customers.filter(
+    (customer) =>
+      `${customer.firstName} ${customer.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      customer.email.toLowerCase().includes(searchQuery.toLowerCase()),
+  )
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
-          <p className="text-muted-foreground">Gestiona los clientes de tu tienda Shopify</p>
+          <p className="text-muted-foreground">Gestiona los clientes de tu tienda</p>
         </div>
-        <Button onClick={() => router.push("/dashboard/customers/new")}>
-          <UserPlus className="mr-2 h-4 w-4" /> Nuevo cliente
-        </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Todos los clientes</CardTitle>
-          <CardDescription>
-            {customers.length > 0
-              ? `Mostrando ${customers.length} de ${totalPages * customersPerPage} clientes`
-              : "No se encontraron clientes"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <div className="flex-1 relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nombre, email o teléfono..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 w-full"
-              />
-            </div>
-            <div className="w-full md:w-48">
-              <Select value={sortOrder} onValueChange={setSortOrder}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Ordenar" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="desc">Más recientes primero</SelectItem>
-                  <SelectItem value="asc">Más antiguos primero</SelectItem>
-                  <SelectItem value="name_asc">Nombre (A-Z)</SelectItem>
-                  <SelectItem value="name_desc">Nombre (Z-A)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+      <div className="flex items-center">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Buscar clientes..."
+            className="pl-8"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+      </div>
 
-          {error && <div className="bg-red-50 text-red-700 p-4 rounded-md mb-4">{error}</div>}
-
-          {customers.length > 0 ? (
-            <>
-              <div className="rounded-md border overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nombre</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Teléfono</TableHead>
-                      <TableHead>Pedidos</TableHead>
-                      <TableHead>Fecha registro</TableHead>
-                      <TableHead className="text-right">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {customers.map((customer) => (
-                      <TableRow
-                        key={customer.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => handleCustomerClick(customer.id)}
-                      >
-                        <TableCell className="font-medium">
-                          {customer.firstName} {customer.lastName}
-                        </TableCell>
-                        <TableCell>{customer.email || "-"}</TableCell>
-                        <TableCell>{customer.phone || "-"}</TableCell>
-                        <TableCell>
-                          {customer.ordersCount > 0 ? (
-                            <Badge variant="outline">{customer.ordersCount}</Badge>
-                          ) : (
-                            <span className="text-muted-foreground">0</span>
-                          )}
-                        </TableCell>
-                        <TableCell>{formatDate(customer.createdAt)}</TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleCustomerClick(customer.id)
-                            }}
-                          >
-                            Ver detalles
+      {isLoading ? (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Pedidos</TableHead>
+                <TableHead>Total gastado</TableHead>
+                <TableHead>Fecha de registro</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {[...Array(5)].map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell>
+                    <Skeleton className="h-4 w-32" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-40" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-12" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-20" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-24" />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Skeleton className="h-8 w-8 rounded-md ml-auto" />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Pedidos</TableHead>
+                <TableHead>Total gastado</TableHead>
+                <TableHead>Fecha de registro</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredCustomers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-6">
+                    No se encontraron clientes
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredCustomers.map((customer) => (
+                  <TableRow key={customer.id}>
+                    <TableCell>
+                      <div className="font-medium">
+                        {customer.firstName} {customer.lastName}
+                      </div>
+                    </TableCell>
+                    <TableCell>{customer.email}</TableCell>
+                    <TableCell>{customer.ordersCount}</TableCell>
+                    <TableCell>
+                      {formatCurrency(customer.totalSpent.amount, customer.totalSpent.currencyCode)}
+                    </TableCell>
+                    <TableCell>{formatDate(customer.createdAt)}</TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Acciones</span>
                           </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              <div className="mt-4 flex justify-center">
-                <Pagination>
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious
-                        onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                        disabled={currentPage === 1}
-                      />
-                    </PaginationItem>
-
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let pageNum
-                      if (totalPages <= 5) {
-                        pageNum = i + 1
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i
-                      } else {
-                        pageNum = currentPage - 2 + i
-                      }
-
-                      return (
-                        <PaginationItem key={pageNum}>
-                          <PaginationLink isActive={currentPage === pageNum} onClick={() => handlePageChange(pageNum)}>
-                            {pageNum}
-                          </PaginationLink>
-                        </PaginationItem>
-                      )
-                    })}
-
-                    <PaginationItem>
-                      <PaginationNext
-                        onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-                        disabled={currentPage === totalPages}
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              </div>
-            </>
-          ) : !loading && !error ? (
-            <div className="text-center py-10">
-              <p className="text-muted-foreground mb-4">No se encontraron clientes</p>
-              <Button
-                onClick={() => {
-                  setSearchTerm("")
-                  setSortOrder("desc")
-                }}
-              >
-                Limpiar filtros
-              </Button>
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => router.push(`/dashboard/customers/${customer.id}`)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Ver detalles
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => router.push(`/dashboard/customers/${customer.id}/orders`)}>
+                            <ShoppingCart className="mr-2 h-4 w-4" />
+                            Ver pedidos
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   )
 }

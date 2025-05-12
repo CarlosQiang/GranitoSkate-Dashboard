@@ -2,270 +2,490 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { CalendarIcon, PlusCircle, TagIcon, AlertCircle, RefreshCw } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ShopifyApiStatus } from "@/components/shopify-api-status"
-import { fetchPromotions } from "@/lib/api/promotions"
-import { formatDate } from "@/lib/utils"
-import { Search, Plus, RefreshCw, AlertCircle } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { obtenerPromociones } from "@/lib/api/promociones"
+import type { Promotion, PromotionStatus } from "@/lib/api/promotions"
 
 export default function PromocionesPage() {
   const router = useRouter()
-  const [promotions, setPromotions] = useState([])
-  const [filteredPromotions, setFilteredPromotions] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
+  const [promociones, setPromociones] = useState<Promotion[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const loadPromotions = async () => {
+  const cargarPromociones = async () => {
+    setIsLoading(true)
+    setError(null)
     try {
-      setLoading(true)
-      setError(null)
-      const data = await fetchPromotions()
-      setPromotions(data)
-      setFilteredPromotions(data)
+      const data = await obtenerPromociones()
+      setPromociones(data)
     } catch (err) {
       console.error("Error al cargar promociones:", err)
-      setError(err.message || "Error al cargar promociones")
+      setError(`Error al cargar promociones: ${(err as Error).message}`)
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
   useEffect(() => {
-    loadPromotions()
+    cargarPromociones()
   }, [])
 
-  useEffect(() => {
-    let filtered = [...promotions]
-
-    // Aplicar filtro de búsqueda
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase()
-      filtered = filtered.filter(
-        (promo) =>
-          promo.title.toLowerCase().includes(term) ||
-          (promo.code && promo.code.toLowerCase().includes(term)) ||
-          (promo.summary && promo.summary.toLowerCase().includes(term)),
-      )
-    }
-
-    // Aplicar filtro de estado
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((promo) => promo.status === statusFilter)
-    }
-
-    setFilteredPromotions(filtered)
-  }, [searchTerm, statusFilter, promotions])
-
-  const getStatusBadge = (status) => {
+  const getStatusColor = (status: PromotionStatus) => {
     switch (status) {
-      case "ACTIVE":
-        return <Badge variant="success">Activa</Badge>
-      case "SCHEDULED":
-        return <Badge variant="warning">Programada</Badge>
-      case "EXPIRED":
-        return <Badge variant="secondary">Expirada</Badge>
-      case "INACTIVE":
-        return <Badge variant="outline">Inactiva</Badge>
+      case "active":
+        return "bg-green-100 text-green-800 hover:bg-green-200"
+      case "expired":
+        return "bg-gray-100 text-gray-800 hover:bg-gray-200"
+      case "scheduled":
+        return "bg-blue-100 text-blue-800 hover:bg-blue-200"
       default:
-        return <Badge>{status}</Badge>
+        return "bg-gray-100 text-gray-800 hover:bg-gray-200"
     }
   }
 
-  const getTypeLabel = (type) => {
-    switch (type) {
-      case "PERCENTAGE_DISCOUNT":
-        return "Descuento porcentual"
-      case "FIXED_AMOUNT_DISCOUNT":
-        return "Descuento fijo"
-      case "BUY_X_GET_Y":
-        return "Compra X, lleva Y"
-      case "FREE_SHIPPING":
-        return "Envío gratis"
+  const getStatusText = (status: PromotionStatus) => {
+    switch (status) {
+      case "active":
+        return "Activa"
+      case "expired":
+        return "Expirada"
+      case "scheduled":
+        return "Programada"
       default:
-        return type
+        return "Desconocido"
     }
   }
 
-  if (error) {
-    return (
-      <div className="container mx-auto py-6 space-y-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Promociones</h1>
-            <p className="text-muted-foreground">Gestiona las promociones y descuentos de tu tienda</p>
-          </div>
-          <Button asChild>
-            <Link href="/dashboard/promociones/asistente">
-              <Plus className="mr-2 h-4 w-4" />
-              Nueva promoción
-            </Link>
-          </Button>
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "N/A"
+    return new Date(dateString).toLocaleDateString("es-ES", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    })
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Promociones</h1>
+          <p className="text-muted-foreground">Gestiona las promociones y descuentos de tu tienda</p>
         </div>
+        <Button
+          onClick={() => router.push("/dashboard/promociones/asistente")}
+          className="bg-granito hover:bg-granito/90 text-white"
+        >
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Nueva promoción
+        </Button>
+      </div>
 
-        <ShopifyApiStatus />
-
+      {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error al cargar promociones</AlertTitle>
+          <AlertTitle>Error</AlertTitle>
           <AlertDescription className="flex flex-col gap-2">
-            <p>{error}</p>
-            <Button variant="outline" size="sm" onClick={loadPromotions} className="w-fit">
+            <span>No se pudieron cargar las promociones. Por favor, inténtalo de nuevo.</span>
+            <Button variant="outline" size="sm" className="w-fit" onClick={cargarPromociones}>
               <RefreshCw className="mr-2 h-4 w-4" />
               Reintentar
             </Button>
           </AlertDescription>
         </Alert>
-      </div>
-    )
-  }
+      )}
 
-  return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Promociones</h1>
-          <p className="text-muted-foreground">Gestiona las promociones y descuentos de tu tienda</p>
-        </div>
-        <Button asChild>
-          <Link href="/dashboard/promociones/asistente">
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva promoción
-          </Link>
-        </Button>
-      </div>
+      <Tabs defaultValue="todas" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="todas">Todas</TabsTrigger>
+          <TabsTrigger value="activas">Activas</TabsTrigger>
+          <TabsTrigger value="programadas">Programadas</TabsTrigger>
+          <TabsTrigger value="expiradas">Expiradas</TabsTrigger>
+        </TabsList>
 
-      <ShopifyApiStatus />
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Todas las promociones</CardTitle>
-          <CardDescription>
-            {filteredPromotions.length > 0
-              ? `Mostrando ${filteredPromotions.length} de ${promotions.length} promociones`
-              : "No se encontraron promociones"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <div className="flex-1 relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nombre o código..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 w-full"
-              />
+        <TabsContent value="todas" className="space-y-4">
+          {isLoading ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[...Array(3)].map((_, i) => (
+                <Card key={i} className="overflow-hidden">
+                  <CardHeader className="p-4">
+                    <Skeleton className="h-6 w-3/4 mb-2" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0">
+                    <Skeleton className="h-4 w-full mb-2" />
+                    <Skeleton className="h-4 w-2/3" />
+                  </CardContent>
+                  <CardFooter className="p-4 flex justify-between">
+                    <Skeleton className="h-8 w-20" />
+                    <Skeleton className="h-8 w-20" />
+                  </CardFooter>
+                </Card>
+              ))}
             </div>
-            <div className="w-full md:w-48">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Estado" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los estados</SelectItem>
-                  <SelectItem value="ACTIVE">Activas</SelectItem>
-                  <SelectItem value="SCHEDULED">Programadas</SelectItem>
-                  <SelectItem value="EXPIRED">Expiradas</SelectItem>
-                  <SelectItem value="INACTIVE">Inactivas</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="flex items-center justify-center h-32">
-              <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : filteredPromotions.length > 0 ? (
-            <div className="rounded-md border overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Código</TableHead>
-                    <TableHead>Valor</TableHead>
-                    <TableHead>Fecha inicio</TableHead>
-                    <TableHead>Fecha fin</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredPromotions.map((promotion) => (
-                    <TableRow
-                      key={promotion.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => router.push(`/dashboard/promociones/${promotion.id}`)}
+          ) : promociones.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {promociones.map((promocion) => (
+                <Card key={promocion.id} className="overflow-hidden">
+                  <CardHeader className="p-4">
+                    <div className="flex justify-between items-start">
+                      <CardTitle className="text-lg">{promocion.title}</CardTitle>
+                      <Badge className={getStatusColor(promocion.status)}>{getStatusText(promocion.status)}</Badge>
+                    </div>
+                    <CardDescription>
+                      {promocion.type === "percentage"
+                        ? `${promocion.value} de descuento`
+                        : promocion.type === "fixed_amount"
+                          ? `${promocion.value} de descuento`
+                          : promocion.type === "free_shipping"
+                            ? "Envío gratis"
+                            : "Compra X y lleva Y"}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0">
+                    <div className="flex items-center text-sm text-muted-foreground mb-2">
+                      <CalendarIcon className="mr-1 h-4 w-4" />
+                      <span>
+                        Desde {formatDate(promocion.startDate)}
+                        {promocion.endDate ? ` hasta ${formatDate(promocion.endDate)}` : ""}
+                      </span>
+                    </div>
+                    {promocion.code && (
+                      <div className="flex items-center text-sm">
+                        <TagIcon className="mr-1 h-4 w-4" />
+                        <span>
+                          Código: <strong>{promocion.code}</strong>
+                        </span>
+                      </div>
+                    )}
+                  </CardContent>
+                  <CardFooter className="p-4 flex justify-between">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => router.push(`/dashboard/promociones/${promocion.id}`)}
                     >
-                      <TableCell className="font-medium">{promotion.title}</TableCell>
-                      <TableCell>{getTypeLabel(promotion.type)}</TableCell>
-                      <TableCell>
-                        {promotion.code ? (
-                          <Badge variant="outline">{promotion.code}</Badge>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {promotion.type === "PERCENTAGE_DISCOUNT"
-                          ? `${promotion.value}%`
-                          : promotion.type === "FIXED_AMOUNT_DISCOUNT"
-                            ? `${promotion.value}€`
-                            : promotion.type === "FREE_SHIPPING"
-                              ? "Envío gratis"
-                              : promotion.value}
-                      </TableCell>
-                      <TableCell>{formatDate(promotion.startDate)}</TableCell>
-                      <TableCell>
-                        {promotion.endDate ? (
-                          formatDate(promotion.endDate)
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(promotion.status)}</TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            router.push(`/dashboard/promociones/${promotion.id}`)
-                          }}
-                        >
-                          Ver detalles
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      Ver detalles
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                      Eliminar
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
             </div>
           ) : (
-            <div className="text-center py-10">
-              <p className="text-muted-foreground mb-4">No se encontraron promociones</p>
-              <Button
-                onClick={() => {
-                  setSearchTerm("")
-                  setStatusFilter("all")
-                }}
-              >
-                Limpiar filtros
-              </Button>
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center p-6">
+                <div className="rounded-full bg-muted p-3">
+                  <TagIcon className="h-6 w-6" />
+                </div>
+                <h3 className="mt-4 text-lg font-semibold">No hay promociones</h3>
+                <p className="mb-4 mt-2 text-center text-sm text-muted-foreground">
+                  Crea tu primera promoción para atraer más clientes a tu tienda.
+                </p>
+                <Button
+                  onClick={() => router.push("/dashboard/promociones/asistente")}
+                  className="bg-granito hover:bg-granito/90 text-white"
+                >
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Nueva promoción
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="activas" className="space-y-4">
+          {isLoading ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[...Array(2)].map((_, i) => (
+                <Card key={i} className="overflow-hidden">
+                  <CardHeader className="p-4">
+                    <Skeleton className="h-6 w-3/4 mb-2" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0">
+                    <Skeleton className="h-4 w-full mb-2" />
+                    <Skeleton className="h-4 w-2/3" />
+                  </CardContent>
+                  <CardFooter className="p-4 flex justify-between">
+                    <Skeleton className="h-8 w-20" />
+                    <Skeleton className="h-8 w-20" />
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {promociones
+                .filter((p) => p.status === "active")
+                .map((promocion) => (
+                  <Card key={promocion.id} className="overflow-hidden">
+                    <CardHeader className="p-4">
+                      <div className="flex justify-between items-start">
+                        <CardTitle className="text-lg">{promocion.title}</CardTitle>
+                        <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Activa</Badge>
+                      </div>
+                      <CardDescription>
+                        {promocion.type === "percentage"
+                          ? `${promocion.value} de descuento`
+                          : promocion.type === "fixed_amount"
+                            ? `${promocion.value} de descuento`
+                            : promocion.type === "free_shipping"
+                              ? "Envío gratis"
+                              : "Compra X y lleva Y"}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0">
+                      <div className="flex items-center text-sm text-muted-foreground mb-2">
+                        <CalendarIcon className="mr-1 h-4 w-4" />
+                        <span>
+                          Desde {formatDate(promocion.startDate)}
+                          {promocion.endDate ? ` hasta ${formatDate(promocion.endDate)}` : ""}
+                        </span>
+                      </div>
+                      {promocion.code && (
+                        <div className="flex items-center text-sm">
+                          <TagIcon className="mr-1 h-4 w-4" />
+                          <span>
+                            Código: <strong>{promocion.code}</strong>
+                          </span>
+                        </div>
+                      )}
+                    </CardContent>
+                    <CardFooter className="p-4 flex justify-between">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/dashboard/promociones/${promocion.id}`)}
+                      >
+                        Ver detalles
+                      </Button>
+                      <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                        Eliminar
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              {promociones.filter((p) => p.status === "active").length === 0 && (
+                <Card className="col-span-full">
+                  <CardContent className="flex flex-col items-center justify-center p-6">
+                    <div className="rounded-full bg-muted p-3">
+                      <TagIcon className="h-6 w-6" />
+                    </div>
+                    <h3 className="mt-4 text-lg font-semibold">No hay promociones activas</h3>
+                    <p className="mb-4 mt-2 text-center text-sm text-muted-foreground">
+                      Crea una nueva promoción o activa una existente.
+                    </p>
+                    <Button
+                      onClick={() => router.push("/dashboard/promociones/asistente")}
+                      className="bg-granito hover:bg-granito/90 text-white"
+                    >
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Nueva promoción
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </TabsContent>
+
+        <TabsContent value="programadas" className="space-y-4">
+          {isLoading ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <Card className="overflow-hidden">
+                <CardHeader className="p-4">
+                  <Skeleton className="h-6 w-3/4 mb-2" />
+                  <Skeleton className="h-4 w-1/2" />
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  <Skeleton className="h-4 w-full mb-2" />
+                  <Skeleton className="h-4 w-2/3" />
+                </CardContent>
+                <CardFooter className="p-4 flex justify-between">
+                  <Skeleton className="h-8 w-20" />
+                  <Skeleton className="h-8 w-20" />
+                </CardFooter>
+              </Card>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {promociones
+                .filter((p) => p.status === "scheduled")
+                .map((promocion) => (
+                  <Card key={promocion.id} className="overflow-hidden">
+                    <CardHeader className="p-4">
+                      <div className="flex justify-between items-start">
+                        <CardTitle className="text-lg">{promocion.title}</CardTitle>
+                        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">Programada</Badge>
+                      </div>
+                      <CardDescription>
+                        {promocion.type === "percentage"
+                          ? `${promocion.value} de descuento`
+                          : promocion.type === "fixed_amount"
+                            ? `${promocion.value} de descuento`
+                            : promocion.type === "free_shipping"
+                              ? "Envío gratis"
+                              : "Compra X y lleva Y"}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0">
+                      <div className="flex items-center text-sm text-muted-foreground mb-2">
+                        <CalendarIcon className="mr-1 h-4 w-4" />
+                        <span>
+                          Desde {formatDate(promocion.startDate)}
+                          {promocion.endDate ? ` hasta ${formatDate(promocion.endDate)}` : ""}
+                        </span>
+                      </div>
+                      {promocion.code && (
+                        <div className="flex items-center text-sm">
+                          <TagIcon className="mr-1 h-4 w-4" />
+                          <span>
+                            Código: <strong>{promocion.code}</strong>
+                          </span>
+                        </div>
+                      )}
+                    </CardContent>
+                    <CardFooter className="p-4 flex justify-between">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/dashboard/promociones/${promocion.id}`)}
+                      >
+                        Ver detalles
+                      </Button>
+                      <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                        Eliminar
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              {promociones.filter((p) => p.status === "scheduled").length === 0 && (
+                <Card className="col-span-full">
+                  <CardContent className="flex flex-col items-center justify-center p-6">
+                    <div className="rounded-full bg-muted p-3">
+                      <CalendarIcon className="h-6 w-6" />
+                    </div>
+                    <h3 className="mt-4 text-lg font-semibold">No hay promociones programadas</h3>
+                    <p className="mb-4 mt-2 text-center text-sm text-muted-foreground">
+                      Programa promociones para fechas futuras.
+                    </p>
+                    <Button
+                      onClick={() => router.push("/dashboard/promociones/asistente")}
+                      className="bg-granito hover:bg-granito/90 text-white"
+                    >
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Nueva promoción
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="expiradas" className="space-y-4">
+          {isLoading ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <Card className="overflow-hidden">
+                <CardHeader className="p-4">
+                  <Skeleton className="h-6 w-3/4 mb-2" />
+                  <Skeleton className="h-4 w-1/2" />
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  <Skeleton className="h-4 w-full mb-2" />
+                  <Skeleton className="h-4 w-2/3" />
+                </CardContent>
+                <CardFooter className="p-4 flex justify-between">
+                  <Skeleton className="h-8 w-20" />
+                  <Skeleton className="h-8 w-20" />
+                </CardFooter>
+              </Card>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {promociones
+                .filter((p) => p.status === "expired")
+                .map((promocion) => (
+                  <Card key={promocion.id} className="overflow-hidden">
+                    <CardHeader className="p-4">
+                      <div className="flex justify-between items-start">
+                        <CardTitle className="text-lg">{promocion.title}</CardTitle>
+                        <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-200">Expirada</Badge>
+                      </div>
+                      <CardDescription>
+                        {promocion.type === "percentage"
+                          ? `${promocion.value} de descuento`
+                          : promocion.type === "fixed_amount"
+                            ? `${promocion.value} de descuento`
+                            : promocion.type === "free_shipping"
+                              ? "Envío gratis"
+                              : "Compra X y lleva Y"}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0">
+                      <div className="flex items-center text-sm text-muted-foreground mb-2">
+                        <CalendarIcon className="mr-1 h-4 w-4" />
+                        <span>
+                          Desde {formatDate(promocion.startDate)}
+                          {promocion.endDate ? ` hasta ${formatDate(promocion.endDate)}` : ""}
+                        </span>
+                      </div>
+                      {promocion.code && (
+                        <div className="flex items-center text-sm">
+                          <TagIcon className="mr-1 h-4 w-4" />
+                          <span>
+                            Código: <strong>{promocion.code}</strong>
+                          </span>
+                        </div>
+                      )}
+                    </CardContent>
+                    <CardFooter className="p-4 flex justify-between">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/dashboard/promociones/${promocion.id}`)}
+                      >
+                        Ver detalles
+                      </Button>
+                      <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                        Eliminar
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              {promociones.filter((p) => p.status === "expired").length === 0 && (
+                <Card className="col-span-full">
+                  <CardContent className="flex flex-col items-center justify-center p-6">
+                    <div className="rounded-full bg-muted p-3">
+                      <TagIcon className="h-6 w-6" />
+                    </div>
+                    <h3 className="mt-4 text-lg font-semibold">No hay promociones expiradas</h3>
+                    <p className="mb-4 mt-2 text-center text-sm text-muted-foreground">
+                      Las promociones expiradas aparecerán aquí.
+                    </p>
+                    <Button
+                      onClick={() => router.push("/dashboard/promociones/asistente")}
+                      className="bg-granito hover:bg-granito/90 text-white"
+                    >
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Nueva promoción
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

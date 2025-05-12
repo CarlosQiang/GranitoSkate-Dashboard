@@ -5,103 +5,87 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Función para formatear fechas
-export function formatDate(dateString: string, options: Intl.DateTimeFormatOptions = {}): string {
-  if (!dateString) return ""
-
-  const date = new Date(dateString)
-
-  // Verificar si la fecha es válida
-  if (isNaN(date.getTime())) return ""
-
-  const defaultOptions: Intl.DateTimeFormatOptions = {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    ...options,
-  }
-
-  return new Intl.DateTimeFormat("es-ES", defaultOptions).format(date)
-}
-
-// Función para formatear moneda
-export function formatCurrency(amount: string | number, currencyCode = "EUR"): string {
-  if (amount === null || amount === undefined) return ""
-
+export function formatCurrency(amount: number | string, currencyCode = "EUR") {
   const numericAmount = typeof amount === "string" ? Number.parseFloat(amount) : amount
 
-  // Verificar si el valor es un número válido
-  if (isNaN(numericAmount)) return ""
+  if (isNaN(numericAmount)) {
+    return "0,00 €"
+  }
 
   return new Intl.NumberFormat("es-ES", {
     style: "currency",
     currency: currencyCode,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
   }).format(numericAmount)
 }
 
-// Función para truncar texto
-export function truncateText(text: string, maxLength: number): string {
-  if (!text) return ""
-  if (text.length <= maxLength) return text
+export function formatDate(dateString: string) {
+  if (!dateString) return ""
 
-  return text.substring(0, maxLength) + "..."
+  try {
+    const date = new Date(dateString)
+    return new Intl.DateTimeFormat("es-ES", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(date)
+  } catch (error) {
+    console.error("Error al formatear fecha:", error)
+    return dateString
+  }
 }
 
-// Modificar la función getImageUrl para manejar correctamente valores nulos o no string
-export function getImageUrl(image) {
-  // Si no hay imagen o url, devolver null
-  if (!image) return null
+export function truncateText(text: string, maxLength = 100) {
+  if (!text || text.length <= maxLength) return text
+  return text.slice(0, maxLength) + "..."
+}
 
-  // Si image es un objeto con propiedad url, usar esa propiedad
-  if (typeof image === "object" && image.url) {
-    const url = image.url
-    // Si la URL ya es absoluta, devolverla tal cual
-    if (typeof url === "string" && url.startsWith("http")) return url
-    // Si es una URL relativa, convertirla a absoluta
-    if (typeof url === "string") return `https:${url}`
+export function generateSlug(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s]/g, "")
+    .replace(/\s+/g, "-")
+}
+
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  return String(error)
+}
+
+// Función auxiliar para obtener la URL de la imagen
+export function getImageUrl(product) {
+  if (!product) return null
+
+  // Intentar obtener la imagen de diferentes propiedades
+  if (product.imagen) return product.imagen
+  if (product.image) return typeof product.image === "string" ? product.image : product.image?.url || product.image?.src
+
+  if (product.featuredImage) return product.featuredImage.url || product.featuredImage.src
+
+  if (product.imagenes && product.imagenes.length > 0) {
+    return product.imagenes[0].src || product.imagenes[0].url
   }
 
-  // Si image es directamente una string (url)
-  if (typeof image === "string") {
-    // Si la URL ya es absoluta, devolverla tal cual
-    if (image.startsWith("http")) return image
-    // Si es una URL relativa, convertirla a absoluta
-    return `https:${image}`
+  if (product.images && product.images.length > 0) {
+    if (Array.isArray(product.images)) {
+      return typeof product.images[0] === "string"
+        ? product.images[0]
+        : product.images[0]?.url || product.images[0]?.src
+    }
   }
 
-  // Si no se puede determinar la URL, devolver null
+  // Si hay edges en las imágenes (formato GraphQL)
+  if (product.images && product.images.edges && product.images.edges.length > 0) {
+    return product.images.edges[0].node.url || product.images.edges[0].node.src
+  }
+
   return null
 }
 
-// Función para generar un slug
-export function generateSlug(text: string): string {
-  if (!text) return ""
-
-  return text
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, "") // Eliminar caracteres especiales
-    .replace(/\s+/g, "-") // Reemplazar espacios con guiones
-    .replace(/-+/g, "-") // Eliminar guiones duplicados
-}
-
-// Función para validar email
-export function isValidEmail(email: string): boolean {
-  if (!email) return false
-
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return emailRegex.test(email)
-}
-
-// Función para obtener iniciales de un nombre
-export function getInitials(name: string): string {
-  if (!name) return ""
-
-  return name
-    .split(" ")
-    .map((part) => part.charAt(0))
-    .join("")
-    .toUpperCase()
-    .substring(0, 2)
+// Función para extraer el ID limpio
+export function cleanId(id) {
+  if (!id) return ""
+  if (typeof id === "string" && id.includes("/")) {
+    return id.split("/").pop()
+  }
+  return id
 }

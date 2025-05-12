@@ -1,291 +1,203 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
-import { LoadingState } from "@/components/loading-state"
-import { fetchOrders } from "@/lib/api/orders"
+import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Search, MoreHorizontal, Eye } from "lucide-react"
+import { fetchRecentOrders } from "@/lib/api/orders"
+import { useToast } from "@/components/ui/use-toast"
 import { formatDate, formatCurrency } from "@/lib/utils"
-import { Search } from "lucide-react"
+
+interface Order {
+  id: string
+  name: string
+  processedAt: string
+  fulfillmentStatus: string
+  financialStatus: string
+  totalPrice: string
+  customer: {
+    firstName: string
+    lastName: string
+  }
+}
 
 export default function OrdersPage() {
-  const { data: session } = useSession()
   const router = useRouter()
-  const [orders, setOrders] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [sortOrder, setSortOrder] = useState("desc")
-  const ordersPerPage = 10
+  const { toast } = useToast()
+  const [orders, setOrders] = useState<Order[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
 
   useEffect(() => {
-    const getOrdersList = async () => {
-      if (!session?.user) return
-
-      setLoading(true)
+    const getOrders = async () => {
       try {
-        // Construir filtros para la API de Shopify
-        const filters = {
-          sortKey: "PROCESSED_AT",
-          reverse: sortOrder === "desc",
-          first: 50, // Obtenemos más para filtrar en el cliente
-        }
-
-        // Añadir filtro de estado si es necesario
-        if (statusFilter !== "all") {
-          if (
-            statusFilter === "fulfilled" ||
-            statusFilter === "unfulfilled" ||
-            statusFilter === "partially_fulfilled"
-          ) {
-            filters.fulfillmentStatus = statusFilter.toUpperCase()
-          } else if (statusFilter === "paid" || statusFilter === "unpaid" || statusFilter === "refunded") {
-            filters.financialStatus = statusFilter.toUpperCase()
-          }
-        }
-
-        // Añadir búsqueda si hay término
-        if (searchTerm) {
-          filters.query = searchTerm
-        }
-
-        const response = await fetchOrders(filters)
-
-        if (response && response.orders) {
-          // Paginación en el cliente
-          const totalItems = response.orders.length
-          setTotalPages(Math.ceil(totalItems / ordersPerPage))
-
-          const startIndex = (currentPage - 1) * ordersPerPage
-          const paginatedOrders = response.orders.slice(startIndex, startIndex + ordersPerPage)
-
-          setOrders(paginatedOrders)
-          setError(null)
-        } else {
-          setOrders([])
-          setError("No se pudieron cargar los pedidos")
-        }
-      } catch (err) {
-        console.error("Error al cargar pedidos:", err)
-        setError("Error al cargar los pedidos: " + (err.message || "Intente nuevamente"))
-        setOrders([])
+        const data = await fetchRecentOrders(50)
+        setOrders(data)
+      } catch (error) {
+        console.error("Error fetching orders:", error)
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los pedidos",
+          variant: "destructive",
+        })
       } finally {
-        setLoading(false)
+        setIsLoading(false)
       }
     }
 
-    getOrdersList()
-  }, [session, currentPage, searchTerm, statusFilter, sortOrder])
+    getOrders()
+  }, [toast])
 
-  const handlePageChange = (page) => {
-    setCurrentPage(page)
-  }
-
-  const handleOrderClick = (orderId) => {
-    router.push(`/dashboard/orders/${orderId}`)
-  }
-
-  const getStatusBadge = (status) => {
-    const statusMap = {
-      FULFILLED: { label: "Completado", variant: "success" },
-      UNFULFILLED: { label: "Pendiente", variant: "warning" },
-      PARTIALLY_FULFILLED: { label: "Parcial", variant: "info" },
-      CANCELLED: { label: "Cancelado", variant: "destructive" },
-      REFUNDED: { label: "Reembolsado", variant: "secondary" },
-      PAID: { label: "Pagado", variant: "success" },
-      UNPAID: { label: "Sin pagar", variant: "destructive" },
-      PENDING: { label: "Pendiente", variant: "warning" },
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "FULFILLED":
+        return "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100"
+      case "UNFULFILLED":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100"
+      case "PARTIALLY_FULFILLED":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100"
+      case "PAID":
+        return "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100"
+      case "PENDING":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100"
+      case "REFUNDED":
+        return "bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100"
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100"
     }
-
-    const statusInfo = statusMap[status] || { label: status, variant: "default" }
-
-    return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
   }
 
-  if (loading) {
-    return <LoadingState message="Cargando pedidos..." />
-  }
+  const filteredOrders = orders.filter(
+    (order) =>
+      order.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      `${order.customer.firstName} ${order.customer.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()),
+  )
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Pedidos</h1>
-          <p className="text-muted-foreground">Gestiona los pedidos de tu tienda Shopify</p>
+          <p className="text-muted-foreground">Gestiona los pedidos de tu tienda</p>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Todos los pedidos</CardTitle>
-          <CardDescription>
-            {orders.length > 0 ? `Mostrando ${orders.length} pedidos` : "No se encontraron pedidos"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <div className="flex-1 relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por número o cliente..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 w-full"
-              />
-            </div>
-            <div className="w-full md:w-48">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Estado" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los estados</SelectItem>
-                  <SelectItem value="fulfilled">Completados</SelectItem>
-                  <SelectItem value="unfulfilled">Pendientes</SelectItem>
-                  <SelectItem value="partially_fulfilled">Parciales</SelectItem>
-                  <SelectItem value="paid">Pagados</SelectItem>
-                  <SelectItem value="unpaid">Sin pagar</SelectItem>
-                  <SelectItem value="refunded">Reembolsados</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-full md:w-48">
-              <Select value={sortOrder} onValueChange={setSortOrder}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Ordenar" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="desc">Más recientes primero</SelectItem>
-                  <SelectItem value="asc">Más antiguos primero</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+      <div className="flex items-center">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Buscar pedidos..."
+            className="pl-8"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+      </div>
 
-          {error && <div className="bg-red-50 text-red-700 p-4 rounded-md mb-4">{error}</div>}
-
-          {orders.length > 0 ? (
-            <>
-              <div className="rounded-md border overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Número</TableHead>
-                      <TableHead>Fecha</TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead className="text-right">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {orders.map((order) => (
-                      <TableRow
-                        key={order.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => handleOrderClick(order.id)}
-                      >
-                        <TableCell className="font-medium">#{order.name}</TableCell>
-                        <TableCell>{formatDate(order.processedAt)}</TableCell>
-                        <TableCell>
-                          {order.customer
-                            ? `${order.customer.firstName} ${order.customer.lastName}`
-                            : "Cliente anónimo"}
-                        </TableCell>
-                        <TableCell>{formatCurrency(order.totalPrice, order.currencyCode)}</TableCell>
-                        <TableCell>{getStatusBadge(order.fulfillmentStatus)}</TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleOrderClick(order.id)
-                            }}
-                          >
-                            Ver detalles
+      {isLoading ? (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Número</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {[...Array(5)].map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell>
+                    <Skeleton className="h-4 w-16" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-24" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-32" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-6 w-20" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-16" />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Skeleton className="h-8 w-8 rounded-md ml-auto" />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Número</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredOrders.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-6">
+                    No se encontraron pedidos
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredOrders.map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell>
+                      <div className="font-medium">{order.name}</div>
+                    </TableCell>
+                    <TableCell>{formatDate(order.processedAt)}</TableCell>
+                    <TableCell>
+                      {order.customer.firstName} {order.customer.lastName}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getStatusColor(order.fulfillmentStatus)}>
+                        {order.fulfillmentStatus.replace("_", " ")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{formatCurrency(order.totalPrice)}</TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Acciones</span>
                           </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              <div className="mt-4 flex justify-center">
-                <Pagination>
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious
-                        onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                        disabled={currentPage === 1}
-                      />
-                    </PaginationItem>
-
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let pageNum
-                      if (totalPages <= 5) {
-                        pageNum = i + 1
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i
-                      } else {
-                        pageNum = currentPage - 2 + i
-                      }
-
-                      return (
-                        <PaginationItem key={pageNum}>
-                          <PaginationLink isActive={currentPage === pageNum} onClick={() => handlePageChange(pageNum)}>
-                            {pageNum}
-                          </PaginationLink>
-                        </PaginationItem>
-                      )
-                    })}
-
-                    <PaginationItem>
-                      <PaginationNext
-                        onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-                        disabled={currentPage === totalPages}
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              </div>
-            </>
-          ) : !loading && !error ? (
-            <div className="text-center py-10">
-              <p className="text-muted-foreground mb-4">No se encontraron pedidos</p>
-              <Button
-                onClick={() => {
-                  setSearchTerm("")
-                  setStatusFilter("all")
-                  setSortOrder("desc")
-                }}
-              >
-                Limpiar filtros
-              </Button>
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => router.push(`/dashboard/orders/${order.id}`)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            Ver detalles
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   )
 }

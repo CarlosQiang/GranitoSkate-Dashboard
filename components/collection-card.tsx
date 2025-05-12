@@ -2,22 +2,18 @@ import Link from "next/link"
 import Image from "next/image"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Tags } from "lucide-react"
 
 export function CollectionCard({ collection }) {
   // Asegurarse de que la colección tiene todas las propiedades necesarias
-  const { id = "", title = "Colección sin título", productsCount = 0, image = null } = collection || {}
-
-  // Extraer el ID numérico para la URL
-  const numericId = typeof id === "string" && id.includes("/") ? id.split("/").pop() : id
+  const { id, title = "Colección sin título", productsCount = 0, image = null } = collection || {}
 
   return (
-    <Link href={`/dashboard/collections/${numericId}`} className="block">
+    <Link href={`/dashboard/collections/${id}`} className="block">
       <Card className="overflow-hidden transition-all hover:shadow-md">
         <div className="aspect-square relative bg-muted">
-          {image?.url ? (
+          {image ? (
             <Image
-              src={image.url || "/placeholder.svg"}
+              src={image || "/placeholder.svg"}
               alt={title}
               fill
               className="object-cover"
@@ -25,7 +21,7 @@ export function CollectionCard({ collection }) {
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gray-100">
-              <Tags className="h-12 w-12 text-muted-foreground" />
+              <span className="text-muted-foreground">Sin imagen</span>
             </div>
           )}
         </div>
@@ -37,9 +33,7 @@ export function CollectionCard({ collection }) {
             </Badge>
           </div>
         </CardContent>
-        <CardFooter className="p-4 pt-0 text-xs text-muted-foreground">
-          {collection.handle ? `URL: /${collection.handle}` : `ID: ${numericId}`}
-        </CardFooter>
+        <CardFooter className="p-4 pt-0 text-xs text-muted-foreground">ID: {id?.split("/").pop() || id}</CardFooter>
       </Card>
     </Link>
   )

@@ -1,179 +1,158 @@
 "use client"
 
-import {
-  Line,
-  Bar,
-  BarChart,
-  LineChart,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { RefreshCw } from "lucide-react"
-import { useState, useEffect } from "react"
-import { fetchSalesChartData, fetchTopProductsChartData } from "@/lib/api/dashboard"
+import { useTheme } from "next-themes"
 
-export function RevenueChart({ data = [], isLoading = false, onRefresh = null }) {
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-[350px] bg-gray-50 rounded-md">
-        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
-
-  if (data.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[350px] bg-gray-50 rounded-md">
-        <p className="text-muted-foreground mb-4">No hay datos de ventas disponibles</p>
-        {onRefresh && (
-          <Button variant="outline" size="sm" onClick={onRefresh}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Intentar de nuevo
-          </Button>
-        )}
-      </div>
-    )
-  }
+export function LineChart() {
+  const { theme } = useTheme()
+  const isDark = theme === "dark"
+  const textColor = isDark ? "#ffffff" : "#000000"
+  const gridColor = isDark ? "#333333" : "#e5e5e5"
+  const lineColor = "#d29a43"
 
   return (
-    <ResponsiveContainer width="100%" height={350}>
-      <LineChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="name" />
-        <YAxis />
-        <Tooltip formatter={(value) => [`${value} €`, "Total"]} labelFormatter={(label) => `Mes: ${label}`} />
-        <Legend />
-        <Line type="monotone" dataKey="total" stroke="#8884d8" activeDot={{ r: 8 }} name="Ingresos" />
-      </LineChart>
-    </ResponsiveContainer>
+    <div className="w-full h-full flex items-center justify-center">
+      <svg width="100%" height="100%" viewBox="0 0 800 400">
+        <rect width="800" height="400" fill="none" />
+
+        {/* Eje X */}
+        <line x1="50" y1="350" x2="750" y2="350" stroke={gridColor} strokeWidth="1" />
+
+        {/* Eje Y */}
+        <line x1="50" y1="50" x2="50" y2="350" stroke={gridColor} strokeWidth="1" />
+
+        {/* Líneas de cuadrícula horizontales */}
+        <line x1="50" y1="50" x2="750" y2="50" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
+        <line x1="50" y1="125" x2="750" y2="125" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
+        <line x1="50" y1="200" x2="750" y2="200" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
+        <line x1="50" y1="275" x2="750" y2="275" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
+
+        {/* Etiquetas del eje X */}
+        <text x="100" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Día 1
+        </text>
+        <text x="200" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Día 6
+        </text>
+        <text x="300" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Día 11
+        </text>
+        <text x="400" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Día 16
+        </text>
+        <text x="500" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Día 21
+        </text>
+        <text x="600" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Día 26
+        </text>
+        <text x="700" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Día 30
+        </text>
+
+        {/* Etiquetas del eje Y */}
+        <text x="40" y="350" fill={textColor} fontSize="12" textAnchor="end">
+          0€
+        </text>
+        <text x="40" y="275" fill={textColor} fontSize="12" textAnchor="end">
+          500€
+        </text>
+        <text x="40" y="200" fill={textColor} fontSize="12" textAnchor="end">
+          1000€
+        </text>
+        <text x="40" y="125" fill={textColor} fontSize="12" textAnchor="end">
+          1500€
+        </text>
+        <text x="40" y="50" fill={textColor} fontSize="12" textAnchor="end">
+          2000€
+        </text>
+
+        {/* Mensaje de datos no disponibles */}
+        <text x="400" y="200" fill={textColor} fontSize="14" textAnchor="middle">
+          Los datos de ventas estarán disponibles próximamente
+        </text>
+      </svg>
+    </div>
   )
 }
 
-export function ProductsChart({ data = [], isLoading = false, onRefresh = null }) {
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-[350px] bg-gray-50 rounded-md">
-        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
-
-  if (data.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[350px] bg-gray-50 rounded-md">
-        <p className="text-muted-foreground mb-4">No hay datos de productos disponibles</p>
-        {onRefresh && (
-          <Button variant="outline" size="sm" onClick={onRefresh}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Intentar de nuevo
-          </Button>
-        )}
-      </div>
-    )
-  }
+export function BarChart() {
+  const { theme } = useTheme()
+  const isDark = theme === "dark"
+  const textColor = isDark ? "#ffffff" : "#000000"
+  const gridColor = isDark ? "#333333" : "#e5e5e5"
 
   return (
-    <ResponsiveContainer width="100%" height={350}>
-      <BarChart data={data} layout="vertical">
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis type="number" />
-        <YAxis dataKey="name" type="category" width={150} />
-        <Tooltip formatter={(value) => [`${value} unidades`, "Ventas"]} />
-        <Legend />
-        <Bar dataKey="sales" fill="#82ca9d" name="Ventas" />
-      </BarChart>
-    </ResponsiveContainer>
+    <div className="w-full h-full flex items-center justify-center">
+      <svg width="100%" height="100%" viewBox="0 0 800 400">
+        <rect width="800" height="400" fill="none" />
+
+        {/* Eje X */}
+        <line x1="50" y1="350" x2="750" y2="350" stroke={gridColor} strokeWidth="1" />
+
+        {/* Eje Y */}
+        <line x1="50" y1="50" x2="50" y2="350" stroke={gridColor} strokeWidth="1" />
+
+        {/* Líneas de cuadrícula horizontales */}
+        <line x1="50" y1="50" x2="750" y2="50" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
+        <line x1="50" y1="125" x2="750" y2="125" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
+        <line x1="50" y1="200" x2="750" y2="200" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
+        <line x1="50" y1="275" x2="750" y2="275" stroke={gridColor} strokeWidth="0.5" strokeDasharray="5,5" />
+
+        {/* Etiquetas del eje X */}
+        <text x="125" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Tablas
+        </text>
+        <text x="250" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Ruedas
+        </text>
+        <text x="375" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Ejes
+        </text>
+        <text x="500" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Ropa
+        </text>
+        <text x="625" y="370" fill={textColor} fontSize="12" textAnchor="middle">
+          Accesorios
+        </text>
+
+        {/* Etiquetas del eje Y */}
+        <text x="40" y="350" fill={textColor} fontSize="12" textAnchor="end">
+          0€
+        </text>
+        <text x="40" y="275" fill={textColor} fontSize="12" textAnchor="end">
+          1000€
+        </text>
+        <text x="40" y="200" fill={textColor} fontSize="12" textAnchor="end">
+          2000€
+        </text>
+        <text x="40" y="125" fill={textColor} fontSize="12" textAnchor="end">
+          3000€
+        </text>
+        <text x="40" y="50" fill={textColor} fontSize="12" textAnchor="end">
+          4000€
+        </text>
+
+        {/* Mensaje de datos no disponibles */}
+        <text x="400" y="200" fill={textColor} fontSize="14" textAnchor="middle">
+          Los datos por categoría estarán disponibles próximamente
+        </text>
+      </svg>
+    </div>
   )
 }
 
-export function SalesChart() {
-  const [data, setData] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState(null)
-
-  const loadData = async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      const chartData = await fetchSalesChartData()
-      setData(chartData)
-    } catch (err) {
-      console.error("Error al cargar datos de ventas:", err)
-      setError(err.message || "Error al cargar datos")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    loadData()
-  }, [])
+export function PieChart() {
+  const { theme } = useTheme()
+  const isDark = theme === "dark"
+  const textColor = isDark ? "#ffffff" : "#000000"
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <div>
-          <CardTitle>Ventas</CardTitle>
-          <CardDescription>Ventas mensuales del año actual</CardDescription>
-        </div>
-        <Button variant="outline" size="sm" onClick={loadData} disabled={isLoading}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-          Actualizar
-        </Button>
-      </CardHeader>
-      <CardContent>
-        <RevenueChart data={data} isLoading={isLoading} onRefresh={loadData} />
-        {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
-      </CardContent>
-    </Card>
-  )
-}
-
-export function TopProductsChart() {
-  const [data, setData] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState(null)
-
-  const loadData = async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      const chartData = await fetchTopProductsChartData()
-      setData(chartData)
-    } catch (err) {
-      console.error("Error al cargar datos de productos:", err)
-      setError(err.message || "Error al cargar datos")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <div>
-          <CardTitle>Productos más vendidos</CardTitle>
-          <CardDescription>Top 5 productos por ventas</CardDescription>
-        </div>
-        <Button variant="outline" size="sm" onClick={loadData} disabled={isLoading}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-          Actualizar
-        </Button>
-      </CardHeader>
-      <CardContent>
-        <ProductsChart data={data} isLoading={isLoading} onRefresh={loadData} />
-        {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
-      </CardContent>
-    </Card>
+    <div className="w-full h-full flex items-center justify-center">
+      <svg width="100%" height="100%" viewBox="0 0 400 400">
+        <text x="200" y="200" fill={textColor} fontSize="14" textAnchor="middle">
+          Los datos de tráfico estarán disponibles próximamente
+        </text>
+      </svg>
+    </div>
   )
 }

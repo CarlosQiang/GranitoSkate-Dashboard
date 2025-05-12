@@ -1,209 +1,78 @@
 import { GraphQLClient } from "graphql-request"
 
-// Función para verificar si las variables de entorno están disponibles
-export function checkShopifyEnvVars() {
-  const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
-  const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
+// Determinar la URL base para las solicitudes GraphQL
+const API_URL = process.env.NEXT_PUBLIC_VERCEL_URL
+  ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}/api/shopify/proxy`
+  : process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/shopify/proxy"
 
-  const missingVars = []
-  if (!shopDomain) missingVars.push("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN")
-  if (!accessToken) missingVars.push("SHOPIFY_ACCESS_TOKEN")
+// Crear un cliente GraphQL que use nuestro proxy
+const shopifyClient = new GraphQLClient(API_URL, {
+  headers: {
+    "Content-Type": "application/json",
+  },
+})
 
-  return {
-    isValid: missingVars.length === 0,
-    missingVars,
-    shopDomain,
-    accessToken,
+// Función para formatear correctamente los IDs de Shopify
+export function formatShopifyId(id: string, type = "Product") {
+  if (id.startsWith("gid://")) {
+    return id
   }
-}
-
-// Determinar si estamos en el cliente o en el servidor
-const isClient = typeof window !== "undefined"
-
-// Configuración del cliente GraphQL para Shopify
-const createShopifyClient = () => {
-  const envCheck = checkShopifyEnvVars()
-
-  if (!envCheck.isValid) {
-    console.warn(`Faltan variables de entorno para la API de Shopify: ${envCheck.missingVars.join(", ")}`)
-    // Devolvemos un cliente que lanzará un error descriptivo cuando se use
-    return new GraphQLClient(isClient ? "/api/shopify/proxy" : "https://example.com/invalid", {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
-  }
-
-  return new GraphQLClient(
-    isClient
-      ? "/api/shopify/proxy" // Usar el proxy en el cliente
-      : `https://${envCheck.shopDomain}/admin/api/2023-07/graphql.json`, // Usar la API directamente en el servidor
-    {
-      headers: isClient
-        ? {
-            "Content-Type": "application/json",
-          }
-        : {
-            "Content-Type": "application/json",
-            "X-Shopify-Access-Token": envCheck.accessToken || "",
-          },
-      timeout: 30000, // 30 segundos
-    },
-  )
-}
-
-const shopifyClient = createShopifyClient()
-
-// Exportar como default para mantener compatibilidad con el código existente
-export default shopifyClient
-
-// Función para verificar la conexión con Shopify
-export async function checkShopifyConnection() {
-  try {
-    const envCheck = checkShopifyEnvVars()
-    if (!envCheck.isValid) {
-      return {
-        connected: false,
-        error: `Faltan variables de entorno: ${envCheck.missingVars.join(", ")}`,
-        missingVars: envCheck.missingVars,
-      }
-    }
-
-    if (isClient) {
-      // En el cliente, usar el endpoint de verificación
-      const baseUrl =
-        typeof window !== "undefined" ? window.location.origin : process.env.NEXTAUTH_URL || "http://localhost:3000"
-
-      const response = await fetch(`${baseUrl}/api/shopify/check`, {
-        method: "GET",
-        headers: {
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`)
-      }
-
-      return await response.json()
-    } else {
-      // En el servidor, hacer la consulta directamente
-      const query = `
-        {
-          shop {
-            name
-            primaryDomain {
-              url
-            }
-          }
-        }
-      `
-      const data = await shopifyFetch({ query })
-      return {
-        success: true,
-        shop: data.data.shop,
-      }
-    }
-  } catch (error) {
-    console.error("Error checking Shopify connection:", error)
-    return {
-      success: false,
-      error: error.message || "Error connecting to Shopify",
-    }
-  }
-}
-
-// Función para formatear IDs de Shopify
-export function formatShopifyId(id, type) {
-  if (!id) return null
-  if (id.includes("gid://shopify/")) return id
   return `gid://shopify/${type}/${id}`
 }
 
-// Función para extraer ID numérico de un ID de Shopify
-export function extractIdFromGid(gid) {
-  if (!gid) return null
-  if (!gid.includes("gid://shopify/")) return gid
-  return gid.split("/").pop()
+// Function to get the base URL
+function getBaseUrl() {
+  return process.env.NEXT_PUBLIC_VERCEL_URL
+    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+    : process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
 }
 
-// Función para obtener la URL de la imagen
-export function getImageUrl(url) {
-  if (!url) return null
-  return url
-}
-
-// Función para realizar solicitudes a la API de Shopify
-export async function shopifyFetch({ query, variables }) {
+// Función para realizar una consulta de prueba a Shopify
+export async function testShopifyConnection() {
   try {
-    // Verificar variables de entorno
-    const envCheck = checkShopifyEnvVars()
-    if (!envCheck.isValid) {
-      throw new Error(`Faltan variables de entorno para la API de Shopify: ${envCheck.missingVars.join(", ")}`)
-    }
-
-    // Construir la URL de la API de Shopify
-    const apiUrl = `https://${envCheck.shopDomain}/admin/api/2023-07/graphql.json`
-
-    // Realizar la solicitud a la API
-    const response = await fetch(apiUrl, {
-      method: "POST",
+    const response = await fetch(`${getBaseUrl()}/api/shopify/check`, {
+      method: "GET",
       headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": envCheck.accessToken,
+        "Cache-Control": "no-cache, no-store, must-revalidate",
       },
-      body: JSON.stringify({
-        query,
-        variables: variables || {},
-      }),
     })
 
-    // Verificar si la respuesta es exitosa
     if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Error en la respuesta de Shopify: ${response.status} ${response.statusText} - ${errorText}`)
+      throw new Error(`Error HTTP: ${response.status}`)
     }
 
-    // Convertir la respuesta a JSON
-    const json = await response.json()
-    return json
-  } catch (error) {
-    console.error("Error en shopifyFetch:", error)
-    throw error
-  }
-}
+    const data = await response.json()
 
-// Función para obtener información de la tienda
-export async function getShopInfo() {
-  try {
-    const query = `
-      query {
-        shop {
-          name
-          email
-          myshopifyDomain
-          primaryDomain {
-            url
-            host
-          }
-          plan {
-            displayName
-            partnerDevelopment
-            shopifyPlus
-          }
-        }
+    if (data.success) {
+      return {
+        success: true,
+        data: { shop: { name: data.shopName } },
+        message: data.message,
       }
-    `
-
-    const response = await shopifyFetch({ query, variables: {} })
-
-    if (response.errors) {
-      throw new Error(response.errors[0].message)
+    } else {
+      throw new Error(data.error || "Error desconocido")
     }
-
-    return response.data.shop
   } catch (error) {
-    console.error("Error al obtener información de la tienda:", error)
-    throw new Error(`Error al obtener información de la tienda: ${error.message}`)
+    console.error("Error al probar la conexión con Shopify:", error)
+    return {
+      success: false,
+      data: null,
+      message: error instanceof Error ? error.message : "Error desconocido",
+    }
   }
 }
+
+// Extraer el ID numérico de un ID de Shopify
+export function extractIdFromGid(gid: string): string {
+  if (!gid) return ""
+  const parts = gid.split("/")
+  return parts[parts.length - 1]
+}
+
+// Función para obtener el cliente de Shopify (para compatibilidad con código existente)
+export const getShopifyApi = async () => {
+  return shopifyClient
+}
+
+// Exportar el cliente de Shopify
+export default shopifyClient

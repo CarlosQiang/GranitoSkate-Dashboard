@@ -1,41 +1,30 @@
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
-import { extractIdFromGid } from "@/lib/shopify"
 
-/**
- * Obtiene todas las colecciones
- * @param options Opciones de filtrado
- * @returns Lista de colecciones
- */
-export async function fetchCollections(options = {}) {
+// Función para obtener todas las colecciones
+export async function fetchCollections(first = 20) {
   try {
-    const { limit = 20 } = options
-    console.log(`Fetching collections with limit: ${limit}`)
-
-    // Corregido: Eliminada la referencia a productsCount que causaba el error
-    const query = `
-      query {
-        collections(first: ${limit}) {
+    const query = gql`
+      query GetCollections($first: Int!) {
+        collections(first: $first) {
           edges {
             node {
               id
               title
               handle
-              description
-              descriptionHtml
+              productsCount {
+                count
+              }
               image {
                 url
                 altText
               }
-              products(first: 1) {
+              products(first: 5) {
                 edges {
                   node {
                     id
+                    title
                   }
-                }
-                pageInfo {
-                  hasNextPage
-                  hasPreviousPage
                 }
               }
             }
@@ -44,64 +33,28 @@ export async function fetchCollections(options = {}) {
       }
     `
 
-    console.log("Enviando consulta a Shopify...")
-
-    // Usar el proxy en lugar de shopifyClient directamente
-    const response = await fetch("/api/shopify/proxy", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        query,
-      }),
-      cache: "no-store",
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`Error en la respuesta del proxy (${response.status}): ${errorText}`)
-      throw new Error(`Error ${response.status}: ${errorText}`)
-    }
-
-    const result = await response.json()
-
-    if (result.errors) {
-      console.error("Errores GraphQL:", result.errors)
-      throw new Error(result.errors[0]?.message || "Error en la consulta GraphQL")
-    }
-
-    const data = result.data
-
-    // Verificar si la respuesta tiene la estructura esperada
-    if (!data || !data.collections || !data.collections.edges) {
-      console.error("Respuesta de colecciones incompleta:", data)
-      return []
-    }
+    const data = await shopifyClient.request(query, { first })
 
     // Transformar los datos para un formato más fácil de usar
     const collections = data.collections.edges.map((edge) => {
       const node = edge.node
-
-      // Calcular productsCount manualmente
-      const productsCount = node.products?.edges?.length || 0
-
       return {
-        id: extractIdFromGid(node.id),
+        id: node.id.split("/").pop(), // Extraer el ID numérico
         title: node.title,
         handle: node.handle,
-        description: node.description || node.descriptionHtml || "",
-        descriptionHtml: node.descriptionHtml || "",
-        productsCount: productsCount,
+        productsCount: node.productsCount?.count || 0,
         image: node.image,
+        products: node.products.edges.map((productEdge) => ({
+          id: productEdge.node.id.split("/").pop(),
+          title: productEdge.node.title,
+        })),
       }
     })
 
-    console.log(`Successfully fetched ${collections.length} collections`)
     return collections
   } catch (error) {
     console.error("Error al cargar colecciones:", error)
-    throw new Error(`Error al cargar colecciones: ${(error as Error).message}`)
+    throw new Error(`Error al cargar colecciones: ${error.message}`)
   }
 }
 
@@ -111,13 +64,16 @@ export async function fetchCollectionById(id) {
     // Asegurarse de que el ID tenga el formato correcto
     const formattedId = id.includes("gid://shopify/Collection/") ? id : `gid://shopify/Collection/${id}`
 
-    const query = `
-      query {
-        collection(id: "${formattedId}") {
+    const query = gql`
+      query GetCollection($id: ID!) {
+        collection(id: $id) {
           id
           title
           handle
           descriptionHtml
+          productsCount {
+            count
+          }
           image {
             url
             altText
@@ -146,34 +102,9 @@ export async function fetchCollectionById(id) {
       }
     `
 
-    // Usar el proxy en lugar de shopifyClient directamente
-    const response = await fetch("/api/shopify/proxy", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        query,
-      }),
-      cache: "no-store",
-    })
+    const data = await shopifyClient.request(query, { id: formattedId })
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`Error en la respuesta del proxy (${response.status}): ${errorText}`)
-      throw new Error(`Error ${response.status}: ${errorText}`)
-    }
-
-    const result = await response.json()
-
-    if (result.errors) {
-      console.error("Errores GraphQL:", result.errors)
-      throw new Error(result.errors[0]?.message || "Error en la consulta GraphQL")
-    }
-
-    const data = result.data
-
-    if (!data || !data.collection) {
+    if (!data.collection) {
       throw new Error(`No se encontró la colección con ID: ${id}`)
     }
 
@@ -183,7 +114,7 @@ export async function fetchCollectionById(id) {
       title: data.collection.title,
       handle: data.collection.handle,
       description: data.collection.descriptionHtml,
-      productsCount: data.collection.products?.edges?.length || 0,
+      productsCount: data.collection.productsCount?.count || 0,
       image: data.collection.image,
       products: data.collection.products.edges.map((edge) => ({
         id: edge.node.id.split("/").pop(),
@@ -200,9 +131,6 @@ export async function fetchCollectionById(id) {
     throw new Error(`Error al cargar la colección: ${error.message}`)
   }
 }
-
-// Alias para compatibilidad
-export const getCollectionById = fetchCollectionById
 
 // Función para crear una nueva colección
 export async function createCollection(collectionData) {

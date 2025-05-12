@@ -1,60 +1,62 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+"use client"
+
+import { Button } from "@/components/ui/button"
+import { ArrowLeft } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { SystemDiagnostics } from "@/components/system-diagnostics"
-import { ShopifyDiagnostics } from "@/components/shopify-diagnostics"
-import APIDiagnostics from "@/components/api-diagnostics"
 
 export default function DiagnosticsPage() {
+  const router = useRouter()
+
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Diagnósticos</h1>
-        <p className="text-muted-foreground">Verifica el estado del sistema y la conexión con Shopify</p>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4" />
+            <span className="sr-only">Volver</span>
+          </Button>
+          <h1 className="text-3xl font-bold tracking-tight">Diagnóstico del sistema</h1>
+        </div>
       </div>
 
-      <Tabs defaultValue="system">
-        <TabsList>
-          <TabsTrigger value="system">Sistema</TabsTrigger>
-          <TabsTrigger value="shopify">Shopify</TabsTrigger>
-          <TabsTrigger value="api">API</TabsTrigger>
-        </TabsList>
-        <TabsContent value="system" className="space-y-4">
-          <SystemDiagnostics />
-        </TabsContent>
-        <TabsContent value="shopify" className="space-y-4">
-          <ShopifyDiagnostics />
-        </TabsContent>
-        <TabsContent value="api" className="space-y-4">
-          <APIDiagnostics />
-        </TabsContent>
-      </Tabs>
+      <p className="text-muted-foreground">
+        Esta página ejecuta pruebas de diagnóstico para verificar que todos los componentes de la aplicación estén
+        funcionando correctamente.
+      </p>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Información del sistema</CardTitle>
-          <CardDescription>Detalles técnicos sobre la aplicación</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <div className="grid grid-cols-2 gap-2">
-              <div className="font-medium">Versión de Next.js</div>
-              <div>15.x</div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="font-medium">Versión de React</div>
-              <div>18.x</div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="font-medium">Entorno</div>
-              <div>Producción</div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="font-medium">API de Shopify</div>
-              <div>2023-07</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <SystemDiagnostics />
+
+      <div className="space-y-4 bg-blue-50 p-6 rounded-lg border border-blue-200">
+        <h2 className="text-xl font-semibold text-blue-800">Instrucciones para solucionar problemas</h2>
+
+        <div className="space-y-2">
+          <h3 className="font-medium text-blue-700">Si hay errores de conexión con Shopify:</h3>
+          <ul className="list-disc pl-5 text-blue-600 space-y-1">
+            <li>Verifica que las credenciales de Shopify sean correctas en las variables de entorno</li>
+            <li>Asegúrate de que la tienda esté activa y accesible</li>
+            <li>Comprueba que la API de Shopify esté funcionando correctamente</li>
+          </ul>
+        </div>
+
+        <div className="space-y-2">
+          <h3 className="font-medium text-blue-700">Si hay errores al cargar productos o colecciones:</h3>
+          <ul className="list-disc pl-5 text-blue-600 space-y-1">
+            <li>Verifica que existan productos o colecciones en tu tienda</li>
+            <li>Comprueba los permisos de la aplicación en Shopify</li>
+            <li>Revisa los logs del servidor para más detalles sobre el error</li>
+          </ul>
+        </div>
+
+        <div className="space-y-2">
+          <h3 className="font-medium text-blue-700">Si hay errores al cargar pedidos:</h3>
+          <ul className="list-disc pl-5 text-blue-600 space-y-1">
+            <li>Verifica que existan pedidos en tu tienda</li>
+            <li>Comprueba que la aplicación tenga permisos para acceder a los pedidos</li>
+            <li>Asegúrate de que la estructura de la API de pedidos sea compatible</li>
+          </ul>
+        </div>
+      </div>
     </div>
   )
 }

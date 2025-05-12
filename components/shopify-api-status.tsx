@@ -1,101 +1,188 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { CheckCircle2, AlertCircle, RefreshCw } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { checkShopifyConnection } from "@/lib/shopify"
-import { AlertCircle, CheckCircle, RefreshCw, Settings } from "lucide-react"
-import Link from "next/link"
 
 export function ShopifyApiStatus() {
-  const [status, setStatus] = useState({
-    checking: true,
-    connected: false,
-    error: null,
-    shopName: null,
-    missingVars: [],
-  })
+  const [status, setStatus] = useState<"loading" | "connected" | "error" | "hidden">("loading")
+  const [shopName, setShopName] = useState<string>("")
+  const [error, setError] = useState<string>("")
+  const [isChecking, setIsChecking] = useState(false)
+  const [hasData, setHasData] = useState(false)
+
+  // Verificar si hay datos en la página o si existe el mensaje de conexión exitosa
+  const checkForDataOrSuccessMessage = () => {
+    // Verificar si existe el mensaje de conexión exitosa
+    const successMessage = document.querySelector('[data-shopify-connected="true"]')
+    if (successMessage) {
+      setHasData(true)
+      return true
+    }
+
+    // Si estamos en la página de colecciones, verificar si hay colecciones
+    if (window.location.pathname.includes("/collections")) {
+      const collectionElements = document.querySelectorAll("[data-collection-item]")
+      if (collectionElements && collectionElements.length > 0) {
+        setHasData(true)
+        return true
+      }
+    }
+
+    // Si estamos en la página de productos, verificar si hay productos
+    if (window.location.pathname.includes("/products")) {
+      const productElements = document.querySelectorAll("[data-product-item]")
+      if (productElements && productElements.length > 0) {
+        setHasData(true)
+        return true
+      }
+    }
+
+    return false
+  }
 
   const checkConnection = async () => {
-    setStatus((prev) => ({ ...prev, checking: true }))
+    setIsChecking(true)
+    setStatus("loading")
+
     try {
-      const result = await checkShopifyConnection()
-      setStatus({
-        checking: false,
-        connected: result.connected || result.success,
-        error: result.error || null,
-        shopName: result.shop?.name || result.shopName,
-        missingVars: result.missingVars || [],
+      // Primero verificamos si hay datos en la página o mensaje de éxito
+      if (checkForDataOrSuccessMessage()) {
+        console.log("Se encontraron datos o mensaje de éxito, ocultando el estado de la API")
+        setStatus("hidden")
+        setIsChecking(false)
+        return
+      }
+
+      const response = await fetch("/api/shopify/check", {
+        method: "GET",
+        headers: {
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+        },
       })
-    } catch (error) {
-      setStatus({
-        checking: false,
-        connected: false,
-        error: error.message,
-        shopName: null,
-        missingVars: [],
-      })
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`)
+      }
+
+      // Intentar parsear la respuesta JSON
+      let data
+      try {
+        const text = await response.text()
+
+        if (!text) {
+          // Si no hay respuesta pero hay datos, ocultamos el estado
+          if (checkForDataOrSuccessMessage()) {
+            setStatus("hidden")
+            setIsChecking(false)
+            return
+          }
+
+          throw new Error("Respuesta vacía del servidor")
+        }
+
+        data = JSON.parse(text)
+      } catch (parseError) {
+        console.error("Error al parsear la respuesta:", parseError)
+
+        // Si hay un error pero hay datos, ocultamos el estado
+        if (checkForDataOrSuccessMessage()) {
+          setStatus("hidden")
+          setIsChecking(false)
+          return
+        }
+
+        setStatus("error")
+        setError(`Error al parsear la respuesta: ${(parseError as Error).message}`)
+        setIsChecking(false)
+        return
+      }
+
+      if (data.success) {
+        setStatus("connected")
+        setShopName(data.shopName || "")
+      } else {
+        // Si hay un error pero hay datos, ocultamos el estado
+        if (checkForDataOrSuccessMessage()) {
+          setStatus("hidden")
+          setIsChecking(false)
+          return
+        }
+
+        setStatus("error")
+        setError(data.error || "Error desconocido al conectar con Shopify")
+      }
+    } catch (err) {
+      console.error("Error al verificar la conexión con Shopify:", err)
+
+      // Si hay un error pero hay datos, ocultamos el estado
+      if (checkForDataOrSuccessMessage()) {
+        setStatus("hidden")
+        setIsChecking(false)
+        return
+      }
+
+      setStatus("error")
+      setError(`Error al verificar la conexión con Shopify: ${(err as Error).message}`)
+    } finally {
+      setIsChecking(false)
     }
   }
 
   useEffect(() => {
-    checkConnection()
+    // Esperar a que el DOM esté completamente cargado
+    const timer = setTimeout(() => {
+      checkConnection()
+    }, 1000)
+
+    return () => clearTimeout(timer)
   }, [])
 
-  if (status.checking) {
+  // Si el estado es "hidden", no mostramos nada
+  if (status === "hidden") {
+    return null
+  }
+
+  if (status === "loading") {
     return (
-      <Alert className="bg-blue-50 border-blue-200">
-        <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />
-        <AlertTitle className="text-blue-800">Verificando conexión con Shopify</AlertTitle>
-        <AlertDescription className="text-blue-700">Comprobando la conexión con la API de Shopify...</AlertDescription>
+      <Alert>
+        <RefreshCw className="h-4 w-4 animate-spin" />
+        <AlertTitle>Verificando conexión con Shopify</AlertTitle>
+        <AlertDescription>Estamos verificando la conexión con tu tienda Shopify...</AlertDescription>
       </Alert>
     )
   }
 
-  if (!status.connected) {
+  if (status === "error") {
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>Error de conexión con Shopify</AlertTitle>
         <AlertDescription className="flex flex-col gap-2">
-          <p>{status.error || "No se pudo conectar con la API de Shopify"}</p>
-          {status.missingVars && status.missingVars.length > 0 && (
-            <div>
-              <p>Faltan las siguientes variables de entorno:</p>
-              <ul className="list-disc pl-5">
-                {status.missingVars.map((variable) => (
-                  <li key={variable}>{variable}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          <div className="flex flex-col sm:flex-row gap-2 mt-2">
-            <Button variant="outline" size="sm" onClick={checkConnection}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Reintentar
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/dashboard/settings">
-                <Settings className="mr-2 h-4 w-4" />
-                Configurar variables
-              </Link>
-            </Button>
-          </div>
+          <p>{error}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={checkConnection}
+            disabled={isChecking}
+            className="w-fit flex items-center gap-2"
+          >
+            {isChecking ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Reintentar conexión
+          </Button>
         </AlertDescription>
       </Alert>
     )
   }
 
   return (
-    <Alert className="bg-green-50 border-green-200">
-      <CheckCircle className="h-4 w-4 text-green-600" />
-      <AlertTitle className="text-green-800">Conectado a Shopify - Tienda: {status.shopName}</AlertTitle>
-      <AlertDescription className="text-green-700 flex items-center justify-between">
-        <span>La conexión con la API de Shopify está funcionando correctamente.</span>
-        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
-          Conectado
-        </Badge>
+    <Alert variant="default" className="bg-green-50 border-green-200" data-shopify-connected="true">
+      <CheckCircle2 className="h-4 w-4 text-green-600" />
+      <AlertTitle className="text-green-800">Conectado a Shopify</AlertTitle>
+      <AlertDescription className="text-green-700">
+        Conexión establecida correctamente con la tienda: <strong>{shopName}</strong>
       </AlertDescription>
     </Alert>
   )

@@ -14,18 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/components/ui/use-toast"
 import { fetchCollectionById, updateCollection, deleteCollection } from "@/lib/api/collections"
-import {
-  ArrowLeft,
-  Save,
-  Tags,
-  AlertTriangle,
-  RefreshCw,
-  AlertCircle,
-  Plus,
-  Trash2,
-  Package,
-  Search,
-} from "lucide-react"
+import { ArrowLeft, Save, Tags, AlertTriangle, RefreshCw, AlertCircle, Plus, Trash2, Package } from "lucide-react"
 import { generateSeoMetafields } from "@/lib/seo-utils"
 import { SeoPreview } from "@/components/seo-preview"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -50,8 +39,6 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState("general")
-  const [searchTerm, setSearchTerm] = useState("")
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -157,22 +144,6 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
     }
   }
 
-  const handleProductsRefresh = () => {
-    fetchCollectionData()
-    toast({
-      title: "Productos actualizados",
-      description: "La lista de productos ha sido actualizada",
-    })
-  }
-
-  // Filtrar productos basados en el término de búsqueda
-  const filteredProducts =
-    collection?.products?.filter((product: any) => {
-      if (!searchTerm) return true
-      const searchLower = searchTerm.toLowerCase()
-      return product.title?.toLowerCase().includes(searchLower) || product.id?.toString().includes(searchLower)
-    }) || []
-
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -244,6 +215,33 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
           <h1 className="text-3xl font-bold tracking-tight">{collection.title}</h1>
         </div>
         <div className="flex gap-2">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" className="text-destructive">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Eliminar
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Esta acción no se puede deshacer. Esto eliminará permanentemente la colección.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="bg-destructive text-destructive-foreground"
+                >
+                  {isDeleting ? "Eliminando..." : "Eliminar"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
           <Button onClick={handleSubmit} disabled={isSaving}>
             <Save className="mr-2 h-4 w-4" />
             {isSaving ? "Guardando..." : "Guardar cambios"}
@@ -260,14 +258,11 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
         </AlertDescription>
       </Alert>
 
-      <Tabs defaultValue="general" value={activeTab} onValueChange={setActiveTab}>
+      <Tabs defaultValue="general">
         <TabsList>
           <TabsTrigger value="general">Información básica</TabsTrigger>
-          <TabsTrigger value="products">Productos ({collection.products?.length || 0})</TabsTrigger>
+          <TabsTrigger value="products">Productos</TabsTrigger>
           <TabsTrigger value="seo">SEO</TabsTrigger>
-          <TabsTrigger value="danger" className="text-red-500">
-            Zona de peligro
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
@@ -322,67 +317,53 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
                 <CardTitle>Productos en esta colección</CardTitle>
                 <CardDescription>Productos que pertenecen a esta colección</CardDescription>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => router.push(`/dashboard/collections/${params.id}/products`)}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Añadir productos
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push(`/dashboard/collections/${params.id}/products`)}
+              >
+                Gestionar productos
+              </Button>
             </CardHeader>
             <CardContent>
-              {collection.products && collection.products.length > 0 ? (
-                <>
-                  <div className="relative mb-4">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type="search"
-                      placeholder="Buscar productos en esta colección..."
-                      className="pl-8"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-
-                  {filteredProducts.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                      {filteredProducts.map((product: any) => (
-                        <div key={product.id} className="border rounded-md overflow-hidden">
-                          <div className="aspect-square relative">
-                            {product.image ? (
-                              <Image
-                                src={product.image.url || "/placeholder.svg"}
-                                alt={product.title}
-                                fill
-                                className="object-cover"
-                              />
-                            ) : (
-                              <div className="h-full w-full flex items-center justify-center bg-muted">
-                                <Package className="h-12 w-12 text-muted-foreground" />
-                              </div>
-                            )}
+              {collection.products?.edges.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {collection.products.edges.map((edge: any) => (
+                    <div key={edge.node.id} className="border rounded-md overflow-hidden">
+                      <div className="aspect-square relative">
+                        {edge.node.featuredImage ? (
+                          <Image
+                            src={edge.node.featuredImage.url || "/placeholder.svg"}
+                            alt={edge.node.title}
+                            fill
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center bg-muted">
+                            <Package className="h-12 w-12 text-muted-foreground" />
                           </div>
-                          <div className="p-3">
-                            <h3 className="font-medium truncate">{product.title}</h3>
-                            <div className="flex items-center justify-between mt-2">
-                              <span className="text-sm font-medium">{product.price || "0,00"} €</span>
-                              <Button variant="ghost" size="sm" asChild className="ml-auto">
-                                <a href={`/dashboard/products/${product.id.split("/").pop()}`}>Ver</a>
-                              </Button>
-                            </div>
-                          </div>
+                        )}
+                      </div>
+                      <div className="p-3">
+                        <h3 className="font-medium truncate">{edge.node.title}</h3>
+                        <div className="flex items-center justify-between mt-2">
+                          <span
+                            className={`text-xs px-2 py-1 rounded-full ${
+                              edge.node.status === "ACTIVE"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-gray-100 text-gray-800"
+                            }`}
+                          >
+                            {edge.node.status === "ACTIVE" ? "Visible" : "Oculto"}
+                          </span>
+                          <Button variant="ghost" size="sm" asChild className="ml-auto">
+                            <a href={`/dashboard/products/${edge.node.id.split("/").pop()}`}>Ver</a>
+                          </Button>
                         </div>
-                      ))}
+                      </div>
                     </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground">No se encontraron productos con ese término de búsqueda.</p>
-                    </div>
-                  )}
-                </>
+                  ))}
+                </div>
               ) : (
                 <div className="text-center py-12 border-2 border-dashed rounded-lg">
                   <Tags className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -396,7 +377,6 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
             </CardContent>
           </Card>
         </TabsContent>
-
         <TabsContent value="seo">
           <CollectionSeoForm
             collectionId={params.id}
@@ -404,58 +384,6 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
             collectionDescription={formData.description}
             collectionImage={collection.image?.url}
           />
-        </TabsContent>
-
-        <TabsContent value="danger">
-          <Card className="border-red-200">
-            <CardHeader className="bg-red-50">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-red-600" />
-                <CardTitle className="text-red-800">Zona de peligro</CardTitle>
-              </div>
-              <CardDescription className="text-red-700">
-                Las acciones en esta sección son irreversibles. Ten cuidado.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                <div className="border border-red-200 rounded-md p-4 bg-red-50">
-                  <h3 className="font-medium text-red-800 mb-2">Eliminar colección</h3>
-                  <p className="text-sm text-red-700 mb-4">
-                    Esta acción eliminará permanentemente la colección "{collection.title}". Los productos no serán
-                    eliminados, solo se desasociarán de esta colección.
-                  </p>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive">
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Eliminar colección
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Esta acción no se puede deshacer. Esto eliminará permanentemente la colección "
-                          {collection.title}" y la desasociará de todos los productos.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={handleDelete}
-                          disabled={isDeleting}
-                          className="bg-destructive text-destructive-foreground"
-                        >
-                          {isDeleting ? "Eliminando..." : "Eliminar"}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
     </div>
