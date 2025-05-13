@@ -1,11 +1,12 @@
 "use client"
 
-export const dynamic = "force-dynamic"
-
 import type React from "react"
+
+export const dynamic = "force-dynamic"
 
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import { AlertCircle, CheckCircle2, Loader2, Shield, Trash2, UserPlus, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -29,9 +30,8 @@ import { Badge } from "@/components/ui/badge"
 import type { Administrador } from "@/lib/auth-service"
 
 export default function AdministradoresPage() {
-  const session = useSession()
-  const sessionData = session?.data
-  const status = session?.status || "loading"
+  const { data: session, status } = useSession()
+  const router = useRouter()
   const [administradores, setAdministradores] = useState<Administrador[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -50,25 +50,23 @@ export default function AdministradoresPage() {
   const [submitting, setSubmitting] = useState(false)
 
   // Verificar si el usuario tiene permisos de superadmin
-  const isSuperAdmin = sessionData?.user?.role === "superadmin"
+  const isSuperAdmin = session?.user?.role === "superadmin"
 
   useEffect(() => {
     if (status === "loading") return
 
-    if (!sessionData) {
-      // Redirigir a login si no hay sesión
-      window.location.href = "/login"
+    if (status === "unauthenticated") {
+      router.push("/login")
       return
     }
 
-    if (sessionData.user.role !== "superadmin") {
-      // No cargar datos si no es superadmin
+    if (session?.user?.role !== "superadmin") {
       setLoading(false)
       return
     }
 
     fetchAdministradores()
-  }, [sessionData, status])
+  }, [session, status, router])
 
   const fetchAdministradores = async () => {
     setLoading(true)
@@ -276,8 +274,13 @@ export default function AdministradoresPage() {
     )
   }
 
+  // Redirigir si no está autenticado
+  if (status === "unauthenticated") {
+    return null // No renderizar nada, useEffect se encargará de redirigir
+  }
+
   // Redirigir si no es superadmin
-  if (sessionData && sessionData.user && sessionData.user.role !== "superadmin") {
+  if (session && session.user && session.user.role !== "superadmin") {
     return (
       <div className="container mx-auto py-10">
         <Alert variant="destructive">
@@ -295,20 +298,20 @@ export default function AdministradoresPage() {
 
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Administradores</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-primary">Administradores</h1>
           <p className="text-muted-foreground">Gestiona los usuarios administradores del sistema</p>
         </div>
 
         <Dialog open={openDialog} onOpenChange={setOpenDialog}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="bg-primary hover:bg-primary/90 text-white">
               <UserPlus className="mr-2 h-4 w-4" />
               Nuevo Administrador
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Crear Nuevo Administrador</DialogTitle>
+              <DialogTitle className="text-primary">Crear Nuevo Administrador</DialogTitle>
               <DialogDescription>Completa el formulario para crear un nuevo administrador.</DialogDescription>
             </DialogHeader>
 
@@ -410,7 +413,7 @@ export default function AdministradoresPage() {
                 <Button variant="outline" type="button" onClick={() => setOpenDialog(false)} disabled={submitting}>
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={submitting}>
+                <Button type="submit" disabled={submitting} className="bg-primary hover:bg-primary/90 text-white">
                   {submitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -435,11 +438,11 @@ export default function AdministradoresPage() {
       )}
 
       <Card>
-        <CardHeader>
-          <CardTitle>Lista de Administradores</CardTitle>
+        <CardHeader className="border-b">
+          <CardTitle className="text-primary">Lista de Administradores</CardTitle>
           <CardDescription>Administra los usuarios con acceso al sistema</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           {loading ? (
             <div className="space-y-4">
               {[...Array(3)].map((_, i) => (
@@ -454,9 +457,9 @@ export default function AdministradoresPage() {
             </div>
           ) : administradores.length === 0 ? (
             <div className="text-center py-10">
-              <Shield className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
+              <Shield className="mx-auto h-12 w-12 text-primary opacity-50" />
               <p className="mt-4 text-lg text-muted-foreground">No hay administradores registrados</p>
-              <Button className="mt-4" onClick={() => setOpenDialog(true)}>
+              <Button className="mt-4 bg-primary hover:bg-primary/90 text-white" onClick={() => setOpenDialog(true)}>
                 <UserPlus className="mr-2 h-4 w-4" />
                 Crear primer administrador
               </Button>
@@ -481,7 +484,10 @@ export default function AdministradoresPage() {
                     <TableCell>{admin.correo_electronico}</TableCell>
                     <TableCell>{admin.nombre_completo || "-"}</TableCell>
                     <TableCell>
-                      <Badge variant={admin.rol === "superadmin" ? "default" : "outline"}>
+                      <Badge
+                        variant={admin.rol === "superadmin" ? "default" : "outline"}
+                        className={admin.rol === "superadmin" ? "bg-primary border-primary" : ""}
+                      >
                         {admin.rol === "superadmin" ? "Super Admin" : "Admin"}
                       </Badge>
                     </TableCell>
@@ -511,7 +517,8 @@ export default function AdministradoresPage() {
                           size="icon"
                           onClick={() => handleToggleActive(admin.id, admin.activo)}
                           title={admin.activo ? "Desactivar" : "Activar"}
-                          disabled={admin.id.toString() === sessionData?.user?.id}
+                          disabled={admin.id.toString() === session?.user?.id}
+                          className="border-primary text-primary hover:bg-primary/10"
                         >
                           {admin.activo ? (
                             <XCircle className="h-4 w-4 text-red-500" />
@@ -524,7 +531,8 @@ export default function AdministradoresPage() {
                           size="icon"
                           onClick={() => confirmDelete(admin.id)}
                           title="Eliminar"
-                          disabled={admin.id.toString() === sessionData?.user?.id}
+                          disabled={admin.id.toString() === session?.user?.id}
+                          className="border-primary text-primary hover:bg-primary/10"
                         >
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
@@ -541,7 +549,7 @@ export default function AdministradoresPage() {
       <Dialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirmar Eliminación</DialogTitle>
+            <DialogTitle className="text-primary">Confirmar Eliminación</DialogTitle>
             <DialogDescription>
               ¿Estás seguro de que deseas eliminar este administrador? Esta acción no se puede deshacer.
             </DialogDescription>

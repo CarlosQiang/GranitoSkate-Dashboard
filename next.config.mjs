@@ -5,11 +5,10 @@ const nextConfig = {
     domains: ['cdn.shopify.com', 'res.cloudinary.com'],
     unoptimized: true,
   },
-  // Configuración para evitar errores en la compilación
-  experimental: {
-    // Opciones experimentales actualizadas para Next.js 15
-    serverComponentsExternalPackages: ['@neondatabase/serverless'],
-  },
+  // Configuración correcta para Next.js 15
+  experimental: {},
+  // Mover serverComponentsExternalPackages a la raíz como serverExternalPackages
+  serverExternalPackages: ['@neondatabase/serverless'],
   eslint: {
     ignoreDuringBuilds: true,
   },

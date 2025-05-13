@@ -4,7 +4,8 @@ import type React from "react"
 
 import { useState } from "react"
 import { signIn } from "next-auth/react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,13 +15,8 @@ import { AlertCircle, Loader2 } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-
-  // Obtener error de la URL si existe
-  const errorFromUrl = searchParams.get("error")
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard"
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -36,13 +32,10 @@ export default function LoginPage() {
         identifier,
         password,
         redirect: false,
-        callbackUrl,
       })
 
       if (result?.error) {
         setError("Credenciales incorrectas")
-      } else if (result?.url) {
-        router.push(result.url)
       } else {
         router.push("/dashboard")
       }
@@ -53,31 +46,31 @@ export default function LoginPage() {
     }
   }
 
-  // Determinar mensaje de error a mostrar
-  const errorMessage = errorFromUrl
-    ? errorFromUrl === "CredentialsSignin"
-      ? "Credenciales incorrectas"
-      : "Error al iniciar sesión"
-    : error
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">GestionGranito</CardTitle>
-          <CardDescription>Inicia sesión para acceder al panel de administración</CardDescription>
+      <Card className="w-full max-w-md border-t-4 border-primary shadow-lg">
+        <CardHeader className="space-y-1 flex flex-col items-center">
+          <div className="w-32 h-32 relative mb-4">
+            <Image src="/logo.png" alt="GestionGranito Logo" fill style={{ objectFit: "contain" }} priority />
+          </div>
+          <CardTitle className="text-2xl font-bold text-center text-primary">GestionGranito</CardTitle>
+          <CardDescription className="text-center">
+            Inicia sesión para acceder al panel de administración
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {errorMessage && (
+          {error && (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{errorMessage}</AlertDescription>
+              <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="identifier">Email o Usuario</Label>
+              <Label htmlFor="identifier" className="text-gray-700">
+                Email o Usuario
+              </Label>
               <Input
                 id="identifier"
                 name="identifier"
@@ -85,11 +78,14 @@ export default function LoginPage() {
                 autoComplete="username"
                 required
                 placeholder="Introduce tu email o nombre de usuario"
+                className="border-gray-300 focus:border-primary focus:ring-primary"
               />
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password">Contraseña</Label>
+                <Label htmlFor="password" className="text-gray-700">
+                  Contraseña
+                </Label>
               </div>
               <Input
                 id="password"
@@ -98,9 +94,10 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 required
                 placeholder="Introduce tu contraseña"
+                className="border-gray-300 focus:border-primary focus:ring-primary"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white" disabled={loading}>
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

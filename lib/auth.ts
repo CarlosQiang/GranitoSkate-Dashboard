@@ -1,14 +1,6 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { verificarCredenciales } from "./auth-service"
-import { initializeDatabase } from "./db"
-
-// Inicializar la base de datos al cargar el módulo (solo en el servidor)
-if (typeof window === "undefined") {
-  initializeDatabase().catch((error) => {
-    console.error("Error al inicializar la base de datos", error)
-  })
-}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -100,5 +92,4 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60, // 30 días
   },
   secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === "development",
 }
