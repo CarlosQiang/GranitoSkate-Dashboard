@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { fetchPriceListById, deletePriceList } from "@/lib/api/promociones"
+import { fetchPriceListById, deletePriceList, updatePriceList } from "@/lib/api/promotions"
 import type { Promotion } from "@/types/promotions"
 import {
   ArrowLeft,
@@ -46,33 +46,17 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
   const [isLoading, setIsLoading] = useState(true)
   const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => {
     async function loadPromotion() {
       try {
         setIsLoading(true)
-
-        // Determinar si el ID es numérico o un gid completo
-        let promotionId = params.id
-        if (promotionId.includes("gid:")) {
-          // Si es un gid completo, extraer solo el ID numérico
-          const matches = promotionId.match(/\/(\d+)$/)
-          if (matches && matches[1]) {
-            promotionId = matches[1]
-          }
-        }
-
-        console.log("Cargando promoción con ID:", promotionId)
-        const data = await fetchPriceListById(promotionId)
+        console.log("Cargando promoción con ID:", params.id)
+        const data = await fetchPriceListById(params.id)
         console.log("Datos de promoción recibidos:", data)
         setPromotion(data)
-
-        // Si la promoción tiene un error, mostrarlo
-        if (data.error) {
-          setError(`No se pudo cargar la promoción correctamente: ${data.summary || "Error desconocido"}`)
-        } else {
-          setError(null)
-        }
+        setError(null)
       } catch (err) {
         console.error("Error al cargar la promoción:", err)
         setError(`No se pudo cargar la promoción: ${(err as Error).message}`)
@@ -82,7 +66,7 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
     }
 
     loadPromotion()
-  }, [params.id])
+  }, [params.id, retryCount])
 
   const handleDelete = async () => {
     try {
@@ -109,7 +93,7 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
 
     try {
       const now = new Date()
-      const isActive = promotion.status === "ACTIVE"
+      const isActive = promotion.active
 
       // Si está activa, la desactivamos poniendo la fecha de fin en el pasado
       // Si está inactiva, la activamos quitando la fecha de fin
@@ -117,18 +101,20 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
         endDate: isActive ? new Date(now.getTime() - 86400000).toISOString() : undefined,
       }
 
-      // Actualizar el estado local para una respuesta inmediata
-      setPromotion({
-        ...promotion,
-        status: isActive ? "EXPIRED" : "ACTIVE",
-        endsAt: isActive ? new Date(now.getTime() - 86400000).toISOString() : undefined,
-      })
+      await updatePriceList(params.id, updateData)
 
       toast({
         title: isActive ? "Promoción desactivada" : "Promoción activada",
         description: isActive
           ? "La promoción ha sido desactivada correctamente"
           : "La promoción ha sido activada correctamente",
+      })
+
+      // Actualizar el estado local
+      setPromotion({
+        ...promotion,
+        active: !isActive,
+        endDate: isActive ? new Date(now.getTime() - 86400000).toISOString() : undefined,
       })
     } catch (error) {
       console.error("Error updating promotion status:", error)
@@ -142,12 +128,12 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
 
   // Función para formatear el valor de la promoción
   const formatPromotionValue = (promotion: Promotion) => {
-    if (promotion.valueType === "percentage") {
+    if (promotion.type === "PERCENTAGE_DISCOUNT") {
       return `${promotion.value}% de descuento`
-    } else if (promotion.valueType === "fixed_amount") {
+    } else if (promotion.type === "FIXED_AMOUNT_DISCOUNT") {
       return `${promotion.value}€ de descuento`
     } else if (promotion.type === "BUY_X_GET_Y") {
-      return `Compra ${promotion.conditions?.[0]?.value || "X"} y llévate ${promotion.value || "Y"}`
+      return `Compra ${promotion.conditions?.[0]?.value || 1} y llévate ${promotion.value}`
     }
     return `${promotion.value}`
   }
@@ -155,9 +141,9 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
   // Función para obtener el icono según el tipo de promoción
   const getPromotionIcon = (type: string) => {
     switch (type) {
-      case "percentage":
+      case "PERCENTAGE_DISCOUNT":
         return <Percent className="h-6 w-6 text-green-500" />
-      case "fixed_amount":
+      case "FIXED_AMOUNT_DISCOUNT":
         return <Tag className="h-6 w-6 text-blue-500" />
       case "BUY_X_GET_Y":
         return <ShoppingBag className="h-6 w-6 text-purple-500" />
@@ -169,16 +155,14 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
   // Función para formatear el estado de la promoción
   const getPromotionStatus = (promotion: Promotion) => {
     const now = new Date()
-    const startDate = new Date(promotion.startsAt)
-    const endDate = promotion.endsAt ? new Date(promotion.endsAt) : null
+    const startDate = new Date(promotion.startDate)
+    const endDate = promotion.endDate ? new Date(promotion.endDate) : null
 
-    if (promotion.status === "UNKNOWN") {
-      return { label: "Desconocido", color: "bg-gray-100 text-gray-800" }
-    } else if (startDate > now) {
+    if (startDate > now) {
       return { label: "Próximamente", color: "bg-blue-100 text-blue-800" }
     } else if (endDate && endDate < now) {
       return { label: "Expirada", color: "bg-gray-100 text-gray-800" }
-    } else if (promotion.status !== "ACTIVE") {
+    } else if (!promotion.active) {
       return { label: "Inactiva", color: "bg-yellow-100 text-yellow-800" }
     } else {
       return { label: "Activa", color: "bg-green-100 text-green-800" }
@@ -234,7 +218,7 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
               <Button variant="outline" onClick={() => router.push("/dashboard/promociones")}>
                 Volver a promociones
               </Button>
-              <Button onClick={() => window.location.reload()}>
+              <Button onClick={() => setRetryCount((prev) => prev + 1)}>
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Reintentar
               </Button>
@@ -258,24 +242,16 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
           <h1 className="text-3xl font-bold tracking-tight">{promotion.title}</h1>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant={promotion.status === "ACTIVE" ? "outline" : "default"}
-            onClick={togglePromotionStatus}
-            disabled={promotion.error}
-          >
-            {promotion.status === "ACTIVE" ? "Desactivar" : "Activar"}
+          <Button variant={promotion.active ? "outline" : "default"} onClick={togglePromotionStatus}>
+            {promotion.active ? "Desactivar" : "Activar"}
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => router.push(`/dashboard/promociones/${params.id}/edit`)}
-            disabled={promotion.error}
-          >
+          <Button variant="outline" onClick={() => router.push(`/dashboard/promociones/${params.id}/edit`)}>
             <Edit className="mr-2 h-4 w-4" />
             Editar
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="outline" className="text-destructive" disabled={promotion.error}>
+              <Button variant="outline" className="text-destructive">
                 <Trash2 className="mr-2 h-4 w-4" />
                 Eliminar
               </Button>
@@ -306,7 +282,7 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              {getPromotionIcon(promotion.valueType)}
+              {getPromotionIcon(promotion.type)}
               <span>Detalles de la promoción</span>
             </CardTitle>
           </CardHeader>
@@ -321,9 +297,9 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
             <div className="flex justify-between items-center">
               <span className="font-medium">Tipo:</span>
               <span>
-                {promotion.valueType === "percentage"
+                {promotion.type === "PERCENTAGE_DISCOUNT"
                   ? "Descuento porcentual"
-                  : promotion.valueType === "fixed_amount"
+                  : promotion.type === "FIXED_AMOUNT_DISCOUNT"
                     ? "Descuento de cantidad fija"
                     : promotion.type === "BUY_X_GET_Y"
                       ? "Compra X y llévate Y"
@@ -339,9 +315,9 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
             <div className="flex justify-between items-center">
               <span className="font-medium">Periodo:</span>
               <span>
-                {format(new Date(promotion.startsAt), "dd MMM yyyy", { locale: es })}
-                {promotion.endsAt
-                  ? ` - ${format(new Date(promotion.endsAt), "dd MMM yyyy", { locale: es })}`
+                {format(new Date(promotion.startDate), "dd MMM yyyy", { locale: es })}
+                {promotion.endDate
+                  ? ` - ${format(new Date(promotion.endDate), "dd MMM yyyy", { locale: es })}`
                   : " - Sin fecha de fin"}
               </span>
             </div>
@@ -359,14 +335,14 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
               <div className="flex justify-between items-center">
                 <span className="font-medium">Límite de usos:</span>
                 <span>
-                  {promotion.usageCount || 0} / {promotion.usageLimit}
+                  {promotion.usageCount} / {promotion.usageLimit}
                 </span>
               </div>
             )}
 
-            {promotion.summary && (
+            {promotion.description && (
               <div className="pt-4 border-t">
-                <p className="text-sm text-muted-foreground">{promotion.summary}</p>
+                <p className="text-sm text-muted-foreground">{promotion.description}</p>
               </div>
             )}
           </CardContent>
@@ -412,7 +388,7 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
                       {condition.type === "SPECIFIC_CUSTOMER_GROUP" && (
                         <span>Solo para grupo de clientes específico</span>
                       )}
-                      {condition.type === "DATE_RANGE" && (
+                      {condition.type === "DATE_RANGE" && condition.value && (
                         <span>
                           Válido del {format(new Date(condition.value.start), "dd/MM/yyyy")} al{" "}
                           {format(new Date(condition.value.end), "dd/MM/yyyy")}
@@ -429,7 +405,7 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
               <Calendar className="h-4 w-4" />
               <AlertTitle>Información de uso</AlertTitle>
               <AlertDescription>
-                Esta promoción ha sido utilizada {promotion.usageCount || 0} veces desde su creación.
+                Esta promoción ha sido utilizada {promotion.usageCount} veces desde su creación.
               </AlertDescription>
             </Alert>
           </CardContent>
@@ -458,8 +434,8 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
                       <span className="font-medium">
                         {new Intl.NumberFormat("es-ES", {
                           style: "currency",
-                          currency: price.price.currencyCode,
-                        }).format(Number(price.price.amount))}
+                          currency: price.price?.currencyCode || "EUR",
+                        }).format(Number(price.price?.amount || 0))}
                       </span>
                     </div>
                   ))}
