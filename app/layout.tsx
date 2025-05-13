@@ -2,12 +2,13 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import { SessionProvider } from "@/components/session-provider"
+import { ThemeProvider } from "@/components/theme-provider"
+import { AuthProvider } from "@/components/providers"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "GestionGranito - Panel de Administración",
+  title: "GestionGranito Dashboard",
   description: "Panel de administración para GestionGranito",
     generator: 'v0.dev'
 }
@@ -20,7 +21,9 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <body className={inter.className}>
-        <SessionProvider>{children}</SessionProvider>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+          <AuthProvider>{children}</AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

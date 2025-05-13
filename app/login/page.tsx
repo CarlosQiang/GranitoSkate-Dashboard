@@ -48,12 +48,19 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md border-t-4 border-primary shadow-lg">
+      <Card className="w-full max-w-md border-t-4 border-[#c59d45] shadow-lg">
         <CardHeader className="space-y-1 flex flex-col items-center">
           <div className="w-32 h-32 relative mb-4">
-            <Image src="/logo.png" alt="GestionGranito Logo" fill style={{ objectFit: "contain" }} priority />
+            <Image
+              src="/logo.png"
+              alt="GestionGranito Logo"
+              width={128}
+              height={128}
+              style={{ objectFit: "contain" }}
+              priority
+            />
           </div>
-          <CardTitle className="text-2xl font-bold text-center text-primary">GestionGranito</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center text-[#c59d45]">GestionGranito</CardTitle>
           <CardDescription className="text-center">
             Inicia sesión para acceder al panel de administración
           </CardDescription>
@@ -78,7 +85,7 @@ export default function LoginPage() {
                 autoComplete="username"
                 required
                 placeholder="Introduce tu email o nombre de usuario"
-                className="border-gray-300 focus:border-primary focus:ring-primary"
+                className="border-gray-300 focus:border-[#c59d45] focus:ring-[#c59d45]"
               />
             </div>
             <div className="space-y-2">
@@ -94,10 +101,10 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 required
                 placeholder="Introduce tu contraseña"
-                className="border-gray-300 focus:border-primary focus:ring-primary"
+                className="border-gray-300 focus:border-[#c59d45] focus:ring-[#c59d45]"
               />
             </div>
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white" disabled={loading}>
+            <Button type="submit" className="w-full bg-[#c59d45] hover:bg-[#c59d45]/90 text-white" disabled={loading}>
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

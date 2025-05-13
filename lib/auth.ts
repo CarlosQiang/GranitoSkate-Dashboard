@@ -1,6 +1,14 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { verificarCredenciales } from "./auth-service"
+import { initializeDatabase } from "./db"
+
+// Inicializar la base de datos al cargar el módulo (solo en el servidor)
+if (typeof window === "undefined") {
+  initializeDatabase().catch((error) => {
+    console.error("Error al inicializar la base de datos", error)
+  })
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
