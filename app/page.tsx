@@ -2,10 +2,16 @@ import Link from "next/link"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
-import { FileText, LogIn, LayoutDashboard } from "lucide-react"
+import { LogIn } from "lucide-react"
+import { redirect } from "next/navigation"
 
 export default async function Home() {
   const session = await getServerSession(authOptions)
+
+  // Si el usuario ya está autenticado, redirigir al dashboard
+  if (session) {
+    redirect("/dashboard")
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -19,24 +25,15 @@ export default async function Home() {
             <span className="text-xl font-bold">GranitoSkate</span>
           </div>
           <div>
-            {session ? (
-              <Link href="/dashboard">
-                <Button className="bg-granito hover:bg-granito-dark flex items-center gap-2">
-                  <LayoutDashboard className="h-4 w-4" />
-                  Dashboard
-                </Button>
-              </Link>
-            ) : (
-              <Link href="/login">
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-2 border-granito text-granito hover:bg-granito hover:text-white"
-                >
-                  <LogIn className="h-4 w-4" />
-                  Iniciar sesión
-                </Button>
-              </Link>
-            )}
+            <Link href="/login">
+              <Button
+                variant="outline"
+                className="flex items-center gap-2 border-granito text-granito hover:bg-granito hover:text-white"
+              >
+                <LogIn className="h-4 w-4" />
+                Iniciar sesión
+              </Button>
+            </Link>
           </div>
         </div>
       </header>
@@ -48,30 +45,11 @@ export default async function Home() {
           <p className="text-xl text-gray-600 mb-10 max-w-3xl mx-auto">
             Gestiona tu tienda Shopify de manera eficiente con nuestro panel de administración personalizado.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            {session ? (
-              <Link href="/dashboard">
-                <Button size="lg" className="bg-granito hover:bg-granito-dark flex items-center gap-2">
-                  <LayoutDashboard className="h-5 w-5" />
-                  Ir al Dashboard
-                </Button>
-              </Link>
-            ) : (
-              <Link href="/login">
-                <Button size="lg" className="bg-granito hover:bg-granito-dark flex items-center gap-2">
-                  <LogIn className="h-5 w-5" />
-                  Iniciar sesión
-                </Button>
-              </Link>
-            )}
-            <Link href="/docs">
-              <Button
-                size="lg"
-                variant="outline"
-                className="flex items-center gap-2 border-granito text-granito hover:bg-granito hover:text-white"
-              >
-                <FileText className="h-5 w-5" />
-                Documentación
+          <div className="flex justify-center">
+            <Link href="/login">
+              <Button size="lg" className="bg-granito hover:bg-granito-dark flex items-center gap-2">
+                <LogIn className="h-5 w-5" />
+                Iniciar sesión
               </Button>
             </Link>
           </div>

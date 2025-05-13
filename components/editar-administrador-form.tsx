@@ -13,15 +13,24 @@ import { AlertCircle, Loader2 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from "next/link"
 
-export default function NuevoAdministradorForm() {
+interface Administrador {
+  id: string
+  nombre_usuario: string
+  correo_electronico: string
+  nombre_completo: string | null
+  rol: string
+  activo: boolean
+}
+
+export default function EditarAdministradorForm({ administrador }: { administrador: Administrador }) {
   const router = useRouter()
   const [formData, setFormData] = useState({
-    nombre_usuario: "",
-    correo_electronico: "",
+    nombre_usuario: administrador.nombre_usuario,
+    correo_electronico: administrador.correo_electronico,
     contrasena: "",
-    nombre_completo: "",
-    rol: "admin",
-    activo: true,
+    nombre_completo: administrador.nombre_completo || "",
+    rol: administrador.rol,
+    activo: administrador.activo,
   })
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
@@ -45,8 +54,8 @@ export default function NuevoAdministradorForm() {
     setLoading(true)
 
     try {
-      const response = await fetch("/api/administradores", {
-        method: "POST",
+      const response = await fetch(`/api/administradores/${administrador.id}`, {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
@@ -56,13 +65,13 @@ export default function NuevoAdministradorForm() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Error al crear el administrador")
+        throw new Error(data.error || "Error al actualizar el administrador")
       }
 
       router.push("/dashboard/administradores")
       router.refresh()
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Error al crear el administrador")
+      setError(error instanceof Error ? error.message : "Error al actualizar el administrador")
     } finally {
       setLoading(false)
     }
@@ -102,14 +111,13 @@ export default function NuevoAdministradorForm() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="contrasena">Contraseña</Label>
+          <Label htmlFor="contrasena">Nueva contraseña (dejar en blanco para mantener la actual)</Label>
           <Input
             id="contrasena"
             name="contrasena"
             type="password"
             value={formData.contrasena}
             onChange={handleChange}
-            required
           />
         </div>
 
@@ -161,7 +169,7 @@ export default function NuevoAdministradorForm() {
               Guardando...
             </>
           ) : (
-            "Guardar"
+            "Guardar cambios"
           )}
         </Button>
       </div>

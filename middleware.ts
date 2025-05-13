@@ -14,7 +14,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Rutas públicas que no requieren autenticación
-  const publicRoutes = ["/", "/login", "/docs"]
+  const publicRoutes = ["/", "/login"]
   if (publicRoutes.includes(request.nextUrl.pathname)) {
     return NextResponse.next()
   }
@@ -30,6 +30,11 @@ export async function middleware(request: NextRequest) {
     const url = new URL("/login", request.url)
     url.searchParams.set("callbackUrl", encodeURI(request.url))
     return NextResponse.redirect(url)
+  }
+
+  // Redirigir a dashboard si está autenticado e intenta acceder a /docs
+  if (token && request.nextUrl.pathname.startsWith("/docs")) {
+    return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
   return NextResponse.next()

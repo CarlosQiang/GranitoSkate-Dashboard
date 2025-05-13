@@ -10,6 +10,7 @@ import {
   Globe,
   Search,
   AlertTriangle,
+  UserCog,
 } from "lucide-react"
 
 // Exportamos navigationItems para mantener compatibilidad con el código existente
@@ -66,10 +67,10 @@ export const navigationItems = [
     icon: Settings,
   },
   {
-    title: "Monitorización SEO",
-    href: "/dashboard/seo/monitoring",
-    icon: "barChart2",
-    description: "Monitoriza el rendimiento SEO de tu tienda",
+    name: "Administradores",
+    href: "/dashboard/administradores",
+    icon: UserCog,
+    isNew: true,
   },
 ]
 
@@ -149,5 +150,11 @@ export const settingsNav = [
     href: "/dashboard/diagnostics",
     icon: AlertTriangle,
     color: "text-amber-500",
+  },
+  {
+    title: "Administradores",
+    href: "/dashboard/administradores",
+    icon: UserCog,
+    color: "text-granito",
   },
 ]
