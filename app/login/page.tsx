@@ -3,8 +3,8 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { signIn } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -39,7 +39,7 @@ export default function LoginPage() {
       }
 
       if (result?.ok) {
-        router.push("/dashboard")
+        router.push("/dashboard/overview")
         router.refresh()
       }
     } catch (error) {
@@ -52,7 +52,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center justify-center text-center">
-          <Image src="/logo.png" alt="GestionGranito Logo" width={80} height={80} className="h-20 w-20" priority />
+          <Image src="/favicon.ico" alt="GestionGranito Logo" width={80} height={80} className="h-20 w-20" priority />
           <h2 className="mt-4 text-2xl font-bold text-gray-900">GestionGranito</h2>
           <p className="mt-2 text-sm text-gray-600">Panel de administración</p>
         </div>

@@ -1,10 +1,10 @@
 import { Loader2 } from "lucide-react"
 
-export default function LoginLoading() {
+export default function Loading() {
   return (
     <div className="flex h-screen w-full items-center justify-center">
       <Loader2 className="h-8 w-8 animate-spin text-[#c59d45]" />
-      <span className="ml-2 text-lg">Cargando página de login...</span>
+      <span className="ml-2 text-lg">Cargando...</span>
     </div>
   )
 }

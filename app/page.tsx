@@ -9,7 +9,7 @@ export default function HomePage() {
       <header className="border-b">
         <div className="container flex h-16 items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-2">
-            <Image src="/logo.png" alt="GestionGranito Logo" width={40} height={40} className="h-10 w-10" priority />
+            <Image src="/favicon.ico" alt="GestionGranito Logo" width={40} height={40} className="h-10 w-10" priority />
             <span className="text-xl font-bold text-[#c59d45]">GestionGranito</span>
           </div>
           <div className="flex items-center gap-4">
@@ -46,7 +46,7 @@ export default function HomePage() {
         <div className="container flex flex-col gap-4 py-10 px-4 md:px-6">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <Image src="/logo.png" alt="GestionGranito Logo" width={30} height={30} className="h-8 w-8" />
+              <Image src="/favicon.ico" alt="GestionGranito Logo" width={30} height={30} className="h-8 w-8" />
               <span className="text-lg font-bold text-[#c59d45]">GestionGranito</span>
             </div>
             <p className="text-sm text-gray-500">© 2024 GestionGranito. Todos los derechos reservados.</p>

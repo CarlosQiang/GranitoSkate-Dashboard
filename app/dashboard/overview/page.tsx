@@ -1,49 +1,83 @@
 "use client"
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { Loader2 } from "lucide-react"
+import { redirect } from "next/navigation"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function DashboardOverviewPage() {
   const { data: session, status } = useSession()
-  const router = useRouter()
 
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login")
-    }
-  }, [status, router])
+  // Redirigir a login si no hay sesión
+  if (status === "unauthenticated") {
+    redirect("/login")
+  }
 
+  // Mostrar un estado de carga mientras se verifica la sesión
   if (status === "loading") {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[#c59d45]" />
-        <span className="ml-2 text-lg">Cargando...</span>
+      <div className="p-6">
+        <div className="flex items-center space-x-4 mb-6">
+          <Skeleton className="h-12 w-12 rounded-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-[250px]" />
+            <Skeleton className="h-4 w-[200px]" />
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Skeleton className="h-[120px] rounded-lg" />
+          <Skeleton className="h-[120px] rounded-lg" />
+          <Skeleton className="h-[120px] rounded-lg" />
+          <Skeleton className="h-[120px] rounded-lg" />
+        </div>
       </div>
     )
   }
 
-  if (!session) {
-    return null
-  }
-
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="mb-6 text-3xl font-bold text-[#c59d45]">Panel de Control</h1>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 text-xl font-semibold">Bienvenido, {session.user?.name || "Administrador"}</h2>
-          <p className="text-gray-500">Accede a todas las funcionalidades del panel de administración desde aquí.</p>
-        </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 text-xl font-semibold">Productos</h2>
-          <p className="text-gray-500">Gestiona el inventario, categorías y precios de tus productos.</p>
-        </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 text-xl font-semibold">Clientes</h2>
-          <p className="text-gray-500">Visualiza y gestiona la información de tus clientes.</p>
-        </div>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Bienvenido</CardTitle>
+            <CardDescription>{session?.user?.name || "Usuario"}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{session?.user?.role || "Usuario"}</div>
+            <p className="text-xs text-muted-foreground">Rol en el sistema</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Productos</CardTitle>
+            <CardDescription>Total de productos</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">--</div>
+            <p className="text-xs text-muted-foreground">Productos en inventario</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Ventas</CardTitle>
+            <CardDescription>Total de ventas</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">--</div>
+            <p className="text-xs text-muted-foreground">Ventas realizadas</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Clientes</CardTitle>
+            <CardDescription>Total de clientes</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">--</div>
+            <p className="text-xs text-muted-foreground">Clientes registrados</p>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

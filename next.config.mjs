@@ -17,6 +17,7 @@ const nextConfig = {
     ],
     unoptimized: true,
   },
+  // Configuración simplificada de rutas
   async redirects() {
     return [
       {
