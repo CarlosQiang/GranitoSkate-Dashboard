@@ -1,82 +1,95 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
-import { obtenerAdministradores, crearAdministrador } from "@/lib/auth-service"
+import { prisma } from "@/lib/prisma"
+import { hashPassword } from "@/lib/auth-service"
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // Verificar autenticación
     const session = await getServerSession(authOptions)
-    if (!session) {
+
+    if (!session || session.user.role !== "superadmin") {
       return NextResponse.json({ message: "No autorizado" }, { status: 401 })
     }
 
-    // Verificar rol
-    if (session.user.role !== "superadmin") {
-      return NextResponse.json({ message: "Acceso denegado" }, { status: 403 })
-    }
+    const administradores = await prisma.administrador.findMany({
+      select: {
+        id: true,
+        nombre_usuario: true,
+        correo_electronico: true,
+        nombre_completo: true,
+        rol: true,
+        activo: true,
+        ultimo_acceso: true,
+        fecha_creacion: true,
+      },
+      orderBy: {
+        fecha_creacion: "desc",
+      },
+    })
 
-    // Obtener administradores
-    const administradores = await obtenerAdministradores()
     return NextResponse.json(administradores)
   } catch (error) {
-    console.error("Error en GET /api/administradores:", error)
-    return NextResponse.json({ message: "Error interno del servidor" }, { status: 500 })
+    console.error("Error al obtener administradores:", error)
+    return NextResponse.json({ message: "Error al obtener administradores" }, { status: 500 })
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    // Verificar autenticación
     const session = await getServerSession(authOptions)
-    if (!session) {
+
+    if (!session || session.user.role !== "superadmin") {
       return NextResponse.json({ message: "No autorizado" }, { status: 401 })
     }
 
-    // Verificar rol
-    if (session.user.role !== "superadmin") {
-      return NextResponse.json({ message: "Acceso denegado" }, { status: 403 })
-    }
-
-    // Obtener datos del cuerpo
     const body = await request.json()
+    const { nombre_usuario, correo_electronico, contrasena, nombre_completo, rol, activo } = body
 
     // Validar datos
-    if (!body.nombre_usuario || !body.correo_electronico || !body.contrasena) {
+    if (!nombre_usuario || !correo_electronico || !contrasena) {
       return NextResponse.json({ message: "Faltan campos obligatorios" }, { status: 400 })
     }
 
-    // Validar formato de correo electrónico
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(body.correo_electronico)) {
-      return NextResponse.json({ message: "Formato de correo electrónico inválido" }, { status: 400 })
-    }
-
-    // Validar longitud de contraseña
-    if (body.contrasena.length < 8) {
-      return NextResponse.json({ message: "La contraseña debe tener al menos 8 caracteres" }, { status: 400 })
-    }
-
-    // Crear administrador
-    const administrador = await crearAdministrador({
-      nombre_usuario: body.nombre_usuario,
-      correo_electronico: body.correo_electronico,
-      contrasena: body.contrasena,
-      nombre_completo: body.nombre_completo,
-      rol: body.rol || "admin",
+    // Verificar si ya existe un usuario con ese nombre o correo
+    const existingUser = await prisma.administrador.findFirst({
+      where: {
+        OR: [{ nombre_usuario }, { correo_electronico }],
+      },
     })
 
-    return NextResponse.json(administrador, { status: 201 })
-  } catch (error) {
-    console.error("Error en POST /api/administradores:", error)
-
-    // Manejar errores específicos
-    if (error instanceof Error) {
-      if (error.message.includes("Ya existe un administrador")) {
-        return NextResponse.json({ message: error.message }, { status: 409 })
-      }
+    if (existingUser) {
+      return NextResponse.json({ message: "El nombre de usuario o correo electrónico ya está en uso" }, { status: 400 })
     }
 
-    return NextResponse.json({ message: "Error interno del servidor" }, { status: 500 })
+    // Hashear contraseña
+    const hashedPassword = await hashPassword(contrasena)
+
+    // Crear administrador
+    const newAdmin = await prisma.administrador.create({
+      data: {
+        nombre_usuario,
+        correo_electronico,
+        contrasena: hashedPassword,
+        nombre_completo: nombre_completo || null,
+        rol: rol || "admin",
+        activo: activo !== undefined ? activo : true,
+      },
+    })
+
+    return NextResponse.json(
+      {
+        id: newAdmin.id,
+        nombre_usuario: newAdmin.nombre_usuario,
+        correo_electronico: newAdmin.correo_electronico,
+        nombre_completo: newAdmin.nombre_completo,
+        rol: newAdmin.rol,
+        activo: newAdmin.activo,
+      },
+      { status: 201 },
+    )
+  } catch (error) {
+    console.error("Error al crear administrador:", error)
+    return NextResponse.json({ message: "Error al crear administrador" }, { status: 500 })
   }
 }

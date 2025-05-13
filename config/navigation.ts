@@ -10,7 +10,6 @@ import {
   Globe,
   Search,
   AlertTriangle,
-  Shield,
 } from "lucide-react"
 
 // Exportamos navigationItems para mantener compatibilidad con el código existente
@@ -60,12 +59,6 @@ export const navigationItems = [
     name: "Analíticas",
     href: "/dashboard/analytics",
     icon: BarChart3,
-  },
-  {
-    name: "Administradores",
-    href: "/dashboard/administradores",
-    icon: Shield,
-    isNew: true,
   },
   {
     name: "Configuración",
@@ -141,12 +134,6 @@ export const mainNav = [
     href: "/dashboard/analytics",
     icon: BarChart3,
     color: "text-indigo-500",
-  },
-  {
-    title: "Administradores",
-    href: "/dashboard/administradores",
-    icon: Shield,
-    color: "text-red-500",
   },
 ]
 
