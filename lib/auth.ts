@@ -1,29 +1,7 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { sql } from "@vercel/postgres"
-import { createHash } from "crypto"
-
-// Función simplificada para verificar contraseñas
-async function verifyPassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
-  // Para contraseñas hasheadas con bcrypt (existentes)
-  if (hashedPassword.startsWith("$2")) {
-    // Verificación simplificada para la contraseña predeterminada
-    return (
-      plainPassword === "GranitoSkate" &&
-      hashedPassword === "$2b$12$1X.GQIJJk8L9Fz3HZhQQo.6EsHgHKm7Brx0bKQA9fI.SSjN.ym3Uy"
-    )
-  }
-
-  // Para contraseñas hasheadas con nuestro método
-  const [salt, storedHash] = hashedPassword.split(":")
-  if (!salt) return false
-
-  const suppliedHash = createHash("sha256")
-    .update(plainPassword + salt)
-    .digest("hex")
-
-  return storedHash === suppliedHash
-}
+import { prisma } from "./prisma"
+import { verifyPassword, updateLastLogin } from "./auth-service"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -36,31 +14,31 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         try {
           if (!credentials?.identifier || !credentials?.password) {
+            console.log("Credenciales incompletas")
             return null
           }
 
           // Buscar usuario por nombre de usuario o correo electrónico
-          const { rows } = await sql`
-            SELECT * FROM administradores 
-            WHERE (nombre_usuario = ${credentials.identifier} 
-            OR correo_electronico = ${credentials.identifier})
-            AND activo = true
-            LIMIT 1
-          `
+          const user = await prisma.administrador.findFirst({
+            where: {
+              OR: [{ nombre_usuario: credentials.identifier }, { correo_electronico: credentials.identifier }],
+              activo: true,
+            },
+          })
 
-          const user = rows[0]
-          if (!user) return null
+          if (!user) {
+            console.log("Usuario no encontrado:", credentials.identifier)
+            return null
+          }
 
           const isValidPassword = await verifyPassword(credentials.password, user.contrasena)
-          if (!isValidPassword) return null
+          if (!isValidPassword) {
+            console.log("Contraseña inválida para usuario:", credentials.identifier)
+            return null
+          }
 
           // Actualizar último acceso
-          await sql`
-            UPDATE administradores 
-            SET ultimo_acceso = NOW(), 
-                fecha_actualizacion = NOW()
-            WHERE id = ${user.id}
-          `
+          await updateLastLogin(user.id)
 
           return {
             id: user.id.toString(),
@@ -100,4 +78,5 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60, // 30 días
   },
   secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === "development",
 }

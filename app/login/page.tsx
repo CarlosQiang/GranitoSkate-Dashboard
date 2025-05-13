@@ -4,76 +4,89 @@ import type React from "react"
 
 import { useState } from "react"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { EyeIcon, EyeOffIcon } from "lucide-react"
-import Image from "next/image"
+import { AlertCircle, Eye, EyeOff } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
-  const [email, setEmail] = useState("")
+  const searchParams = useSearchParams()
+  const callbackUrl = searchParams?.get("callbackUrl") || "/dashboard"
+
+  const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
+
+    if (!identifier || !password) {
+      setError("Por favor, completa todos los campos")
+      return
+    }
+
+    setIsLoading(true)
     setError("")
 
     try {
       const result = await signIn("credentials", {
         redirect: false,
-        email,
+        identifier,
         password,
       })
 
       if (result?.error) {
         setError("Credenciales inválidas. Por favor, inténtalo de nuevo.")
-      } else {
-        router.push("/dashboard")
+        setIsLoading(false)
+        return
       }
+
+      router.push(callbackUrl)
     } catch (error) {
       setError("Ocurrió un error al iniciar sesión. Por favor, inténtalo de nuevo.")
-    } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
-  const toggleShowPassword = () => {
-    setShowPassword(!showPassword)
-  }
-
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 px-4 py-12 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center mb-4">
-            <Image src="/logo-granito.png" alt="Granito Logo" width={150} height={50} priority />
+        <CardHeader className="space-y-1">
+          <div className="flex items-center justify-center mb-4">
+            <Link href="/">
+              <div className="rounded-full bg-granito p-2 cursor-pointer">
+                <img src="/favicon.ico" alt="GranitoSkate Logo" className="h-8 w-8" />
+              </div>
+            </Link>
           </div>
-          <CardTitle className="text-2xl font-bold">Iniciar sesión</CardTitle>
-          <CardDescription>Ingresa tus credenciales para acceder al panel</CardDescription>
+          <CardTitle className="text-2xl font-bold text-center">GranitoSkate Dashboard</CardTitle>
+          <CardDescription className="text-center">
+            Inicia sesión para acceder al panel de administración
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
           <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="identifier">Usuario o Email</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="tu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="identifier"
+                type="text"
+                placeholder="usuario o correo@ejemplo.com"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 required
                 autoComplete="username"
               />
@@ -92,20 +105,30 @@ export default function LoginPage() {
                 />
                 <button
                   type="button"
-                  onClick={toggleShowPassword}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1}
                 >
-                  {showPassword ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" aria-hidden="true" />
+                  ) : (
+                    <Eye className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  <span className="sr-only">{showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}</span>
                 </button>
               </div>
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Iniciando sesión..." : "Iniciar sesión"}
+            <Button type="submit" className="w-full bg-granito hover:bg-granito-dark" disabled={isLoading}>
+              {isLoading ? "Iniciando sesión..." : "Iniciar sesión"}
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="text-center text-sm text-gray-500">
-          <p className="w-full">Gestión de tienda Shopify para Granito Skate</p>
+        <CardFooter className="flex justify-center">
+          <p className="text-sm text-muted-foreground">
+            <Link href="/" className="text-granito hover:underline">
+              Volver al inicio
+            </Link>
+          </p>
         </CardFooter>
       </Card>
     </div>

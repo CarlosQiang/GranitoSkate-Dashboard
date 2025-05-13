@@ -12,15 +12,15 @@ export async function hashPassword(password: string): Promise<string> {
 
 // Función para verificar contraseñas
 export async function verifyPassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
+  console.log("Verificando contraseña...")
+
   // Verificar si es un hash de bcrypt (comienza con $2b$)
   if (hashedPassword.startsWith("$2")) {
+    console.log("Detectada contraseña hasheada con bcrypt")
+
     // Para compatibilidad con contraseñas existentes hasheadas con bcrypt
     // Esto es solo para mantener compatibilidad y debería ser reemplazado
     // con una solución más robusta en producción
-    console.warn("Detectada contraseña hasheada con bcrypt. Usando verificación alternativa.")
-
-    // Implementación simple para verificar contraseñas bcrypt
-    // Esto es solo para mantener compatibilidad y debería ser reemplazado
     return (
       hashedPassword === "$2b$12$1X.GQIJJk8L9Fz3HZhQQo.6EsHgHKm7Brx0bKQA9fI.SSjN.ym3Uy" &&
       plainPassword === "GranitoSkate"
@@ -31,7 +31,10 @@ export async function verifyPassword(plainPassword: string, hashedPassword: stri
   const [salt, storedHash] = hashedPassword.split(":")
 
   // Si no hay salt, algo está mal con el formato
-  if (!salt) return false
+  if (!salt) {
+    console.log("Formato de hash inválido")
+    return false
+  }
 
   // Calcular el hash de la contraseña proporcionada con el mismo salt
   const suppliedHash = createHash("sha256")
@@ -39,7 +42,9 @@ export async function verifyPassword(plainPassword: string, hashedPassword: stri
     .digest("hex")
 
   // Comparar los hashes
-  return storedHash === suppliedHash
+  const result = storedHash === suppliedHash
+  console.log("Resultado de verificación:", result)
+  return result
 }
 
 export async function getUserByIdentifier(identifier: string) {
