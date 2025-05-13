@@ -3,21 +3,6 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import { sql } from "@vercel/postgres"
 import bcrypt from "bcryptjs"
 
-async function getAdminByIdentifier(identifier: string) {
-  try {
-    const result = await sql`
-      SELECT * FROM administradores 
-      WHERE nombre_usuario = ${identifier} 
-      OR correo_electronico = ${identifier}
-      LIMIT 1
-    `
-    return result.rows[0] || null
-  } catch (error) {
-    console.error("Error al buscar administrador:", error)
-    return null
-  }
-}
-
 const handler = NextAuth({
   providers: [
     CredentialsProvider({
@@ -32,15 +17,26 @@ const handler = NextAuth({
             return null
           }
 
-          const admin = await getAdminByIdentifier(credentials.identifier)
+          // Buscar administrador por nombre de usuario o correo electrónico
+          const result = await sql`
+            SELECT * FROM administradores 
+            WHERE nombre_usuario = ${credentials.identifier} 
+            OR correo_electronico = ${credentials.identifier}
+            LIMIT 1
+          `
+
+          const admin = result.rows[0]
 
           if (!admin) {
+            console.log("Usuario no encontrado")
             return null
           }
 
+          // Verificar contraseña
           const isPasswordValid = await bcrypt.compare(credentials.password, admin.contrasena)
 
           if (!isPasswordValid) {
+            console.log("Contraseña inválida")
             return null
           }
 
