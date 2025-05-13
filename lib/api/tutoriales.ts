@@ -186,60 +186,68 @@ export async function sincronizarTutorialConShopify(id: number) {
 
 // Obtener o crear la colección de tutoriales en Shopify
 async function obtenerOCrearColeccionTutoriales() {
-  // Buscar la colección por título
-  const GET_COLLECTION = gql`
-    query getCollectionByTitle($title: String!) {
-      collections(first: 1, query: $title) {
-        edges {
-          node {
-            id
-            title
+  try {
+    // Buscar la colección por título
+    const GET_COLLECTION = gql`
+      query getCollectionByTitle($title: String!) {
+        collections(first: 1, query: $title) {
+          edges {
+            node {
+              id
+              title
+            }
           }
         }
       }
+    `
+
+    const { data } = await shopifyFetch({
+      query: GET_COLLECTION,
+      variables: { title: "Tutoriales" },
+    })
+
+    // Si la colección existe, devolver su ID
+    if (data?.collections?.edges?.length > 0) {
+      return data.collections.edges[0].node.id
     }
-  `
 
-  const { data } = await shopifyFetch({
-    query: GET_COLLECTION,
-    variables: { title: "Tutoriales" },
-  })
-
-  // Si la colección existe, devolver su ID
-  if (data?.collections?.edges?.length > 0) {
-    return data.collections.edges[0].node.id
-  }
-
-  // Si no existe, crear la colección
-  const CREATE_COLLECTION = gql`
-    mutation createCollection($input: CollectionInput!) {
-      collectionCreate(input: $input) {
-        collection {
-          id
-        }
-        userErrors {
-          field
-          message
+    // Si no existe, crear la colección
+    const CREATE_COLLECTION = gql`
+      mutation createCollection($input: CollectionInput!) {
+        collectionCreate(input: $input) {
+          collection {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
         }
       }
-    }
-  `
+    `
 
-  const { data: createData } = await shopifyFetch({
-    query: CREATE_COLLECTION,
-    variables: {
-      input: {
-        title: "Tutoriales",
-        descriptionHtml: "Colección de tutoriales y guías para skaters de todos los niveles",
+    const { data: createData } = await shopifyFetch({
+      query: CREATE_COLLECTION,
+      variables: {
+        input: {
+          title: "Tutoriales",
+          descriptionHtml: "Colección de tutoriales y guías para skaters de todos los niveles",
+          published: true,
+        },
       },
-    },
-  })
+    })
 
-  if (createData?.collectionCreate?.userErrors?.length > 0) {
-    throw new Error(`Error al crear colección: ${createData.collectionCreate.userErrors[0].message}`)
+    if (createData?.collectionCreate?.userErrors?.length > 0) {
+      throw new Error(`Error al crear colección: ${createData.collectionCreate.userErrors[0].message}`)
+    }
+
+    return createData.collectionCreate.collection.id
+  } catch (error) {
+    console.error("Error al obtener/crear colección de tutoriales:", error)
+    throw new Error(
+      `No se pudo obtener o crear la colección de tutoriales: ${error instanceof Error ? error.message : "Error desconocido"}`,
+    )
   }
-
-  return createData.collectionCreate.collection.id
 }
 
 // Crear un nuevo producto en Shopify para el tutorial

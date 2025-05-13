@@ -10,11 +10,36 @@ export const metadata: Metadata = {
   description: "Panel de administración para la tienda GranitoSkate",
 }
 
-export default function DashboardLayout({
+async function inicializarAplicacion() {
+  try {
+    // Solo ejecutar en el servidor durante la construcción o en desarrollo
+    if (typeof window === "undefined") {
+      const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL
+        ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+        : process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
+
+      const response = await fetch(`${baseUrl}/api/init`, {
+        method: "GET",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+      })
+
+      if (!response.ok) {
+        console.error("Error al inicializar la aplicación:", response.statusText)
+      }
+    }
+  } catch (error) {
+    console.error("Error al inicializar la aplicación:", error)
+  }
+}
+
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  await inicializarAplicacion()
   return (
     <DashboardLayoutWrapper>
       <div className="flex min-h-screen flex-col">

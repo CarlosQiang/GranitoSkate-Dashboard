@@ -7,6 +7,8 @@ import { DashboardStats } from "@/components/dashboard-stats"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SalesOverview } from "@/components/sales-overview"
 import { InventoryStatus } from "@/components/inventory-status"
+// Importar el componente InitStatus
+import { InitStatus } from "@/components/init-status"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -63,7 +65,9 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
+          {/* Añadir el componente InitStatus al principio del contenido de la página */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+            <InitStatus />
             <Card className="col-span-4">
               <CardHeader>
                 <CardTitle>Pedidos recientes</CardTitle>
