@@ -4,17 +4,23 @@ import { useSession } from "next-auth/react"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useEffect, useState } from "react"
 
 export default function DashboardOverviewPage() {
   const { data: session, status } = useSession()
+  const [isClient, setIsClient] = useState(false)
 
-  // Redirigir a login si no hay sesión
-  if (status === "unauthenticated") {
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  // Redirigir a login si no hay sesión (solo en el cliente)
+  if (isClient && status === "unauthenticated") {
     redirect("/login")
   }
 
   // Mostrar un estado de carga mientras se verifica la sesión
-  if (status === "loading") {
+  if (status === "loading" || !isClient) {
     return (
       <div className="p-6">
         <div className="flex items-center space-x-4 mb-6">

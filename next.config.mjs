@@ -17,13 +17,27 @@ const nextConfig = {
     ],
     unoptimized: true,
   },
-  // Configuración simplificada de rutas
+  // Configuración mejorada de rutas
   async redirects() {
     return [
+      {
+        source: '/',
+        destination: '/dashboard/overview',
+        permanent: true,
+      },
       {
         source: '/dashboard',
         destination: '/dashboard/overview',
         permanent: true,
+      },
+    ]
+  },
+  // Aseguramos que las rutas de API funcionen correctamente
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: '/api/:path*',
       },
     ]
   },

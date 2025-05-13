@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState } from "react"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,6 +15,9 @@ import { Loader2 } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const callbackUrl = searchParams?.get("callbackUrl") || "/dashboard/overview"
+
   const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -30,6 +33,7 @@ export default function LoginPage() {
         identifier,
         password,
         redirect: false,
+        callbackUrl,
       })
 
       if (result?.error) {
@@ -39,7 +43,7 @@ export default function LoginPage() {
       }
 
       if (result?.ok) {
-        router.push("/dashboard/overview")
+        router.push(callbackUrl)
         router.refresh()
       }
     } catch (error) {
