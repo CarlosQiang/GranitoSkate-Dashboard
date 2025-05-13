@@ -1,14 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
   images: {
     domains: ['cdn.shopify.com', 'res.cloudinary.com'],
     unoptimized: true,
   },
-  // Evitar la prerenderización de páginas que usan autenticación
+  // Configuración para evitar errores en la compilación
   experimental: {
-    missingSuspenseWithCSRBailout: false,
+    // Opciones experimentales actualizadas para Next.js 15
+    serverComponentsExternalPackages: ['@neondatabase/serverless'],
   },
   eslint: {
     ignoreDuringBuilds: true,

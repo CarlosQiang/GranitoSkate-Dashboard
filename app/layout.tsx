@@ -1,10 +1,15 @@
-import type { Metadata } from 'next'
-import './globals.css'
+import type React from "react"
+import type { Metadata } from "next"
+import { Inter } from "next/font/google"
+import "./globals.css"
+import { Providers } from "./providers"
+
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.dev',
+  title: "GestionGranito - Panel de Administración",
+  description: "Panel de administración para GestionGranito",
+    generator: 'v0.dev'
 }
 
 export default function RootLayout({
@@ -13,8 +18,10 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="es" suppressHydrationWarning>
+      <body className={inter.className}>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   )
 }
