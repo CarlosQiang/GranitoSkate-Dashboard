@@ -1,7 +1,7 @@
 import { Pool } from "@neondatabase/serverless"
 
 // Crear un pool de conexiones a la base de datos
-let pool: Pool | null = null
+let pool: Pool
 
 // Inicializar el pool de conexiones de forma perezosa
 function getPool() {
@@ -92,9 +92,9 @@ export async function initializeDatabase() {
         CREATE INDEX idx_administradores_usuario ON administradores(nombre_usuario);
       `)
 
-      // Importar bcryptjs dinámicamente para entornos serverless
-      const bcrypt = await import("bcryptjs")
-      const hashedPassword = await bcrypt.hash("Granitoskate", 12)
+      // Importar bcrypt dinámicamente para entornos serverless
+      const bcrypt = await import("bcrypt")
+      const hashedPassword = await bcrypt.hash("Granitoskate", 10)
 
       await query(
         `
