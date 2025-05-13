@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, CheckCircle, AlertCircle, RefreshCw, Info } from "lucide-react"
+import { Loader2, CheckCircle, AlertCircle, RefreshCw, Info, Settings } from "lucide-react"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import Link from "next/link"
 
 export function SincronizacionTutoriales() {
   const [sincronizando, setSincronizando] = useState(false)
@@ -79,6 +80,11 @@ export function SincronizacionTutoriales() {
     return null
   }
 
+  const isAuthError =
+    error?.includes("401") ||
+    error?.toLowerCase().includes("no autorizado") ||
+    error?.toLowerCase().includes("unauthorized")
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -124,6 +130,17 @@ export function SincronizacionTutoriales() {
                 <li>Verifica que la tienda Shopify esté activa</li>
               </ul>
             </div>
+
+            {isAuthError && (
+              <div className="mt-4">
+                <Button asChild variant="outline" className="w-full">
+                  <Link href="/dashboard/settings/shopify">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Ir a Configuración de Shopify
+                  </Link>
+                </Button>
+              </div>
+            )}
           </div>
         ) : resultado ? (
           <div className="space-y-4">

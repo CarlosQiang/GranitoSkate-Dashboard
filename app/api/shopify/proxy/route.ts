@@ -4,9 +4,10 @@ import { authOptions } from "@/lib/auth"
 
 export async function POST(request: Request) {
   try {
-    // Verificar autenticación
+    // Verificar autenticación del usuario
     const session = await getServerSession(authOptions)
     if (!session) {
+      console.error("Usuario no autenticado intentando acceder al proxy de Shopify")
       return NextResponse.json({ success: false, message: "No autorizado" }, { status: 401 })
     }
 
@@ -18,23 +19,21 @@ export async function POST(request: Request) {
     const shopifyToken = process.env.SHOPIFY_ACCESS_TOKEN
 
     if (!shopifyDomain || !shopifyToken) {
-      console.error("Faltan credenciales de Shopify")
+      console.error("Faltan credenciales de Shopify en las variables de entorno")
       return NextResponse.json(
         {
           success: false,
-          message: "Faltan credenciales de Shopify",
+          message: "Faltan credenciales de Shopify en las variables de entorno",
           errors: [{ message: "Configuración de Shopify incompleta" }],
         },
         { status: 500 },
       )
     }
 
-    // Construir la URL de la API de Shopify
-    const apiUrl = `https://${shopifyDomain}/admin/api/2023-10/graphql.json`
+    console.log(`Enviando solicitud a Shopify API: https://${shopifyDomain}/admin/api/2023-10/graphql.json`)
 
-    // Realizar la solicitud a Shopify
-    console.log("Enviando solicitud a Shopify API:", apiUrl)
-    const shopifyResponse = await fetch(apiUrl, {
+    // Realizar la solicitud a Shopify con el token correcto
+    const shopifyResponse = await fetch(`https://${shopifyDomain}/admin/api/2023-10/graphql.json`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -45,17 +44,30 @@ export async function POST(request: Request) {
 
     // Verificar si la respuesta es exitosa
     if (!shopifyResponse.ok) {
-      console.error("Error en la respuesta de Shopify:", shopifyResponse.status, shopifyResponse.statusText)
-      const errorText = await shopifyResponse.text().catch(() => "No se pudo leer el cuerpo de la respuesta")
-      console.error("Cuerpo de la respuesta de error:", errorText)
+      const statusCode = shopifyResponse.status
+      const statusText = shopifyResponse.statusText
 
+      console.error(`Error en la respuesta de Shopify: ${statusCode} ${statusText}`)
+
+      let errorBody = "No se pudo leer el cuerpo de la respuesta"
+      try {
+        errorBody = await shopifyResponse.text()
+        console.error("Cuerpo de la respuesta de error:", errorBody)
+      } catch (e) {
+        console.error("Error al leer el cuerpo de la respuesta:", e)
+      }
+
+      // Proporcionar información detallada sobre el error
       return NextResponse.json(
         {
           success: false,
-          message: `Error en la API de Shopify: ${shopifyResponse.status} ${shopifyResponse.statusText}`,
-          errors: [{ message: errorText }],
+          message: `Error en la API de Shopify: ${statusCode} ${statusText}`,
+          statusCode,
+          errorBody,
+          tokenLength: shopifyToken.length, // Para depuración, solo mostramos la longitud
+          shopifyDomain,
         },
-        { status: shopifyResponse.status },
+        { status: statusCode },
       )
     }
 
