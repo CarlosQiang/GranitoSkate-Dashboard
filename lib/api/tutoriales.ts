@@ -164,8 +164,8 @@ export async function sincronizarTutorialConShopify(id: number) {
     throw new Error(`Tutorial con ID ${id} no encontrado`)
   }
 
-  // Verificar si la colección de tutoriales existe, si no, crearla
-  const coleccionId = await obtenerOCrearColeccionTutoriales()
+  // Obtener el ID de la colección de tutoriales
+  const coleccionId = await obtenerColeccionTutoriales()
 
   // Si el tutorial ya tiene ID de Shopify, actualizarlo
   if (tutorial.shopify_id) {
@@ -184,13 +184,15 @@ export async function sincronizarTutorialConShopify(id: number) {
   return true
 }
 
-// Obtener o crear la colección de tutoriales en Shopify
-export async function obtenerOCrearColeccionTutoriales() {
+// Obtener la colección de tutoriales existente en Shopify
+export async function obtenerColeccionTutoriales() {
   try {
-    // Buscar la colección por título
-    const GET_COLLECTION = gql`
+    console.log("Buscando colección de tutoriales existente...")
+
+    // Consulta para obtener todas las colecciones
+    const GET_COLLECTIONS = gql`
       query {
-        collections(first: 10, query: "title:Tutoriales") {
+        collections(first: 50) {
           edges {
             node {
               id
@@ -202,91 +204,37 @@ export async function obtenerOCrearColeccionTutoriales() {
     `
 
     const response = await shopifyFetch({
-      query: GET_COLLECTION,
+      query: GET_COLLECTIONS,
     })
 
     // Verificar si hay errores en la respuesta
     if (response.errors) {
-      console.error("Errores al buscar colección:", response.errors)
-      throw new Error(`Error al buscar colección: ${response.errors[0].message}`)
+      console.error("Errores al buscar colecciones:", response.errors)
+      throw new Error(`Error al buscar colecciones: ${response.errors[0].message}`)
     }
 
     // Verificar que la respuesta sea válida
-    if (!response || !response.data) {
-      throw new Error("Respuesta inválida de la API de Shopify al buscar colección")
+    if (!response || !response.data || !response.data.collections) {
+      throw new Error("Respuesta inválida de la API de Shopify al buscar colecciones")
     }
 
-    console.log("Respuesta de búsqueda de colección:", response.data)
+    console.log("Colecciones encontradas:", response.data.collections.edges.length)
 
-    // Si la colección existe, devolver su ID
-    if (response.data.collections?.edges?.length > 0) {
-      const coleccion = response.data.collections.edges.find((edge: any) => edge.node.title === "Tutoriales")
+    // Buscar la colección "Tutoriales" entre todas las colecciones
+    const tutorialesCollection = response.data.collections.edges.find((edge: any) => edge.node.title === "Tutoriales")
 
-      if (coleccion) {
-        console.log("Colección de tutoriales encontrada:", coleccion.node.id)
-        return coleccion.node.id
-      }
+    if (!tutorialesCollection) {
+      throw new Error(
+        "No se encontró la colección 'Tutoriales'. Por favor, crea esta colección manualmente en Shopify.",
+      )
     }
 
-    // Si no existe, crear la colección
-    console.log("Colección de tutoriales no encontrada. Creando...")
-
-    const CREATE_COLLECTION = gql`
-      mutation createCollection($input: CollectionInput!) {
-        collectionCreate(input: $input) {
-          collection {
-            id
-            title
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const createResponse = await shopifyFetch({
-      query: CREATE_COLLECTION,
-      variables: {
-        input: {
-          title: "Tutoriales",
-          descriptionHtml: "Colección de tutoriales y guías para skaters de todos los niveles",
-          published: true,
-        },
-      },
-    })
-
-    // Verificar si hay errores en la respuesta
-    if (createResponse.errors) {
-      console.error("Errores al crear colección:", createResponse.errors)
-      throw new Error(`Error al crear colección: ${createResponse.errors[0].message}`)
-    }
-
-    // Verificar que la respuesta sea válida
-    if (!createResponse || !createResponse.data) {
-      throw new Error("Respuesta inválida de la API de Shopify al crear colección")
-    }
-
-    console.log("Respuesta de creación de colección:", createResponse.data)
-
-    // Verificar si hay errores en la creación
-    if (createResponse.data.collectionCreate?.userErrors?.length > 0) {
-      throw new Error(`Error al crear colección: ${createResponse.data.collectionCreate.userErrors[0].message}`)
-    }
-
-    // Verificar que se haya creado correctamente
-    if (!createResponse.data.collectionCreate?.collection?.id) {
-      throw new Error("No se pudo obtener el ID de la colección creada")
-    }
-
-    console.log("Colección de tutoriales creada con éxito:", createResponse.data.collectionCreate.collection.id)
-
-    return createResponse.data.collectionCreate.collection.id
+    console.log("Colección de tutoriales encontrada:", tutorialesCollection.node.id)
+    return tutorialesCollection.node.id
   } catch (error) {
-    console.error("Error al obtener/crear colección de tutoriales:", error)
+    console.error("Error al obtener colección de tutoriales:", error)
     throw new Error(
-      `No se pudo obtener o crear la colección de tutoriales: ${error instanceof Error ? error.message : "Error desconocido"}`,
+      `No se pudo obtener la colección de tutoriales: ${error instanceof Error ? error.message : "Error desconocido"}`,
     )
   }
 }
@@ -294,6 +242,8 @@ export async function obtenerOCrearColeccionTutoriales() {
 // Crear un nuevo producto en Shopify para el tutorial
 async function crearProductoEnShopify(tutorial: any, coleccionId: string) {
   try {
+    console.log(`Creando producto para tutorial: ${tutorial.titulo}`)
+
     const CREATE_PRODUCT = gql`
       mutation productCreate($input: ProductInput!) {
         productCreate(input: $input) {
@@ -347,6 +297,7 @@ async function crearProductoEnShopify(tutorial: any, coleccionId: string) {
       throw new Error(`Error al crear producto: ${response.data.productCreate.userErrors[0].message}`)
     }
 
+    console.log("Producto creado con éxito:", response.data.productCreate.product.id)
     return response.data.productCreate.product.id
   } catch (error) {
     console.error("Error al crear producto en Shopify:", error)
@@ -357,6 +308,8 @@ async function crearProductoEnShopify(tutorial: any, coleccionId: string) {
 // Actualizar un producto existente en Shopify
 async function actualizarProductoEnShopify(tutorial: any) {
   try {
+    console.log(`Actualizando producto para tutorial: ${tutorial.titulo}`)
+
     const UPDATE_PRODUCT = gql`
       mutation productUpdate($input: ProductInput!) {
         productUpdate(input: $input) {
@@ -409,6 +362,7 @@ async function actualizarProductoEnShopify(tutorial: any) {
       throw new Error(`Error al actualizar producto: ${response.data.productUpdate.userErrors[0].message}`)
     }
 
+    console.log("Producto actualizado con éxito")
     return true
   } catch (error) {
     console.error("Error al actualizar producto en Shopify:", error)
@@ -419,6 +373,8 @@ async function actualizarProductoEnShopify(tutorial: any) {
 // Eliminar un producto de Shopify
 async function eliminarTutorialDeShopify(shopifyId: string) {
   try {
+    console.log(`Eliminando producto con ID: ${shopifyId}`)
+
     const DELETE_PRODUCT = gql`
       mutation productDelete($input: ProductDeleteInput!) {
         productDelete(input: $input) {
@@ -450,6 +406,7 @@ async function eliminarTutorialDeShopify(shopifyId: string) {
       throw new Error(`Error al eliminar producto: ${response.data.productDelete.userErrors[0].message}`)
     }
 
+    console.log("Producto eliminado con éxito")
     return true
   } catch (error) {
     console.error("Error al eliminar producto de Shopify:", error)
@@ -460,16 +417,21 @@ async function eliminarTutorialDeShopify(shopifyId: string) {
 // Sincronizar todos los tutoriales con Shopify
 export async function sincronizarTodosTutorialesConShopify() {
   try {
+    console.log("Iniciando sincronización de todos los tutoriales...")
+
     // Obtener todos los tutoriales publicados
     const { tutoriales } = await getTutoriales({ publicadosOnly: true, limit: 100 })
+    console.log(`Encontrados ${tutoriales.length} tutoriales para sincronizar`)
 
-    // Verificar si la colección de tutoriales existe, si no, crearla
-    const coleccionId = await obtenerOCrearColeccionTutoriales()
+    // Obtener el ID de la colección de tutoriales
+    const coleccionId = await obtenerColeccionTutoriales()
+    console.log(`Usando colección con ID: ${coleccionId}`)
 
     // Sincronizar cada tutorial
     const resultados = await Promise.allSettled(
       tutoriales.map(async (tutorial) => {
         try {
+          console.log(`Sincronizando tutorial: ${tutorial.titulo}`)
           if (tutorial.shopify_id) {
             await actualizarProductoEnShopify(tutorial)
           } else {
@@ -479,10 +441,12 @@ export async function sincronizarTodosTutorialesConShopify() {
               data: { shopify_id: shopifyId },
             })
           }
-          return { id: tutorial.id, success: true }
+          return { id: tutorial.id, titulo: tutorial.titulo, success: true }
         } catch (error) {
+          console.error(`Error al sincronizar tutorial ${tutorial.id}:`, error)
           return {
             id: tutorial.id,
+            titulo: tutorial.titulo,
             success: false,
             error: error instanceof Error ? error.message : "Error desconocido",
           }
@@ -494,6 +458,7 @@ export async function sincronizarTodosTutorialesConShopify() {
     const exitos = resultados.filter((r) => r.status === "fulfilled" && (r.value as any).success).length
     const errores = resultados.filter((r) => r.status === "rejected" || !(r.value as any).success).length
 
+    console.log(`Sincronización completada: ${exitos} éxitos, ${errores} errores`)
     return {
       success: true,
       message: `Sincronización completada: ${exitos} tutoriales sincronizados, ${errores} errores`,

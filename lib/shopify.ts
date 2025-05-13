@@ -17,25 +17,13 @@ const shopifyClient = new GraphQLClient(`${getBaseUrl()}/api/shopify/proxy`, {
   },
 })
 
-// Función para realizar consultas GraphQL a Shopify con mejor manejo de errores
+// Función para realizar consultas GraphQL a Shopify
 export async function shopifyFetch({ query, variables = {} }) {
   try {
     console.log("Enviando consulta GraphQL a Shopify:", {
       query: query.substring(0, 100) + "...", // Solo para logging, truncamos la consulta
       variables,
     })
-
-    // Verificar que tenemos las credenciales de Shopify
-    const shopifyDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
-    const shopifyToken = process.env.SHOPIFY_ACCESS_TOKEN
-
-    if (!shopifyDomain || !shopifyToken) {
-      console.error("Faltan credenciales de Shopify en las variables de entorno")
-      return {
-        data: null,
-        errors: [{ message: "Faltan credenciales de Shopify en las variables de entorno" }],
-      }
-    }
 
     const result = await shopifyClient.request(query, variables)
 

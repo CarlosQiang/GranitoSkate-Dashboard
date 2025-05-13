@@ -5,9 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, CheckCircle, AlertCircle, RefreshCw, Info, Settings } from "lucide-react"
+import { Loader2, CheckCircle, AlertCircle, RefreshCw } from "lucide-react"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import Link from "next/link"
 
 export function SincronizacionTutoriales() {
   const [sincronizando, setSincronizando] = useState(false)
@@ -31,6 +30,8 @@ export function SincronizacionTutoriales() {
       setDetallesError(null)
       setResultado(null)
 
+      console.log("Iniciando solicitud de sincronización...")
+
       const response = await fetch("/api/tutoriales/sincronizar-todos", {
         method: "GET",
         headers: {
@@ -38,10 +39,14 @@ export function SincronizacionTutoriales() {
         },
       })
 
+      console.log("Respuesta recibida:", response.status)
+
       const data = await response.json().catch(() => ({
         success: false,
         message: "Error al procesar la respuesta",
       }))
+
+      console.log("Datos de respuesta:", data)
 
       if (!response.ok) {
         throw new Error(data.message || `Error ${response.status}: ${response.statusText}`)
@@ -64,27 +69,6 @@ export function SincronizacionTutoriales() {
     }
   }
 
-  const verificarCredenciales = () => {
-    const shopifyDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
-    if (!shopifyDomain) {
-      return (
-        <Alert variant="warning" className="mt-2">
-          <Info className="h-4 w-4" />
-          <AlertTitle>Configuración incompleta</AlertTitle>
-          <AlertDescription>
-            No se ha configurado el dominio de Shopify. Verifica la variable de entorno NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN.
-          </AlertDescription>
-        </Alert>
-      )
-    }
-    return null
-  }
-
-  const isAuthError =
-    error?.includes("401") ||
-    error?.toLowerCase().includes("no autorizado") ||
-    error?.toLowerCase().includes("unauthorized")
-
   return (
     <Card className="w-full">
       <CardHeader>
@@ -95,8 +79,6 @@ export function SincronizacionTutoriales() {
         <CardDescription>Mantén sincronizados los tutoriales entre la base de datos y Shopify</CardDescription>
       </CardHeader>
       <CardContent>
-        {verificarCredenciales()}
-
         {sincronizando ? (
           <div className="flex flex-col items-center justify-center py-6">
             <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
@@ -126,21 +108,10 @@ export function SincronizacionTutoriales() {
               <ul className="list-disc pl-5 mt-1 text-amber-700 space-y-1">
                 <li>Verifica que las credenciales de Shopify estén configuradas correctamente</li>
                 <li>Asegúrate de que el token de acceso tenga los permisos necesarios</li>
-                <li>Comprueba la conexión a internet</li>
+                <li>Comprueba que la colección "Tutoriales" exista en tu tienda Shopify</li>
                 <li>Verifica que la tienda Shopify esté activa</li>
               </ul>
             </div>
-
-            {isAuthError && (
-              <div className="mt-4">
-                <Button asChild variant="outline" className="w-full">
-                  <Link href="/dashboard/settings/shopify">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Ir a Configuración de Shopify
-                  </Link>
-                </Button>
-              </div>
-            )}
           </div>
         ) : resultado ? (
           <div className="space-y-4">
@@ -191,7 +162,7 @@ export function SincronizacionTutoriales() {
                             {resultado.status === "fulfilled" && resultado.value.success ? "Éxito" : "Error"}
                           </Badge>
                           <p>
-                            <strong>ID: {resultado.value?.id || "Desconocido"}</strong>
+                            <strong>{resultado.value?.titulo || `ID: ${resultado.value?.id || "Desconocido"}`}</strong>
                             {resultado.status !== "fulfilled" || !resultado.value.success
                               ? `: ${resultado.reason?.message || resultado.value?.error || "Error desconocido"}`
                               : ""}

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { obtenerOCrearColeccionTutoriales, sincronizarTodosTutorialesConShopify } from "@/lib/api/tutoriales"
+import { sincronizarTodosTutorialesConShopify } from "@/lib/api/tutoriales"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
@@ -11,26 +11,11 @@ export async function GET() {
       return NextResponse.json({ success: false, message: "No autorizado" }, { status: 401 })
     }
 
-    // Primero verificamos que la colección exista
-    try {
-      console.log("Verificando colección de tutoriales...")
-      const coleccionId = await obtenerOCrearColeccionTutoriales()
-      console.log("Colección de tutoriales verificada:", coleccionId)
-    } catch (error) {
-      console.error("Error al verificar colección de tutoriales:", error)
-      return NextResponse.json(
-        {
-          success: false,
-          message: `No se pudo verificar la colección de tutoriales: ${error instanceof Error ? error.message : "Error desconocido"}`,
-          error,
-        },
-        { status: 500 },
-      )
-    }
+    console.log("Iniciando sincronización de tutoriales desde API...")
 
-    // Si la colección existe o se creó correctamente, procedemos con la sincronización
-    console.log("Sincronizando todos los tutoriales...")
+    // Ejecutar sincronización
     const resultado = await sincronizarTodosTutorialesConShopify()
+
     console.log("Resultado de sincronización:", resultado)
 
     if (!resultado.success) {
