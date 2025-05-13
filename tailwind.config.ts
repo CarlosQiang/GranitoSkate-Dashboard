@@ -24,8 +24,11 @@ const config: Config = {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        granito: "#2563eb", // Color principal de la aplicación (azul)
-        "granito-dark": "#1d4ed8", // Versión más oscura para hover
+        granito: {
+          DEFAULT: "#c59d45",
+          light: "#d9b968",
+          dark: "#a17e2e",
+        },
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",

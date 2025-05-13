@@ -1,113 +1,68 @@
-import { createHash, randomBytes, timingSafeEqual } from "crypto"
-import prisma from "./prisma"
+import { db } from "@/lib/db"
+import { createHash } from "crypto"
 
-// Función para hashear contraseñas
-export function hashPassword(password: string): string {
-  const salt = randomBytes(16).toString("hex")
-  const hash = createHash("sha256")
-    .update(password + salt)
-    .digest("hex")
-  return `${salt}:${hash}`
+export async function getUserByIdentifier(identifier: string) {
+  try {
+    // Buscar por correo electrónico o nombre de usuario
+    const user = await db.query({
+      text: `
+        SELECT * FROM administradores 
+        WHERE correo_electronico = $1 OR nombre_usuario = $1
+        AND activo = true
+      `,
+      values: [identifier],
+    })
+
+    return user.rows[0] || null
+  } catch (error) {
+    console.error("Error al buscar usuario:", error)
+    return null
+  }
 }
 
-// Función para verificar contraseñas
-export function verifyPassword(storedPassword: string, suppliedPassword: string): boolean {
-  // Verificar si la contraseña está en formato bcrypt (para compatibilidad con contraseñas existentes)
-  if (storedPassword.startsWith("$2")) {
-    // Esta es una contraseña hasheada con bcrypt
-    // Como no podemos usar bcrypt, consideraremos que la contraseña es correcta si es 'GranitoSkate'
-    // Esto es solo para mantener la compatibilidad con la base de datos existente
-    return suppliedPassword === "GranitoSkate"
+export async function verifyPassword(plainPassword: string, hashedPassword: string) {
+  // Verificar si es un hash de bcrypt (comienza con $2a$, $2b$ o $2y$)
+  if (hashedPassword.startsWith("$2")) {
+    // Implementación para verificar contraseñas hasheadas con bcrypt
+    // Esto es para mantener compatibilidad con contraseñas existentes
+    try {
+      // Aquí deberíamos usar bcrypt, pero como no está disponible en Vercel,
+      // simplemente devolvemos false y recomendamos cambiar la contraseña
+      console.warn("Contraseña hasheada con bcrypt detectada. Se recomienda cambiar la contraseña.")
+      return false
+    } catch (error) {
+      console.error("Error al verificar contraseña bcrypt:", error)
+      return false
+    }
   }
 
-  // Para contraseñas hasheadas con nuestro método
-  const [salt, storedHash] = storedPassword.split(":")
-  const suppliedHash = createHash("sha256")
-    .update(suppliedPassword + salt)
-    .digest("hex")
-
+  // Para contraseñas hasheadas con crypto
   try {
-    // Comparación segura contra ataques de timing
-    return timingSafeEqual(Buffer.from(storedHash, "hex"), Buffer.from(suppliedHash, "hex"))
+    const hash = createHash("sha256").update(plainPassword).digest("hex")
+    return hash === hashedPassword
   } catch (error) {
+    console.error("Error al verificar contraseña:", error)
     return false
   }
 }
 
-// Función para verificar credenciales
-export async function verificarCredenciales(email: string, password: string) {
-  const admin = await prisma.administrador.findUnique({
-    where: { correo_electronico: email },
-  })
-
-  if (!admin || !admin.activo) {
-    return null
-  }
-
-  const passwordValid = verifyPassword(admin.contrasena, password)
-
-  if (!passwordValid) {
-    return null
-  }
-
-  // Actualizar último acceso
-  await prisma.administrador.update({
-    where: { id: admin.id },
-    data: { ultimo_acceso: new Date() },
-  })
-
-  return {
-    id: admin.id,
-    email: admin.correo_electronico,
-    name: admin.nombre_completo || admin.nombre_usuario,
-    role: admin.rol,
+export async function updateLastLogin(userId: number) {
+  try {
+    await db.query({
+      text: `
+        UPDATE administradores 
+        SET ultimo_acceso = CURRENT_TIMESTAMP 
+        WHERE id = $1
+      `,
+      values: [userId],
+    })
+    return true
+  } catch (error) {
+    console.error("Error al actualizar último acceso:", error)
+    return false
   }
 }
 
-// Función para obtener administrador por ID
-export async function getAdminById(id: number) {
-  return prisma.administrador.findUnique({
-    where: { id },
-  })
-}
-
-// Función para obtener administrador por email
-export async function getAdminByEmail(email: string) {
-  return prisma.administrador.findUnique({
-    where: { correo_electronico: email },
-  })
-}
-
-// Función para crear un nuevo administrador
-export async function createAdmin(data: {
-  nombre_usuario: string
-  correo_electronico: string
-  contrasena: string
-  nombre_completo?: string
-  rol?: string
-}) {
-  const hashedPassword = hashPassword(data.contrasena)
-
-  return prisma.administrador.create({
-    data: {
-      ...data,
-      contrasena: hashedPassword,
-    },
-  })
-}
-
-// Función para listar todos los administradores
-export async function listAdmins() {
-  return prisma.administrador.findMany({
-    select: {
-      id: true,
-      nombre_usuario: true,
-      correo_electronico: true,
-      nombre_completo: true,
-      rol: true,
-      activo: true,
-      ultimo_acceso: true,
-      fecha_creacion: true,
-    },
-  })
+export async function hashPassword(password: string) {
+  return createHash("sha256").update(password).digest("hex")
 }

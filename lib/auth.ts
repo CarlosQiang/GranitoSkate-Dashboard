@@ -1,46 +1,65 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { verificarCredenciales } from "./auth-service"
+import { getUserByIdentifier, verifyPassword, updateLastLogin } from "@/lib/auth-service"
 
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
+        identifier: { label: "Usuario o Email", type: "text" },
+        password: { label: "Contraseña", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
+        if (!credentials?.identifier || !credentials?.password) {
           return null
         }
 
-        const user = await verificarCredenciales(credentials.email, credentials.password)
+        const user = await getUserByIdentifier(credentials.identifier)
 
-        return user
+        if (!user) {
+          return null
+        }
+
+        const isValidPassword = await verifyPassword(credentials.password, user.contrasena)
+
+        if (!isValidPassword) {
+          return null
+        }
+
+        // Actualizar último acceso
+        await updateLastLogin(user.id)
+
+        return {
+          id: user.id.toString(),
+          name: user.nombre_completo || user.nombre_usuario,
+          email: user.correo_electronico,
+          role: user.rol,
+        }
       },
     }),
   ],
+  pages: {
+    signIn: "/login",
+  },
   session: {
     strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 días
   },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        token.id = user.id
         token.role = user.role
       }
       return token
     },
     async session({ session, token }) {
-      if (token && session.user) {
+      if (token) {
+        session.user.id = token.id as string
         session.user.role = token.role as string
       }
       return session
     },
   },
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
-  secret: process.env.NEXTAUTH_SECRET,
 }

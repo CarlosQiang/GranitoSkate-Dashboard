@@ -5,123 +5,138 @@ import type React from "react"
 import { useState } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertCircle, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 
 export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard"
+  const callbackUrl = searchParams?.get("callbackUrl") || "/dashboard"
 
-  const [email, setEmail] = useState("")
+  const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!email || !password) {
-      setError("Por favor, introduce tu email y contraseña")
-      return
-    }
+    setError("")
+    setIsLoading(true)
 
     try {
-      setLoading(true)
-      setError("")
-
       const result = await signIn("credentials", {
         redirect: false,
-        email,
+        identifier,
         password,
       })
 
       if (result?.error) {
-        setError("Credenciales incorrectas. Por favor, inténtalo de nuevo.")
-      } else {
-        router.push(callbackUrl)
+        setError("Credenciales inválidas. Por favor, inténtalo de nuevo.")
+        setIsLoading(false)
+        return
       }
+
+      router.push(callbackUrl)
     } catch (error) {
       setError("Ocurrió un error al iniciar sesión. Por favor, inténtalo de nuevo.")
-      console.error("Error de inicio de sesión:", error)
-    } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword)
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <Link href="/" className="flex justify-center">
-            <img className="h-12 w-auto" src="/favicon.ico" alt="GranitoSkate Logo" />
-          </Link>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Iniciar sesión en tu cuenta</h2>
-          <p className="mt-2 text-center text-sm text-gray-600">Accede al panel de administración de GranitoSkate</p>
-        </div>
-
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="email-address" className="sr-only">
-                Correo electrónico
-              </label>
-              <input
-                id="email-address"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Correo electrónico"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="sr-only">
-                Contraseña
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Contraseña"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1">
+          <div className="flex items-center justify-center mb-4">
+            <Link href="/">
+              <div className="h-12 cursor-pointer">
+                <img
+                  src="/logo-granito.png"
+                  alt="GranitoSkate Logo"
+                  className="h-full"
+                  onError={(e) => {
+                    e.currentTarget.src = "/favicon.ico"
+                    e.currentTarget.onerror = null
+                  }}
+                />
+              </div>
+            </Link>
           </div>
-
-          {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="flex">
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">{error}</h3>
-                </div>
+          <CardTitle className="text-2xl font-bold text-center">GranitoSkate Dashboard</CardTitle>
+          <CardDescription className="text-center">
+            Inicia sesión para acceder al panel de administración
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="identifier">Nombre de usuario o Email</Label>
+              <Input
+                id="identifier"
+                type="text"
+                placeholder="usuario o correo@ejemplo.com"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                required
+                autoComplete="username email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Contraseña</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700"
+                  onClick={togglePasswordVisibility}
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" aria-hidden="true" />
+                  ) : (
+                    <Eye className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  <span className="sr-only">{showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}</span>
+                </button>
               </div>
             </div>
-          )}
-
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              {loading ? "Iniciando sesión..." : "Iniciar sesión"}
-            </button>
-          </div>
-        </form>
-
-        <div className="text-center mt-4">
-          <Link href="/" className="text-sm text-indigo-600 hover:text-indigo-500">
-            Volver a la página principal
-          </Link>
-        </div>
-      </div>
+            <Button type="submit" className="w-full bg-granito hover:bg-granito-dark" disabled={isLoading}>
+              {isLoading ? "Iniciando sesión..." : "Iniciar sesión"}
+            </Button>
+          </form>
+        </CardContent>
+        <CardFooter className="flex justify-center">
+          <p className="text-sm text-muted-foreground">
+            <Link href="/" className="text-granito hover:underline">
+              Volver al inicio
+            </Link>
+          </p>
+        </CardFooter>
+      </Card>
     </div>
   )
 }
