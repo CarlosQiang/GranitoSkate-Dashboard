@@ -1,5 +1,7 @@
 "use client"
 
+export const dynamic = "force-dynamic"
+
 import type React from "react"
 
 import { useState, useEffect } from "react"
@@ -27,7 +29,9 @@ import { Badge } from "@/components/ui/badge"
 import type { Administrador } from "@/lib/auth-service"
 
 export default function AdministradoresPage() {
-  const { data: session, status } = useSession()
+  const session = useSession()
+  const sessionData = session?.data
+  const status = session?.status || "loading"
   const [administradores, setAdministradores] = useState<Administrador[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -46,25 +50,25 @@ export default function AdministradoresPage() {
   const [submitting, setSubmitting] = useState(false)
 
   // Verificar si el usuario tiene permisos de superadmin
-  const isSuperAdmin = session?.user?.role === "superadmin"
+  const isSuperAdmin = sessionData?.user?.role === "superadmin"
 
   useEffect(() => {
     if (status === "loading") return
 
-    if (!session) {
+    if (!sessionData) {
       // Redirigir a login si no hay sesión
       window.location.href = "/login"
       return
     }
 
-    if (session.user.role !== "superadmin") {
+    if (sessionData.user.role !== "superadmin") {
       // No cargar datos si no es superadmin
       setLoading(false)
       return
     }
 
     fetchAdministradores()
-  }, [session, status])
+  }, [sessionData, status])
 
   const fetchAdministradores = async () => {
     setLoading(true)
@@ -273,7 +277,7 @@ export default function AdministradoresPage() {
   }
 
   // Redirigir si no es superadmin
-  if (session && session.user && session.user.role !== "superadmin") {
+  if (sessionData && sessionData.user && sessionData.user.role !== "superadmin") {
     return (
       <div className="container mx-auto py-10">
         <Alert variant="destructive">
@@ -507,7 +511,7 @@ export default function AdministradoresPage() {
                           size="icon"
                           onClick={() => handleToggleActive(admin.id, admin.activo)}
                           title={admin.activo ? "Desactivar" : "Activar"}
-                          disabled={admin.id.toString() === session?.user?.id}
+                          disabled={admin.id.toString() === sessionData?.user?.id}
                         >
                           {admin.activo ? (
                             <XCircle className="h-4 w-4 text-red-500" />
@@ -520,7 +524,7 @@ export default function AdministradoresPage() {
                           size="icon"
                           onClick={() => confirmDelete(admin.id)}
                           title="Eliminar"
-                          disabled={admin.id.toString() === session?.user?.id}
+                          disabled={admin.id.toString() === sessionData?.user?.id}
                         >
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>

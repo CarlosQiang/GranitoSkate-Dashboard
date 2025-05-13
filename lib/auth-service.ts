@@ -43,7 +43,7 @@ export async function verificarCredenciales(identifier: string, password: string
     const admin = result.rows[0]
 
     // Importar bcrypt dinámicamente para entornos serverless
-    const bcrypt = await import("bcrypt")
+    const bcrypt = await import("bcryptjs")
 
     // Verificar contraseña
     const passwordMatch = await bcrypt.compare(password, admin.contrasena)
@@ -125,7 +125,7 @@ export async function crearAdministrador(admin: AdministradorInput) {
     }
 
     // Importar bcrypt dinámicamente para entornos serverless
-    const bcrypt = await import("bcrypt")
+    const bcrypt = await import("bcryptjs")
 
     // Hashear contraseña con salt fuerte (12 rondas)
     const hashedPassword = await bcrypt.hash(admin.contrasena, 12)
@@ -180,7 +180,7 @@ export async function actualizarAdministrador(id: number, admin: Partial<Adminis
 
     if (admin.contrasena) {
       // Importar bcrypt dinámicamente para entornos serverless
-      const bcrypt = await import("bcrypt")
+      const bcrypt = await import("bcryptjs")
       const hashedPassword = await bcrypt.hash(admin.contrasena, 12)
       updateFields.push(`contrasena = $${paramIndex}`)
       params.push(hashedPassword)

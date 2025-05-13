@@ -93,7 +93,7 @@ export async function initializeDatabase() {
       `)
 
       // Importar bcrypt dinámicamente para entornos serverless
-      const bcrypt = await import("bcrypt")
+      const bcrypt = await import("bcryptjs")
       const hashedPassword = await bcrypt.hash("Granitoskate", 10)
 
       await query(
