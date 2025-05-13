@@ -13,16 +13,8 @@ export default async function Home() {
       <header className="bg-white shadow-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-2">
-            <div className="h-10">
-              <img
-                src="/logo-granito.png"
-                alt="GranitoSkate Logo"
-                className="h-full"
-                onError={(e) => {
-                  e.currentTarget.src = "/favicon.ico"
-                  e.currentTarget.onerror = null
-                }}
-              />
+            <div className="rounded-full bg-granito p-2">
+              <img src="/favicon.ico" alt="GranitoSkate Logo" className="h-6 w-6" />
             </div>
             <span className="text-xl font-bold">GranitoSkate</span>
           </div>

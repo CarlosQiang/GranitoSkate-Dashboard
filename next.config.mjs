@@ -8,7 +8,7 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    domains: ['cdn.shopify.com', 'localhost'],
+    domains: ['cdn.shopify.com'],
     unoptimized: true,
   },
   async headers() {
@@ -44,6 +44,7 @@ const nextConfig = {
   },
   experimental: {
     // Eliminar serverExternalPackages ya que no es reconocido
+    serverActions: true,
   },
 };
 

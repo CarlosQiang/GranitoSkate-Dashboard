@@ -5,13 +5,13 @@ import type React from "react"
 import { useState } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, Eye, EyeOff } from "lucide-react"
-import Link from "next/link"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -26,8 +26,14 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
+
+    if (!identifier || !password) {
+      setError("Por favor, completa todos los campos")
+      return
+    }
+
     setIsLoading(true)
+    setError("")
 
     try {
       const result = await signIn("credentials", {
@@ -49,26 +55,14 @@ export default function LoginPage() {
     }
   }
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword)
-  }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
             <Link href="/">
-              <div className="h-12 cursor-pointer">
-                <img
-                  src="/logo-granito.png"
-                  alt="GranitoSkate Logo"
-                  className="h-full"
-                  onError={(e) => {
-                    e.currentTarget.src = "/favicon.ico"
-                    e.currentTarget.onerror = null
-                  }}
-                />
+              <div className="rounded-full bg-granito p-2 cursor-pointer">
+                <img src="/favicon.ico" alt="GranitoSkate Logo" className="h-8 w-8" />
               </div>
             </Link>
           </div>
@@ -86,7 +80,7 @@ export default function LoginPage() {
               </Alert>
             )}
             <div className="space-y-2">
-              <Label htmlFor="identifier">Nombre de usuario o Email</Label>
+              <Label htmlFor="identifier">Usuario o Email</Label>
               <Input
                 id="identifier"
                 type="text"
@@ -94,7 +88,6 @@ export default function LoginPage() {
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 required
-                autoComplete="username email"
               />
             </div>
             <div className="space-y-2">
@@ -106,13 +99,12 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  autoComplete="current-password"
                   className="pr-10"
                 />
                 <button
                   type="button"
                   className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700"
-                  onClick={togglePasswordVisibility}
+                  onClick={() => setShowPassword(!showPassword)}
                   tabIndex={-1}
                 >
                   {showPassword ? (

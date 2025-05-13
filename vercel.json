@@ -3,13 +3,16 @@
   "buildCommand": "prisma generate && next build",
   "installCommand": "npm install --legacy-peer-deps",
   "framework": "nextjs",
-  "regions": ["cdg1"],
+  "regions": ["iad1"],
   "images": {
     "sizes": [640, 750, 828, 1080, 1200, 1920],
     "domains": ["cdn.shopify.com"]
   },
   "env": {
-    "NEXT_PUBLIC_VERCEL_ENV": "production"
+    "NEXT_PUBLIC_VERCEL_ENV": "production",
+    "NEXTAUTH_URL": {
+      "url": "${DEPLOYMENT_URL}"
+    }
   },
   "headers": [
     {
