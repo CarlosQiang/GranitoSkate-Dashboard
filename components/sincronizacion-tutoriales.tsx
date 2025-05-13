@@ -5,12 +5,14 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, CheckCircle, AlertCircle, RefreshCw } from "lucide-react"
+import { Loader2, CheckCircle, AlertCircle, RefreshCw, Info } from "lucide-react"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
 export function SincronizacionTutoriales() {
   const [sincronizando, setSincronizando] = useState(false)
   const [resultado, setResultado] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
+  const [detallesError, setDetallesError] = useState<string | null>(null)
   const [sincronizacionInicial, setSincronizacionInicial] = useState(true)
 
   // Ejecutar sincronización al cargar el componente
@@ -25,6 +27,7 @@ export function SincronizacionTutoriales() {
     try {
       setSincronizando(true)
       setError(null)
+      setDetallesError(null)
       setResultado(null)
 
       const response = await fetch("/api/tutoriales/sincronizar-todos", {
@@ -34,17 +37,23 @@ export function SincronizacionTutoriales() {
         },
       })
 
+      const data = await response.json().catch(() => ({
+        success: false,
+        message: "Error al procesar la respuesta",
+      }))
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: "Error desconocido" }))
-        throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`)
+        throw new Error(data.message || `Error ${response.status}: ${response.statusText}`)
       }
 
-      const data = await response.json()
       setResultado(data)
 
       // Si hay un mensaje de error en la respuesta, mostrarlo aunque el status sea 200
       if (!data.success) {
         setError(data.message || "Error en la sincronización")
+        if (data.error) {
+          setDetallesError(JSON.stringify(data.error, null, 2))
+        }
       }
     } catch (err) {
       console.error("Error al sincronizar tutoriales:", err)
@@ -52,6 +61,22 @@ export function SincronizacionTutoriales() {
     } finally {
       setSincronizando(false)
     }
+  }
+
+  const verificarCredenciales = () => {
+    const shopifyDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
+    if (!shopifyDomain) {
+      return (
+        <Alert variant="warning" className="mt-2">
+          <Info className="h-4 w-4" />
+          <AlertTitle>Configuración incompleta</AlertTitle>
+          <AlertDescription>
+            No se ha configurado el dominio de Shopify. Verifica la variable de entorno NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN.
+          </AlertDescription>
+        </Alert>
+      )
+    }
+    return null
   }
 
   return (
@@ -64,17 +89,42 @@ export function SincronizacionTutoriales() {
         <CardDescription>Mantén sincronizados los tutoriales entre la base de datos y Shopify</CardDescription>
       </CardHeader>
       <CardContent>
+        {verificarCredenciales()}
+
         {sincronizando ? (
           <div className="flex flex-col items-center justify-center py-6">
             <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
             <p className="text-sm text-muted-foreground">Sincronizando tutoriales...</p>
           </div>
         ) : error ? (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
+          <div className="space-y-2">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+
+            {detallesError && (
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="details">
+                  <AccordionTrigger className="text-sm">Ver detalles técnicos</AccordionTrigger>
+                  <AccordionContent>
+                    <pre className="bg-gray-100 p-2 rounded text-xs overflow-auto max-h-40">{detallesError}</pre>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            )}
+
+            <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-sm">
+              <p className="font-medium text-amber-800">Sugerencias para solucionar el problema:</p>
+              <ul className="list-disc pl-5 mt-1 text-amber-700 space-y-1">
+                <li>Verifica que las credenciales de Shopify estén configuradas correctamente</li>
+                <li>Asegúrate de que el token de acceso tenga los permisos necesarios</li>
+                <li>Comprueba la conexión a internet</li>
+                <li>Verifica que la tienda Shopify esté activa</li>
+              </ul>
+            </div>
+          </div>
         ) : resultado ? (
           <div className="space-y-4">
             <Alert variant={resultado.success ? "default" : "destructive"}>

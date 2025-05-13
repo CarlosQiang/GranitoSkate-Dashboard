@@ -17,21 +17,49 @@ const shopifyClient = new GraphQLClient(`${getBaseUrl()}/api/shopify/proxy`, {
   },
 })
 
-// Función para realizar consultas GraphQL a Shopify
+// Función para realizar consultas GraphQL a Shopify con mejor manejo de errores
 export async function shopifyFetch({ query, variables = {} }) {
   try {
+    console.log("Enviando consulta GraphQL a Shopify:", {
+      query: query.substring(0, 100) + "...", // Solo para logging, truncamos la consulta
+      variables,
+    })
+
     const result = await shopifyClient.request(query, variables)
+
+    // Verificar si la respuesta contiene datos
+    if (!result) {
+      console.error("Respuesta vacía de Shopify")
+      return {
+        data: null,
+        errors: [{ message: "Respuesta vacía de la API de Shopify" }],
+      }
+    }
+
     return { data: result, errors: null }
   } catch (error) {
     console.error("Error en la consulta GraphQL:", error)
+
+    // Intentar extraer errores específicos de GraphQL
+    const graphQLErrors = error.response?.errors || [{ message: error.message }]
+
+    // Registrar detalles adicionales para depuración
+    if (error.response) {
+      console.error("Detalles de la respuesta de error:", {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        errors: graphQLErrors,
+      })
+    }
+
     return {
       data: null,
-      errors: error.response?.errors || [{ message: error.message }],
+      errors: graphQLErrors,
     }
   }
 }
 
-// Mejorar la función formatShopifyId para manejar todos los casos posibles
+// Resto del código sin cambios...
 export function formatShopifyId(id: string | number | null | undefined, resourceType: string): string {
   if (!id) {
     console.warn(`ID inválido proporcionado para ${resourceType}:`, id)

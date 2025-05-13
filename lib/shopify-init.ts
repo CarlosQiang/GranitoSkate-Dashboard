@@ -6,10 +6,18 @@ export async function verificarColeccionTutoriales() {
   try {
     console.log("Verificando colección de tutoriales en Shopify...")
 
-    // Buscar la colección por título
+    // Verificar que tenemos las credenciales de Shopify
+    const shopifyDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
+    const shopifyToken = process.env.SHOPIFY_ACCESS_TOKEN
+
+    if (!shopifyDomain || !shopifyToken) {
+      throw new Error("Faltan credenciales de Shopify. Verifica las variables de entorno.")
+    }
+
+    // Buscar la colección por título usando una consulta más simple
     const GET_COLLECTION = gql`
-      query getCollectionByTitle($title: String!) {
-        collections(first: 1, query: $title) {
+      {
+        collections(first: 10, query: "title:Tutoriales") {
           edges {
             node {
               id
@@ -22,21 +30,32 @@ export async function verificarColeccionTutoriales() {
 
     const response = await shopifyFetch({
       query: GET_COLLECTION,
-      variables: { title: "Tutoriales" },
     })
+
+    // Verificar si hay errores en la respuesta
+    if (response.errors) {
+      console.error("Errores al buscar colección:", response.errors)
+      throw new Error(`Error al buscar colección: ${response.errors[0].message}`)
+    }
 
     // Verificar que la respuesta sea válida
     if (!response || !response.data) {
       throw new Error("Respuesta inválida de la API de Shopify al buscar colección")
     }
 
+    console.log("Respuesta de búsqueda de colección:", response.data)
+
     // Si la colección existe, no hacer nada
     if (response.data.collections?.edges?.length > 0) {
-      console.log("Colección de tutoriales encontrada:", response.data.collections.edges[0].node.id)
-      return {
-        success: true,
-        message: "La colección de tutoriales ya existe",
-        collectionId: response.data.collections.edges[0].node.id,
+      const coleccion = response.data.collections.edges.find((edge: any) => edge.node.title === "Tutoriales")
+
+      if (coleccion) {
+        console.log("Colección de tutoriales encontrada:", coleccion.node.id)
+        return {
+          success: true,
+          message: "La colección de tutoriales ya existe",
+          collectionId: coleccion.node.id,
+        }
       }
     }
 
@@ -69,10 +88,18 @@ export async function verificarColeccionTutoriales() {
       },
     })
 
+    // Verificar si hay errores en la respuesta
+    if (createResponse.errors) {
+      console.error("Errores al crear colección:", createResponse.errors)
+      throw new Error(`Error al crear colección: ${createResponse.errors[0].message}`)
+    }
+
     // Verificar que la respuesta sea válida
     if (!createResponse || !createResponse.data) {
       throw new Error("Respuesta inválida de la API de Shopify al crear colección")
     }
+
+    console.log("Respuesta de creación de colección:", createResponse.data)
 
     // Verificar si hay errores en la creación
     if (createResponse.data.collectionCreate?.userErrors?.length > 0) {
