@@ -2,109 +2,111 @@ import Link from "next/link"
 
 export default function DocsPage() {
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center">
-            <Link href="/" className="text-2xl font-bold text-gray-800">
-              GranitoSkate
+            <Link href="/" className="flex items-center">
+              <img src="/favicon.ico" alt="GranitoSkate Logo" className="h-8 w-8 mr-2" />
+              <h1 className="text-xl font-bold text-gray-900">GranitoSkate</h1>
             </Link>
           </div>
           <div>
             <Link
               href="/login"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
-              Iniciar sesión
+              Iniciar Sesión
             </Link>
           </div>
         </div>
       </header>
 
-      <main className="flex-grow container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold mb-6">Documentación</h1>
-
-          <div className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4">Introducción</h2>
-            <p className="text-gray-700 mb-4">
-              Bienvenido a la documentación de GranitoSkate Dashboard. Esta aplicación te permite gestionar tu tienda
-              Shopify de manera eficiente y sencilla.
-            </p>
-            <p className="text-gray-700 mb-4">
-              A continuación encontrarás información sobre cómo utilizar las diferentes funcionalidades del panel de
-              administración.
-            </p>
+      {/* Content */}
+      <div className="py-10">
+        <header>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h1 className="text-3xl font-bold leading-tight text-gray-900">Documentación</h1>
           </div>
+        </header>
+        <main>
+          <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <div className="px-4 py-8 sm:px-0">
+              <div className="border-4 border-dashed border-gray-200 rounded-lg p-6 bg-white">
+                <h2 className="text-2xl font-bold mb-4">Guía de uso del panel de administración</h2>
 
-          <div className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4">Primeros pasos</h2>
-            <ol className="list-decimal pl-6 space-y-2 text-gray-700">
-              <li>Inicia sesión con tus credenciales de administrador</li>
-              <li>Explora el panel de control para ver estadísticas generales</li>
-              <li>Navega por las diferentes secciones usando el menú lateral</li>
-              <li>Comienza a gestionar tus productos, colecciones y clientes</li>
-            </ol>
-          </div>
+                <div className="space-y-6">
+                  <section>
+                    <h3 className="text-xl font-semibold mb-2">Introducción</h3>
+                    <p className="text-gray-600">
+                      Bienvenido al panel de administración de GranitoSkate. Esta plataforma te permite gestionar todos
+                      los aspectos de tu tienda Shopify de manera sencilla y eficiente.
+                    </p>
+                  </section>
 
-          <div className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4">Funcionalidades principales</h2>
+                  <section>
+                    <h3 className="text-xl font-semibold mb-2">Primeros pasos</h3>
+                    <ol className="list-decimal pl-5 space-y-2 text-gray-600">
+                      <li>Inicia sesión con tus credenciales de administrador</li>
+                      <li>Explora el dashboard para ver un resumen de la actividad de tu tienda</li>
+                      <li>Navega por las diferentes secciones usando el menú lateral</li>
+                    </ol>
+                  </section>
 
-            <div className="mb-4">
-              <h3 className="text-xl font-medium mb-2">Gestión de productos</h3>
-              <p className="text-gray-700">
-                Añade, edita y elimina productos. Gestiona inventario, precios y metadatos.
-              </p>
-            </div>
+                  <section>
+                    <h3 className="text-xl font-semibold mb-2">Gestión de productos</h3>
+                    <p className="text-gray-600">La sección de productos te permite:</p>
+                    <ul className="list-disc pl-5 space-y-1 text-gray-600">
+                      <li>Ver todos los productos de tu tienda</li>
+                      <li>Añadir nuevos productos</li>
+                      <li>Editar productos existentes</li>
+                      <li>Gestionar el inventario</li>
+                      <li>Organizar productos en colecciones</li>
+                    </ul>
+                  </section>
 
-            <div className="mb-4">
-              <h3 className="text-xl font-medium mb-2">Gestión de colecciones</h3>
-              <p className="text-gray-700">
-                Organiza tus productos en colecciones para mejorar la navegación de tu tienda.
-              </p>
-            </div>
+                  <section>
+                    <h3 className="text-xl font-semibold mb-2">Gestión de colecciones</h3>
+                    <p className="text-gray-600">
+                      Las colecciones te ayudan a organizar tus productos para mejorar la experiencia de compra. Puedes:
+                    </p>
+                    <ul className="list-disc pl-5 space-y-1 text-gray-600">
+                      <li>Crear nuevas colecciones</li>
+                      <li>Añadir o quitar productos de las colecciones</li>
+                      <li>Establecer condiciones automáticas para las colecciones</li>
+                    </ul>
+                  </section>
 
-            <div className="mb-4">
-              <h3 className="text-xl font-medium mb-2">Clientes</h3>
-              <p className="text-gray-700">Visualiza información de tus clientes y su historial de compras.</p>
-            </div>
+                  <section>
+                    <h3 className="text-xl font-semibold mb-2">Optimización SEO</h3>
+                    <p className="text-gray-600">Mejora la visibilidad de tu tienda en los motores de búsqueda:</p>
+                    <ul className="list-disc pl-5 space-y-1 text-gray-600">
+                      <li>Configura metadatos para productos y colecciones</li>
+                      <li>Genera datos estructurados para mejorar los resultados de búsqueda</li>
+                      <li>Monitoriza el rendimiento SEO de tu tienda</li>
+                    </ul>
+                  </section>
 
-            <div className="mb-4">
-              <h3 className="text-xl font-medium mb-2">Optimización SEO</h3>
-              <p className="text-gray-700">
-                Mejora el posicionamiento de tu tienda con herramientas de SEO integradas.
-              </p>
-            </div>
-          </div>
-
-          <div className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4">Soporte</h2>
-            <p className="text-gray-700">
-              Si necesitas ayuda adicional, no dudes en contactar con nuestro equipo de soporte en{" "}
-              <a href="mailto:soporte@granitoskate.com" className="text-blue-600 hover:underline">
-                soporte@granitoskate.com
-              </a>
-              .
-            </p>
-          </div>
-        </div>
-      </main>
-
-      <footer className="bg-gray-800 text-white py-8">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="mb-4 md:mb-0">
-              <p>&copy; 2023 GranitoSkate. Todos los derechos reservados.</p>
-            </div>
-            <div className="flex space-x-4">
-              <Link href="/" className="hover:text-blue-400 transition-colors">
-                Inicio
-              </Link>
-              <a href="#" className="hover:text-blue-400 transition-colors">
-                Soporte
-              </a>
+                  <div className="mt-8 border-t border-gray-200 pt-6">
+                    <p className="text-gray-500 text-sm">
+                      Esta documentación está en desarrollo. Próximamente se añadirán más secciones con información
+                      detallada sobre todas las funcionalidades del panel.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
+        </main>
+      </div>
+
+      {/* Footer */}
+      <footer className="bg-white">
+        <div className="max-w-7xl mx-auto py-12 px-4 overflow-hidden sm:px-6 lg:px-8">
+          <p className="mt-8 text-center text-base text-gray-400">
+            &copy; {new Date().getFullYear()} GranitoSkate. Todos los derechos reservados.
+          </p>
         </div>
       </footer>
     </div>

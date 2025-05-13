@@ -1,6 +1,6 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { verifyCredentials } from "./auth-service"
+import { verificarCredenciales } from "./auth-service"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -15,33 +15,14 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        try {
-          const user = await verifyCredentials(credentials.email, credentials.password)
+        const user = await verificarCredenciales(credentials.email, credentials.password)
 
-          if (!user) {
-            return null
-          }
-
-          return {
-            id: String(user.id),
-            email: user.correo_electronico,
-            name: user.nombre_completo || user.nombre_usuario,
-            role: user.rol,
-          }
-        } catch (error) {
-          console.error("Error en authorize:", error)
-          return null
-        }
+        return user
       },
     }),
   ],
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 días
   },
   callbacks: {
     async jwt({ token, user }) {
@@ -52,11 +33,14 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.id = token.sub as string
         session.user.role = token.role as string
       }
       return session
     },
+  },
+  pages: {
+    signIn: "/login",
+    error: "/login",
   },
   secret: process.env.NEXTAUTH_SECRET,
 }
