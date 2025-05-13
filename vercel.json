@@ -9,10 +9,7 @@
     "domains": ["cdn.shopify.com"]
   },
   "env": {
-    "NEXT_PUBLIC_VERCEL_ENV": "production",
-    "NEXTAUTH_URL": {
-      "url": "${DEPLOYMENT_URL}"
-    }
+    "NEXT_PUBLIC_VERCEL_ENV": "production"
   },
   "headers": [
     {
