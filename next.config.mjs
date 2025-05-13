@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -9,37 +8,47 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    domains: ['cdn.shopify.com', 'res.cloudinary.com', 'burst.shopifycdn.com'],
+    domains: [
+      'cdn.shopify.com',
+      'burst.shopifycdn.com',
+      'plus.unsplash.com',
+      'images.unsplash.com',
+      'tailwindui.com',
+      'qiangtheme.myshopify.com',
+    ],
     unoptimized: true,
   },
-  // Asegurar que los archivos estáticos sean accesibles
   async headers() {
     return [
       {
-        source: '/(.*)',
+        source: '/site.webmanifest',
         headers: [
           {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
+            key: 'Content-Type',
+            value: 'application/manifest+json',
           },
         ],
       },
       {
-        // Configuración específica para archivos estáticos
-        source: '/(favicon.ico|site.webmanifest|android-chrome-192x192.png|android-chrome-512x512.png|apple-touch-icon.png|favicon-16x16.png|favicon-32x32.png)',
+        source: '/android-chrome-192x192.png',
         headers: [
           {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
+            key: 'Content-Type',
+            value: 'image/png',
           },
+        ],
+      },
+      {
+        source: '/android-chrome-512x512.png',
+        headers: [
           {
-            key: 'Access-Control-Allow-Origin',
-            value: '*',
+            key: 'Content-Type',
+            value: 'image/png',
           },
         ],
       },
     ]
   },
-};
+}
 
-export default nextConfig;
+export default nextConfig

@@ -14,7 +14,9 @@ export async function fetchCollections() {
               handle
               description
               descriptionHtml
-              productsCount
+              productsCount {
+                count
+              }
               image {
                 url
                 altText
@@ -43,7 +45,12 @@ export async function fetchCollections() {
     `
 
     const data = await shopifyClient.request(query)
-    return data.collections.edges.map((edge) => edge.node)
+
+    // Transformar los datos para mantener compatibilidad con el código existente
+    return data.collections.edges.map((edge) => ({
+      ...edge.node,
+      productsCount: edge.node.productsCount.count,
+    }))
   } catch (error) {
     console.error("Error fetching collections:", error)
     throw new Error(`Error al obtener colecciones: ${error.message}`)
@@ -61,7 +68,9 @@ export async function fetchCollectionById(id) {
           handle
           description
           descriptionHtml
-          productsCount
+          productsCount {
+            count
+          }
           image {
             url
             altText
@@ -88,7 +97,12 @@ export async function fetchCollectionById(id) {
     `
 
     const data = await shopifyClient.request(query, { id })
-    return data.collection
+
+    // Transformar los datos para mantener compatibilidad con el código existente
+    return {
+      ...data.collection,
+      productsCount: data.collection.productsCount.count,
+    }
   } catch (error) {
     console.error(`Error fetching collection with ID ${id}:`, error)
     throw new Error(`Error al cargar la colección: ${error.message}`)
@@ -283,7 +297,9 @@ export async function addProductsToCollection(collectionId, productIds) {
           collection {
             id
             title
-            productsCount
+            productsCount {
+              count
+            }
           }
           userErrors {
             field
@@ -304,7 +320,11 @@ export async function addProductsToCollection(collectionId, productIds) {
       throw new Error(data.collectionAddProducts.userErrors[0].message)
     }
 
-    return data.collectionAddProducts.collection
+    // Transformar los datos para mantener compatibilidad con el código existente
+    return {
+      ...data.collectionAddProducts.collection,
+      productsCount: data.collectionAddProducts.collection.productsCount.count,
+    }
   } catch (error) {
     console.error(`Error adding products to collection ${collectionId}:`, error)
     throw new Error(`Error al añadir productos a la colección: ${error.message}`)
@@ -335,7 +355,9 @@ export async function removeProductsFromCollection(collectionId, productIds) {
           collection {
             id
             title
-            productsCount
+            productsCount {
+              count
+            }
           }
           userErrors {
             field
@@ -356,7 +378,11 @@ export async function removeProductsFromCollection(collectionId, productIds) {
       throw new Error(data.collectionRemoveProducts.userErrors[0].message)
     }
 
-    return data.collectionRemoveProducts.collection
+    // Transformar los datos para mantener compatibilidad con el código existente
+    return {
+      ...data.collectionRemoveProducts.collection,
+      productsCount: data.collectionRemoveProducts.collection.productsCount.count,
+    }
   } catch (error) {
     console.error(`Error removing products from collection ${collectionId}:`, error)
     throw new Error(`Error al eliminar productos de la colección: ${error.message}`)
