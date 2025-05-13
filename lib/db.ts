@@ -1,18 +1,10 @@
-import { Pool } from "pg"
-
-// Crear una instancia de Pool para conexiones a PostgreSQL
-const db = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false,
-  },
-})
+import { sql } from "@vercel/postgres"
 
 // Función para ejecutar consultas SQL
 export async function query(text: string, params: any[] = []) {
   const start = Date.now()
   try {
-    const result = await db.query(text, params)
+    const result = await sql.query(text, params)
     const duration = Date.now() - start
     console.log("Consulta ejecutada", { text, duration, rows: result.rowCount })
     return result
@@ -22,5 +14,4 @@ export async function query(text: string, params: any[] = []) {
   }
 }
 
-// Exportar el objeto db para uso directo
-export { db }
+// No hay necesidad de exportar un objeto db ya que usamos sql directamente
