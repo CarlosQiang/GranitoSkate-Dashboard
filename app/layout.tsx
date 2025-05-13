@@ -8,7 +8,7 @@ import { AuthProvider } from "@/components/providers"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "GestionGranito Dashboard",
+  title: "GestionGranito - Panel de Administración",
   description: "Panel de administración para GestionGranito",
     generator: 'v0.dev'
 }

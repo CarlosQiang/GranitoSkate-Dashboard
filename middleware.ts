@@ -1,43 +1,51 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { getToken } from "next-auth/jwt"
 
-export async function middleware(request: NextRequest) {
+// Middleware simplificado para evitar errores
+export function middleware(request: NextRequest) {
   // Obtener la ruta actual
   const { pathname } = request.nextUrl
 
-  // Si es la ruta raíz, redirigir a dashboard
+  // Si es la ruta raíz, permitir acceso (ahora será nuestra landing page)
   if (pathname === "/") {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
+    return NextResponse.next()
   }
 
-  // Verificar si la ruta requiere autenticación
-  const isAuthRoute = pathname.startsWith("/dashboard")
-
-  // Verificar si la ruta es de autenticación
-  const isLoginPage = pathname === "/login"
-
-  // Obtener el token de autenticación
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  })
-
-  // Si es una ruta protegida y no hay token, redirigir a login
-  if (isAuthRoute && !token) {
-    const url = new URL("/login", request.url)
-    return NextResponse.redirect(url)
+  // Si es la ruta de login, permitir acceso
+  if (pathname === "/login") {
+    return NextResponse.next()
   }
 
-  // Si es la página de login y hay token, redirigir al dashboard
-  if (isLoginPage && token) {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
+  // Si es una ruta de API, permitir acceso
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next()
   }
 
+  // Para rutas del dashboard, verificar la cookie de sesión
+  if (pathname.startsWith("/dashboard")) {
+    const authCookie =
+      request.cookies.get("next-auth.session-token")?.value ||
+      request.cookies.get("__Secure-next-auth.session-token")?.value
+
+    // Si no hay cookie de sesión, redirigir a login
+    if (!authCookie) {
+      return NextResponse.redirect(new URL("/login", request.url))
+    }
+  }
+
+  // Para todas las demás rutas, continuar
   return NextResponse.next()
 }
 
 // Configurar las rutas que deben ser procesadas por el middleware
 export const config = {
-  matcher: ["/", "/login", "/dashboard/:path*"],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    "/((?!_next/static|_next/image|favicon.ico).*)",
+  ],
 }
