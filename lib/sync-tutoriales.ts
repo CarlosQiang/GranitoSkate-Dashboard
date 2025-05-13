@@ -62,27 +62,29 @@ export async function sincronizarTutorialesBidireccional() {
 
 // Obtener todos los productos de la colección "Tutoriales" de Shopify
 async function obtenerProductosColeccionTutoriales(coleccionId: string) {
-  const GET_PRODUCTS = gql`
-    query getProductsInCollection($collectionId: ID!, $first: Int!) {
-      collection(id: $collectionId) {
-        products(first: $first) {
-          edges {
-            node {
-              id
-              title
-              description
-              descriptionHtml
-              productType
-              tags
-              publishedAt
-              status
-              metafields(first: 10) {
-                edges {
-                  node {
-                    namespace
-                    key
-                    value
-                    type
+  try {
+    const GET_PRODUCTS = gql`
+      query getProductsInCollection($collectionId: ID!, $first: Int!) {
+        collection(id: $collectionId) {
+          products(first: $first) {
+            edges {
+              node {
+                id
+                title
+                description
+                descriptionHtml
+                productType
+                tags
+                publishedAt
+                status
+                metafields(first: 10) {
+                  edges {
+                    node {
+                      namespace
+                      key
+                      value
+                      type
+                    }
                   }
                 }
               }
@@ -90,22 +92,39 @@ async function obtenerProductosColeccionTutoriales(coleccionId: string) {
           }
         }
       }
+    `
+
+    const response = await shopifyFetch({
+      query: GET_PRODUCTS,
+      variables: {
+        collectionId,
+        first: 250, // Máximo número de productos a obtener, ajustar según necesidad
+      },
+    })
+
+    // Verificar que la respuesta sea válida
+    if (!response || !response.data) {
+      console.error("Respuesta inválida al obtener productos de la colección")
+      return []
     }
-  `
 
-  const { data } = await shopifyFetch({
-    query: GET_PRODUCTS,
-    variables: {
-      collectionId,
-      first: 250, // Máximo número de productos a obtener, ajustar según necesidad
-    },
-  })
+    // Verificar que la colección exista
+    if (!response.data.collection) {
+      console.error("La colección no existe o no se pudo acceder a ella")
+      return []
+    }
 
-  if (!data?.collection?.products?.edges) {
+    // Verificar que la colección tenga productos
+    if (!response.data.collection.products?.edges) {
+      console.log("La colección no tiene productos")
+      return []
+    }
+
+    return response.data.collection.products.edges.map((edge: any) => edge.node)
+  } catch (error) {
+    console.error("Error al obtener productos de la colección:", error)
     return []
   }
-
-  return data.collection.products.edges.map((edge: any) => edge.node)
 }
 
 // Sincronizar productos de Shopify a la base de datos
@@ -217,7 +236,7 @@ async function sincronizarBaseDeDatosAShopify(tutorialesDB: any[], productosShop
         }
       `
 
-      const { data } = await shopifyFetch({
+      const response = await shopifyFetch({
         query: CREATE_PRODUCT,
         variables: {
           input: {
@@ -246,14 +265,24 @@ async function sincronizarBaseDeDatosAShopify(tutorialesDB: any[], productosShop
         },
       })
 
-      if (data?.productCreate?.userErrors?.length > 0) {
-        throw new Error(`Error al crear producto: ${data.productCreate.userErrors[0].message}`)
+      // Verificar que la respuesta sea válida
+      if (!response || !response.data) {
+        throw new Error("Respuesta inválida de la API de Shopify al crear producto")
+      }
+
+      if (response.data.productCreate?.userErrors?.length > 0) {
+        throw new Error(`Error al crear producto: ${response.data.productCreate.userErrors[0].message}`)
+      }
+
+      // Verificar que se haya creado correctamente
+      if (!response.data.productCreate?.product?.id) {
+        throw new Error("No se pudo obtener el ID del producto creado")
       }
 
       // Actualizar el ID de Shopify en la base de datos
       await prisma.tutorial.update({
         where: { id: tutorial.id },
-        data: { shopify_id: data.productCreate.product.id },
+        data: { shopify_id: response.data.productCreate.product.id },
       })
 
       creados++
@@ -311,7 +340,7 @@ async function actualizarTutorialesExistentes(tutorialesDB: any[], productosShop
           }
         `
 
-        const { data } = await shopifyFetch({
+        const response = await shopifyFetch({
           query: UPDATE_PRODUCT,
           variables: {
             input: {
@@ -339,8 +368,13 @@ async function actualizarTutorialesExistentes(tutorialesDB: any[], productosShop
           },
         })
 
-        if (data?.productUpdate?.userErrors?.length > 0) {
-          throw new Error(`Error al actualizar producto: ${data.productUpdate.userErrors[0].message}`)
+        // Verificar que la respuesta sea válida
+        if (!response || !response.data) {
+          throw new Error("Respuesta inválida de la API de Shopify al actualizar producto")
+        }
+
+        if (response.data.productUpdate?.userErrors?.length > 0) {
+          throw new Error(`Error al actualizar producto: ${response.data.productUpdate.userErrors[0].message}`)
         }
 
         actualizados++

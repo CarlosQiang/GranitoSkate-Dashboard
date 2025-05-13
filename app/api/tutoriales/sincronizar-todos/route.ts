@@ -1,18 +1,35 @@
 import { NextResponse } from "next/server"
 import { sincronizarTutorialesBidireccional } from "@/lib/sync-tutoriales"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { verificarColeccionTutoriales } from "@/lib/shopify-init"
 
 export async function GET() {
   try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ success: false, message: "No autorizado" }, { status: 401 })
+    // Primero verificamos que la colección exista
+    const coleccionResult = await verificarColeccionTutoriales()
+
+    if (!coleccionResult.success) {
+      console.error("Error al verificar colección de tutoriales:", coleccionResult.message)
+      return NextResponse.json(
+        {
+          success: false,
+          message: `No se pudo verificar la colección de tutoriales: ${coleccionResult.message}`,
+        },
+        { status: 500 },
+      )
     }
 
-    // Ejecutar sincronización bidireccional
+    // Si la colección existe o se creó correctamente, procedemos con la sincronización
     const resultado = await sincronizarTutorialesBidireccional()
+
+    if (!resultado.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: resultado.message,
+        },
+        { status: 500 },
+      )
+    }
 
     return NextResponse.json(resultado)
   } catch (error) {
@@ -20,7 +37,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        message: error instanceof Error ? error.message : "Error desconocido",
+        message: error instanceof Error ? error.message : "Error desconocido en la sincronización",
       },
       { status: 500 },
     )

@@ -25,6 +25,7 @@ export function SincronizacionTutoriales() {
     try {
       setSincronizando(true)
       setError(null)
+      setResultado(null)
 
       const response = await fetch("/api/tutoriales/sincronizar-todos", {
         method: "GET",
@@ -33,13 +34,18 @@ export function SincronizacionTutoriales() {
         },
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
-        throw new Error(data.message || "Error al sincronizar tutoriales")
+        const errorData = await response.json().catch(() => ({ message: "Error desconocido" }))
+        throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`)
       }
 
+      const data = await response.json()
       setResultado(data)
+
+      // Si hay un mensaje de error en la respuesta, mostrarlo aunque el status sea 200
+      if (!data.success) {
+        setError(data.message || "Error en la sincronización")
+      }
     } catch (err) {
       console.error("Error al sincronizar tutoriales:", err)
       setError(err instanceof Error ? err.message : "Error desconocido")
