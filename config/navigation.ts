@@ -11,6 +11,7 @@ import {
   Search,
   AlertTriangle,
   UserCog,
+  BookOpen,
 } from "lucide-react"
 
 // Exportamos navigationItems para mantener compatibilidad con el código existente
@@ -36,10 +37,15 @@ export const navigationItems = [
     icon: Percent,
   },
   {
+    name: "Tutoriales",
+    href: "/dashboard/tutoriales",
+    icon: BookOpen,
+    isNew: true,
+  },
+  {
     name: "SEO",
     href: "/dashboard/seo",
     icon: Search,
-    isNew: true,
   },
   {
     name: "Mercados",
@@ -70,7 +76,6 @@ export const navigationItems = [
     name: "Administradores",
     href: "/dashboard/administradores",
     icon: UserCog,
-    isNew: true,
   },
 ]
 
@@ -111,6 +116,12 @@ export const mainNav = [
     href: "/dashboard/promotions",
     icon: Percent,
     color: "text-yellow-500",
+  },
+  {
+    title: "Tutoriales",
+    href: "/dashboard/tutoriales",
+    icon: BookOpen,
+    color: "text-red-500",
   },
   {
     title: "SEO",

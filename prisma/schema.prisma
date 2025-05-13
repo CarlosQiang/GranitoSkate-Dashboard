@@ -25,3 +25,26 @@ model Administrador {
 
   @@map("administradores")
 }
+
+model Tutorial {
+  id                  Int       @id @default(autoincrement())
+  titulo              String
+  slug                String    @unique
+  descripcion         String
+  contenido           String    @db.Text
+  imagen_url          String?
+  nivel_dificultad    String    @default("principiante") // principiante, intermedio, avanzado
+  tiempo_estimado     Int?      // en minutos
+  categorias          String[]
+  tags                String[]
+  shopify_id          String?   // ID del producto en Shopify
+  publicado           Boolean   @default(false)
+  destacado           Boolean   @default(false)
+  autor_id            Int?
+  fecha_creacion      DateTime  @default(now())
+  fecha_actualizacion DateTime  @default(now())
+  fecha_publicacion   DateTime?
+  metadatos           Json?     // Para almacenar metadatos adicionales
+
+  @@map("tutoriales")
+}
