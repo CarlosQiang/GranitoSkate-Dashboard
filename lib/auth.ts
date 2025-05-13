@@ -1,13 +1,13 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { getUserByIdentifier, verifyPassword, updateLastLogin } from "@/lib/auth-service"
+import { getUserByIdentifier, verifyPassword } from "./auth-service"
 
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        identifier: { label: "Usuario o Email", type: "text" },
+        identifier: { label: "Email o Usuario", type: "text" },
         password: { label: "Contraseña", type: "password" },
       },
       async authorize(credentials) {
@@ -15,36 +15,40 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        const user = await getUserByIdentifier(credentials.identifier)
+        try {
+          // Buscar usuario por email o nombre de usuario
+          const user = await getUserByIdentifier(credentials.identifier)
 
-        if (!user) {
+          if (!user) {
+            console.log("Usuario no encontrado:", credentials.identifier)
+            return null
+          }
+
+          // Verificar contraseña
+          const isValid = await verifyPassword(credentials.password, user.contrasena)
+
+          if (!isValid) {
+            console.log("Contraseña incorrecta para:", credentials.identifier)
+            return null
+          }
+
+          // Devolver usuario sin contraseña
+          return {
+            id: user.id.toString(),
+            email: user.correo_electronico,
+            name: user.nombre_completo || user.nombre_usuario,
+            role: user.rol,
+          }
+        } catch (error) {
+          console.error("Error en authorize:", error)
           return null
-        }
-
-        const isValidPassword = await verifyPassword(credentials.password, user.contrasena)
-
-        if (!isValidPassword) {
-          return null
-        }
-
-        // Actualizar último acceso
-        await updateLastLogin(user.id)
-
-        return {
-          id: user.id.toString(),
-          name: user.nombre_completo || user.nombre_usuario,
-          email: user.correo_electronico,
-          role: user.rol,
         }
       },
     }),
   ],
   pages: {
     signIn: "/login",
-  },
-  session: {
-    strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 días
+    error: "/login",
   },
   callbacks: {
     async jwt({ token, user }) {
@@ -62,4 +66,10 @@ export const authOptions: NextAuthOptions = {
       return session
     },
   },
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 días
+  },
+  secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === "development",
 }
