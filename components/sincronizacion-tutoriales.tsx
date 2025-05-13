@@ -153,24 +153,12 @@ export function SincronizacionTutoriales() {
             {resultado.success && resultado.stats && (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                 <div className="rounded-lg border p-3">
-                  <div className="text-xs font-medium text-muted-foreground">Total en BD</div>
-                  <div className="text-2xl font-bold">{resultado.stats.totalDB}</div>
+                  <div className="text-xs font-medium text-muted-foreground">Total</div>
+                  <div className="text-2xl font-bold">{resultado.stats.total}</div>
                 </div>
                 <div className="rounded-lg border p-3">
-                  <div className="text-xs font-medium text-muted-foreground">Total en Shopify</div>
-                  <div className="text-2xl font-bold">{resultado.stats.totalShopify}</div>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <div className="text-xs font-medium text-muted-foreground">Creados en BD</div>
-                  <div className="text-2xl font-bold">{resultado.stats.creadosEnDB}</div>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <div className="text-xs font-medium text-muted-foreground">Creados en Shopify</div>
-                  <div className="text-2xl font-bold">{resultado.stats.creadosEnShopify}</div>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <div className="text-xs font-medium text-muted-foreground">Actualizados</div>
-                  <div className="text-2xl font-bold">{resultado.stats.actualizados}</div>
+                  <div className="text-xs font-medium text-muted-foreground">Éxitos</div>
+                  <div className="text-2xl font-bold">{resultado.stats.exitos}</div>
                 </div>
                 <div className="rounded-lg border p-3">
                   <div className="text-xs font-medium text-muted-foreground">Errores</div>
@@ -179,26 +167,41 @@ export function SincronizacionTutoriales() {
               </div>
             )}
 
-            {resultado.errores && resultado.errores.length > 0 && (
-              <div className="mt-4">
-                <h4 className="text-sm font-medium mb-2">Detalles de errores:</h4>
-                <div className="max-h-40 overflow-y-auto space-y-2">
-                  {resultado.errores.map((err: any, index: number) => (
-                    <div key={index} className="text-xs border rounded p-2">
-                      <Badge variant="outline" className="mb-1">
-                        {err.tipo === "shopify_a_db"
-                          ? "Shopify → BD"
-                          : err.tipo === "db_a_shopify"
-                            ? "BD → Shopify"
-                            : "Actualización"}
-                      </Badge>
-                      <p>
-                        <strong>{err.tutorial || err.producto}</strong>: {err.error}
-                      </p>
+            {resultado.detalles && (
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="details">
+                  <AccordionTrigger className="text-sm">Ver detalles de la sincronización</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="max-h-40 overflow-y-auto space-y-2">
+                      {resultado.detalles.map((resultado: any, index: number) => (
+                        <div
+                          key={index}
+                          className={`text-xs border rounded p-2 ${
+                            resultado.status === "fulfilled" && resultado.value.success
+                              ? "border-green-200 bg-green-50"
+                              : "border-red-200 bg-red-50"
+                          }`}
+                        >
+                          <Badge
+                            variant={
+                              resultado.status === "fulfilled" && resultado.value.success ? "outline" : "destructive"
+                            }
+                            className="mb-1"
+                          >
+                            {resultado.status === "fulfilled" && resultado.value.success ? "Éxito" : "Error"}
+                          </Badge>
+                          <p>
+                            <strong>ID: {resultado.value?.id || "Desconocido"}</strong>
+                            {resultado.status !== "fulfilled" || !resultado.value.success
+                              ? `: ${resultado.reason?.message || resultado.value?.error || "Error desconocido"}`
+                              : ""}
+                          </p>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             )}
           </div>
         ) : (

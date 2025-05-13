@@ -25,6 +25,18 @@ export async function shopifyFetch({ query, variables = {} }) {
       variables,
     })
 
+    // Verificar que tenemos las credenciales de Shopify
+    const shopifyDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
+    const shopifyToken = process.env.SHOPIFY_ACCESS_TOKEN
+
+    if (!shopifyDomain || !shopifyToken) {
+      console.error("Faltan credenciales de Shopify en las variables de entorno")
+      return {
+        data: null,
+        errors: [{ message: "Faltan credenciales de Shopify en las variables de entorno" }],
+      }
+    }
+
     const result = await shopifyClient.request(query, variables)
 
     // Verificar si la respuesta contiene datos
@@ -59,7 +71,7 @@ export async function shopifyFetch({ query, variables = {} }) {
   }
 }
 
-// Resto del código sin cambios...
+// Mejorar la función formatShopifyId para manejar todos los casos posibles
 export function formatShopifyId(id: string | number | null | undefined, resourceType: string): string {
   if (!id) {
     console.warn(`ID inválido proporcionado para ${resourceType}:`, id)
