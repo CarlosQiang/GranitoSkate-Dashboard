@@ -17,7 +17,7 @@ const nextConfig = {
     ],
     unoptimized: true,
   },
-  // Configuración mejorada de rutas
+  // Configuración de rutas
   async redirects() {
     return [
       {
@@ -32,14 +32,9 @@ const nextConfig = {
       },
     ]
   },
-  // Aseguramos que las rutas de API funcionen correctamente
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: '/api/:path*',
-      },
-    ]
+  // Configuración para ignorar errores de dependencias
+  experimental: {
+    esmExternals: 'loose',
   },
 }
 
