@@ -8,7 +8,7 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    domains: ['cdn.shopify.com', 'placeholder.com'],
+    domains: ['cdn.shopify.com', 'localhost'],
     unoptimized: true,
   },
   async headers() {
@@ -43,7 +43,7 @@ const nextConfig = {
     ]
   },
   experimental: {
-    serverExternalPackages: ['@prisma/client', 'bcrypt'],
+    // Eliminar serverExternalPackages ya que no es reconocido
   },
 };
 
