@@ -88,14 +88,13 @@ export function CollectionSeoForm({
       setError(null)
 
       try {
-        // Asegurarse de que el ID tenga el formato correcto
-        const formattedId = collectionId.includes("gid://shopify/Collection/")
-          ? collectionId
-          : `gid://shopify/Collection/${collectionId}`
+        // Ensure the ID has the correct format
+        const numericId = collectionId.includes("/") ? collectionId.split("/").pop() : collectionId
+        const formattedId = `gid://shopify/Collection/${numericId}`
 
         console.log("Cargando SEO para colección:", formattedId)
 
-        const seoData = await getCollectionSeoSettings(collectionId)
+        const seoData = await getCollectionSeoSettings(formattedId)
 
         if (seoData) {
           console.log("Datos SEO cargados:", seoData)
@@ -113,7 +112,7 @@ export function CollectionSeoForm({
             twitterImage: seoData.twitterImage || collectionImage || "",
           })
         } else {
-          // Si no hay datos de SEO, usar los valores de la colección
+          // If no SEO data, use the collection values
           console.log("No hay datos SEO, usando valores por defecto")
           form.reset({
             title: collectionTitle,
@@ -150,7 +149,7 @@ export function CollectionSeoForm({
       setIsSaving(true)
       setError(null)
 
-      // Validar el formulario
+      // Validate the form
       const isValid = await form.trigger()
       if (!isValid) {
         toast({
@@ -165,12 +164,11 @@ export function CollectionSeoForm({
       const values = form.getValues()
       console.log("Guardando configuración SEO:", values)
 
-      // Asegurarse de que el ID tenga el formato correcto
-      const formattedId = collectionId.includes("gid://shopify/Collection/")
-        ? collectionId
-        : `gid://shopify/Collection/${collectionId}`
+      // Ensure the ID has the correct format
+      const numericId = collectionId.includes("/") ? collectionId.split("/").pop() : collectionId
+      const formattedId = `gid://shopify/Collection/${numericId}`
 
-      // Primero actualizamos los campos SEO básicos de la colección
+      // First update the basic SEO fields of the collection
       try {
         const success = await saveCollectionSeoSettings(formattedId, values)
 

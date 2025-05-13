@@ -5,6 +5,11 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
+import { useToast } from "@/components/ui/use-toast"
+import { fetchProducts } from "@/lib/api/products"
+import { fetchCollectionProducts, addProductsToCollection, removeProductsFromCollection } from "@/lib/api/collections"
+import { Loader2 } from "lucide-react"
+import { Input } from "@/components/ui/input"
 
 interface CollectionProductManagerProps {
   productId?: string
@@ -14,28 +19,75 @@ interface CollectionProductManagerProps {
 }
 
 export function CollectionProductManager({ productId, collectionId, onComplete, mode }: CollectionProductManagerProps) {
-  const [products, setProducts] = useState([])
-  const [selectedProducts, setSelectedProducts] = useState([])
+  const { toast } = useToast()
+  const [products, setProducts] = useState<any[]>([])
+  const [collectionProducts, setCollectionProducts] = useState<any[]>([])
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Simula la carga de productos desde una API
-    const loadProducts = async () => {
-      // Aquí deberías hacer una llamada a tu API para obtener los productos
-      // y filtrarlos según el productId y collectionId
-      const mockProducts = [
-        { id: "1", title: "Producto 1" },
-        { id: "2", title: "Producto 2" },
-        { id: "3", title: "Producto 3" },
-        { id: "4", title: "Producto 4" },
-        { id: "5", title: "Producto 5" },
-      ]
-      setProducts(mockProducts)
+    async function loadData() {
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        // Ensure we have a clean ID (remove any Shopify prefixes)
+        const cleanCollectionId = collectionId
+          ? collectionId.includes("/")
+            ? collectionId
+            : `gid://shopify/Collection/${collectionId}`
+          : undefined
+
+        const cleanProductId = productId
+          ? productId.includes("/")
+            ? productId
+            : `gid://shopify/Product/${productId}`
+          : undefined
+
+        // If we're in "add" mode, we need all products
+        if (mode === "add") {
+          const allProducts = await fetchProducts()
+          setProducts(allProducts)
+        }
+
+        // If we have a collection ID, fetch its products
+        if (cleanCollectionId) {
+          const productsInCollection = await fetchCollectionProducts(cleanCollectionId)
+
+          // Extract the actual product nodes from the edges
+          const collectionProductNodes = productsInCollection?.edges?.map((edge) => edge.node) || []
+          setCollectionProducts(collectionProductNodes)
+
+          // If we're in "remove" mode, we only need the products in the collection
+          if (mode === "remove") {
+            setProducts(collectionProductNodes)
+          }
+        }
+
+        // If we have a product ID, pre-select it
+        if (cleanProductId) {
+          setSelectedProducts([cleanProductId])
+        }
+      } catch (err) {
+        console.error("Error loading products:", err)
+        setError(`Error al cargar los productos: ${(err as Error).message}`)
+        toast({
+          title: "Error",
+          description: `Error al cargar los productos: ${(err as Error).message}`,
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
+      }
     }
 
-    loadProducts()
-  }, [productId, collectionId])
+    loadData()
+  }, [collectionId, productId, mode, toast])
 
-  const handleProductSelection = (productId) => {
+  const handleProductSelection = (productId: string) => {
     setSelectedProducts((prev) => {
       if (prev.includes(productId)) {
         return prev.filter((id) => id !== productId)
@@ -45,42 +97,149 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
     })
   }
 
-  const handleCompleteAction = () => {
-    // Simula la acción de añadir o eliminar productos
-    console.log(`Simulando ${mode} productos:`, selectedProducts)
-    if (onComplete) {
-      onComplete()
+  const handleCompleteAction = async () => {
+    if (selectedProducts.length === 0) {
+      toast({
+        title: "Selección vacía",
+        description: "Por favor, selecciona al menos un producto",
+        variant: "destructive",
+      })
+      return
     }
+
+    setIsProcessing(true)
+    setError(null)
+
+    try {
+      // Ensure we have a clean collection ID
+      const cleanCollectionId = collectionId
+        ? collectionId.includes("/")
+          ? collectionId
+          : `gid://shopify/Collection/${collectionId}`
+        : undefined
+
+      if (!cleanCollectionId) {
+        throw new Error("ID de colección no válido")
+      }
+
+      if (mode === "add") {
+        await addProductsToCollection(cleanCollectionId, selectedProducts)
+        toast({
+          title: "Productos añadidos",
+          description: `${selectedProducts.length} productos añadidos a la colección`,
+        })
+      } else {
+        await removeProductsFromCollection(cleanCollectionId, selectedProducts)
+        toast({
+          title: "Productos eliminados",
+          description: `${selectedProducts.length} productos eliminados de la colección`,
+        })
+      }
+
+      // Reset selection
+      setSelectedProducts([])
+
+      // Call the onComplete callback if provided
+      if (onComplete) {
+        onComplete()
+      }
+    } catch (err) {
+      console.error(`Error ${mode === "add" ? "añadiendo" : "eliminando"} productos:`, err)
+      setError(`Error ${mode === "add" ? "añadiendo" : "eliminando"} productos: ${(err as Error).message}`)
+      toast({
+        title: "Error",
+        description: `Error ${mode === "add" ? "añadiendo" : "eliminando"} productos: ${(err as Error).message}`,
+        variant: "destructive",
+      })
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  // Filter products based on search term
+  const filteredProducts = products.filter((product) => {
+    // If we're in "add" mode, exclude products that are already in the collection
+    if (mode === "add") {
+      const isInCollection = collectionProducts.some((cp) => cp.id === product.id)
+      if (isInCollection) return false
+    }
+
+    // Filter by search term
+    if (searchTerm) {
+      return product.title.toLowerCase().includes(searchTerm.toLowerCase())
+    }
+
+    return true
+  })
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">Cargando productos...</span>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4">
+        <h3 className="text-lg font-semibold mb-2">Error</h3>
+        <p>{error}</p>
+        <Button variant="outline" className="mt-2" onClick={() => window.location.reload()}>
+          Reintentar
+        </Button>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-4">
+      <Input
+        placeholder="Buscar productos..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="mb-4"
+      />
+
       <Card>
-        <CardContent className="space-y-4">
-          <ScrollArea className="h-[300px] w-full rounded-md border">
+        <CardContent className="p-4">
+          <ScrollArea className="h-[400px] w-full rounded-md border">
             <div className="p-4 space-y-2">
-              {products.map((product) => (
-                <div key={product.id} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`product-${product.id}`}
-                    checked={selectedProducts.includes(product.id)}
-                    onCheckedChange={() => handleProductSelection(product.id)}
-                  />
-                  <label
-                    htmlFor={`product-${product.id}`}
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    {product.title}
-                  </label>
+              {filteredProducts.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  {mode === "add"
+                    ? "No hay productos disponibles para añadir a esta colección"
+                    : "No hay productos en esta colección"}
                 </div>
-              ))}
+              ) : (
+                filteredProducts.map((product) => (
+                  <div key={product.id} className="flex items-center space-x-2 p-2 hover:bg-muted rounded-md">
+                    <Checkbox
+                      id={`product-${product.id}`}
+                      checked={selectedProducts.includes(product.id)}
+                      onCheckedChange={() => handleProductSelection(product.id)}
+                    />
+                    <label
+                      htmlFor={`product-${product.id}`}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                    >
+                      {product.title}
+                    </label>
+                  </div>
+                ))
+              )}
             </div>
           </ScrollArea>
         </CardContent>
       </Card>
 
-      <div className="flex justify-end">
-        <Button onClick={handleCompleteAction} disabled={selectedProducts.length === 0}>
+      <div className="flex justify-between">
+        <div>
+          <span className="text-sm text-muted-foreground">{selectedProducts.length} productos seleccionados</span>
+        </div>
+        <Button onClick={handleCompleteAction} disabled={isProcessing || selectedProducts.length === 0}>
+          {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {mode === "add" ? "Añadir productos" : "Eliminar productos"}
         </Button>
       </div>

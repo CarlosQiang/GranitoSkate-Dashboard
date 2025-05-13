@@ -23,8 +23,12 @@ export default function CollectionProductsPage({ params }: { params: { id: strin
       try {
         setLoading(true)
         setError(null)
-        console.log("Intentando cargar colección con ID:", params.id)
-        const data = await fetchCollectionById(params.id)
+
+        // Extract the numeric ID from the URL parameter
+        const numericId = params.id.includes("/") ? params.id.split("/").pop() : params.id
+
+        console.log("Intentando cargar colección con ID:", numericId)
+        const data = await fetchCollectionById(numericId)
         console.log("Datos de colección recibidos:", data)
         setCollection(data)
       } catch (err) {

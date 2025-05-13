@@ -85,13 +85,13 @@ export function CollectionsList() {
           </CardContent>
           <CardFooter className="flex justify-between p-4 pt-0">
             <Button asChild variant="outline" size="sm">
-              <Link href={`/dashboard/collections/${collection.id}`}>
+              <Link href={`/dashboard/collections/${collection.id.split("/").pop()}`}>
                 <Edit className="mr-2 h-4 w-4" />
                 Editar
               </Link>
             </Button>
             <Button asChild variant="outline" size="sm">
-              <Link href={`/dashboard/collections/${collection.id}/products`}>
+              <Link href={`/dashboard/collections/${collection.id.split("/").pop()}/products`}>
                 <Package className="mr-2 h-4 w-4" />
                 Productos
               </Link>

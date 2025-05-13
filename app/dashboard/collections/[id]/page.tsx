@@ -45,16 +45,17 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
     description: "",
   })
 
+  // Update the fetchCollectionData function to properly format the ID
   const fetchCollectionData = async () => {
     setIsLoading(true)
     setError(null)
 
     try {
-      // Asegurarse de que el ID tenga el formato correcto
-      const formattedId = formatShopifyId(params.id, "Collection")
+      // Extract the numeric ID from the URL parameter
+      const numericId = params.id.includes("/") ? params.id.split("/").pop() : params.id
 
-      console.log(`Intentando cargar colección con ID: ${formattedId}`)
-      const collectionData = await fetchCollectionById(formattedId)
+      console.log(`Intentando cargar colección con ID: ${numericId}`)
+      const collectionData = await fetchCollectionById(numericId)
 
       if (!collectionData) {
         throw new Error("No se pudo encontrar la colección")

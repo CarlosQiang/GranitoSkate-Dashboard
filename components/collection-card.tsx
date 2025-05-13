@@ -4,16 +4,19 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
 export function CollectionCard({ collection }) {
-  // Asegurarse de que la colección tiene todas las propiedades necesarias
-  const { id, title = "Colección sin título", productsCount = 0, image = null } = collection || {}
+  // Ensure we have all the necessary properties
+  const { id = "", title = "Colección sin título", productsCount = 0, image = null } = collection || {}
+
+  // Extract the numeric ID from the full Shopify ID
+  const numericId = id.split("/").pop() || id
 
   return (
-    <Link href={`/dashboard/collections/${id}`} className="block">
+    <Link href={`/dashboard/collections/${numericId}`} className="block">
       <Card className="overflow-hidden transition-all hover:shadow-md">
         <div className="aspect-square relative bg-muted">
           {image ? (
             <Image
-              src={image || "/placeholder.svg"}
+              src={image.url || "/placeholder.svg"}
               alt={title}
               fill
               className="object-cover"
@@ -33,7 +36,7 @@ export function CollectionCard({ collection }) {
             </Badge>
           </div>
         </CardContent>
-        <CardFooter className="p-4 pt-0 text-xs text-muted-foreground">ID: {id?.split("/").pop() || id}</CardFooter>
+        <CardFooter className="p-4 pt-0 text-xs text-muted-foreground">ID: {numericId}</CardFooter>
       </Card>
     </Link>
   )

@@ -60,6 +60,9 @@ export async function fetchCollections() {
 // Función para obtener una colección por ID
 export async function fetchCollectionById(id) {
   try {
+    // Ensure the ID has the correct format
+    const formattedId = id.includes("gid://shopify/Collection/") ? id : `gid://shopify/Collection/${id}`
+
     const query = gql`
       query GetCollection($id: ID!) {
         collection(id: $id) {
@@ -81,13 +84,10 @@ export async function fetchCollectionById(id) {
                 id
                 title
                 handle
-                images(first: 1) {
-                  edges {
-                    node {
-                      url
-                      altText
-                    }
-                  }
+                status
+                featuredImage {
+                  url
+                  altText
                 }
               }
             }
@@ -96,9 +96,9 @@ export async function fetchCollectionById(id) {
       }
     `
 
-    const data = await shopifyClient.request(query, { id })
+    const data = await shopifyClient.request(query, { id: formattedId })
 
-    // Transformar los datos para mantener compatibilidad con el código existente
+    // Transform the data to maintain compatibility with existing code
     return {
       ...data.collection,
       productsCount: data.collection.productsCount.count,
@@ -276,18 +276,21 @@ export async function deleteCollection(id) {
 // Función para añadir productos a una colección
 export async function addProductsToCollection(collectionId, productIds) {
   try {
-    // Verificar que los IDs de productos estén en el formato correcto
+    // Ensure the collection ID has the correct format
+    const formattedCollectionId = collectionId.includes("gid://shopify/Collection/")
+      ? collectionId
+      : `gid://shopify/Collection/${collectionId}`
+
+    // Format product IDs correctly
     const formattedProductIds = productIds.map((id) => {
-      // Si el ID ya está en formato gid://shopify/Product/123, usarlo directamente
-      if (typeof id === "string" && id.startsWith("gid://shopify/Product/")) {
+      if (typeof id === "string" && id.includes("gid://shopify/Product/")) {
         return id
       }
-      // Si es un ID numérico o una cadena sin el prefijo, añadir el prefijo
       return `gid://shopify/Product/${id.toString().replace(/\D/g, "")}`
     })
 
     console.log("Añadiendo productos a colección:", {
-      collectionId,
+      collectionId: formattedCollectionId,
       productIds: formattedProductIds,
     })
 
@@ -310,7 +313,7 @@ export async function addProductsToCollection(collectionId, productIds) {
     `
 
     const variables = {
-      id: collectionId,
+      id: formattedCollectionId,
       productIds: formattedProductIds,
     }
 
@@ -320,7 +323,7 @@ export async function addProductsToCollection(collectionId, productIds) {
       throw new Error(data.collectionAddProducts.userErrors[0].message)
     }
 
-    // Transformar los datos para mantener compatibilidad con el código existente
+    // Transform the data to maintain compatibility with existing code
     return {
       ...data.collectionAddProducts.collection,
       productsCount: data.collectionAddProducts.collection.productsCount.count,
@@ -334,18 +337,21 @@ export async function addProductsToCollection(collectionId, productIds) {
 // Función para eliminar productos de una colección
 export async function removeProductsFromCollection(collectionId, productIds) {
   try {
-    // Verificar que los IDs de productos estén en el formato correcto
+    // Ensure the collection ID has the correct format
+    const formattedCollectionId = collectionId.includes("gid://shopify/Collection/")
+      ? collectionId
+      : `gid://shopify/Collection/${collectionId}`
+
+    // Format product IDs correctly
     const formattedProductIds = productIds.map((id) => {
-      // Si el ID ya está en formato gid://shopify/Product/123, usarlo directamente
-      if (typeof id === "string" && id.startsWith("gid://shopify/Product/")) {
+      if (typeof id === "string" && id.includes("gid://shopify/Product/")) {
         return id
       }
-      // Si es un ID numérico o una cadena sin el prefijo, añadir el prefijo
       return `gid://shopify/Product/${id.toString().replace(/\D/g, "")}`
     })
 
     console.log("Eliminando productos de colección:", {
-      collectionId,
+      collectionId: formattedCollectionId,
       productIds: formattedProductIds,
     })
 
@@ -368,7 +374,7 @@ export async function removeProductsFromCollection(collectionId, productIds) {
     `
 
     const variables = {
-      id: collectionId,
+      id: formattedCollectionId,
       productIds: formattedProductIds,
     }
 
@@ -378,7 +384,7 @@ export async function removeProductsFromCollection(collectionId, productIds) {
       throw new Error(data.collectionRemoveProducts.userErrors[0].message)
     }
 
-    // Transformar los datos para mantener compatibilidad con el código existente
+    // Transform the data to maintain compatibility with existing code
     return {
       ...data.collectionRemoveProducts.collection,
       productsCount: data.collectionRemoveProducts.collection.productsCount.count,
