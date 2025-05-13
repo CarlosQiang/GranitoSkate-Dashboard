@@ -169,3 +169,84 @@ export const settingsNav = [
     color: "text-granito",
   },
 ]
+
+// Añadir la sección de sincronización al menú de navegación
+export const dashboardConfig = {
+  mainNav: [
+    {
+      title: "Inicio",
+      href: "/dashboard",
+      icon: "home",
+    },
+    {
+      title: "Productos",
+      href: "/dashboard/products",
+      icon: "package",
+    },
+    {
+      title: "Colecciones",
+      href: "/dashboard/collections",
+      icon: "layers",
+    },
+    {
+      title: "Clientes",
+      href: "/dashboard/customers",
+      icon: "users",
+    },
+    {
+      title: "Pedidos",
+      href: "/dashboard/orders",
+      icon: "shopping-cart",
+    },
+    {
+      title: "Promociones",
+      href: "/dashboard/promociones",
+      icon: "tag",
+    },
+    {
+      title: "Tutoriales",
+      href: "/dashboard/tutoriales",
+      icon: "book-open",
+    },
+    {
+      title: "Contenido",
+      href: "/dashboard/content",
+      icon: "file-text",
+    },
+    {
+      title: "SEO",
+      href: "/dashboard/seo",
+      icon: "search",
+    },
+    {
+      title: "Mercados",
+      href: "/dashboard/seo-markets",
+      icon: "globe",
+    },
+    {
+      title: "Analítica",
+      href: "/dashboard/analytics",
+      icon: "bar-chart",
+    },
+    {
+      title: "Diagnósticos",
+      href: "/dashboard/diagnostics",
+      icon: "activity",
+    },
+    {
+      title: "Sincronización",
+      href: "/dashboard/sincronizacion",
+      icon: "refresh-cw",
+    },
+    {
+      title: "Administradores",
+      href: "/dashboard/administradores",
+      icon: "shield",
+    },
+    {
+      title: "Configuración",
+      href: "/dashboard/settings",
+      icon: "settings",
+    },
+  ],
+}

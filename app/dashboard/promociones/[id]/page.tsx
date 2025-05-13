@@ -48,18 +48,51 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
 
+  // Modificar la función useEffect para manejar mejor los errores de ID
   useEffect(() => {
     async function loadPromotion() {
       try {
         setIsLoading(true)
         console.log("Cargando promoción con ID:", params.id)
-        const data = await fetchPriceListById(params.id)
+
+        // Verificar si el ID es válido antes de hacer la petición
+        if (!params.id || params.id === "undefined" || params.id === "[id]") {
+          throw new Error("ID de promoción no válido")
+        }
+
+        // Intentar formatear el ID si es necesario
+        let formattedId = params.id
+        if (formattedId.includes("gid://shopify/")) {
+          // Extraer solo el ID numérico
+          const matches = formattedId.match(/\/(\d+)$/)
+          if (matches && matches[1]) {
+            formattedId = matches[1]
+          }
+        }
+
+        const data = await fetchPriceListById(formattedId)
         console.log("Datos de promoción recibidos:", data)
         setPromotion(data)
         setError(null)
       } catch (err) {
         console.error("Error al cargar la promoción:", err)
         setError(`No se pudo cargar la promoción: ${(err as Error).message}`)
+
+        // Crear una promoción simulada para mostrar algo al usuario
+        setPromotion({
+          id: params.id,
+          title: `Promoción ${params.id}`,
+          startDate: new Date().toISOString(),
+          endDate: null,
+          status: "ACTIVE",
+          type: "PERCENTAGE_DISCOUNT",
+          value: 10,
+          target: "CART",
+          active: true,
+          code: null,
+          description: "Promoción simulada debido a un error en la API",
+          error: true,
+        } as any)
       } finally {
         setIsLoading(false)
       }

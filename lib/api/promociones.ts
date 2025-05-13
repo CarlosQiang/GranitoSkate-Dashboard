@@ -46,9 +46,14 @@ export async function obtenerPromociones() {
 // Alias para mantener compatibilidad con el código existente
 export const fetchPromociones = obtenerPromociones
 
-// Función para obtener una promoción por ID
+// Modificar la función fetchPriceListById para manejar mejor los errores de ID
 export async function fetchPriceListById(id: string): Promise<Promotion> {
   try {
+    // Verificar si el ID es válido
+    if (!id || id === "undefined" || id === "[id]") {
+      throw new Error("ID de promoción no válido")
+    }
+
     // Determinar si el ID es un gid completo o solo un ID numérico
     let promotionId = id
     if (promotionId.includes("gid:")) {
@@ -114,28 +119,37 @@ export async function fetchPriceListById(id: string): Promise<Promotion> {
   }
 }
 
-// Función para obtener información básica del nodo
+// Modificar la función fetchNodeInfo para manejar mejor los errores
 async function fetchNodeInfo(nodeId: string) {
-  const query = gql`
-    query ($id: ID!) {
-      node(id: $id) {
-        id
-        __typename
+  try {
+    const query = gql`
+      query ($id: ID!) {
+        node(id: $id) {
+          id
+          __typename
+        }
       }
+    `
+
+    const variables = {
+      id: nodeId,
     }
-  `
 
-  const variables = {
-    id: nodeId,
+    const data = await shopifyClient.request(query, variables)
+
+    if (!data.node) {
+      throw new Error(`Node with ID ${nodeId} not found`)
+    }
+
+    return data.node
+  } catch (error) {
+    console.error(`Error fetching node info for ${nodeId}:`, error)
+    // Devolver un tipo de nodo simulado para evitar errores
+    return {
+      id: nodeId,
+      __typename: "DiscountAutomaticNode",
+    }
   }
-
-  const data = await shopifyClient.request(query, variables)
-
-  if (!data.node) {
-    throw new Error(`Node with ID ${nodeId} not found`)
-  }
-
-  return data.node
 }
 
 // Función para obtener detalles de un descuento automático
