@@ -1,20 +1,31 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  images: {
-    domains: ['cdn.shopify.com', 'res.cloudinary.com'],
-    unoptimized: true,
-  },
-  // Configuración correcta para Next.js 15
-  experimental: {},
-  // Mover serverComponentsExternalPackages a la raíz como serverExternalPackages
-  serverExternalPackages: ['@neondatabase/serverless'],
   eslint: {
     ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,
   },
-};
+  images: {
+    domains: ['cdn.shopify.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
+    unoptimized: true,
+  },
+  async redirects() {
+    return [
+      {
+        source: '/dashboard',
+        destination: '/dashboard/overview',
+        permanent: true,
+      },
+    ]
+  },
+}
 
-export default nextConfig;
+export default nextConfig
