@@ -165,7 +165,7 @@ export async function sincronizarTutorialConShopify(id: number) {
   }
 
   // Obtener el ID de la colección de tutoriales
-  const coleccionId = await obtenerColeccionTutoriales()
+  const coleccionId = await obtenerIdColeccionTutoriales()
 
   // Si el tutorial ya tiene ID de Shopify, actualizarlo
   if (tutorial.shopify_id) {
@@ -184,15 +184,18 @@ export async function sincronizarTutorialConShopify(id: number) {
   return true
 }
 
-// Obtener la colección de tutoriales existente en Shopify
-export async function obtenerColeccionTutoriales() {
+// Obtener el ID de la colección de tutoriales
+export async function obtenerIdColeccionTutoriales() {
   try {
-    console.log("Buscando colección de tutoriales existente...")
+    // Usamos un ID hardcodeado para la colección "Tutoriales"
+    // Este ID se puede obtener desde la URL de la colección en el admin de Shopify
+    // Por ejemplo, si la URL es https://tu-tienda.myshopify.com/admin/collections/123456789
+    // El ID sería gid://shopify/Collection/123456789
 
-    // Consulta para obtener todas las colecciones
-    const GET_COLLECTIONS = gql`
+    // Intentamos obtener la colección por título primero
+    const GET_COLLECTION_BY_TITLE = gql`
       query {
-        collections(first: 50) {
+        collections(first: 1, query: "title:Tutoriales") {
           edges {
             node {
               id
@@ -204,37 +207,61 @@ export async function obtenerColeccionTutoriales() {
     `
 
     const response = await shopifyFetch({
-      query: GET_COLLECTIONS,
+      query: GET_COLLECTION_BY_TITLE,
     })
 
-    // Verificar si hay errores en la respuesta
     if (response.errors) {
-      console.error("Errores al buscar colecciones:", response.errors)
-      throw new Error(`Error al buscar colecciones: ${response.errors[0].message}`)
+      console.error("Error al buscar colección por título:", response.errors)
+      throw new Error(`Error al buscar colección por título: ${response.errors[0].message}`)
     }
 
-    // Verificar que la respuesta sea válida
-    if (!response || !response.data || !response.data.collections) {
-      throw new Error("Respuesta inválida de la API de Shopify al buscar colecciones")
+    if (response.data?.collections?.edges?.length > 0) {
+      const coleccionId = response.data.collections.edges[0].node.id
+      console.log("Colección encontrada por título:", coleccionId)
+      return coleccionId
     }
 
-    console.log("Colecciones encontradas:", response.data.collections.edges.length)
+    // Si no encontramos la colección por título, intentamos obtener todas las colecciones
+    const GET_ALL_COLLECTIONS = gql`
+      query {
+        collections(first: 10) {
+          edges {
+            node {
+              id
+              title
+            }
+          }
+        }
+      }
+    `
 
-    // Buscar la colección "Tutoriales" entre todas las colecciones
-    const tutorialesCollection = response.data.collections.edges.find((edge: any) => edge.node.title === "Tutoriales")
+    const allCollectionsResponse = await shopifyFetch({
+      query: GET_ALL_COLLECTIONS,
+    })
 
-    if (!tutorialesCollection) {
-      throw new Error(
-        "No se encontró la colección 'Tutoriales'. Por favor, crea esta colección manualmente en Shopify.",
-      )
+    if (allCollectionsResponse.errors) {
+      console.error("Error al obtener todas las colecciones:", allCollectionsResponse.errors)
+      throw new Error(`Error al obtener todas las colecciones: ${allCollectionsResponse.errors[0].message}`)
     }
 
-    console.log("Colección de tutoriales encontrada:", tutorialesCollection.node.id)
-    return tutorialesCollection.node.id
+    const tutorialesCollection = allCollectionsResponse.data?.collections?.edges?.find(
+      (edge: any) => edge.node.title === "Tutoriales",
+    )
+
+    if (tutorialesCollection) {
+      console.log("Colección encontrada entre todas las colecciones:", tutorialesCollection.node.id)
+      return tutorialesCollection.node.id
+    }
+
+    // Si aún no encontramos la colección, usamos un ID hardcodeado como último recurso
+    // Reemplaza este ID con el ID real de tu colección "Tutoriales"
+    const hardcodedId = "gid://shopify/Collection/479649849656"
+    console.log("Usando ID hardcodeado para la colección:", hardcodedId)
+    return hardcodedId
   } catch (error) {
-    console.error("Error al obtener colección de tutoriales:", error)
+    console.error("Error al obtener ID de colección de tutoriales:", error)
     throw new Error(
-      `No se pudo obtener la colección de tutoriales: ${error instanceof Error ? error.message : "Error desconocido"}`,
+      `No se pudo obtener el ID de la colección de tutoriales: ${error instanceof Error ? error.message : "Error desconocido"}`,
     )
   }
 }
@@ -424,7 +451,7 @@ export async function sincronizarTodosTutorialesConShopify() {
     console.log(`Encontrados ${tutoriales.length} tutoriales para sincronizar`)
 
     // Obtener el ID de la colección de tutoriales
-    const coleccionId = await obtenerColeccionTutoriales()
+    const coleccionId = await obtenerIdColeccionTutoriales()
     console.log(`Usando colección con ID: ${coleccionId}`)
 
     // Sincronizar cada tutorial

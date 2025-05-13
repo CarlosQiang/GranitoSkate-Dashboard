@@ -13,15 +13,46 @@ export function SincronizacionTutoriales() {
   const [resultado, setResultado] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
   const [detallesError, setDetallesError] = useState<string | null>(null)
-  const [sincronizacionInicial, setSincronizacionInicial] = useState(true)
+  const [sincronizacionInicial, setSincronizacionInicial] = useState(false) // Cambiado a false para evitar sincronización automática
+  const [coleccionId, setColeccionId] = useState<string | null>(null)
+  const [verificandoColeccion, setVerificandoColeccion] = useState(false)
 
-  // Ejecutar sincronización al cargar el componente
+  // Verificar la colección al cargar el componente
   useEffect(() => {
-    if (sincronizacionInicial) {
-      sincronizarTutoriales()
-      setSincronizacionInicial(false)
+    verificarColeccion()
+  }, [])
+
+  const verificarColeccion = async () => {
+    try {
+      setVerificandoColeccion(true)
+      setError(null)
+
+      const response = await fetch("/api/shopify/get-collection-id", {
+        method: "GET",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || `Error ${response.status}: ${response.statusText}`)
+      }
+
+      if (data.success) {
+        setColeccionId(data.collectionId)
+        console.log("Colección verificada:", data.collectionId)
+      } else {
+        throw new Error(data.message || "No se pudo verificar la colección")
+      }
+    } catch (err) {
+      console.error("Error al verificar colección:", err)
+      setError(`Error al verificar colección: ${err instanceof Error ? err.message : "Error desconocido"}`)
+    } finally {
+      setVerificandoColeccion(false)
     }
-  }, [sincronizacionInicial])
+  }
 
   const sincronizarTutoriales = async () => {
     try {
@@ -79,10 +110,47 @@ export function SincronizacionTutoriales() {
         <CardDescription>Mantén sincronizados los tutoriales entre la base de datos y Shopify</CardDescription>
       </CardHeader>
       <CardContent>
+        {verificandoColeccion ? (
+          <div className="flex flex-col items-center justify-center py-6">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+            <p className="text-sm text-muted-foreground">Verificando colección de tutoriales...</p>
+          </div>
+        ) : coleccionId ? (
+          <Alert className="mb-4">
+            <CheckCircle className="h-4 w-4" />
+            <AlertTitle>Colección verificada</AlertTitle>
+            <AlertDescription>
+              La colección "Tutoriales" ha sido encontrada en Shopify. ID: {coleccionId}
+            </AlertDescription>
+          </Alert>
+        ) : error ? (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error al verificar colección</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+
         {sincronizando ? (
           <div className="flex flex-col items-center justify-center py-6">
             <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
             <p className="text-sm text-muted-foreground">Sincronizando tutoriales...</p>
+          </div>
+        ) : error && !coleccionId ? (
+          <div className="space-y-2">
+            <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-sm">
+              <p className="font-medium text-amber-800">Sugerencias para solucionar el problema:</p>
+              <ul className="list-disc pl-5 mt-1 text-amber-700 space-y-1">
+                <li>Verifica que las credenciales de Shopify estén configuradas correctamente</li>
+                <li>Asegúrate de que el token de acceso tenga los permisos necesarios</li>
+                <li>Comprueba que la colección "Tutoriales" exista en tu tienda Shopify</li>
+                <li>Verifica que la tienda Shopify esté activa</li>
+              </ul>
+            </div>
+
+            <Button onClick={verificarColeccion} variant="outline" className="w-full mt-2">
+              Verificar colección de nuevo
+            </Button>
           </div>
         ) : error ? (
           <div className="space-y-2">
@@ -177,7 +245,11 @@ export function SincronizacionTutoriales() {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-6 text-center">
-            <p className="text-sm text-muted-foreground mb-2">No se ha realizado ninguna sincronización aún.</p>
+            <p className="text-sm text-muted-foreground mb-2">
+              {coleccionId
+                ? "Listo para sincronizar tutoriales con Shopify."
+                : "Verifica la colección antes de sincronizar."}
+            </p>
             <p className="text-xs text-muted-foreground">
               La sincronización mantiene actualizados los tutoriales entre la base de datos y Shopify.
             </p>
@@ -185,9 +257,19 @@ export function SincronizacionTutoriales() {
         )}
       </CardContent>
       <CardFooter>
-        <Button onClick={sincronizarTutoriales} disabled={sincronizando} className="w-full">
-          {sincronizando && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {sincronizando ? "Sincronizando..." : "Sincronizar Ahora"}
+        <Button
+          onClick={coleccionId ? sincronizarTutoriales : verificarColeccion}
+          disabled={sincronizando || verificandoColeccion}
+          className="w-full"
+        >
+          {(sincronizando || verificandoColeccion) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {sincronizando
+            ? "Sincronizando..."
+            : verificandoColeccion
+              ? "Verificando..."
+              : coleccionId
+                ? "Sincronizar Ahora"
+                : "Verificar Colección"}
         </Button>
       </CardFooter>
     </Card>
