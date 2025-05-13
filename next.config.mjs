@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  swcMinify: true,
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -8,14 +9,7 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    domains: [
-      'cdn.shopify.com',
-      'burst.shopifycdn.com',
-      'plus.unsplash.com',
-      'images.unsplash.com',
-      'tailwindui.com',
-      'qiangtheme.myshopify.com',
-    ],
+    domains: ['cdn.shopify.com', 'placeholder.com'],
     unoptimized: true,
   },
   async headers() {
@@ -49,6 +43,9 @@ const nextConfig = {
       },
     ]
   },
-}
+  experimental: {
+    serverComponentsExternalPackages: ['@prisma/client', 'bcrypt'],
+  },
+};
 
-export default nextConfig
+export default nextConfig;

@@ -1,6 +1,6 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { getUserByEmail, validatePassword, updateLastLogin } from "./auth-service"
+import { verifyCredentials } from "./auth-service"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -15,46 +15,26 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        const user = await getUserByEmail(credentials.email)
+        try {
+          const user = await verifyCredentials(credentials.email, credentials.password)
 
-        if (!user) {
+          if (!user) {
+            return null
+          }
+
+          return {
+            id: String(user.id),
+            email: user.correo_electronico,
+            name: user.nombre_completo || user.nombre_usuario,
+            role: user.rol,
+          }
+        } catch (error) {
+          console.error("Error en authorize:", error)
           return null
-        }
-
-        const isValidPassword = await validatePassword(credentials.password, user.contrasena)
-
-        if (!isValidPassword) {
-          return null
-        }
-
-        // Actualizar último acceso
-        await updateLastLogin(user.id)
-
-        return {
-          id: user.id.toString(),
-          email: user.correo_electronico,
-          name: user.nombre_completo || user.nombre_usuario,
-          role: user.rol,
         }
       },
     }),
   ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id
-        token.role = user.role
-      }
-      return token
-    },
-    async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id as string
-        session.user.role = token.role as string
-      }
-      return session
-    },
-  },
   pages: {
     signIn: "/login",
     error: "/login",
@@ -62,6 +42,21 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 días
+  },
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.role = user.role
+      }
+      return token
+    },
+    async session({ session, token }) {
+      if (token && session.user) {
+        session.user.id = token.sub as string
+        session.user.role = token.role as string
+      }
+      return session
+    },
   },
   secret: process.env.NEXTAUTH_SECRET,
 }

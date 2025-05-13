@@ -1,29 +1,36 @@
 import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
+import type { NextRequest } from "next/server"
 
 export async function middleware(request: NextRequest) {
-  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
-  const isAuthPage = request.nextUrl.pathname.startsWith("/login")
-  const isPublicPage =
-    request.nextUrl.pathname === "/" ||
-    request.nextUrl.pathname.startsWith("/docs") ||
-    request.nextUrl.pathname.startsWith("/api/health")
+  const { pathname } = request.nextUrl
 
-  // Si es una página pública, permitir acceso
-  if (isPublicPage) {
+  // Rutas públicas que no requieren autenticación
+  const publicRoutes = ["/", "/login", "/docs"]
+  if (publicRoutes.some((route) => pathname === route)) {
     return NextResponse.next()
   }
 
-  // Redirigir a login si no hay token y no es una página de autenticación
-  if (!token && !isAuthPage) {
-    const url = new URL(`/login`, request.url)
-    url.searchParams.set("callbackUrl", encodeURI(request.nextUrl.pathname))
+  // Rutas de API que no requieren verificación de middleware
+  if (pathname.startsWith("/api/auth")) {
+    return NextResponse.next()
+  }
+
+  // Verificar token de autenticación
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  })
+
+  // Si no hay token y la ruta no es pública, redirigir al login
+  if (!token && !publicRoutes.includes(pathname)) {
+    const url = new URL("/login", request.url)
+    url.searchParams.set("callbackUrl", encodeURI(request.url))
     return NextResponse.redirect(url)
   }
 
-  // Redirigir al dashboard si hay token y es una página de autenticación
-  if (token && isAuthPage) {
+  // Verificar acceso a rutas de administrador
+  if (pathname.startsWith("/dashboard/administradores") && token?.role !== "superadmin") {
     return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
@@ -31,14 +38,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public (public files)
-     */
-    "/((?!_next/static|_next/image|favicon.ico|public).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 }
