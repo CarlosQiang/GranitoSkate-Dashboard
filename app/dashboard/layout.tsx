@@ -2,8 +2,9 @@ import type React from "react"
 import type { Metadata } from "next"
 import { DashboardNav } from "@/components/dashboard-nav"
 import { DashboardHeader } from "@/components/dashboard-header"
-import { ShopifyConnectionChecker } from "@/components/shopify-connection-checker"
 import { DashboardLayoutWrapper } from "@/components/dashboard-layout-wrapper"
+import { Suspense } from "react"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
 
 export const metadata: Metadata = {
   title: "Dashboard - GranitoSkate",
@@ -41,17 +42,18 @@ export default async function DashboardLayout({
 }) {
   await inicializarAplicacion()
   return (
-    <DashboardLayoutWrapper>
-      <div className="flex min-h-screen flex-col">
-        <DashboardHeader />
-        <div className="flex flex-1 flex-col md:flex-row">
-          <DashboardNav />
-          <main className="flex-1 p-4 md:p-6 w-full max-w-full overflow-x-hidden">
-            <ShopifyConnectionChecker />
-            {children}
-          </main>
-        </div>
+    <div className="flex min-h-screen flex-col">
+      <DashboardHeader />
+      <div className="flex flex-1 flex-col md:flex-row">
+        <DashboardNav />
+        <main className="flex-1 overflow-x-hidden">
+          <div className="container mx-auto p-4 md:p-6 max-w-7xl">
+            <DashboardLayoutWrapper>
+              <Suspense fallback={<LoadingSpinner />}>{children}</Suspense>
+            </DashboardLayoutWrapper>
+          </div>
+        </main>
       </div>
-    </DashboardLayoutWrapper>
+    </div>
   )
 }

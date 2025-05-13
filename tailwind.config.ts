@@ -25,9 +25,20 @@ const config: Config = {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         granito: {
-          DEFAULT: "#c59d45",
-          light: "#d9b968",
-          dark: "#a17e2e",
+          DEFAULT: "#d29a43",
+          light: "#e6b76a",
+          dark: "#b07e2a",
+          50: "#faf5eb",
+          100: "#f5ebd7",
+          200: "#ecd7b0",
+          300: "#e3c389",
+          400: "#daaf62",
+          500: "#d29a43", // Color principal
+          600: "#b07e2a",
+          700: "#8d6322",
+          800: "#6a491a",
+          900: "#473012",
+          950: "#241808",
         },
         primary: {
           DEFAULT: "hsl(var(--primary))",

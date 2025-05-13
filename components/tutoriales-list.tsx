@@ -133,7 +133,7 @@ export function TutorialesList() {
 
         <div className="flex gap-2">
           <Select value={categoria} onValueChange={setCategoria}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full md:w-[180px]">
               <Filter className="mr-2 h-4 w-4" />
               <SelectValue placeholder="Categoría" />
             </SelectTrigger>
@@ -146,7 +146,7 @@ export function TutorialesList() {
             </SelectContent>
           </Select>
 
-          <Button variant="outline" onClick={() => fetchTutoriales()}>
+          <Button variant="outline" onClick={() => fetchTutoriales()} className="flex-shrink-0">
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
@@ -182,7 +182,7 @@ export function TutorialesList() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {tutoriales.map((tutorial) => (
               <Link
                 key={tutorial.id}

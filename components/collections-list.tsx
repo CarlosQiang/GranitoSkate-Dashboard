@@ -62,9 +62,9 @@ export function CollectionsList() {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {collections.map((collection) => (
-        <Card key={collection.id} className="overflow-hidden">
+        <Card key={collection.id} className="overflow-hidden h-full flex flex-col">
           <div className="aspect-video relative bg-gray-100">
             {collection.image ? (
               <Image
@@ -72,6 +72,7 @@ export function CollectionsList() {
                 alt={collection.image.altText || collection.title}
                 fill
                 className="object-cover"
+                sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
               />
             ) : (
               <div className="flex items-center justify-center h-full">
@@ -79,11 +80,11 @@ export function CollectionsList() {
               </div>
             )}
           </div>
-          <CardContent className="p-4">
-            <h3 className="text-lg font-semibold">{collection.title}</h3>
+          <CardContent className="p-4 flex-grow">
+            <h3 className="text-lg font-semibold line-clamp-1">{collection.title}</h3>
             <p className="text-sm text-gray-500">{collection.productsCount} productos</p>
           </CardContent>
-          <CardFooter className="flex justify-between p-4 pt-0">
+          <CardFooter className="flex justify-between p-4 pt-0 border-t">
             <Button asChild variant="outline" size="sm">
               <Link href={`/dashboard/collections/${collection.id.split("/").pop()}`}>
                 <Edit className="mr-2 h-4 w-4" />

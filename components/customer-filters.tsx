@@ -114,9 +114,9 @@ export function CustomerFilters({ filters, onFilterChange, onReset }: CustomerFi
           )}
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap sm:flex-nowrap">
           <Select value={filters.sortKey || "CREATED_AT"} onValueChange={handleSortChange}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="Ordenar por" />
             </SelectTrigger>
             <SelectContent>
@@ -130,7 +130,7 @@ export function CustomerFilters({ filters, onFilterChange, onReset }: CustomerFi
           </Select>
 
           <Select value={filters.reverse ? "desc" : "asc"} onValueChange={handleOrderChange}>
-            <SelectTrigger className="w-[120px]">
+            <SelectTrigger className="w-full sm:w-[120px]">
               <SelectValue placeholder="Orden" />
             </SelectTrigger>
             <SelectContent>
@@ -141,9 +141,10 @@ export function CustomerFilters({ filters, onFilterChange, onReset }: CustomerFi
 
           <Dialog open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="gap-2 w-full sm:w-auto">
                 <Filter className="h-4 w-4" />
-                Filtros avanzados
+                <span className="hidden sm:inline">Filtros avanzados</span>
+                <span className="sm:hidden">Filtros</span>
                 {hasActiveFilters() && (
                   <span className="ml-1 rounded-full bg-primary w-5 h-5 text-xs flex items-center justify-center text-primary-foreground">
                     !
@@ -160,7 +161,7 @@ export function CustomerFilters({ filters, onFilterChange, onReset }: CustomerFi
               </DialogHeader>
 
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="dateFrom">Desde fecha</Label>
                     <Popover>
@@ -222,7 +223,7 @@ export function CustomerFilters({ filters, onFilterChange, onReset }: CustomerFi
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Pedidos</Label>
                     <Select
@@ -264,7 +265,7 @@ export function CustomerFilters({ filters, onFilterChange, onReset }: CustomerFi
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>DNI registrado</Label>
                     <Select
@@ -300,7 +301,7 @@ export function CustomerFilters({ filters, onFilterChange, onReset }: CustomerFi
                 </div>
               </div>
 
-              <DialogFooter>
+              <DialogFooter className="flex-col sm:flex-row gap-2">
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -308,10 +309,13 @@ export function CustomerFilters({ filters, onFilterChange, onReset }: CustomerFi
                     onReset()
                     setIsAdvancedOpen(false)
                   }}
+                  className="w-full sm:w-auto"
                 >
                   Restablecer
                 </Button>
-                <Button onClick={applyAdvancedFilters}>Aplicar filtros</Button>
+                <Button onClick={applyAdvancedFilters} className="w-full sm:w-auto">
+                  Aplicar filtros
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

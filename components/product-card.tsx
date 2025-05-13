@@ -37,7 +37,7 @@ export function ProductCard({ product }) {
 
   return (
     <Link href={`/dashboard/products/${cleanId(id)}`} className="block">
-      <Card className="overflow-hidden transition-all hover:shadow-md">
+      <Card className="overflow-hidden transition-all hover:shadow-md h-full flex flex-col">
         <div className="aspect-square relative bg-muted">
           {!imageError && imageUrl ? (
             <Image
@@ -45,7 +45,7 @@ export function ProductCard({ product }) {
               alt={titulo || title}
               fill
               className="object-cover"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
               onError={() => setImageError(true)}
             />
           ) : (
@@ -54,7 +54,7 @@ export function ProductCard({ product }) {
             </div>
           )}
         </div>
-        <CardContent className="p-4">
+        <CardContent className="p-4 flex-grow">
           <h3 className="font-medium line-clamp-1">{titulo || title}</h3>
           <div className="flex items-center justify-between mt-2">
             <span className="font-bold">{formatCurrency(precio || price, currencyCode)}</span>
@@ -63,7 +63,7 @@ export function ProductCard({ product }) {
             </Badge>
           </div>
         </CardContent>
-        <CardFooter className="p-4 pt-0 text-xs text-muted-foreground">ID: {cleanId(id)}</CardFooter>
+        <CardFooter className="p-4 pt-0 text-xs text-muted-foreground border-t mt-auto">ID: {cleanId(id)}</CardFooter>
       </Card>
     </Link>
   )

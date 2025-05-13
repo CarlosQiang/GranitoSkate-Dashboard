@@ -105,17 +105,18 @@ export default function RegistroSincronizacion() {
                 placeholder="ID de entidad"
                 value={entidadFiltro}
                 onChange={(e) => setEntidadFiltro(e.target.value)}
+                className="flex-1"
               />
-              <Button variant="outline" onClick={() => setEntidadFiltro("")}>
-                <Filter className="h-4 w-4 mr-2" />
-                Limpiar
+              <Button variant="outline" onClick={() => setEntidadFiltro("")} className="flex-shrink-0">
+                <Filter className="h-4 w-4 mr-2 sm:mr-0" />
+                <span className="hidden sm:inline ml-2">Limpiar</span>
               </Button>
             </div>
           </div>
           <div>
-            <Button onClick={cargarEventos}>
+            <Button onClick={cargarEventos} className="w-full sm:w-auto">
               <RefreshCw className="h-4 w-4 mr-2" />
-              Actualizar
+              <span>Actualizar</span>
             </Button>
           </div>
         </div>
@@ -143,37 +144,39 @@ export default function RegistroSincronizacion() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Entidad</TableHead>
-                  <TableHead>Acción</TableHead>
-                  <TableHead>Resultado</TableHead>
-                  <TableHead>Mensaje</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {eventos.map((evento) => (
-                  <TableRow key={evento.id}>
-                    <TableCell className="whitespace-nowrap">
-                      {format(new Date(evento.fecha), "dd/MM/yyyy HH:mm:ss", { locale: es })}
-                    </TableCell>
-                    <TableCell>{evento.tipo_entidad}</TableCell>
-                    <TableCell>{evento.entidad_id || "-"}</TableCell>
-                    <TableCell>
-                      <Badge className={getActionColor(evento.accion)}>{evento.accion}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getBadgeColor(evento.resultado)}>{evento.resultado}</Badge>
-                    </TableCell>
-                    <TableCell className="max-w-md truncate">{evento.mensaje || "-"}</TableCell>
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <div className="inline-block min-w-full align-middle">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="whitespace-nowrap">Fecha</TableHead>
+                    <TableHead className="whitespace-nowrap">Tipo</TableHead>
+                    <TableHead className="whitespace-nowrap">Entidad</TableHead>
+                    <TableHead className="whitespace-nowrap">Acción</TableHead>
+                    <TableHead className="whitespace-nowrap">Resultado</TableHead>
+                    <TableHead className="whitespace-nowrap">Mensaje</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {eventos.map((evento) => (
+                    <TableRow key={evento.id}>
+                      <TableCell className="whitespace-nowrap">
+                        {format(new Date(evento.fecha), "dd/MM/yyyy HH:mm:ss", { locale: es })}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">{evento.tipo_entidad}</TableCell>
+                      <TableCell className="whitespace-nowrap">{evento.entidad_id || "-"}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <Badge className={getActionColor(evento.accion)}>{evento.accion}</Badge>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <Badge className={getBadgeColor(evento.resultado)}>{evento.resultado}</Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[200px] md:max-w-md truncate">{evento.mensaje || "-"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         )}
       </CardContent>
