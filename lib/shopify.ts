@@ -1,22 +1,32 @@
 import { GraphQLClient } from "graphql-request"
 
+// Depuración de variables de entorno
+console.log("Variables de entorno de Shopify (valores ocultos por seguridad):")
+console.log("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN está configurado:", !!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN)
+console.log("SHOPIFY_ACCESS_TOKEN está configurado:", !!process.env.SHOPIFY_ACCESS_TOKEN)
+
 // Obtener las credenciales de Shopify desde las variables de entorno
 const shopifyDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || ""
 const shopifyAccessToken = process.env.SHOPIFY_ACCESS_TOKEN || ""
 
-// Verificar si las credenciales están configuradas
-const areCredentialsConfigured = shopifyDomain && shopifyAccessToken
-
 // Crear el cliente GraphQL para Shopify
 let shopifyClient: GraphQLClient | null = null
 
-if (areCredentialsConfigured) {
-  shopifyClient = new GraphQLClient(`https://${shopifyDomain}/admin/api/2023-10/graphql.json`, {
+// Verificar si las credenciales están configuradas antes de crear el cliente
+if (shopifyDomain && shopifyAccessToken) {
+  const apiUrl = `https://${shopifyDomain}/admin/api/2023-10/graphql.json`
+  console.log("Creando cliente GraphQL con URL:", apiUrl)
+
+  shopifyClient = new GraphQLClient(apiUrl, {
     headers: {
       "X-Shopify-Access-Token": shopifyAccessToken,
       "Content-Type": "application/json",
     },
   })
+} else {
+  console.error("No se pudo crear el cliente GraphQL: credenciales incompletas")
+  console.error("- NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN:", shopifyDomain ? "configurado" : "no configurado")
+  console.error("- SHOPIFY_ACCESS_TOKEN:", shopifyAccessToken ? "configurado" : "no configurado")
 }
 
 // Función para realizar consultas GraphQL a Shopify
@@ -47,10 +57,7 @@ export async function shopifyFetch({ query, variables = {} }) {
       }
     }
 
-    console.log("Enviando consulta GraphQL a Shopify:", {
-      query: query.substring(0, 100) + "...", // Solo para logging, truncamos la consulta
-      variables,
-    })
+    console.log("Enviando consulta GraphQL a Shopify")
 
     const result = await shopifyClient.request(query, variables)
 
