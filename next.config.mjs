@@ -43,8 +43,10 @@ const nextConfig = {
     ]
   },
   experimental: {
-    // Eliminar serverExternalPackages ya que no es reconocido
-    serverActions: true,
+    // Corregido: debe ser un objeto, no un booleano
+    serverActions: {
+      allowedOrigins: ['localhost:3000', '*.vercel.app'],
+    },
   },
 };
 

@@ -1,46 +1,141 @@
-import { executeQuery } from "../neon"
+import { sql } from "@vercel/postgres"
 
-export async function getAllRegistros(limit = 100, offset = 0) {
-  const query = "SELECT * FROM registro_sincronizacion ORDER BY fecha DESC LIMIT $1 OFFSET $2"
-  return executeQuery(query, [limit, offset])
+// Función para registrar eventos de sincronización
+export async function logSyncEvent(data: {
+  tipo_entidad: string
+  entidad_id?: string
+  accion: string
+  resultado: string
+  mensaje?: string
+  detalles?: any
+}) {
+  try {
+    const { tipo_entidad, entidad_id, accion, resultado, mensaje, detalles } = data
+
+    const query = `
+      INSERT INTO registro_sincronizacion 
+      (tipo_entidad, entidad_id, accion, resultado, mensaje, detalles, fecha) 
+      VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      RETURNING *
+    `
+
+    const values = [
+      tipo_entidad,
+      entidad_id || null,
+      accion,
+      resultado,
+      mensaje || null,
+      detalles ? JSON.stringify(detalles) : null,
+    ]
+
+    const result = await sql.query(query, values)
+    return result.rows[0]
+  } catch (error) {
+    console.error("Error al registrar evento de sincronización:", error)
+    // No lanzamos el error para evitar que falle la operación principal
+    return null
+  }
 }
 
-export async function getRegistrosByTipoEntidad(tipoEntidad: string, limit = 100, offset = 0) {
-  const query = "SELECT * FROM registro_sincronizacion WHERE tipo_entidad = $1 ORDER BY fecha DESC LIMIT $2 OFFSET $3"
-  return executeQuery(query, [tipoEntidad, limit, offset])
+// Función para obtener eventos de sincronización
+export async function getSyncEvents(
+  limit = 100,
+  offset = 0,
+  filters?: {
+    tipo_entidad?: string
+    resultado?: string
+    desde?: Date
+    hasta?: Date
+  },
+) {
+  try {
+    let query = `
+      SELECT * FROM registro_sincronizacion
+      WHERE 1=1
+    `
+
+    const values: any[] = []
+    let paramIndex = 1
+
+    if (filters?.tipo_entidad) {
+      query += ` AND tipo_entidad = $${paramIndex}`
+      values.push(filters.tipo_entidad)
+      paramIndex++
+    }
+
+    if (filters?.resultado) {
+      query += ` AND resultado = $${paramIndex}`
+      values.push(filters.resultado)
+      paramIndex++
+    }
+
+    if (filters?.desde) {
+      query += ` AND fecha >= $${paramIndex}`
+      values.push(filters.desde)
+      paramIndex++
+    }
+
+    if (filters?.hasta) {
+      query += ` AND fecha <= $${paramIndex}`
+      values.push(filters.hasta)
+      paramIndex++
+    }
+
+    query += ` ORDER BY fecha DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`
+    values.push(limit, offset)
+
+    const result = await sql.query(query, values)
+    return result.rows
+  } catch (error) {
+    console.error("Error al obtener eventos de sincronización:", error)
+    throw error
+  }
 }
 
-export async function getRegistrosByResultado(resultado: string, limit = 100, offset = 0) {
-  const query = "SELECT * FROM registro_sincronizacion WHERE resultado = $1 ORDER BY fecha DESC LIMIT $2 OFFSET $3"
-  return executeQuery(query, [resultado, limit, offset])
-}
+// Función para contar eventos de sincronización
+export async function countSyncEvents(filters?: {
+  tipo_entidad?: string
+  resultado?: string
+  desde?: Date
+  hasta?: Date
+}) {
+  try {
+    let query = `
+      SELECT COUNT(*) as total FROM registro_sincronizacion
+      WHERE 1=1
+    `
 
-export async function getRegistrosByAccion(accion: string, limit = 100, offset = 0) {
-  const query = "SELECT * FROM registro_sincronizacion WHERE accion = $1 ORDER BY fecha DESC LIMIT $2 OFFSET $3"
-  return executeQuery(query, [accion, limit, offset])
-}
+    const values: any[] = []
+    let paramIndex = 1
 
-export async function getRegistrosByFecha(fechaInicio: Date, fechaFin: Date, limit = 100, offset = 0) {
-  const query =
-    "SELECT * FROM registro_sincronizacion WHERE fecha BETWEEN $1 AND $2 ORDER BY fecha DESC LIMIT $3 OFFSET $4"
-  return executeQuery(query, [fechaInicio, fechaFin, limit, offset])
-}
+    if (filters?.tipo_entidad) {
+      query += ` AND tipo_entidad = $${paramIndex}`
+      values.push(filters.tipo_entidad)
+      paramIndex++
+    }
 
-export async function getRegistrosCount() {
-  const result = await executeQuery("SELECT COUNT(*) as total FROM registro_sincronizacion")
-  return Number.parseInt(result[0].total)
-}
+    if (filters?.resultado) {
+      query += ` AND resultado = $${paramIndex}`
+      values.push(filters.resultado)
+      paramIndex++
+    }
 
-export async function getRegistrosCountByTipoEntidad(tipoEntidad: string) {
-  const result = await executeQuery("SELECT COUNT(*) as total FROM registro_sincronizacion WHERE tipo_entidad = $1", [
-    tipoEntidad,
-  ])
-  return Number.parseInt(result[0].total)
-}
+    if (filters?.desde) {
+      query += ` AND fecha >= $${paramIndex}`
+      values.push(filters.desde)
+      paramIndex++
+    }
 
-export async function getRegistrosCountByResultado(resultado: string) {
-  const result = await executeQuery("SELECT COUNT(*) as total FROM registro_sincronizacion WHERE resultado = $1", [
-    resultado,
-  ])
-  return Number.parseInt(result[0].total)
+    if (filters?.hasta) {
+      query += ` AND fecha <= $${paramIndex}`
+      values.push(filters.hasta)
+      paramIndex++
+    }
+
+    const result = await sql.query(query, values)
+    return Number.parseInt(result.rows[0].total)
+  } catch (error) {
+    console.error("Error al contar eventos de sincronización:", error)
+    throw error
+  }
 }

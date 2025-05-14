@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import * as productosRepository from "@/lib/db/repositories/productos-repository"
-import * as registroRepository from "@/lib/db/repositories/registro-repository"
+import { logSyncEvent } from "@/lib/db/repositories/registro-repository"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
@@ -13,13 +13,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
     }
 
     const id = Number.parseInt(params.id)
-    const productos = await productosRepository.getProductoById(id)
+    const producto = await productosRepository.getProductoById(id)
 
-    if (productos.length === 0) {
+    if (!producto) {
       return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 })
     }
 
-    return NextResponse.json(productos[0])
+    return NextResponse.json(producto)
   } catch (error) {
     console.error(`Error al obtener producto ${params.id}:`, error)
     return NextResponse.json({ error: "Error al obtener producto" }, { status: 500 })
@@ -43,8 +43,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     }
 
     // Verificar que el producto existe
-    const productos = await productosRepository.getProductoById(id)
-    if (productos.length === 0) {
+    const producto = await productosRepository.getProductoById(id)
+    if (!producto) {
       return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 })
     }
 
@@ -52,7 +52,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     const productoActualizado = await productosRepository.updateProducto(id, data)
 
     // Registrar evento
-    await registroRepository.logSyncEvent({
+    await logSyncEvent({
       tipo_entidad: "PRODUCT",
       entidad_id: id.toString(),
       accion: "UPDATE",
@@ -60,12 +60,12 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       mensaje: `Producto actualizado: ${data.titulo}`,
     })
 
-    return NextResponse.json(productoActualizado[0])
+    return NextResponse.json(productoActualizado)
   } catch (error) {
     console.error(`Error al actualizar producto ${params.id}:`, error)
 
     // Registrar error
-    await registroRepository.logSyncEvent({
+    await logSyncEvent({
       tipo_entidad: "PRODUCT",
       entidad_id: params.id,
       accion: "UPDATE",
@@ -88,8 +88,8 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     const id = Number.parseInt(params.id)
 
     // Verificar que el producto existe
-    const productos = await productosRepository.getProductoById(id)
-    if (productos.length === 0) {
+    const producto = await productosRepository.getProductoById(id)
+    if (!producto) {
       return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 })
     }
 
@@ -97,12 +97,12 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     await productosRepository.deleteProducto(id)
 
     // Registrar evento
-    await registroRepository.logSyncEvent({
+    await logSyncEvent({
       tipo_entidad: "PRODUCT",
       entidad_id: id.toString(),
       accion: "DELETE",
       resultado: "SUCCESS",
-      mensaje: `Producto eliminado: ${productos[0].titulo}`,
+      mensaje: `Producto eliminado: ${producto.titulo}`,
     })
 
     return NextResponse.json({ success: true })
@@ -110,7 +110,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     console.error(`Error al eliminar producto ${params.id}:`, error)
 
     // Registrar error
-    await registroRepository.logSyncEvent({
+    await logSyncEvent({
       tipo_entidad: "PRODUCT",
       entidad_id: params.id,
       accion: "DELETE",

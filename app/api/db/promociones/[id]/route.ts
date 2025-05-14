@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import * as promocionesRepository from "@/lib/db/repositories/promociones-repository"
-import * as registroRepository from "@/lib/db/repositories/registro-repository"
+import { logSyncEvent } from "@/lib/db/repositories/registro-repository"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
@@ -13,13 +13,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
     }
 
     const id = Number.parseInt(params.id)
-    const promociones = await promocionesRepository.getPromocionById(id)
+    const promocion = await promocionesRepository.getPromocionById(id)
 
-    if (promociones.length === 0) {
+    if (!promocion) {
       return NextResponse.json({ error: "Promoción no encontrada" }, { status: 404 })
     }
 
-    return NextResponse.json(promociones[0])
+    return NextResponse.json(promocion)
   } catch (error) {
     console.error(`Error al obtener promoción ${params.id}:`, error)
     return NextResponse.json({ error: "Error al obtener promoción" }, { status: 500 })
@@ -43,8 +43,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     }
 
     // Verificar que la promoción existe
-    const promociones = await promocionesRepository.getPromocionById(id)
-    if (promociones.length === 0) {
+    const promocion = await promocionesRepository.getPromocionById(id)
+    if (!promocion) {
       return NextResponse.json({ error: "Promoción no encontrada" }, { status: 404 })
     }
 
@@ -52,7 +52,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     const promocionActualizada = await promocionesRepository.updatePromocion(id, data)
 
     // Registrar evento
-    await registroRepository.logSyncEvent({
+    await logSyncEvent({
       tipo_entidad: "PROMOTION",
       entidad_id: id.toString(),
       accion: "UPDATE",
@@ -60,12 +60,12 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       mensaje: `Promoción actualizada: ${data.titulo}`,
     })
 
-    return NextResponse.json(promocionActualizada[0])
+    return NextResponse.json(promocionActualizada)
   } catch (error) {
     console.error(`Error al actualizar promoción ${params.id}:`, error)
 
     // Registrar error
-    await registroRepository.logSyncEvent({
+    await logSyncEvent({
       tipo_entidad: "PROMOTION",
       entidad_id: params.id,
       accion: "UPDATE",
@@ -88,8 +88,8 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     const id = Number.parseInt(params.id)
 
     // Verificar que la promoción existe
-    const promociones = await promocionesRepository.getPromocionById(id)
-    if (promociones.length === 0) {
+    const promocion = await promocionesRepository.getPromocionById(id)
+    if (!promocion) {
       return NextResponse.json({ error: "Promoción no encontrada" }, { status: 404 })
     }
 
@@ -97,12 +97,12 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     await promocionesRepository.deletePromocion(id)
 
     // Registrar evento
-    await registroRepository.logSyncEvent({
+    await logSyncEvent({
       tipo_entidad: "PROMOTION",
       entidad_id: id.toString(),
       accion: "DELETE",
       resultado: "SUCCESS",
-      mensaje: `Promoción eliminada: ${promociones[0].titulo}`,
+      mensaje: `Promoción eliminada: ${promocion.titulo}`,
     })
 
     return NextResponse.json({ success: true })
@@ -110,7 +110,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     console.error(`Error al eliminar promoción ${params.id}:`, error)
 
     // Registrar error
-    await registroRepository.logSyncEvent({
+    await logSyncEvent({
       tipo_entidad: "PROMOTION",
       entidad_id: params.id,
       accion: "DELETE",

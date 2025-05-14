@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import * as promocionesRepository from "@/lib/db/repositories/promociones-repository"
-import * as registroRepository from "@/lib/db/repositories/registro-repository"
+import { logSyncEvent } from "@/lib/db/repositories/registro-repository"
 
 export async function GET(request: Request) {
   try {
@@ -39,20 +39,20 @@ export async function POST(request: Request) {
     const promocion = await promocionesRepository.createPromocion(data)
 
     // Registrar evento
-    await registroRepository.logSyncEvent({
+    await logSyncEvent({
       tipo_entidad: "PROMOTION",
-      entidad_id: promocion[0].id.toString(),
+      entidad_id: promocion.id.toString(),
       accion: "CREATE",
       resultado: "SUCCESS",
       mensaje: `Promoción creada: ${data.titulo}`,
     })
 
-    return NextResponse.json(promocion[0], { status: 201 })
+    return NextResponse.json(promocion, { status: 201 })
   } catch (error) {
     console.error("Error al crear promoción:", error)
 
     // Registrar error
-    await registroRepository.logSyncEvent({
+    await logSyncEvent({
       tipo_entidad: "PROMOTION",
       accion: "CREATE",
       resultado: "ERROR",

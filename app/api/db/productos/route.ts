@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import * as productosRepository from "@/lib/db/repositories/productos-repository"
-import * as registroRepository from "@/lib/db/repositories/registro-repository"
+import { logSyncEvent } from "@/lib/db/repositories/registro-repository"
 
 export async function GET(request: Request) {
   try {
@@ -39,20 +39,20 @@ export async function POST(request: Request) {
     const producto = await productosRepository.createProducto(data)
 
     // Registrar evento
-    await registroRepository.logSyncEvent({
+    await logSyncEvent({
       tipo_entidad: "PRODUCT",
-      entidad_id: producto[0].id.toString(),
+      entidad_id: producto.id.toString(),
       accion: "CREATE",
       resultado: "SUCCESS",
       mensaje: `Producto creado: ${data.titulo}`,
     })
 
-    return NextResponse.json(producto[0], { status: 201 })
+    return NextResponse.json(producto, { status: 201 })
   } catch (error) {
     console.error("Error al crear producto:", error)
 
     // Registrar error
-    await registroRepository.logSyncEvent({
+    await logSyncEvent({
       tipo_entidad: "PRODUCT",
       accion: "CREATE",
       resultado: "ERROR",
