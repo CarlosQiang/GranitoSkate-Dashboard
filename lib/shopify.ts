@@ -88,35 +88,69 @@ export function formatShopifyId(id: string | number | null | undefined, resource
 // Función para realizar una consulta de prueba a Shopify
 export async function testShopifyConnection() {
   try {
-    const baseUrl = getBaseUrl()
-    const response = await fetch(`${baseUrl}/api/shopify/check`, {
-      method: "GET",
-      headers: {
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`Error HTTP: ${response.status}`)
+    // Verificar que las variables de entorno estén configuradas
+    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN) {
+      return {
+        success: false,
+        data: null,
+        message: "Error de configuración: NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está definido",
+      }
     }
 
-    const data = await response.json()
-
-    if (data.success) {
+    if (!process.env.SHOPIFY_ACCESS_TOKEN) {
       return {
-        success: true,
-        data: { shop: { name: data.shopName } },
-        message: data.message,
+        success: false,
+        data: null,
+        message: "Error de configuración: SHOPIFY_ACCESS_TOKEN no está definido",
       }
-    } else {
-      throw new Error(data.error || "Error desconocido")
+    }
+
+    // Realizar una consulta simple para verificar la conexión
+    const query = `
+      query {
+        shop {
+          name
+        }
+      }
+    `
+
+    const response = await shopifyFetch({ query })
+
+    if (response.errors) {
+      // Extraer mensaje de error más específico
+      let errorMessage = "Error desconocido al conectar con Shopify"
+
+      if (response.errors[0]) {
+        if (response.errors[0].message.includes("401")) {
+          errorMessage = "Error de autenticación: Token de acceso inválido o expirado"
+        } else if (response.errors[0].message.includes("404")) {
+          errorMessage = "Error: Tienda no encontrada. Verifique el dominio de la tienda"
+        } else {
+          errorMessage = response.errors[0].message
+        }
+      }
+
+      return {
+        success: false,
+        data: null,
+        message: errorMessage,
+      }
+    }
+
+    return {
+      success: true,
+      data: response.data,
+      message: `Conexión exitosa con la tienda ${response.data?.shop?.name || "Shopify"}`,
     }
   } catch (error) {
     console.error("Error al probar la conexión con Shopify:", error)
     return {
       success: false,
       data: null,
-      message: error instanceof Error ? error.message : "Error desconocido",
+      message:
+        error instanceof Error
+          ? `Error al conectar con Shopify: ${error.message}`
+          : "Error desconocido al conectar con Shopify",
     }
   }
 }
