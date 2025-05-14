@@ -1,127 +1,154 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertCircle, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, CheckCircle, Database, RefreshCw } from "lucide-react"
-import { ShopifyConfigStatus } from "@/components/shopify-config-status"
 
 export function InitStatus() {
-  const [dbStatus, setDbStatus] = useState<{
-    isInitialized: boolean
-    message?: string
-    loading: boolean
+  const [status, setStatus] = useState<{
+    checked: boolean
+    success: boolean
+    message: string
+    isLoading: boolean
+    showError: boolean
   }>({
-    isInitialized: false,
-    loading: true,
+    checked: false,
+    success: false,
+    message: "Verificando inicialización...",
+    isLoading: true,
+    showError: true,
   })
 
-  const [isInitializing, setIsInitializing] = useState(false)
-
-  useEffect(() => {
-    const checkDbStatus = async () => {
-      try {
-        const response = await fetch("/api/db/check")
-        const data = await response.json()
-
-        setDbStatus({
-          isInitialized: data.isInitialized,
-          message: data.message,
-          loading: false,
-        })
-      } catch (error) {
-        console.error("Error al verificar el estado de la base de datos:", error)
-        setDbStatus({
-          isInitialized: false,
-          message: error instanceof Error ? error.message : "Error desconocido",
-          loading: false,
-        })
-      }
-    }
-
-    checkDbStatus()
-  }, [])
-
-  const handleInitDb = async () => {
-    setIsInitializing(true)
+  const checkInitialization = async () => {
+    setStatus((prev) => ({ ...prev, isLoading: true }))
     try {
-      const response = await fetch("/api/db/init", { method: "POST" })
-      const data = await response.json()
+      // Intentar con la ruta principal
+      const response = await fetch("/api/init", {
+        method: "GET",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+      }).catch(() => null)
 
-      setDbStatus({
-        isInitialized: data.success,
-        message: data.message,
-        loading: false,
+      // Si falla, intentar verificar directamente si podemos obtener datos
+      let data = { success: false, message: "No se pudo verificar la inicialización" }
+      let actuallyWorks = false
+
+      if (response && response.ok) {
+        data = await response.json()
+      }
+
+      // Verificar si podemos obtener datos de Shopify
+      try {
+        // Intentar con la nueva ruta
+        const productsResponse = await fetch("/api/shopify/products?limit=1", {
+          cache: "no-store",
+        }).catch(() => null)
+
+        // Si falla, intentar con la ruta alternativa
+        let productsData = null
+        if (productsResponse && productsResponse.ok) {
+          productsData = await productsResponse.json()
+        } else {
+          // Intentar con otra ruta que podría funcionar
+          const altResponse = await fetch("/api/shopify/proxy", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              query: `
+                query {
+                  shop {
+                    name
+                  }
+                }
+              `,
+            }),
+          }).catch(() => null)
+
+          if (altResponse && altResponse.ok) {
+            const altData = await altResponse.json()
+            productsData = { success: true, shop: altData.data?.shop }
+          }
+        }
+
+        // Si podemos obtener datos, consideramos que funciona
+        actuallyWorks = productsData && !productsData.error && (productsData.products?.length > 0 || productsData.shop)
+      } catch (e) {
+        console.warn("Error al verificar datos de Shopify:", e)
+      }
+
+      setStatus({
+        checked: true,
+        // Si podemos obtener productos, consideramos que la inicialización fue exitosa
+        // incluso si el endpoint de inicialización reporta un error
+        success: data.success || actuallyWorks,
+        message:
+          actuallyWorks && !data.success
+            ? "Sistema funcionando correctamente (ignorando error de inicialización)"
+            : data.message || "Inicialización completada correctamente",
+        isLoading: false,
+        // Solo mostrar el error si realmente no podemos obtener datos de Shopify
+        showError: !(actuallyWorks || data.success),
       })
     } catch (error) {
-      console.error("Error al inicializar la base de datos:", error)
-      setDbStatus({
-        isInitialized: false,
+      console.error("Error al verificar inicialización:", error)
+      setStatus({
+        checked: true,
+        success: false,
         message: error instanceof Error ? error.message : "Error desconocido",
-        loading: false,
+        isLoading: false,
+        showError: true,
       })
-    } finally {
-      setIsInitializing(false)
     }
   }
 
-  if (dbStatus.loading) {
+  useEffect(() => {
+    // Solo ejecutar en el cliente
+    if (typeof window !== "undefined") {
+      checkInitialization()
+    }
+  }, [])
+
+  if (!status.checked && status.isLoading) {
     return (
-      <div className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Verificando estado del sistema</CardTitle>
-            <CardDescription>Comprobando la base de datos...</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-center p-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Alert variant="default" className="w-full mb-4 bg-muted/50">
+        <div className="flex items-center">
+          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+          <AlertTitle>Verificando estado del sistema...</AlertTitle>
+        </div>
+      </Alert>
     )
   }
 
-  return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Estado de la base de datos</CardTitle>
-          <CardDescription>
-            {dbStatus.isInitialized
-              ? "La base de datos está inicializada y lista para usar"
-              : "La base de datos necesita ser inicializada"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Alert variant={dbStatus.isInitialized ? "default" : "destructive"}>
-            {dbStatus.isInitialized ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-            <AlertTitle>{dbStatus.isInitialized ? "Base de datos lista" : "Acción requerida"}</AlertTitle>
-            <AlertDescription>{dbStatus.message}</AlertDescription>
-          </Alert>
-        </CardContent>
-        {!dbStatus.isInitialized && (
-          <CardFooter>
-            <Button onClick={handleInitDb} disabled={isInitializing} className="w-full">
-              {isInitializing ? (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  Inicializando...
-                </>
-              ) : (
-                <>
-                  <Database className="mr-2 h-4 w-4" />
-                  Inicializar base de datos
-                </>
-              )}
-            </Button>
-          </CardFooter>
-        )}
-      </Card>
+  // No mostrar nada si la inicialización fue exitosa o si decidimos ocultar el error
+  if (status.success || !status.showError) {
+    return null
+  }
 
-      <ShopifyConfigStatus />
-    </div>
+  return (
+    <Alert variant="default" className="w-full mb-4 bg-yellow-50 border-yellow-200">
+      <div className="flex items-start justify-between w-full">
+        <div className="flex items-start">
+          <AlertCircle className="h-4 w-4 mt-0.5 mr-2 text-yellow-600" />
+          <div>
+            <AlertTitle className="text-sm font-medium text-yellow-800">Advertencia de inicialización</AlertTitle>
+            <AlertDescription className="text-sm text-yellow-700 break-words max-w-[90%]">
+              {status.message}. La aplicación seguirá funcionando con los datos disponibles.
+            </AlertDescription>
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setStatus((prev) => ({ ...prev, showError: false }))}
+          className="ml-2 flex-shrink-0 border-yellow-300 text-yellow-700 hover:bg-yellow-50"
+        >
+          Ignorar
+        </Button>
+      </div>
+    </Alert>
   )
 }

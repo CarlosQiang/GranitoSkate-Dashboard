@@ -30,7 +30,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { CollectionSeoForm } from "@/components/collection-seo-form"
-import { formatShopifyId } from "@/lib/utils"
+import { formatShopifyId } from "@/lib/shopify"
 
 export default function CollectionPage({ params }: { params: { id: string } }) {
   const router = useRouter()

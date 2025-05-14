@@ -118,10 +118,3 @@ export function calculateDiscount(originalPrice: number, discountedPrice: number
   const discount = ((originalPrice - discountedPrice) / originalPrice) * 100
   return Math.round(discount)
 }
-
-export function formatShopifyId(id: string, type: string): string {
-  if (id.includes("gid://shopify/")) {
-    return id
-  }
-  return `gid://shopify/${type}/${id}`
-}
