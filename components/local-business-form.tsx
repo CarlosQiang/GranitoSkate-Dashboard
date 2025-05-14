@@ -8,8 +8,8 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { MapPin, Phone, Clock, Save } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { fetchLocalBusinessMetafields, saveLocalBusinessMetafields } from "@/lib/api/metafields"
-import type { LocalBusinessMetafields } from "@/types/metafields"
+import { getLocalBusinessInfo, saveLocalBusinessInfo } from "@/lib/api/seo"
+import type { LocalBusinessInfo } from "@/types/metafields"
 
 interface LocalBusinessFormProps {
   onSave?: () => void
@@ -19,7 +19,7 @@ export function LocalBusinessForm({ onSave }: LocalBusinessFormProps) {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [localBusiness, setLocalBusiness] = useState<LocalBusinessMetafields>({
+  const [localBusiness, setLocalBusiness] = useState<LocalBusinessInfo>({
     name: "",
     streetAddress: "",
     addressLocality: "",
@@ -37,8 +37,22 @@ export function LocalBusinessForm({ onSave }: LocalBusinessFormProps) {
     async function loadLocalBusinessData() {
       setIsLoading(true)
       try {
-        const data = await fetchLocalBusinessMetafields()
-        setLocalBusiness(data)
+        const data = await getLocalBusinessInfo()
+        if (data) {
+          setLocalBusiness({
+            name: data.name || "",
+            streetAddress: data.streetAddress || "",
+            addressLocality: data.addressLocality || "",
+            addressRegion: data.addressRegion || "",
+            postalCode: data.postalCode || "",
+            addressCountry: data.addressCountry || "",
+            telephone: data.telephone || "",
+            email: data.email || "",
+            openingHours: Array.isArray(data.openingHours) ? data.openingHours : [],
+            latitude: typeof data.latitude === "number" ? data.latitude : 0,
+            longitude: typeof data.longitude === "number" ? data.longitude : 0,
+          })
+        }
       } catch (error) {
         console.error("Error loading local business data:", error)
         toast({
@@ -57,7 +71,7 @@ export function LocalBusinessForm({ onSave }: LocalBusinessFormProps) {
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      const success = await saveLocalBusinessMetafields("1", localBusiness)
+      const success = await saveLocalBusinessInfo(localBusiness)
 
       if (success) {
         toast({
@@ -87,7 +101,7 @@ export function LocalBusinessForm({ onSave }: LocalBusinessFormProps) {
     }
   }
 
-  const handleInputChange = (field: keyof LocalBusinessMetafields, value: string | string[] | number) => {
+  const handleInputChange = (field: keyof LocalBusinessInfo, value: string | string[] | number) => {
     setLocalBusiness((prev) => ({
       ...prev,
       [field]: value,
@@ -238,7 +252,7 @@ export function LocalBusinessForm({ onSave }: LocalBusinessFormProps) {
             <Textarea
               id="opening-hours"
               placeholder="Lun-Vie: 10:00-20:00&#10;Sáb: 10:00-14:00&#10;Dom: Cerrado"
-              value={localBusiness.openingHours.join("\n")}
+              value={Array.isArray(localBusiness.openingHours) ? localBusiness.openingHours.join("\n") : ""}
               onChange={(e) => handleInputChange("openingHours", e.target.value.split("\n"))}
               rows={5}
             />

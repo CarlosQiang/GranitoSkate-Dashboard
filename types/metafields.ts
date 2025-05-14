@@ -84,5 +84,17 @@ export type MetafieldType =
   | "date"
   | "date_time"
   | "url"
-\
-"
+
+export interface LocalBusinessInfo {
+  name: string
+  streetAddress: string
+  addressLocality: string
+  addressRegion: string
+  postalCode: string
+  addressCountry: string
+  telephone: string
+  email: string
+  openingHours: string[]
+  latitude: number
+  longitude: number
+}

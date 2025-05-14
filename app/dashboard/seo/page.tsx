@@ -4,22 +4,31 @@ import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Search, MapPin, Globe, Code, AlertCircle } from "lucide-react"
+import { Search, MapPin, Globe, AlertCircle } from "lucide-react"
 import { SeoForm } from "@/components/seo-form"
 import { LocalBusinessForm } from "@/components/local-business-form"
 import { SocialMediaForm } from "@/components/social-media-form"
-import { StructuredDataGenerator } from "@/components/structured-data-generator"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getShopSeoSettings } from "@/lib/api/seo"
+import { getShopSeoSettings, saveShopSeoSettings } from "@/lib/api/seo"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Button } from "@/components/ui/button"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function SeoPage() {
   const [activeTab, setActiveTab] = useState("general")
   const [isLoading, setIsLoading] = useState(true)
   const [shopInfo, setShopInfo] = useState(null)
   const [error, setError] = useState(null)
+  const [marketData, setMarketData] = useState({
+    marketTitle: "",
+    marketDescription: "",
+    marketKeywords: "",
+    targetCountries: "",
+  })
+
+  const { toast } = useToast()
 
   useEffect(() => {
     const fetchShopInfo = async () => {
@@ -28,6 +37,16 @@ export default function SeoPage() {
         setError(null)
         const seoSettings = await getShopSeoSettings()
         setShopInfo(seoSettings)
+
+        // Inicializar datos de mercados
+        if (seoSettings) {
+          setMarketData({
+            marketTitle: seoSettings.marketTitle || "",
+            marketDescription: seoSettings.marketDescription || "",
+            marketKeywords: Array.isArray(seoSettings.marketKeywords) ? seoSettings.marketKeywords.join(", ") : "",
+            targetCountries: Array.isArray(seoSettings.targetCountries) ? seoSettings.targetCountries.join(", ") : "",
+          })
+        }
       } catch (error) {
         console.error("Error fetching shop SEO settings:", error)
         setError(error.message || "Error al cargar la configuración SEO")
@@ -46,7 +65,63 @@ export default function SeoPage() {
     // Simular tiempo de carga
     setTimeout(() => {
       setIsLoading(false)
-    }, 500)
+    }, 300)
+  }
+
+  const handleMarketDataChange = (field, value) => {
+    setMarketData((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
+  }
+
+  const handleSaveMarketData = async () => {
+    try {
+      setIsLoading(true)
+
+      // Convertir strings separadas por comas a arrays
+      const marketKeywordsArray = marketData.marketKeywords
+        ? marketData.marketKeywords.split(",").map((item) => item.trim())
+        : []
+
+      const targetCountriesArray = marketData.targetCountries
+        ? marketData.targetCountries.split(",").map((item) => item.trim())
+        : []
+
+      // Crear objeto con datos actualizados
+      const updatedSettings = {
+        ...shopInfo,
+        marketTitle: marketData.marketTitle,
+        marketDescription: marketData.marketDescription,
+        marketKeywords: marketKeywordsArray,
+        targetCountries: targetCountriesArray,
+      }
+
+      // Guardar configuración
+      const success = await saveShopSeoSettings(updatedSettings)
+
+      if (success) {
+        toast({
+          title: "Datos guardados",
+          description: "La información de mercados se ha guardado correctamente",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "No se pudo guardar la información de mercados",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error saving market data:", error)
+      toast({
+        title: "Error",
+        description: "Ocurrió un error al guardar la información de mercados",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   if (error) {
@@ -104,10 +179,6 @@ export default function SeoPage() {
             <Globe className="mr-2 h-4 w-4" />
             Mercados
           </TabsTrigger>
-          <TabsTrigger value="structured">
-            <Code className="mr-2 h-4 w-4" />
-            Datos Estructurados
-          </TabsTrigger>
         </TabsList>
 
         {isLoading ? (
@@ -127,7 +198,7 @@ export default function SeoPage() {
                 </CardHeader>
                 <CardContent>
                   <SeoForm
-                    ownerId="gid://shopify/Shop/1"
+                    ownerId="1"
                     ownerType="SHOP"
                     defaultTitle={shopInfo?.title || "Granito Skate Shop - Tienda de skate online"}
                     defaultDescription={
@@ -154,56 +225,54 @@ export default function SeoPage() {
                   <CardDescription>Configura la información de mercados y presencia web para tu tienda</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {isLoading ? (
-                    <div className="space-y-4">
-                      <Skeleton className="h-12 w-full" />
-                      <Skeleton className="h-64 w-full" />
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="market-title">Título SEO para Mercados</Label>
+                      <Input
+                        id="market-title"
+                        placeholder="Título SEO para mercados internacionales"
+                        value={marketData.marketTitle}
+                        onChange={(e) => handleMarketDataChange("marketTitle", e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Recomendado: 50-60 caracteres.</p>
                     </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="market-title">Título SEO para Mercados</Label>
-                        <Input
-                          id="market-title"
-                          placeholder="Título SEO para mercados internacionales"
-                          defaultValue={shopInfo?.marketTitle || ""}
-                        />
-                        <p className="text-xs text-muted-foreground">Recomendado: 50-60 caracteres.</p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="market-description">Descripción SEO para Mercados</Label>
-                        <Textarea
-                          id="market-description"
-                          placeholder="Descripción SEO para mercados internacionales"
-                          defaultValue={shopInfo?.marketDescription || ""}
-                        />
-                        <p className="text-xs text-muted-foreground">Recomendado: 150-160 caracteres.</p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="market-keywords">Palabras clave para Mercados (separadas por comas)</Label>
-                        <Input
-                          id="market-keywords"
-                          placeholder="skate, skateboard, tablas, ruedas"
-                          defaultValue={shopInfo?.marketKeywords?.join(", ") || ""}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="market-countries">Países objetivo (separados por comas)</Label>
-                        <Input
-                          id="market-countries"
-                          placeholder="España, México, Argentina"
-                          defaultValue={shopInfo?.targetCountries?.join(", ") || ""}
-                        />
-                        <p className="text-xs text-muted-foreground">Países donde quieres tener presencia comercial.</p>
-                      </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="market-description">Descripción SEO para Mercados</Label>
+                      <Textarea
+                        id="market-description"
+                        placeholder="Descripción SEO para mercados internacionales"
+                        value={marketData.marketDescription}
+                        onChange={(e) => handleMarketDataChange("marketDescription", e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Recomendado: 150-160 caracteres.</p>
                     </div>
-                  )}
+                    <div className="space-y-2">
+                      <Label htmlFor="market-keywords">Palabras clave para Mercados (separadas por comas)</Label>
+                      <Input
+                        id="market-keywords"
+                        placeholder="skate, skateboard, tablas, ruedas"
+                        value={marketData.marketKeywords}
+                        onChange={(e) => handleMarketDataChange("marketKeywords", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="market-countries">Países objetivo (separados por comas)</Label>
+                      <Input
+                        id="market-countries"
+                        placeholder="España, México, Argentina"
+                        value={marketData.targetCountries}
+                        onChange={(e) => handleMarketDataChange("targetCountries", e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Países donde quieres tener presencia comercial.</p>
+                    </div>
+                    <div className="pt-4">
+                      <Button onClick={handleSaveMarketData} disabled={isLoading}>
+                        {isLoading ? "Guardando..." : "Guardar cambios"}
+                      </Button>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
-            </TabsContent>
-
-            <TabsContent value="structured" className="space-y-4">
-              <StructuredDataGenerator />
             </TabsContent>
           </>
         )}
