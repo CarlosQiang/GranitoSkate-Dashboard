@@ -32,7 +32,7 @@ export async function GET(request: Request) {
       query += ` AND fecha <= $${params.length}`
     }
 
-    query += " ORDER BY fecha DESC"
+    query += " ORDER BY fecha DESC LIMIT 100"
 
     const registros = await db.executeQuery(query, params)
     return NextResponse.json(registros)

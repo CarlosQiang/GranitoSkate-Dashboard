@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { SystemDiagnostics } from "@/components/system-diagnostics"
+import { DbConnectionStatus } from "@/components/db-connection-status"
+import { DbInitializer } from "@/components/db-initializer"
 
 export default function DiagnosticsPage() {
   const router = useRouter()
@@ -25,7 +27,13 @@ export default function DiagnosticsPage() {
         funcionando correctamente.
       </p>
 
-      <SystemDiagnostics />
+      <div className="grid gap-6 md:grid-cols-2">
+        <DbConnectionStatus />
+        <DbInitializer />
+        <div className="md:col-span-2">
+          <SystemDiagnostics />
+        </div>
+      </div>
 
       <div className="space-y-4 bg-blue-50 p-6 rounded-lg border border-blue-200">
         <h2 className="text-xl font-semibold text-blue-800">Instrucciones para solucionar problemas</h2>
@@ -40,20 +48,20 @@ export default function DiagnosticsPage() {
         </div>
 
         <div className="space-y-2">
+          <h3 className="font-medium text-blue-700">Si hay errores de conexión con la base de datos:</h3>
+          <ul className="list-disc pl-5 text-blue-600 space-y-1">
+            <li>Verifica que las credenciales de la base de datos sean correctas</li>
+            <li>Comprueba que la base de datos esté activa y accesible</li>
+            <li>Usa el botón "Inicializar Base de Datos" para crear las tablas necesarias</li>
+          </ul>
+        </div>
+
+        <div className="space-y-2">
           <h3 className="font-medium text-blue-700">Si hay errores al cargar productos o colecciones:</h3>
           <ul className="list-disc pl-5 text-blue-600 space-y-1">
             <li>Verifica que existan productos o colecciones en tu tienda</li>
             <li>Comprueba los permisos de la aplicación en Shopify</li>
             <li>Revisa los logs del servidor para más detalles sobre el error</li>
-          </ul>
-        </div>
-
-        <div className="space-y-2">
-          <h3 className="font-medium text-blue-700">Si hay errores al cargar pedidos:</h3>
-          <ul className="list-disc pl-5 text-blue-600 space-y-1">
-            <li>Verifica que existan pedidos en tu tienda</li>
-            <li>Comprueba que la aplicación tenga permisos para acceder a los pedidos</li>
-            <li>Asegúrate de que la estructura de la API de pedidos sea compatible</li>
           </ul>
         </div>
       </div>

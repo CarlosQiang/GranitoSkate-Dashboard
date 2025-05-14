@@ -16,8 +16,8 @@ export async function findOne(table: string, conditions: Record<string, any>) {
   const values = Object.values(conditions)
 
   // Construir la consulta dinámicamente
-  let query = `SELECT * FROM ${table} WHERE `
-  const whereClauses = keys.map((key, index) => `${key} = $${index + 1}`).join(" AND ")
+  let query = `SELECT * FROM "${table}" WHERE `
+  const whereClauses = keys.map((key, index) => `"${key}" = $${index + 1}`).join(" AND ")
   query += whereClauses + " LIMIT 1"
 
   const result = await sql.query(query, values)
@@ -29,7 +29,9 @@ export async function insert(table: string, data: Record<string, any>) {
   const values = Object.values(data)
 
   // Construir la consulta dinámicamente
-  let query = `INSERT INTO ${table} (${keys.join(", ")}) VALUES (`
+  let query = `INSERT INTO "${table}" (`
+  query += keys.map((key) => `"${key}"`).join(", ")
+  query += ") VALUES ("
   query += keys.map((_, index) => `$${index + 1}`).join(", ")
   query += ") RETURNING *"
 
@@ -42,8 +44,8 @@ export async function update(table: string, id: number, data: Record<string, any
   const values = [...Object.values(data), id]
 
   // Construir la consulta dinámicamente
-  let query = `UPDATE ${table} SET `
-  query += keys.map((key, index) => `${key} = $${index + 1}`).join(", ")
+  let query = `UPDATE "${table}" SET `
+  query += keys.map((key, index) => `"${key}" = $${index + 1}`).join(", ")
   query += ` WHERE id = $${values.length} RETURNING *`
 
   const result = await sql.query(query, values)
@@ -57,7 +59,7 @@ export async function remove(table: string, id: number) {
 
 export async function logSyncEvent(
   tipo_entidad: string,
-  entidad_id: string,
+  entidad_id = "UNKNOWN",
   accion: string,
   resultado: string,
   mensaje: string,
