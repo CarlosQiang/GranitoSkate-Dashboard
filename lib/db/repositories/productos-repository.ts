@@ -1,5 +1,6 @@
 import { sql } from "@vercel/postgres"
 import type { Producto } from "../schema"
+import { logSyncEvent } from "./registro-repository"
 
 // Obtener todos los productos
 export async function getAllProductos(): Promise<Producto[]> {
@@ -611,183 +612,326 @@ export async function deleteImagenesNotInList(productoId: number, imageIds: stri
   }
 }
 
-// Sincronizar un producto con Shopify
-export async function syncProductoWithShopify(shopifyProducto: any): Promise<Producto> {
+// Función para sincronizar un producto de Shopify con la base de datos
+export async function syncProductoWithShopify(product: any) {
   try {
-    // Extraer datos del producto
-    const {
-      id: shopifyId,
-      title: titulo,
-      body_html: descripcion,
-      product_type: tipo_producto,
-      vendor: proveedor,
-      status: estado,
-      published_at: fecha_publicacion,
-      handle: url_handle,
-      tags,
-      variants: variantes,
-      images: imagenes,
-      options: opciones,
-    } = shopifyProducto
+    // Verificar si el producto ya existe
+    const existingProduct = await checkProductExists(product.id)
+    let productDbId
 
-    // Procesar etiquetas
-    const etiquetasArray = tags ? tags.split(",").map((tag: string) => tag.trim()) : []
-
-    // Determinar si el producto está publicado
-    const publicado = estado === "active"
-
-    // Obtener la imagen destacada
-    const imagen_destacada = imagenes && imagenes.length > 0 ? imagenes.find((img: any) => img.position === 1) : null
-    const imagen_destacada_url = imagen_destacada ? imagen_destacada.src : null
-
-    // Obtener datos de la primera variante para valores por defecto
-    const primeraVariante = variantes && variantes.length > 0 ? variantes[0] : null
-    const precio_base = primeraVariante ? primeraVariante.price : null
-    const precio_comparacion = primeraVariante ? primeraVariante.compare_at_price : null
-    const sku = primeraVariante ? primeraVariante.sku : null
-    const codigo_barras = primeraVariante ? primeraVariante.barcode : null
-    const inventario_disponible = primeraVariante ? primeraVariante.inventory_quantity : null
-    const politica_inventario = primeraVariante ? primeraVariante.inventory_policy : null
-    const requiere_envio = primeraVariante ? primeraVariante.requires_shipping : true
-    const peso = primeraVariante ? primeraVariante.weight : null
-    const unidad_peso = primeraVariante ? primeraVariante.weight_unit : "kg"
-
-    // Buscar si el producto ya existe
-    const existingProducto = await getProductoByShopifyId(shopifyId)
-
-    let producto: Producto
-
-    if (existingProducto) {
+    if (existingProduct) {
       // Actualizar producto existente
-      producto = await updateProducto(existingProducto.id, {
-        titulo,
-        descripcion,
-        tipo_producto,
-        proveedor,
-        estado,
-        publicado,
-        etiquetas: etiquetasArray,
-        imagen_destacada_url,
-        precio_base,
-        precio_comparacion,
-        sku,
-        codigo_barras,
-        inventario_disponible,
-        politica_inventario,
-        requiere_envio,
-        peso,
-        unidad_peso,
-        url_handle,
-        fecha_publicacion: fecha_publicacion ? new Date(fecha_publicacion) : null,
-        ultima_sincronizacion: new Date(),
+      productDbId = existingProduct.id
+      await updateProductInDB(productDbId, product)
+
+      // Registrar evento
+      await logSyncEvent({
+        tipo_entidad: "PRODUCT",
+        entidad_id: product.id,
+        accion: "UPDATE",
+        resultado: "SUCCESS",
+        mensaje: `Producto actualizado: ${product.title}`,
       })
     } else {
       // Crear nuevo producto
-      producto = await createProducto({
-        shopify_id: shopifyId,
-        titulo,
-        descripcion,
-        tipo_producto,
-        proveedor,
-        estado,
-        publicado,
-        destacado: false,
-        etiquetas: etiquetasArray,
-        imagen_destacada_url,
-        precio_base,
-        precio_comparacion,
-        sku,
-        codigo_barras,
-        inventario_disponible,
-        politica_inventario,
-        requiere_envio,
-        peso,
-        unidad_peso,
-        url_handle,
-        fecha_publicacion: fecha_publicacion ? new Date(fecha_publicacion) : null,
-        fecha_creacion: new Date(),
-        fecha_actualizacion: new Date(),
-        ultima_sincronizacion: new Date(),
+      productDbId = await insertProductIntoDB(product)
+
+      // Registrar evento
+      await logSyncEvent({
+        tipo_entidad: "PRODUCT",
+        entidad_id: product.id,
+        accion: "CREATE",
+        resultado: "SUCCESS",
+        mensaje: `Producto creado: ${product.title}`,
       })
     }
 
     // Sincronizar variantes
-    const variantIds: string[] = []
-    if (variantes && variantes.length > 0) {
-      for (const variante of variantes) {
-        const varianteData = {
-          shopify_id: variante.id,
-          producto_id: producto.id,
-          titulo: variante.title,
-          precio: variante.price,
-          precio_comparacion: variante.compare_at_price,
-          sku: variante.sku,
-          codigo_barras: variante.barcode,
-          inventario_disponible: variante.inventory_quantity,
-          politica_inventario: variante.inventory_policy,
-          requiere_envio: variante.requires_shipping,
-          peso: variante.weight,
-          unidad_peso: variante.weight_unit,
-          opcion1_nombre: opciones && opciones.length > 0 ? opciones[0].name : null,
-          opcion1_valor: variante.option1,
-          opcion2_nombre: opciones && opciones.length > 1 ? opciones[1].name : null,
-          opcion2_valor: variante.option2,
-          opcion3_nombre: opciones && opciones.length > 2 ? opciones[2].name : null,
-          opcion3_valor: variante.option3,
-          posicion: variante.position,
-        }
-
-        await upsertVarianteProducto(varianteData)
-        variantIds.push(variante.id)
-      }
+    if (product.variants && Array.isArray(product.variants)) {
+      await syncProductVariants(productDbId, product.id, product.variants)
     }
-
-    // Eliminar variantes que ya no existen
-    await deleteVariantesNotInList(producto.id, variantIds)
 
     // Sincronizar imágenes
-    const imageIds: string[] = []
-    if (imagenes && imagenes.length > 0) {
-      for (const imagen of imagenes) {
-        // Buscar la variante asociada a esta imagen
-        let varianteId = null
-        if (imagen.variant_ids && imagen.variant_ids.length > 0) {
-          const varianteResult = await sql.query(
-            `
-            SELECT id FROM variantes_producto
-            WHERE shopify_id = $1
-          `,
-            [imagen.variant_ids[0]],
-          )
-          if (varianteResult.rows.length > 0) {
-            varianteId = varianteResult.rows[0].id
-          }
-        }
-
-        const imagenData = {
-          shopify_id: imagen.id,
-          producto_id: producto.id,
-          variante_id: varianteId,
-          url: imagen.src,
-          texto_alternativo: imagen.alt,
-          posicion: imagen.position,
-          es_destacada: imagen.position === 1,
-        }
-
-        await upsertImagenProducto(imagenData)
-        imageIds.push(imagen.id)
-      }
+    if (product.images && Array.isArray(product.images)) {
+      await syncProductImages(productDbId, product.id, product.images)
     }
 
-    // Eliminar imágenes que ya no existen
-    await deleteImagenesNotInList(producto.id, imageIds)
-
-    return producto
+    return productDbId
   } catch (error) {
-    console.error(`Error al sincronizar producto con Shopify ID ${shopifyProducto.id}:`, error)
+    console.error(`Error al sincronizar producto ${product.id}:`, error)
+
+    // Registrar error
+    await logSyncEvent({
+      tipo_entidad: "PRODUCT",
+      entidad_id: product.id,
+      accion: "SYNC",
+      resultado: "ERROR",
+      mensaje: `Error al sincronizar producto: ${(error as Error).message}`,
+    })
+
     throw error
   }
 }
+
+// Verificar si un producto existe en la base de datos
+async function checkProductExists(shopifyId: string) {
+  const result = await sql`SELECT id FROM productos WHERE shopify_id = ${shopifyId}`
+  return result.rows.length > 0 ? result.rows[0] : null
+}
+
+// Insertar un nuevo producto en la base de datos
+async function insertProductIntoDB(product: any) {
+  const {
+    id: shopify_id,
+    title: titulo,
+    description: descripcion,
+    productType: tipo_producto,
+    vendor: proveedor,
+    status: estado,
+    handle: url_handle,
+    tags,
+  } = product
+
+  // Extraer datos adicionales
+  const publicado = estado === "active"
+  const imagen_destacada_url = product.image?.src || null
+  const precio_base = product.variants?.[0]?.price || 0
+  const precio_comparacion = product.variants?.[0]?.compareAtPrice || null
+  const sku = product.variants?.[0]?.sku || null
+  const codigo_barras = product.variants?.[0]?.barcode || null
+  const inventario_disponible = product.variants?.[0]?.inventoryQuantity || 0
+  const politica_inventario = product.variants?.[0]?.inventoryPolicy || null
+  const requiere_envio = product.variants?.[0]?.requiresShipping || true
+  const peso = product.variants?.[0]?.weight || 0
+  const unidad_peso = product.variants?.[0]?.weightUnit || "kg"
+  const seo_titulo = product.seo?.title || titulo
+  const seo_descripcion = product.seo?.description || descripcion?.substring(0, 160) || null
+
+  // Convertir etiquetas a array si es necesario
+  const etiquetas = tags ? (typeof tags === "string" ? tags.split(",") : Array.isArray(tags) ? tags : []) : []
+
+  const result = await sql`
+    INSERT INTO productos (
+      shopify_id, titulo, descripcion, tipo_producto, proveedor, estado,
+      publicado, imagen_destacada_url, precio_base, precio_comparacion, sku,
+      codigo_barras, inventario_disponible, politica_inventario, requiere_envio,
+      peso, unidad_peso, seo_titulo, seo_descripcion, url_handle, etiquetas,
+      fecha_creacion, fecha_actualizacion, ultima_sincronizacion
+    ) VALUES (
+      ${shopify_id}, ${titulo}, ${descripcion || null}, ${tipo_producto || null}, 
+      ${proveedor || null}, ${estado || null}, ${publicado}, 
+      ${imagen_destacada_url}, ${precio_base}, ${precio_comparacion}, ${sku},
+      ${codigo_barras}, ${inventario_disponible}, ${politica_inventario}, ${requiere_envio},
+      ${peso}, ${unidad_peso}, ${seo_titulo}, ${seo_descripcion}, ${url_handle}, 
+      ${etiquetas}, NOW(), NOW(), NOW()
+    ) RETURNING id
+  `
+
+  return result.rows[0].id
+}
+
+// Actualizar un producto existente en la base de datos
+async function updateProductInDB(id: number, product: any) {
+  const {
+    id: shopify_id,
+    title: titulo,
+    description: descripcion,
+    productType: tipo_producto,
+    vendor: proveedor,
+    status: estado,
+    handle: url_handle,
+    tags,
+  } = product
+
+  // Extraer datos adicionales
+  const publicado = estado === "active"
+  const imagen_destacada_url = product.image?.src || null
+  const precio_base = product.variants?.[0]?.price || 0
+  const precio_comparacion = product.variants?.[0]?.compareAtPrice || null
+  const sku = product.variants?.[0]?.sku || null
+  const codigo_barras = product.variants?.[0]?.barcode || null
+  const inventario_disponible = product.variants?.[0]?.inventoryQuantity || 0
+  const politica_inventario = product.variants?.[0]?.inventoryPolicy || null
+  const requiere_envio = product.variants?.[0]?.requiresShipping || true
+  const peso = product.variants?.[0]?.weight || 0
+  const unidad_peso = product.variants?.[0]?.weightUnit || "kg"
+  const seo_titulo = product.seo?.title || titulo
+  const seo_descripcion = product.seo?.description || descripcion?.substring(0, 160) || null
+
+  // Convertir etiquetas a array si es necesario
+  const etiquetas = tags ? (typeof tags === "string" ? tags.split(",") : Array.isArray(tags) ? tags : []) : []
+
+  await sql`
+    UPDATE productos SET
+      titulo = ${titulo},
+      descripcion = ${descripcion || null},
+      tipo_producto = ${tipo_producto || null},
+      proveedor = ${proveedor || null},
+      estado = ${estado || null},
+      publicado = ${publicado},
+      imagen_destacada_url = ${imagen_destacada_url},
+      precio_base = ${precio_base},
+      precio_comparacion = ${precio_comparacion},
+      sku = ${sku},
+      codigo_barras = ${codigo_barras},
+      inventario_disponible = ${inventario_disponible},
+      politica_inventario = ${politica_inventario},
+      requiere_envio = ${requiere_envio},
+      peso = ${peso},
+      unidad_peso = ${unidad_peso},
+      seo_titulo = ${seo_titulo},
+      seo_descripcion = ${seo_descripcion},
+      url_handle = ${url_handle},
+      etiquetas = ${etiquetas},
+      fecha_actualizacion = NOW(),
+      ultima_sincronizacion = NOW()
+    WHERE id = ${id}
+  `
+}
+
+// Sincronizar variantes de un producto
+async function syncProductVariants(productDbId: number, shopifyProductId: string, variants: any[]) {
+  try {
+    // Eliminar variantes existentes
+    await sql`DELETE FROM variantes_producto WHERE producto_id = ${productDbId}`
+
+    // Insertar nuevas variantes
+    for (const variant of variants) {
+      await insertProductVariant(productDbId, variant)
+    }
+
+    // Registrar evento
+    await logSyncEvent({
+      tipo_entidad: "PRODUCT_VARIANTS",
+      entidad_id: shopifyProductId,
+      accion: "SYNC",
+      resultado: "SUCCESS",
+      mensaje: `Variantes sincronizadas: ${variants.length} variantes`,
+    })
+  } catch (error) {
+    console.error(`Error al sincronizar variantes del producto ${shopifyProductId}:`, error)
+
+    // Registrar error
+    await logSyncEvent({
+      tipo_entidad: "PRODUCT_VARIANTS",
+      entidad_id: shopifyProductId,
+      accion: "SYNC",
+      resultado: "ERROR",
+      mensaje: `Error al sincronizar variantes: ${(error as Error).message}`,
+    })
+
+    throw error
+  }
+}
+
+// Insertar una variante de producto
+async function insertProductVariant(productDbId: number, variant: any) {
+  const {
+    id: shopify_id,
+    title: titulo,
+    price: precio,
+    compareAtPrice: precio_comparacion,
+    sku,
+    barcode: codigo_barras,
+    inventoryQuantity: inventario_disponible,
+    inventoryPolicy: politica_inventario,
+    requiresShipping: requiere_envio,
+    weight: peso,
+    weightUnit: unidad_peso,
+    option1: opcion1_valor,
+    option2: opcion2_valor,
+    option3: opcion3_valor,
+    position: posicion,
+  } = variant
+
+  // Obtener nombres de opciones del producto padre si están disponibles
+  const opcion1_nombre = variant.option1Name || null
+  const opcion2_nombre = variant.option2Name || null
+  const opcion3_nombre = variant.option3Name || null
+
+  await sql`
+    INSERT INTO variantes_producto (
+      shopify_id, producto_id, titulo, precio, precio_comparacion, sku,
+      codigo_barras, inventario_disponible, politica_inventario, requiere_envio,
+      peso, unidad_peso, opcion1_nombre, opcion1_valor, opcion2_nombre, opcion2_valor,
+      opcion3_nombre, opcion3_valor, posicion, fecha_creacion, fecha_actualizacion, ultima_sincronizacion
+    ) VALUES (
+      ${shopify_id}, ${productDbId}, ${titulo}, ${precio || 0}, ${precio_comparacion || null}, ${sku || null},
+      ${codigo_barras || null}, ${inventario_disponible || 0}, ${politica_inventario || null}, ${requiere_envio !== false},
+      ${peso || 0}, ${unidad_peso || "kg"}, ${opcion1_nombre}, ${opcion1_valor || null},
+      ${opcion2_nombre}, ${opcion2_valor || null}, ${opcion3_nombre}, ${opcion3_valor || null},
+      ${posicion || 1}, NOW(), NOW(), NOW()
+    )
+  `
+}
+
+// Sincronizar imágenes de un producto
+async function syncProductImages(productDbId: number, shopifyProductId: string, images: any[]) {
+  try {
+    // Eliminar imágenes existentes
+    await sql`DELETE FROM imagenes_producto WHERE producto_id = ${productDbId}`
+
+    // Insertar nuevas imágenes
+    for (const image of images) {
+      await insertProductImage(productDbId, image)
+    }
+
+    // Registrar evento
+    await logSyncEvent({
+      tipo_entidad: "PRODUCT_IMAGES",
+      entidad_id: shopifyProductId,
+      accion: "SYNC",
+      resultado: "SUCCESS",
+      mensaje: `Imágenes sincronizadas: ${images.length} imágenes`,
+    })
+  } catch (error) {
+    console.error(`Error al sincronizar imágenes del producto ${shopifyProductId}:`, error)
+
+    // Registrar error
+    await logSyncEvent({
+      tipo_entidad: "PRODUCT_IMAGES",
+      entidad_id: shopifyProductId,
+      accion: "SYNC",
+      resultado: "ERROR",
+      mensaje: `Error al sincronizar imágenes: ${(error as Error).message}`,
+    })
+
+    throw error
+  }
+}
+
+// Insertar una imagen de producto
+async function insertProductImage(productDbId: number, image: any) {
+  const { id: shopify_id, src: url, alt: texto_alternativo, position: posicion } = image
+
+  // Determinar si es la imagen destacada
+  const es_destacada = posicion === 1
+
+  // Obtener variante asociada si existe
+  let variante_id = null
+  if (image.variant_ids && image.variant_ids.length > 0) {
+    const variantResult = await sql`
+      SELECT id FROM variantes_producto 
+      WHERE producto_id = ${productDbId} AND shopify_id = ${image.variant_ids[0]}
+    `
+    if (variantResult.rows.length > 0) {
+      variante_id = variantResult.rows[0].id
+    }
+  }
+
+  await sql`
+    INSERT INTO imagenes_producto (
+      shopify_id, producto_id, variante_id, url, texto_alternativo,
+      posicion, es_destacada, fecha_creacion, fecha_actualizacion, ultima_sincronizacion
+    ) VALUES (
+      ${shopify_id}, ${productDbId}, ${variante_id}, ${url}, ${texto_alternativo || null},
+      ${posicion || 1}, ${es_destacada}, NOW(), NOW(), NOW()
+    )
+  `
+}
+
+// Exportar funciones auxiliares para uso en otros módulos
+export { checkProductExists, insertProductIntoDB, updateProductInDB, syncProductVariants, syncProductImages }
 
 // Obtener un producto completo con sus variantes e imágenes
 export async function getProductoCompleto(id: number): Promise<any> {

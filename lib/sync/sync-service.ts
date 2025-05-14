@@ -1,11 +1,11 @@
 import { sql } from "@vercel/postgres"
 import { logSyncEvent } from "@/lib/db/repositories/registro-repository"
+import { syncProductoWithShopify } from "@/lib/db/repositories/productos-repository"
 import * as shopifyAPI from "@/lib/api/products"
 import * as collectionsAPI from "@/lib/api/colecciones"
 import * as customersAPI from "@/lib/api/customers"
 import * as ordersAPI from "@/lib/api/orders"
 import * as promotionsAPI from "@/lib/api/promociones"
-import { syncProductoWithShopify } from "@/lib/db/repositories/productos-repository"
 
 // Función para sincronizar productos
 export async function syncProducts() {
