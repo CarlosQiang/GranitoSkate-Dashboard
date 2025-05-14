@@ -23,6 +23,20 @@ export const administradores = pgTable("administradores", {
   ultima_actualizacion: timestamp("ultima_actualizacion").defaultNow(),
 })
 
+// Tabla de tutoriales
+export const tutoriales = pgTable("tutoriales", {
+  id: serial("id").primaryKey(),
+  titulo: text("titulo").notNull(),
+  descripcion: text("descripcion"),
+  contenido: text("contenido").notNull(),
+  imagen_url: text("imagen_url"),
+  autor_id: integer("autor_id").references(() => administradores.id),
+  publicado: boolean("publicado").default(false),
+  destacado: boolean("destacado").default(false),
+  fecha_creacion: timestamp("fecha_creacion").defaultNow(),
+  ultima_actualizacion: timestamp("ultima_actualizacion").defaultNow(),
+})
+
 // Tabla de productos
 export const productos = pgTable("productos", {
   id: serial("id").primaryKey(),

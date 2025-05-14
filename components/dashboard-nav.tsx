@@ -1,46 +1,38 @@
-import { Cog, Home, List, Plus, ShoppingCart, User, Users } from "lucide-react"
+"use client"
 
-import { Icons } from "@/components/icons"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 
-export const dashboardNavItems = [
-  {
-    title: "Inicio",
-    href: "/dashboard",
-    icon: Home,
-  },
-  {
-    title: "Ventas",
-    href: "/dashboard/sales",
-    icon: ShoppingCart,
-  },
-  {
-    title: "Productos",
-    href: "/dashboard/products",
-    icon: List,
-  },
-  {
-    title: "Crear Producto",
-    href: "/dashboard/products/create",
-    icon: Plus,
-  },
-  {
-    title: "Categorias",
-    href: "/dashboard/categories",
-    icon: Icons.category,
-  },
-  {
-    title: "Usuarios",
-    href: "/dashboard/users",
-    icon: Users,
-  },
-  {
-    title: "Perfil",
-    href: "/dashboard/profile",
-    icon: User,
-  },
-  {
-    title: "Ajustes",
-    href: "/dashboard/settings",
-    icon: Cog,
-  },
-]
+import { cn } from "@/lib/utils"
+import { buttonVariants } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { dashboardNavItems } from "@/config/dashboard"
+
+export default function DashboardNav() {
+  const path = usePathname()
+
+  if (!dashboardNavItems?.length) {
+    return null
+  }
+
+  return (
+    <ScrollArea className="my-4 h-[calc(100vh-8rem)] pb-10">
+      <div className="flex flex-col gap-2 p-2">
+        {dashboardNavItems.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cn(
+              buttonVariants({ variant: "ghost" }),
+              path === item.href ? "bg-muted hover:bg-muted" : "hover:bg-transparent hover:underline",
+              "justify-start",
+            )}
+          >
+            {item.icon && <item.icon className="mr-2 h-4 w-4" />}
+            {item.title}
+          </Link>
+        ))}
+      </div>
+    </ScrollArea>
+  )
+}
