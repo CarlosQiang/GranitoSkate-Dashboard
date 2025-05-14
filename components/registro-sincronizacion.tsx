@@ -1,183 +1,245 @@
 "use client"
 
+import React from "react"
+
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
-import { RefreshCw, Filter, AlertCircle, CheckCircle } from "lucide-react"
+import { AlertCircle, CheckCircle, Clock, RefreshCw } from "lucide-react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 
+type RegistroSincronizacion = {
+  id: number
+  tipo: string
+  estado: string
+  mensaje: string
+  fecha: string
+  fecha_actualizacion: string | null
+  duracion_ms: number | null
+}
+
+type PaginationInfo = {
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
 export default function RegistroSincronizacion() {
-  const [eventos, setEventos] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [tipoFiltro, setTipoFiltro] = useState("")
-  const [entidadFiltro, setEntidadFiltro] = useState("")
-  const [limite, setLimite] = useState(50)
+  const [registros, setRegistros] = useState<RegistroSincronizacion[]>([])
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 0,
+  })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [filtroEstado, setFiltroEstado] = useState<string>("")
 
-  const cargarEventos = async () => {
+  useEffect(() => {
+    fetchRegistros()
+  }, [pagination.page, filtroEstado])
+
+  const fetchRegistros = async () => {
+    setLoading(true)
+    setError(null)
+
     try {
-      setIsLoading(true)
-      setError(null)
+      const params = new URLSearchParams({
+        page: pagination.page.toString(),
+        limit: pagination.limit.toString(),
+      })
 
-      let url = `/api/db/registro?limit=${limite}`
-      if (tipoFiltro) {
-        url += `&tipo=${tipoFiltro}`
-      }
-      if (entidadFiltro) {
-        url += `&entidad=${entidadFiltro}`
+      if (filtroEstado) {
+        params.append("estado", filtroEstado)
       }
 
-      const response = await fetch(url)
+      const response = await fetch(`/api/db/registro?${params.toString()}`)
+
       if (!response.ok) {
-        throw new Error(`Error al cargar eventos: ${response.statusText}`)
+        throw new Error("Error al obtener los registros de sincronización")
       }
 
       const data = await response.json()
-      setEventos(data)
-    } catch (err) {
-      console.error("Error al cargar eventos:", err)
-      setError(err.message)
+      setRegistros(data.registros)
+      setPagination(data.pagination)
+    } catch (error) {
+      console.error("Error al cargar registros:", error)
+      setError(error instanceof Error ? error.message : "Error desconocido")
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
-  useEffect(() => {
-    cargarEventos()
-  }, [tipoFiltro, entidadFiltro, limite])
+  const handlePageChange = (page: number) => {
+    setPagination((prev) => ({ ...prev, page }))
+  }
 
-  const getBadgeColor = (resultado) => {
-    switch (resultado.toUpperCase()) {
-      case "SUCCESS":
-        return "bg-green-100 text-green-800"
-      case "ERROR":
-        return "bg-red-100 text-red-800"
-      case "WARNING":
-        return "bg-yellow-100 text-yellow-800"
+  const getEstadoBadge = (estado: string) => {
+    switch (estado) {
+      case "completado":
+        return (
+          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+            <CheckCircle className="h-3 w-3 mr-1" /> Completado
+          </Badge>
+        )
+      case "error":
+        return (
+          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+            <AlertCircle className="h-3 w-3 mr-1" /> Error
+          </Badge>
+        )
+      case "inicio":
+        return (
+          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+            <Clock className="h-3 w-3 mr-1" /> Iniciado
+          </Badge>
+        )
       default:
-        return "bg-gray-100 text-gray-800"
+        return <Badge variant="outline">{estado}</Badge>
     }
   }
 
-  const getActionColor = (accion) => {
-    switch (accion.toUpperCase()) {
-      case "CREATE":
-        return "bg-blue-100 text-blue-800"
-      case "UPDATE":
-        return "bg-purple-100 text-purple-800"
-      case "DELETE":
-        return "bg-orange-100 text-orange-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
+  const formatDuration = (ms: number | null) => {
+    if (!ms) return "N/A"
+
+    const seconds = Math.floor(ms / 1000)
+    if (seconds < 60) return `${seconds} seg`
+
+    const minutes = Math.floor(seconds / 60)
+    const remainingSeconds = seconds % 60
+    return `${minutes} min ${remainingSeconds} seg`
   }
 
   return (
-    <Card>
+    <Card className="w-full">
       <CardHeader>
-        <CardTitle className="text-2xl">Registro de Sincronización</CardTitle>
-        <CardDescription>
-          Historial de operaciones de sincronización entre la aplicación y la base de datos
-        </CardDescription>
-        <div className="flex flex-col sm:flex-row gap-4 mt-4">
-          <div className="flex-1">
-            <Select value={tipoFiltro} onValueChange={setTipoFiltro}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filtrar por tipo" />
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle>Registro de Sincronización</CardTitle>
+            <CardDescription>Historial de sincronizaciones con Shopify</CardDescription>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Select value={filtroEstado} onValueChange={setFiltroEstado}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filtrar por estado" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">Todos los tipos</SelectItem>
-                <SelectItem value="PRODUCT">Productos</SelectItem>
-                <SelectItem value="COLLECTION">Colecciones</SelectItem>
-                <SelectItem value="PROMOTION">Promociones</SelectItem>
-                <SelectItem value="TUTORIAL">Tutoriales</SelectItem>
+                <SelectItem value="todos">Todos</SelectItem>
+                <SelectItem value="completado">Completado</SelectItem>
+                <SelectItem value="error">Error</SelectItem>
+                <SelectItem value="inicio">Iniciado</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div className="flex-1">
-            <div className="flex gap-2">
-              <Input
-                placeholder="ID de entidad"
-                value={entidadFiltro}
-                onChange={(e) => setEntidadFiltro(e.target.value)}
-                className="flex-1"
-              />
-              <Button variant="outline" onClick={() => setEntidadFiltro("")} className="flex-shrink-0">
-                <Filter className="h-4 w-4 mr-2 sm:mr-0" />
-                <span className="hidden sm:inline ml-2">Limpiar</span>
-              </Button>
-            </div>
-          </div>
-          <div>
-            <Button onClick={cargarEventos} className="w-full sm:w-auto">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              <span>Actualizar</span>
+            <Button variant="outline" size="icon" onClick={() => fetchRegistros()}>
+              <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+        {loading ? (
+          <div className="flex justify-center items-center h-40">
+            <RefreshCw className="h-6 w-6 animate-spin" />
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
-            <AlertCircle className="h-12 w-12 text-destructive mb-4" />
-            <h3 className="text-lg font-medium">Error al cargar eventos</h3>
-            <p className="text-sm text-muted-foreground mt-2">{error}</p>
-            <Button onClick={cargarEventos} className="mt-4">
-              Reintentar
-            </Button>
+          <div className="text-center text-red-500 p-4">
+            <AlertCircle className="h-6 w-6 mx-auto mb-2" />
+            {error}
           </div>
-        ) : eventos.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
-            <CheckCircle className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium">No hay eventos registrados</h3>
-            <p className="text-sm text-muted-foreground mt-2">
-              No se encontraron eventos de sincronización con los filtros actuales
-            </p>
-          </div>
+        ) : registros.length === 0 ? (
+          <div className="text-center text-muted-foreground p-4">No hay registros de sincronización disponibles.</div>
         ) : (
-          <div className="overflow-x-auto -mx-4 sm:mx-0">
-            <div className="inline-block min-w-full align-middle">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="whitespace-nowrap">Fecha</TableHead>
-                    <TableHead className="whitespace-nowrap">Tipo</TableHead>
-                    <TableHead className="whitespace-nowrap">Entidad</TableHead>
-                    <TableHead className="whitespace-nowrap">Acción</TableHead>
-                    <TableHead className="whitespace-nowrap">Resultado</TableHead>
-                    <TableHead className="whitespace-nowrap">Mensaje</TableHead>
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Duración</TableHead>
+                  <TableHead>Mensaje</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {registros.map((registro) => (
+                  <TableRow key={registro.id}>
+                    <TableCell className="font-medium">{registro.id}</TableCell>
+                    <TableCell>{registro.tipo}</TableCell>
+                    <TableCell>{getEstadoBadge(registro.estado)}</TableCell>
+                    <TableCell>{format(new Date(registro.fecha), "dd/MM/yyyy HH:mm:ss", { locale: es })}</TableCell>
+                    <TableCell>{formatDuration(registro.duracion_ms)}</TableCell>
+                    <TableCell className="max-w-xs truncate" title={registro.mensaje}>
+                      {registro.mensaje}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {eventos.map((evento) => (
-                    <TableRow key={evento.id}>
-                      <TableCell className="whitespace-nowrap">
-                        {format(new Date(evento.fecha), "dd/MM/yyyy HH:mm:ss", { locale: es })}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">{evento.tipo_entidad}</TableCell>
-                      <TableCell className="whitespace-nowrap">{evento.entidad_id || "-"}</TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        <Badge className={getActionColor(evento.accion)}>{evento.accion}</Badge>
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        <Badge className={getBadgeColor(evento.resultado)}>{evento.resultado}</Badge>
-                      </TableCell>
-                      <TableCell className="max-w-[200px] md:max-w-md truncate">{evento.mensaje || "-"}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                ))}
+              </TableBody>
+            </Table>
+
+            <div className="flex items-center justify-center space-x-2 mt-4">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationPrevious
+                    onClick={() => handlePageChange(pagination.page - 1)}
+                    disabled={pagination.page <= 1}
+                  />
+
+                  {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
+                    .filter(
+                      (page) => page === 1 || page === pagination.totalPages || Math.abs(page - pagination.page) <= 1,
+                    )
+                    .map((page, index, array) => {
+                      // Agregar puntos suspensivos si hay saltos en la numeración
+                      if (index > 0 && page - array[index - 1] > 1) {
+                        return (
+                          <React.Fragment key={`ellipsis-${page}`}>
+                            <PaginationItem>
+                              <span className="px-2">...</span>
+                            </PaginationItem>
+                            <PaginationItem>
+                              <PaginationLink
+                                onClick={() => handlePageChange(page)}
+                                isActive={page === pagination.page}
+                              >
+                                {page}
+                              </PaginationLink>
+                            </PaginationItem>
+                          </React.Fragment>
+                        )
+                      }
+
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationLink onClick={() => handlePageChange(page)} isActive={page === pagination.page}>
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      )
+                    })}
+
+                  <PaginationNext
+                    onClick={() => handlePageChange(pagination.page + 1)}
+                    disabled={pagination.page >= pagination.totalPages}
+                  />
+                </PaginationContent>
+              </Pagination>
             </div>
-          </div>
+          </>
         )}
       </CardContent>
     </Card>

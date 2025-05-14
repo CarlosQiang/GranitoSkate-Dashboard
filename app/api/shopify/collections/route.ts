@@ -12,20 +12,17 @@ export async function GET(req: NextRequest) {
     }
 
     const url = new URL(req.url)
-    const endpoint = url.searchParams.get("endpoint")
-
-    if (!endpoint) {
-      return NextResponse.json({ error: "Falta el parámetro endpoint" }, { status: 400 })
-    }
+    const limit = url.searchParams.get("limit") || "50"
+    const page = url.searchParams.get("page") || "1"
 
     const response = await shopifyFetch({
-      endpoint,
+      endpoint: `custom_collections.json?limit=${limit}&page=${page}`,
       method: "GET",
     })
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: `Error en la solicitud a Shopify: ${response.statusText}` },
+        { error: `Error al obtener colecciones: ${response.statusText}` },
         { status: response.status },
       )
     }
@@ -33,10 +30,10 @@ export async function GET(req: NextRequest) {
     const data = await response.json()
     return NextResponse.json(data)
   } catch (error) {
-    console.error("Error en API de Shopify:", error)
+    console.error("Error en API de colecciones:", error)
     return NextResponse.json(
       {
-        error: "Error al procesar la solicitud",
+        error: "Error al obtener colecciones",
         message: error instanceof Error ? error.message : "Error desconocido",
       },
       { status: 500 },
@@ -52,24 +49,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    const url = new URL(req.url)
-    const endpoint = url.searchParams.get("endpoint")
-
-    if (!endpoint) {
-      return NextResponse.json({ error: "Falta el parámetro endpoint" }, { status: 400 })
-    }
-
     const body = await req.json()
 
     const response = await shopifyFetch({
-      endpoint,
+      endpoint: "custom_collections.json",
       method: "POST",
       body: JSON.stringify(body),
     })
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: `Error en la solicitud a Shopify: ${response.statusText}` },
+        { error: `Error al crear colección: ${response.statusText}` },
         { status: response.status },
       )
     }
@@ -77,10 +67,10 @@ export async function POST(req: NextRequest) {
     const data = await response.json()
     return NextResponse.json(data)
   } catch (error) {
-    console.error("Error en API de Shopify:", error)
+    console.error("Error al crear colección:", error)
     return NextResponse.json(
       {
-        error: "Error al procesar la solicitud",
+        error: "Error al crear colección",
         message: error instanceof Error ? error.message : "Error desconocido",
       },
       { status: 500 },

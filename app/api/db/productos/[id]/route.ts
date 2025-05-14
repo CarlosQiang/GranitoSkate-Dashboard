@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
+import { db } from "@/lib/db/neon"
+import { productos } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import * as productosRepository from "@/lib/db/repositories/productos-repository"
-import { logSyncEvent } from "@/lib/db/repositories/registro-repository"
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     // Verificar autenticación
     const session = await getServerSession(authOptions)
@@ -13,20 +14,30 @@ export async function GET(request: Request, { params }: { params: { id: string }
     }
 
     const id = Number.parseInt(params.id)
-    const producto = await productosRepository.getProductoById(id)
+    if (isNaN(id)) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
+    }
 
-    if (!producto) {
+    const result = await db.select().from(productos).where(eq(productos.id, id)).limit(1)
+
+    if (result.length === 0) {
       return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 })
     }
 
-    return NextResponse.json(producto)
+    return NextResponse.json({ producto: result[0] })
   } catch (error) {
-    console.error(`Error al obtener producto ${params.id}:`, error)
-    return NextResponse.json({ error: "Error al obtener producto" }, { status: 500 })
+    console.error("Error al obtener producto:", error)
+    return NextResponse.json(
+      {
+        error: "Error al obtener producto",
+        message: error instanceof Error ? error.message : "Error desconocido",
+      },
+      { status: 500 },
+    )
   }
 }
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     // Verificar autenticación
     const session = await getServerSession(authOptions)
@@ -35,49 +46,53 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     }
 
     const id = Number.parseInt(params.id)
-    const data = await request.json()
-
-    // Validar datos
-    if (!data.titulo) {
-      return NextResponse.json({ error: "El título es obligatorio" }, { status: 400 })
+    if (isNaN(id)) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
     }
 
-    // Verificar que el producto existe
-    const producto = await productosRepository.getProductoById(id)
-    if (!producto) {
+    const body = await req.json()
+
+    // Verificar si el producto existe
+    const existingProduct = await db.select().from(productos).where(eq(productos.id, id)).limit(1)
+
+    if (existingProduct.length === 0) {
       return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 })
     }
 
     // Actualizar producto
-    const productoActualizado = await productosRepository.updateProducto(id, data)
+    const [result] = await db
+      .update(productos)
+      .set({
+        nombre: body.nombre !== undefined ? body.nombre : existingProduct[0].nombre,
+        descripcion: body.descripcion !== undefined ? body.descripcion : existingProduct[0].descripcion,
+        precio: body.precio !== undefined ? body.precio : existingProduct[0].precio,
+        sku: body.sku !== undefined ? body.sku : existingProduct[0].sku,
+        inventario: body.inventario !== undefined ? body.inventario : existingProduct[0].inventario,
+        imagen_url: body.imagen_url !== undefined ? body.imagen_url : existingProduct[0].imagen_url,
+        activo: body.activo !== undefined ? body.activo : existingProduct[0].activo,
+        meta_titulo: body.meta_titulo !== undefined ? body.meta_titulo : existingProduct[0].meta_titulo,
+        meta_descripcion:
+          body.meta_descripcion !== undefined ? body.meta_descripcion : existingProduct[0].meta_descripcion,
+        meta_keywords: body.meta_keywords !== undefined ? body.meta_keywords : existingProduct[0].meta_keywords,
+        ultima_actualizacion: new Date(),
+      })
+      .where(eq(productos.id, id))
+      .returning()
 
-    // Registrar evento
-    await logSyncEvent({
-      tipo_entidad: "PRODUCT",
-      entidad_id: id.toString(),
-      accion: "UPDATE",
-      resultado: "SUCCESS",
-      mensaje: `Producto actualizado: ${data.titulo}`,
-    })
-
-    return NextResponse.json(productoActualizado)
+    return NextResponse.json({ success: true, producto: result })
   } catch (error) {
-    console.error(`Error al actualizar producto ${params.id}:`, error)
-
-    // Registrar error
-    await logSyncEvent({
-      tipo_entidad: "PRODUCT",
-      entidad_id: params.id,
-      accion: "UPDATE",
-      resultado: "ERROR",
-      mensaje: `Error al actualizar producto: ${(error as Error).message}`,
-    })
-
-    return NextResponse.json({ error: "Error al actualizar producto" }, { status: 500 })
+    console.error("Error al actualizar producto:", error)
+    return NextResponse.json(
+      {
+        error: "Error al actualizar producto",
+        message: error instanceof Error ? error.message : "Error desconocido",
+      },
+      { status: 500 },
+    )
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     // Verificar autenticación
     const session = await getServerSession(authOptions)
@@ -86,38 +101,29 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     }
 
     const id = Number.parseInt(params.id)
+    if (isNaN(id)) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
+    }
 
-    // Verificar que el producto existe
-    const producto = await productosRepository.getProductoById(id)
-    if (!producto) {
+    // Verificar si el producto existe
+    const existingProduct = await db.select().from(productos).where(eq(productos.id, id)).limit(1)
+
+    if (existingProduct.length === 0) {
       return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 })
     }
 
     // Eliminar producto
-    await productosRepository.deleteProducto(id)
+    await db.delete(productos).where(eq(productos.id, id))
 
-    // Registrar evento
-    await logSyncEvent({
-      tipo_entidad: "PRODUCT",
-      entidad_id: id.toString(),
-      accion: "DELETE",
-      resultado: "SUCCESS",
-      mensaje: `Producto eliminado: ${producto.titulo}`,
-    })
-
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, message: "Producto eliminado correctamente" })
   } catch (error) {
-    console.error(`Error al eliminar producto ${params.id}:`, error)
-
-    // Registrar error
-    await logSyncEvent({
-      tipo_entidad: "PRODUCT",
-      entidad_id: params.id,
-      accion: "DELETE",
-      resultado: "ERROR",
-      mensaje: `Error al eliminar producto: ${(error as Error).message}`,
-    })
-
-    return NextResponse.json({ error: "Error al eliminar producto" }, { status: 500 })
+    console.error("Error al eliminar producto:", error)
+    return NextResponse.json(
+      {
+        error: "Error al eliminar producto",
+        message: error instanceof Error ? error.message : "Error desconocido",
+      },
+      { status: 500 },
+    )
   }
 }
