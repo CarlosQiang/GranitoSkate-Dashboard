@@ -40,6 +40,20 @@ export async function shopifyFetch({ query, variables = {} }) {
   } catch (error) {
     console.error("Error en la consulta GraphQL:", error)
 
+    // Verificar si el error es debido a una respuesta HTML en lugar de JSON
+    if (error.response?.text && error.response.text.includes("<!DOCTYPE")) {
+      console.error("Recibida respuesta HTML en lugar de JSON. Posible error de servidor o redirección.")
+      return {
+        data: null,
+        errors: [
+          {
+            message:
+              "Recibida respuesta HTML en lugar de JSON. Verifica la configuración de Shopify y las credenciales.",
+          },
+        ],
+      }
+    }
+
     // Intentar extraer errores específicos de GraphQL
     const graphQLErrors = error.response?.errors || [{ message: error.message }]
 
