@@ -4,13 +4,9 @@ import { RecentOrders } from "@/components/recent-orders"
 import { RecentProducts } from "@/components/recent-products"
 import { DashboardStats } from "@/components/dashboard-stats"
 import { Skeleton } from "@/components/ui/skeleton"
-// Importar el componente InitStatus
 import { InitStatus } from "@/components/init-status"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-// Eliminar importaciones de componentes de tutoriales
-// import { SincronizacionTutoriales } from "@/components/sincronizacion-tutoriales"
-// import { SubirTutorialesShopify } from "@/components/subir-tutoriales-shopify"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -38,9 +34,9 @@ function StatsLoading() {
 
 export default function DashboardPage() {
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
+    <div className="space-y-6 w-full max-w-full">
+      <div className="flex flex-col w-full mb-6">
+        <div className="mb-4">
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">Bienvenido al panel de administración de GranitoSkate</p>
         </div>
@@ -104,22 +100,6 @@ export default function DashboardPage() {
           </CardFooter>
         </Card>
       </div>
-
-      {/* Eliminar la sección de tutoriales */}
-      {/* <div className="grid grid-cols-1 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Tutoriales</CardTitle>
-            <CardDescription>Gestiona los tutoriales de tu tienda</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <SincronizacionTutoriales />
-              <SubirTutorialesShopify />
-            </div>
-          </CardContent>
-        </Card>
-      </div> */}
     </div>
   )
 }
