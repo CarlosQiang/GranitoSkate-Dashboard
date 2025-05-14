@@ -1297,53 +1297,100 @@ export async function fetchSeoMetafieldDefinitions(ownerType = "PRODUCT") {
 // Función para obtener los metafields de SEO de un producto o colección
 export async function fetchSeoMetafields(id: string, type = "PRODUCT") {
   try {
-    // Asegurarse de que el ID tenga el formato correcto
-    const isFullId = id.includes("gid://shopify/")
-    const resourceType = type === "PRODUCT" ? "Product" : "Collection"
-    const formattedId = isFullId ? id : `gid://shopify/${resourceType}/${id}`
-
-    const query = gql`
-      query GetSeoMetafields($id: ID!) {
-        ${type.toLowerCase()}(id: $id) {
-          metafields(first: 20) {
-            edges {
-              node {
-                id
-                namespace
-                key
-                value
-                type
+    // Si el tipo es SHOP, usamos una consulta especial sin ID
+    if (type === "SHOP") {
+      const query = gql`
+        query GetShopSeoMetafields {
+          shop {
+            metafields(first: 20) {
+              edges {
+                node {
+                  id
+                  namespace
+                  key
+                  value
+                  type
+                }
               }
             }
           }
         }
+      `
+
+      const data = await shopifyClient.request(query)
+
+      if (!data || !data.shop || !data.shop.metafields) {
+        console.error(`Respuesta de metafields incompleta para SHOP:`, data)
+        return []
       }
-    `
 
-    const data = await shopifyClient.request(query, { id: formattedId })
+      const metafields = data.shop.metafields.edges.map((edge: any) => ({
+        id: edge.node.id,
+        namespace: edge.node.namespace,
+        key: edge.node.key,
+        value: edge.node.value,
+        type: edge.node.type,
+      }))
 
-    if (!data || !data[type.toLowerCase()] || !data[type.toLowerCase()].metafields) {
-      console.error(`Respuesta de metafields incompleta para ${type} ${id}:`, data)
-      return []
+      // Filtrar solo los metafields relacionados con SEO
+      const seoMetafields = metafields.filter(
+        (meta) =>
+          meta.namespace === "seo" ||
+          meta.key.includes("seo") ||
+          (meta.namespace === "global" && meta.key === "description_tag"),
+      )
+
+      return seoMetafields
+    } else {
+      // Para productos y colecciones, usamos la consulta original con ID
+      // Asegurarse de que el ID tenga el formato correcto
+      const isFullId = id.includes("gid://shopify/")
+      const resourceType = type === "PRODUCT" ? "Product" : "Collection"
+      const formattedId = isFullId ? id : `gid://shopify/${resourceType}/${id}`
+
+      const query = gql`
+        query GetSeoMetafields($id: ID!) {
+          ${type.toLowerCase()}(id: $id) {
+            metafields(first: 20) {
+              edges {
+                node {
+                  id
+                  namespace
+                  key
+                  value
+                  type
+                }
+              }
+            }
+          }
+        }
+      `
+
+      const data = await shopifyClient.request(query, { id: formattedId })
+
+      if (!data || !data[type.toLowerCase()] || !data[type.toLowerCase()].metafields) {
+        console.error(`Respuesta de metafields incompleta para ${type} ${id}:`, data)
+        return []
+      }
+
+      const metafields = data[type.toLowerCase()].metafields.edges.map((edge: any) => ({
+        id: edge.node.id,
+        namespace: edge.node.namespace,
+        key: edge.node.key,
+        value: edge.node.value,
+        type: edge.node.type,
+      }))
+
+      // Filtrar solo los metafields relacionados con SEO
+      const seoMetafields = metafields.filter(
+        (meta) =>
+          meta.namespace === "seo" ||
+          meta.key.includes("seo") ||
+          (meta.namespace === "global" && meta.key === "description_tag"),
+      )
+
+      return seoMetafields
     }
-
-    const metafields = data[type.toLowerCase()].metafields.edges.map((edge: any) => ({
-      id: edge.node.id,
-      namespace: edge.node.namespace,
-      key: edge.node.key,
-      value: edge.node.value,
-      type: edge.node.type,
-    }))
-
-    // Filtrar solo los metafields relacionados con SEO
-    const seoMetafields = metafields.filter(
-      (meta) =>
-        meta.namespace === "seo" ||
-        meta.key.includes("seo") ||
-        (meta.namespace === "global" && meta.key === "description_tag"),
-    )
-
-    return seoMetafields
   } catch (error) {
     console.error(`Error al cargar metafields de SEO para ${type} ${id}:`, error)
     throw new Error(`Error al cargar metafields de SEO: ${error.message}`)
