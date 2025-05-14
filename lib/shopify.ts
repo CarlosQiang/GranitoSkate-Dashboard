@@ -86,7 +86,7 @@ export function formatShopifyId(id: string | number | null | undefined, resource
 }
 
 // Función para realizar una consulta de prueba a Shopify
-export async function testShopifyConnection() {
+export async function testShopifyConnection(tolerant = false) {
   try {
     // Verificar que las variables de entorno estén configuradas
     if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN) {
@@ -105,14 +105,25 @@ export async function testShopifyConnection() {
       }
     }
 
-    // Realizar una consulta simple para verificar la conexión
-    const query = `
-      query {
-        shop {
-          name
+    // Si estamos en modo tolerante, intentamos una consulta más simple
+    // que podría funcionar incluso con tokens con permisos limitados
+    const query = tolerant
+      ? `
+        query {
+          shop {
+            name
+          }
         }
-      }
-    `
+      `
+      : `
+        query {
+          shop {
+            name
+            id
+            url
+          }
+        }
+      `
 
     const response = await shopifyFetch({ query })
 
@@ -127,6 +138,37 @@ export async function testShopifyConnection() {
           errorMessage = "Error: Tienda no encontrada. Verifique el dominio de la tienda"
         } else {
           errorMessage = response.errors[0].message
+        }
+      }
+
+      // Si estamos en modo tolerante, intentamos una consulta alternativa
+      // que podría funcionar con diferentes permisos
+      if (tolerant) {
+        try {
+          // Intentar una consulta a productos que podría funcionar con diferentes permisos
+          const altQuery = `
+            query {
+              products(first: 1) {
+                edges {
+                  node {
+                    id
+                  }
+                }
+              }
+            }
+          `
+
+          const altResponse = await shopifyFetch({ query: altQuery })
+
+          if (!altResponse.errors) {
+            return {
+              success: true,
+              data: { shop: { name: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN.split(".")[0] } },
+              message: "Conexión alternativa exitosa",
+            }
+          }
+        } catch (e) {
+          console.warn("Error en consulta alternativa:", e)
         }
       }
 
