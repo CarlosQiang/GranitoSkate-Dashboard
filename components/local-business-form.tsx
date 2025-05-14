@@ -1,301 +1,317 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
 import { Button } from "@/components/ui/button"
-import { MapPin, Phone, Clock, Save } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
+import { Input } from "@/components/ui/input"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertCircle, CheckCircle } from "lucide-react"
 import { getLocalBusinessInfo, saveLocalBusinessInfo } from "@/lib/api/seo"
-import type { LocalBusinessInfo } from "@/types/metafields"
+import { useToast } from "@/components/ui/use-toast"
 
-interface LocalBusinessFormProps {
-  onSave?: () => void
-}
+// Esquema de validación para el formulario de negocio local
+const localBusinessSchema = z.object({
+  name: z.string().min(1, "El nombre del negocio es obligatorio"),
+  streetAddress: z.string().min(1, "La dirección es obligatoria"),
+  addressLocality: z.string().min(1, "La localidad es obligatoria"),
+  addressRegion: z.string().min(1, "La región es obligatoria"),
+  postalCode: z.string().min(1, "El código postal es obligatorio"),
+  addressCountry: z.string().min(1, "El país es obligatorio"),
+  telephone: z.string().min(1, "El teléfono es obligatorio"),
+  email: z.string().email("Introduce un email válido").min(1, "El email es obligatorio"),
+  latitude: z.string().optional(),
+  longitude: z.string().optional(),
+})
 
-export function LocalBusinessForm({ onSave }: LocalBusinessFormProps) {
-  const { toast } = useToast()
+type LocalBusinessFormValues = z.infer<typeof localBusinessSchema>
+
+export function LocalBusinessForm() {
   const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
-  const [localBusiness, setLocalBusiness] = useState<LocalBusinessInfo>({
-    name: "",
-    streetAddress: "",
-    addressLocality: "",
-    addressRegion: "",
-    postalCode: "",
-    addressCountry: "",
-    telephone: "",
-    email: "",
-    openingHours: [],
-    latitude: 0,
-    longitude: 0,
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+  const { toast } = useToast()
+
+  // Inicializar el formulario con react-hook-form
+  const form = useForm<LocalBusinessFormValues>({
+    resolver: zodResolver(localBusinessSchema),
+    defaultValues: {
+      name: "",
+      streetAddress: "",
+      addressLocality: "",
+      addressRegion: "",
+      postalCode: "",
+      addressCountry: "",
+      telephone: "",
+      email: "",
+      latitude: "",
+      longitude: "",
+    },
   })
 
+  // Cargar datos de negocio local existentes
   useEffect(() => {
-    async function loadLocalBusinessData() {
-      setIsLoading(true)
+    const loadLocalBusinessInfo = async () => {
       try {
-        const data = await getLocalBusinessInfo()
-        if (data) {
-          setLocalBusiness({
-            name: data.name || "",
-            streetAddress: data.streetAddress || "",
-            addressLocality: data.addressLocality || "",
-            addressRegion: data.addressRegion || "",
-            postalCode: data.postalCode || "",
-            addressCountry: data.addressCountry || "",
-            telephone: data.telephone || "",
-            email: data.email || "",
-            openingHours: Array.isArray(data.openingHours) ? data.openingHours : [],
-            latitude: typeof data.latitude === "number" ? data.latitude : 0,
-            longitude: typeof data.longitude === "number" ? data.longitude : 0,
+        setIsLoading(true)
+        setError(null)
+
+        const info = await getLocalBusinessInfo()
+
+        if (info) {
+          form.reset({
+            name: info.name || "",
+            streetAddress: info.streetAddress || "",
+            addressLocality: info.addressLocality || "",
+            addressRegion: info.addressRegion || "",
+            postalCode: info.postalCode || "",
+            addressCountry: info.addressCountry || "",
+            telephone: info.telephone || "",
+            email: info.email || "",
+            latitude: info.latitude ? String(info.latitude) : "",
+            longitude: info.longitude ? String(info.longitude) : "",
           })
         }
-      } catch (error) {
-        console.error("Error loading local business data:", error)
-        toast({
-          title: "Error",
-          description: "No se pudieron cargar los datos del negocio local",
-          variant: "destructive",
-        })
+      } catch (err: any) {
+        console.error("Error loading local business info:", err)
+        setError(err.message || "Error al cargar la información del negocio local")
       } finally {
         setIsLoading(false)
       }
     }
 
-    loadLocalBusinessData()
-  }, [toast])
+    loadLocalBusinessInfo()
+  }, [form])
 
-  const handleSave = async () => {
-    setIsSaving(true)
+  // Manejar el envío del formulario
+  const onSubmit = async (data: LocalBusinessFormValues) => {
     try {
-      const success = await saveLocalBusinessInfo(localBusiness)
+      setIsLoading(true)
+      setError(null)
+      setSuccess(false)
+
+      // Crear objeto con datos del negocio local
+      const localBusinessInfo = {
+        name: data.name,
+        streetAddress: data.streetAddress,
+        addressLocality: data.addressLocality,
+        addressRegion: data.addressRegion,
+        postalCode: data.postalCode,
+        addressCountry: data.addressCountry,
+        telephone: data.telephone,
+        email: data.email,
+        latitude: data.latitude ? Number.parseFloat(data.latitude) : 0,
+        longitude: data.longitude ? Number.parseFloat(data.longitude) : 0,
+        openingHours: [], // Este campo se podría ampliar en el futuro
+      }
+
+      const success = await saveLocalBusinessInfo(localBusinessInfo)
 
       if (success) {
+        setSuccess(true)
         toast({
-          title: "Datos guardados",
-          description: "La información del negocio local se ha guardado correctamente",
+          title: "Información guardada",
+          description: "Los datos del negocio local se han guardado correctamente",
         })
-
-        if (onSave) {
-          onSave()
-        }
       } else {
-        toast({
-          title: "Error",
-          description: "No se pudo guardar la información del negocio local",
-          variant: "destructive",
-        })
+        throw new Error("Error al guardar la información del negocio local")
       }
-    } catch (error) {
-      console.error("Error saving local business data:", error)
+    } catch (err: any) {
+      console.error("Error saving local business info:", err)
+      setError(err.message || "Error al guardar la información del negocio local")
       toast({
         title: "Error",
-        description: "Ocurrió un error al guardar la información del negocio local",
+        description: err.message || "Error al guardar la información del negocio local",
         variant: "destructive",
       })
     } finally {
-      setIsSaving(false)
+      setIsLoading(false)
     }
-  }
-
-  const handleInputChange = (field: keyof LocalBusinessInfo, value: string | string[] | number) => {
-    setLocalBusiness((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
-  }
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Cargando información del negocio...</CardTitle>
-          <CardDescription>Obteniendo datos del negocio local</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-40 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        </CardContent>
-      </Card>
-    )
   }
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
-            Información del negocio local
-          </CardTitle>
-          <CardDescription>Configura la información de tu tienda física para mejorar el SEO local</CardDescription>
-        </div>
-        <Button onClick={handleSave} disabled={isSaving}>
-          <Save className="mr-2 h-4 w-4" />
-          {isSaving ? "Guardando..." : "Guardar cambios"}
-        </Button>
+      <CardHeader>
+        <CardTitle>Información de Negocio Local</CardTitle>
+        <CardDescription>
+          Esta información se utilizará para generar datos estructurados de negocio local (Schema.org LocalBusiness)
+        </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium">Información básica</h3>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
-          <div className="space-y-2">
-            <Label htmlFor="business-name">Nombre del negocio</Label>
-            <Input
-              id="business-name"
-              placeholder="Granito Skate Shop"
-              value={localBusiness.name}
-              onChange={(e) => handleInputChange("name", e.target.value)}
-            />
-          </div>
-        </div>
+            {success && (
+              <Alert className="bg-green-50 border-green-200">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertTitle className="text-green-800">Guardado correctamente</AlertTitle>
+                <AlertDescription className="text-green-700">
+                  La información del negocio local se ha guardado correctamente
+                </AlertDescription>
+              </Alert>
+            )}
 
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium flex items-center">
-            <MapPin className="mr-2 h-4 w-4" />
-            Dirección
-          </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre del negocio</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Granito Skate Shop" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <div className="space-y-2">
-            <Label htmlFor="street-address">Calle y número</Label>
-            <Input
-              id="street-address"
-              placeholder="Calle Principal 123"
-              value={localBusiness.streetAddress}
-              onChange={(e) => handleInputChange("streetAddress", e.target.value)}
-            />
-          </div>
+              <FormField
+                control={form.control}
+                name="telephone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Teléfono</FormLabel>
+                    <FormControl>
+                      <Input placeholder="+34 912 345 678" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="locality">Ciudad</Label>
-              <Input
-                id="locality"
-                placeholder="Madrid"
-                value={localBusiness.addressLocality}
-                onChange={(e) => handleInputChange("addressLocality", e.target.value)}
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input placeholder="contacto@granitoskate.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="streetAddress"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Dirección</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Calle Ejemplo, 123" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="addressLocality"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ciudad</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Madrid" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="addressRegion"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Región/Provincia</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Madrid" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="postalCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Código Postal</FormLabel>
+                    <FormControl>
+                      <Input placeholder="28001" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="addressCountry"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>País</FormLabel>
+                    <FormControl>
+                      <Input placeholder="España" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="region">Provincia</Label>
-              <Input
-                id="region"
-                placeholder="Madrid"
-                value={localBusiness.addressRegion}
-                onChange={(e) => handleInputChange("addressRegion", e.target.value)}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+              <FormField
+                control={form.control}
+                name="latitude"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Latitud (opcional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="40.4168" {...field} />
+                    </FormControl>
+                    <FormDescription>Coordenada geográfica de latitud</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="longitude"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Longitud (opcional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="-3.7038" {...field} />
+                    </FormControl>
+                    <FormDescription>Coordenada geográfica de longitud</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="postal-code">Código postal</Label>
-              <Input
-                id="postal-code"
-                placeholder="28001"
-                value={localBusiness.postalCode}
-                onChange={(e) => handleInputChange("postalCode", e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="country">País</Label>
-              <Input
-                id="country"
-                placeholder="España"
-                value={localBusiness.addressCountry}
-                onChange={(e) => handleInputChange("addressCountry", e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium flex items-center">
-            <Phone className="mr-2 h-4 w-4" />
-            Contacto
-          </h3>
-
-          <div className="space-y-2">
-            <Label htmlFor="telephone">Teléfono</Label>
-            <Input
-              id="telephone"
-              placeholder="+34 XXX XXX XXX"
-              value={localBusiness.telephone}
-              onChange={(e) => handleInputChange("telephone", e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="contacto@granitoskate.com"
-              value={localBusiness.email}
-              onChange={(e) => handleInputChange("email", e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium flex items-center">
-            <Clock className="mr-2 h-4 w-4" />
-            Horario de apertura
-          </h3>
-
-          <div className="space-y-2">
-            <Label htmlFor="opening-hours">Horario (una línea por día)</Label>
-            <Textarea
-              id="opening-hours"
-              placeholder="Lun-Vie: 10:00-20:00&#10;Sáb: 10:00-14:00&#10;Dom: Cerrado"
-              value={Array.isArray(localBusiness.openingHours) ? localBusiness.openingHours.join("\n") : ""}
-              onChange={(e) => handleInputChange("openingHours", e.target.value.split("\n"))}
-              rows={5}
-            />
-            <p className="text-xs text-muted-foreground">
-              Introduce cada horario en una línea nueva (ej: Lun-Vie: 10:00-20:00)
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium">Ubicación en el mapa</h3>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="latitude">Latitud</Label>
-              <Input
-                id="latitude"
-                placeholder="40.4168"
-                value={localBusiness.latitude || ""}
-                onChange={(e) => handleInputChange("latitude", Number.parseFloat(e.target.value) || 0)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="longitude">Longitud</Label>
-              <Input
-                id="longitude"
-                placeholder="-3.7038"
-                value={localBusiness.longitude || ""}
-                onChange={(e) => handleInputChange("longitude", Number.parseFloat(e.target.value) || 0)}
-              />
-            </div>
-          </div>
-
-          <div className="bg-muted/30 border rounded-md p-4">
-            <p className="text-sm text-muted-foreground mb-2">
-              Puedes obtener las coordenadas de tu tienda desde Google Maps. Busca tu ubicación, haz clic derecho y
-              selecciona "¿Qué hay aquí?". Las coordenadas aparecerán en la parte inferior.
-            </p>
-            <div className="aspect-[16/9] bg-muted rounded-md flex items-center justify-center">
-              <p className="text-muted-foreground">Vista previa del mapa</p>
-            </div>
-          </div>
-        </div>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? "Guardando..." : "Guardar información"}
+            </Button>
+          </form>
+        </Form>
       </CardContent>
     </Card>
   )

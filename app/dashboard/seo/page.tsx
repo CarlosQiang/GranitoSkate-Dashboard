@@ -19,8 +19,8 @@ import { useToast } from "@/components/ui/use-toast"
 export default function SeoPage() {
   const [activeTab, setActiveTab] = useState("general")
   const [isLoading, setIsLoading] = useState(true)
-  const [shopInfo, setShopInfo] = useState(null)
-  const [error, setError] = useState(null)
+  const [shopInfo, setShopInfo] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
   const [marketData, setMarketData] = useState({
     marketTitle: "",
     marketDescription: "",
@@ -47,7 +47,7 @@ export default function SeoPage() {
             targetCountries: Array.isArray(seoSettings.targetCountries) ? seoSettings.targetCountries.join(", ") : "",
           })
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching shop SEO settings:", error)
         setError(error.message || "Error al cargar la configuración SEO")
       } finally {
@@ -59,7 +59,7 @@ export default function SeoPage() {
   }, [])
 
   // Simular tiempo de carga al cambiar de pestaña
-  const handleTabChange = (value) => {
+  const handleTabChange = (value: string) => {
     setIsLoading(true)
     setActiveTab(value)
     // Simular tiempo de carga
@@ -68,7 +68,7 @@ export default function SeoPage() {
     }, 300)
   }
 
-  const handleMarketDataChange = (field, value) => {
+  const handleMarketDataChange = (field: string, value: string) => {
     setMarketData((prev) => ({
       ...prev,
       [field]: value,
@@ -112,7 +112,7 @@ export default function SeoPage() {
           variant: "destructive",
         })
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving market data:", error)
       toast({
         title: "Error",

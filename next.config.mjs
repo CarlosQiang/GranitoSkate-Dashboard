@@ -1,53 +1,27 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  images: {
+    domains: ['cdn.shopify.com', 'res.cloudinary.com'],
+    unoptimized: true,
+  },
+  experimental: {
+    serverActions: true,
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,
   },
-  images: {
-    domains: ['cdn.shopify.com'],
-    unoptimized: true,
+  webpack: (config) => {
+    // Configuración para manejar archivos de texto
+    config.module.rules.push({
+      test: /\.txt$/,
+      use: 'raw-loader',
+    })
+    return config
   },
-  async headers() {
-    return [
-      {
-        source: '/site.webmanifest',
-        headers: [
-          {
-            key: 'Content-Type',
-            value: 'application/manifest+json',
-          },
-        ],
-      },
-      {
-        source: '/android-chrome-192x192.png',
-        headers: [
-          {
-            key: 'Content-Type',
-            value: 'image/png',
-          },
-        ],
-      },
-      {
-        source: '/android-chrome-512x512.png',
-        headers: [
-          {
-            key: 'Content-Type',
-            value: 'image/png',
-          },
-        ],
-      },
-    ]
-  },
-  experimental: {
-    // Corregido: debe ser un objeto, no un booleano
-    serverActions: {
-      allowedOrigins: ['localhost:3000', '*.vercel.app'],
-    },
-  },
-};
+}
 
-export default nextConfig;
+export default nextConfig

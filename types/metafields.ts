@@ -5,7 +5,7 @@ export interface MetafieldInput {
   type: string
 }
 
-export interface LocalBusinessData {
+export interface LocalBusinessInfo {
   name?: string
   type?: string
   address?: {
@@ -27,13 +27,36 @@ export interface LocalBusinessData {
   currenciesAccepted?: string[]
 }
 
-export interface SocialMediaData {
+export interface SocialMediaProfiles {
   facebook?: string
   twitter?: string
   instagram?: string
   youtube?: string
   linkedin?: string
   pinterest?: string
+  tiktok?: string
+}
+
+export interface LocalBusinessMetafields {
+  name?: string
+  telephone?: string
+  email?: string
+  streetAddress?: string
+  addressLocality?: string
+  addressRegion?: string
+  postalCode?: string
+  addressCountry?: string
+  latitude?: string
+  longitude?: string
+  openingHours?: string[]
+}
+
+export interface SocialMediaMetafields {
+  facebook?: string
+  instagram?: string
+  twitter?: string
+  youtube?: string
+  linkedin?: string
   tiktok?: string
 }
 

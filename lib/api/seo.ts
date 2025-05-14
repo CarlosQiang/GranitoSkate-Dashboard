@@ -264,18 +264,15 @@ export async function setMetafield(
     const formattedId = ownerId.includes("gid://shopify/") ? ownerId : `gid://shopify/${ownerType}/${ownerId}`
 
     // Usar la mutación correcta según la versión actual de la API de Shopify
-    // NOTA: Cambiamos metafieldCreate a metafieldsSet que es el nombre correcto en la API actual
     const mutation = gql`
-      mutation MetafieldsSet($input: [MetafieldsSetInput!]!) {
-        metafieldsSet(metafields: $input) {
-          metafields {
+      mutation MetafieldSet($metafield: MetafieldInput!) {
+        metafieldSet(metafield: $metafield) {
+          metafield {
             id
             namespace
             key
             value
             type
-            createdAt
-            updatedAt
           }
           userErrors {
             field
@@ -286,30 +283,23 @@ export async function setMetafield(
     `
 
     const variables = {
-      input: [
-        {
-          ownerId: formattedId,
-          namespace: metafield.namespace,
-          key: metafield.key,
-          value: metafield.value,
-          type: metafield.type,
-        },
-      ],
+      metafield: {
+        ownerId: formattedId,
+        namespace: metafield.namespace,
+        key: metafield.key,
+        value: metafield.value,
+        type: metafield.type,
+      },
     }
 
     const data = await shopifyClient.request(mutation, variables)
 
-    if (data.metafieldsSet.userErrors && data.metafieldsSet.userErrors.length > 0) {
-      console.error("Error setting metafield:", data.metafieldsSet.userErrors)
+    if (data.metafieldSet.userErrors && data.metafieldSet.userErrors.length > 0) {
+      console.error("Error setting metafield:", data.metafieldSet.userErrors)
       return null
     }
 
-    if (!data.metafieldsSet.metafields || data.metafieldsSet.metafields.length === 0) {
-      console.error("No se devolvieron metafields después de la mutación")
-      return null
-    }
-
-    const node = data.metafieldsSet.metafields[0]
+    const node = data.metafieldSet.metafield
     return {
       id: node.id,
       namespace: node.namespace,
@@ -318,8 +308,8 @@ export async function setMetafield(
       type: node.type,
       ownerType,
       ownerId,
-      createdAt: node.createdAt,
-      updatedAt: node.updatedAt,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     }
   } catch (error) {
     console.error("Error setting metafield:", error)
@@ -466,86 +456,56 @@ export async function getShopSeoSettings(): Promise<SeoSettings | null> {
 // Guardar configuración SEO de la tienda
 export async function saveShopSeoSettings(settings: SeoSettings): Promise<boolean> {
   try {
-    // Intentar guardar cada metafield individualmente
-    const metafields = [
-      {
-        ownerId: "gid://shopify/Shop/1",
+    // Crear un objeto con todos los datos SEO
+    const seoData = {
+      title: settings.title || "",
+      description: settings.description || "",
+      keywords: settings.keywords || [],
+      ogTitle: settings.ogTitle || "",
+      ogDescription: settings.ogDescription || "",
+      ogImage: settings.ogImage || "",
+      twitterCard: settings.twitterCard || "summary_large_image",
+      twitterTitle: settings.twitterTitle || "",
+      twitterDescription: settings.twitterDescription || "",
+      twitterImage: settings.twitterImage || "",
+      canonicalUrl: settings.canonicalUrl || "",
+      marketTitle: settings.marketTitle || "",
+      marketDescription: settings.marketDescription || "",
+      marketKeywords: settings.marketKeywords || [],
+      targetCountries: settings.targetCountries || [],
+    }
+
+    // Guardar todos los datos en un solo metafield
+    const result = await setMetafield("1", "SHOP", {
+      namespace: "seo",
+      key: "settings",
+      value: JSON.stringify(seoData),
+      type: "json",
+    })
+
+    if (!result) {
+      console.error("Error al guardar la configuración SEO")
+      return false
+    }
+
+    // Actualizar también los metafields individuales para compatibilidad
+    try {
+      await setMetafield("1", "SHOP", {
         namespace: "seo",
         key: "title",
         value: settings.title || "",
         type: "single_line_text_field",
-      },
-      {
-        ownerId: "gid://shopify/Shop/1",
+      })
+
+      await setMetafield("1", "SHOP", {
         namespace: "seo",
         key: "description",
         value: settings.description || "",
         type: "multi_line_text_field",
-      },
-      {
-        ownerId: "gid://shopify/Shop/1",
-        namespace: "seo",
-        key: "keywords",
-        value: JSON.stringify(settings.keywords || []),
-        type: "json",
-      },
-      {
-        ownerId: "gid://shopify/Shop/1",
-        namespace: "seo",
-        key: "marketTitle",
-        value: settings.marketTitle || "",
-        type: "single_line_text_field",
-      },
-      {
-        ownerId: "gid://shopify/Shop/1",
-        namespace: "seo",
-        key: "marketDescription",
-        value: settings.marketDescription || "",
-        type: "multi_line_text_field",
-      },
-      {
-        ownerId: "gid://shopify/Shop/1",
-        namespace: "seo",
-        key: "marketKeywords",
-        value: JSON.stringify(settings.marketKeywords || []),
-        type: "json",
-      },
-      {
-        ownerId: "gid://shopify/Shop/1",
-        namespace: "seo",
-        key: "targetCountries",
-        value: JSON.stringify(settings.targetCountries || []),
-        type: "json",
-      },
-    ]
-
-    // Usar la mutación metafieldsSet para guardar todos los metafields a la vez
-    const mutation = gql`
-      mutation MetafieldsSet($input: [MetafieldsSetInput!]!) {
-        metafieldsSet(metafields: $input) {
-          metafields {
-            id
-            namespace
-            key
-            value
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const variables = {
-      input: metafields,
-    }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.metafieldsSet.userErrors && data.metafieldsSet.userErrors.length > 0) {
-      console.error("Error saving SEO settings:", data.metafieldsSet.userErrors)
-      return false
+      })
+    } catch (error) {
+      console.warn("Error al actualizar metafields individuales:", error)
+      // No fallamos la operación completa si estos fallan
     }
 
     return true
@@ -633,44 +593,14 @@ export async function getLocalBusinessInfo(): Promise<LocalBusinessInfo | null> 
 // Guardar información de negocio local
 export async function saveLocalBusinessInfo(info: LocalBusinessInfo): Promise<boolean> {
   try {
-    // Usar la mutación metafieldsSet para guardar el metafield
-    const mutation = gql`
-      mutation MetafieldsSet($input: [MetafieldsSetInput!]!) {
-        metafieldsSet(metafields: $input) {
-          metafields {
-            id
-            namespace
-            key
-            value
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
+    const result = await setMetafield("1", "SHOP", {
+      namespace: "local_business",
+      key: "info",
+      value: JSON.stringify(info),
+      type: "json",
+    })
 
-    const variables = {
-      input: [
-        {
-          ownerId: "gid://shopify/Shop/1",
-          namespace: "local_business",
-          key: "info",
-          value: JSON.stringify(info),
-          type: "json",
-        },
-      ],
-    }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.metafieldsSet.userErrors && data.metafieldsSet.userErrors.length > 0) {
-      console.error("Error saving local business info:", data.metafieldsSet.userErrors)
-      return false
-    }
-
-    return true
+    return !!result
   } catch (error) {
     console.error("Error saving local business info:", error)
     return false
@@ -776,44 +706,14 @@ export async function saveSocialMediaProfiles(profiles: SocialMediaProfiles): Pr
       tiktok: profiles.tiktok || "",
     }
 
-    // Usar la mutación metafieldsSet para guardar el metafield
-    const mutation = gql`
-      mutation MetafieldsSet($input: [MetafieldsSetInput!]!) {
-        metafieldsSet(metafields: $input) {
-          metafields {
-            id
-            namespace
-            key
-            value
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
+    const result = await setMetafield(shopId, "SHOP", {
+      namespace: "social_media",
+      key: "profiles",
+      value: JSON.stringify(cleanProfiles),
+      type: "json",
+    })
 
-    const variables = {
-      input: [
-        {
-          ownerId: "gid://shopify/Shop/1",
-          namespace: "social_media",
-          key: "profiles",
-          value: JSON.stringify(cleanProfiles),
-          type: "json",
-        },
-      ],
-    }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.metafieldsSet.userErrors && data.metafieldsSet.userErrors.length > 0) {
-      console.error("Error saving social media profiles:", data.metafieldsSet.userErrors)
-      return false
-    }
-
-    return true
+    return !!result
   } catch (error) {
     console.error("Error saving social media profiles:", error)
     return false
@@ -860,44 +760,14 @@ export async function saveProductSeoSettings(productId: string, settings: SeoSet
       return false
     }
 
-    // Usar la mutación metafieldsSet para guardar el metafield
-    const mutation = gql`
-      mutation MetafieldsSet($input: [MetafieldsSetInput!]!) {
-        metafieldsSet(metafields: $input) {
-          metafields {
-            id
-            namespace
-            key
-            value
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
+    const result = await setMetafield(productId, "PRODUCT", {
+      namespace: "seo",
+      key: "settings",
+      value: JSON.stringify(settings),
+      type: "json",
+    })
 
-    const variables = {
-      input: [
-        {
-          ownerId: `gid://shopify/Product/${productId}`,
-          namespace: "seo",
-          key: "settings",
-          value: JSON.stringify(settings),
-          type: "json",
-        },
-      ],
-    }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.metafieldsSet.userErrors && data.metafieldsSet.userErrors.length > 0) {
-      console.error("Error saving product SEO settings:", data.metafieldsSet.userErrors)
-      return false
-    }
-
-    return true
+    return !!result
   } catch (error) {
     console.error("Error saving product SEO settings:", error)
     return false
@@ -1042,46 +912,20 @@ export async function saveCollectionSeoSettings(collectionId: string, settings: 
       throw new Error(updateData.collectionUpdate.userErrors[0].message)
     }
 
-    // Luego guardamos la configuración completa como metafield usando la mutación correcta
-    const metafieldMutation = gql`
-      mutation MetafieldsSet($input: [MetafieldsSetInput!]!) {
-        metafieldsSet(metafields: $input) {
-          metafields {
-            id
-            namespace
-            key
-            value
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
+    // Luego guardamos la configuración completa como metafield
+    const result = await setMetafield(collectionId, "COLLECTION", {
+      namespace: "seo",
+      key: "settings",
+      value: JSON.stringify(settings),
+      type: "json",
+    })
 
-    const metafieldVariables = {
-      input: [
-        {
-          ownerId: formattedId,
-          namespace: "seo",
-          key: "settings",
-          value: JSON.stringify(settings),
-          type: "json",
-        },
-      ],
+    if (!result) {
+      console.error("Error al guardar metafield SEO")
+      return false
     }
 
-    console.log("Enviando metafield:", metafieldVariables)
-
-    const metafieldData = await shopifyClient.request(metafieldMutation, metafieldVariables)
-
-    if (metafieldData.metafieldsSet.userErrors?.length > 0) {
-      console.error("Error al guardar metafield SEO:", metafieldData.metafieldsSet.userErrors)
-      throw new Error(metafieldData.metafieldsSet.userErrors[0].message)
-    }
-
-    console.log("Configuración SEO guardada correctamente:", metafieldData.metafieldsSet.metafields)
+    console.log("Configuración SEO guardada correctamente")
     return true
   } catch (error) {
     console.error("Error saving collection SEO settings:", error)
@@ -1522,54 +1366,51 @@ export async function updateSeoMetafields(id: string, metafields: any[], type = 
     const resourceType = type === "PRODUCT" ? "Product" : "Collection"
     const formattedId = isFullId ? id : `gid://shopify/${resourceType}/${id}`
 
-    // Preparar los metafields para la mutación
-    const metafieldInputs = metafields.map((meta) => ({
-      ownerId: formattedId,
-      namespace: meta.namespace,
-      key: meta.key,
-      value: meta.value,
-      type: meta.type,
-    }))
+    // Actualizar cada metafield individualmente
+    const results = await Promise.all(
+      metafields.map(async (meta) => {
+        try {
+          const result = await setMetafield(id, type, {
+            namespace: meta.namespace,
+            key: meta.key,
+            value: meta.value,
+            type: meta.type,
+          })
 
-    // Usar la mutación metafieldsSet para guardar todos los metafields a la vez
-    const mutation = gql`
-      mutation MetafieldsSet($input: [MetafieldsSetInput!]!) {
-        metafieldsSet(metafields: $input) {
-          metafields {
-            id
-            namespace
-            key
-            value
+          return {
+            success: !!result,
+            key: meta.key,
+            error: result ? null : "Error al guardar el metafield",
           }
-          userErrors {
-            field
-            message
+        } catch (error: any) {
+          return {
+            success: false,
+            key: meta.key,
+            error: error.message,
           }
         }
-      }
-    `
+      }),
+    )
 
-    const variables = {
-      input: metafieldInputs,
-    }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.metafieldsSet.userErrors && data.metafieldsSet.userErrors.length > 0) {
-      console.error(`Error al actualizar metafields de SEO:`, data.metafieldsSet.userErrors)
+    const failures = results.filter((result) => !result.success)
+    if (failures.length > 0) {
+      console.error(`Error al actualizar ${failures.length} metafields:`, failures)
       return {
         success: false,
-        error: data.metafieldsSet.userErrors[0].message,
+        error: `Error al actualizar ${failures.length} metafields`,
+        failures,
       }
     }
 
     return {
       success: true,
       id: formattedId,
-      metafields: data.metafieldsSet.metafields,
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error al actualizar metafields de SEO para ${type} ${id}:`, error)
-    throw new Error(`Error al actualizar metafields de SEO: ${error.message}`)
+    return {
+      success: false,
+      error: error.message,
+    }
   }
 }
