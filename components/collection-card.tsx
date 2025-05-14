@@ -6,14 +6,7 @@ import { FolderOpen } from "lucide-react"
 
 export function CollectionCard({ collection }) {
   // Ensure we have all the necessary properties
-  const {
-    id = "",
-    title = "Colección sin título",
-    titulo = title, // Soporte para ambos nombres de propiedad
-    productsCount = 0,
-    productoCount = productsCount, // Soporte para ambos nombres de propiedad
-    image = null,
-  } = collection || {}
+  const { id = "", title = "Colección sin título", productsCount = 0, image = null } = collection || {}
 
   // Extract the numeric ID from the full Shopify ID
   const numericId = id.split("/").pop() || id
@@ -25,7 +18,7 @@ export function CollectionCard({ collection }) {
           {image && image.url ? (
             <Image
               src={image.url || "/placeholder.svg"}
-              alt={titulo || title}
+              alt={title}
               fill
               className="object-cover"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -37,10 +30,10 @@ export function CollectionCard({ collection }) {
           )}
         </div>
         <CardContent className="p-4 flex-grow">
-          <h3 className="font-medium line-clamp-1">{titulo || title}</h3>
+          <h3 className="font-medium line-clamp-1">{title}</h3>
           <div className="flex items-center justify-between mt-2">
             <Badge variant="secondary">
-              {productoCount || productsCount} producto{(productoCount || productsCount) !== 1 ? "s" : ""}
+              {productsCount} producto{productsCount !== 1 ? "s" : ""}
             </Badge>
           </div>
         </CardContent>

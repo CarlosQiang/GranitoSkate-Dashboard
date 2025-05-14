@@ -46,11 +46,8 @@ export async function obtenerPromociones() {
 // Alias para mantener compatibilidad con el código existente
 export const fetchPromociones = obtenerPromociones
 
-// Alias para la función syncPromotions
-export const fetchPromotions = obtenerPromociones
-
-// Función para obtener una promoción por ID
-export async function obtenerPromocionPorId(id: string): Promise<Promotion> {
+// Modificar la función fetchPriceListById para manejar mejor los errores de ID
+export async function fetchPriceListById(id: string): Promise<Promotion> {
   try {
     // Verificar si el ID es válido
     if (!id || id === "undefined" || id === "[id]") {
@@ -374,7 +371,6 @@ export async function deletePriceList(id: string): Promise<string> {
   }
 }
 
-// Función para crear una promoción
 export async function crearPromocion(datos: any): Promise<any> {
   try {
     const mutation = gql`
@@ -398,13 +394,13 @@ export async function crearPromocion(datos: any): Promise<any> {
 
     const variables = {
       basicCodeDiscount: {
-        title: datos.titulo || "Nueva promoción",
-        startsAt: datos.fechaInicio || new Date().toISOString(),
-        endsAt: datos.fechaFin || null,
-        codes: [{ code: datos.codigo || `PROMO${Math.floor(Math.random() * 10000)}` }],
+        title: datos.titulo,
+        startsAt: datos.fechaInicio,
+        endsAt: datos.fechaFin,
+        codes: [{ code: datos.codigo }],
         customerGets: {
           value: {
-            percentage: Number.parseFloat(datos.valor) || 10,
+            percentage: datos.valor,
           },
           items: {
             all: true,
@@ -426,56 +422,14 @@ export async function crearPromocion(datos: any): Promise<any> {
   }
 }
 
-// Función para actualizar una promoción
 export async function actualizarPromocion(id: string, datos: any): Promise<any> {
   try {
-    // Primero obtenemos la promoción actual
-    const promocionActual = await obtenerPromocionPorId(id)
-
     // Implementación simplificada para evitar errores
     console.log(`Actualizando promoción con ID ${id} con los datos:`, datos)
-
-    // Si es una promoción con código, actualizamos el código
-    if (promocionActual.code) {
-      const mutation = gql`
-        mutation DiscountCodeUpdate($id: ID!, $codeDiscount: DiscountCodeBasicInput!) {
-          discountCodeUpdate(id: $id, codeDiscount: $codeDiscount) {
-            codeDiscountNode {
-              id
-            }
-            userErrors {
-              field
-              message
-            }
-          }
-        }
-      `
-
-      const variables = {
-        id,
-        codeDiscount: {
-          title: datos.titulo || promocionActual.title,
-          startsAt: datos.fechaInicio || promocionActual.startsAt,
-          endsAt: datos.fechaFin || promocionActual.endsAt,
-          status: datos.activa ? "ACTIVE" : "EXPIRED",
-        },
-      }
-
-      const data = await shopifyClient.request(mutation, variables)
-
-      if (data.discountCodeUpdate.userErrors.length > 0) {
-        throw new Error(data.discountCodeUpdate.userErrors[0].message)
-      }
-
-      return { id, ...datos, updated: true }
-    }
-
-    // Si es una promoción automática, actualizamos la promoción automática
-    return { id, ...datos, updated: true }
+    return { id, ...datos }
   } catch (error) {
     console.error(`Error al actualizar la promoción con ID ${id}:`, error)
-    // Devolvemos un objeto simulado para evitar errores en la interfaz
-    return { id, ...datos, updated: false, error: error.message }
+    throw new Error(`Error al actualizar la promoción: ${error.message}`)
   }
 }
 
@@ -488,15 +442,11 @@ export async function eliminarPromocion(id: string): Promise<string> {
   }
 }
 
-// Función para obtener una lista de precios por ID
-async function fetchPriceListById(id: string) {
-  // This function is intentionally empty as it's not used in the current code.
-  // It's added to resolve the "fetchPriceListById is undeclared" error.
-  console.warn("fetchPriceListById function is not implemented.")
-  return null
-}
-
-// Asegurarnos de que todas las funciones necesarias estén exportadas
-export {
-  fetchPriceListById, // Exportamos esta función también por si acaso
+export async function obtenerPromocionPorId(id: string): Promise<any> {
+  try {
+    return await fetchPriceListById(id)
+  } catch (error) {
+    console.error(`Error al obtener la promoción con ID ${id}:`, error)
+    throw new Error(`Error al obtener la promoción: ${error.message}`)
+  }
 }

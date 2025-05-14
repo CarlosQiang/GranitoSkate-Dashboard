@@ -78,9 +78,6 @@ export async function fetchRecentOrders(limit = 10) {
   }
 }
 
-// Alias para mantener compatibilidad con el código existente
-export const fetchOrders = fetchRecentOrders
-
 export async function fetchOrderById(id) {
   try {
     // Asegurarse de que el ID tenga el formato correcto
@@ -208,6 +205,7 @@ export async function fetchOrderById(id) {
   }
 }
 
+// Añadir la función fetchCustomerOrders que falta
 export async function fetchCustomerOrders(customerId, limit = 50) {
   try {
     // Formatear el ID correctamente

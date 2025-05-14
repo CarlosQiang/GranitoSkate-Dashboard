@@ -12,12 +12,6 @@ export function AutoSync() {
       try {
         // Verificar si hay datos en la base de datos
         const response = await fetch("/api/db/check")
-
-        if (!response.ok) {
-          console.error("Error al verificar la base de datos:", response.statusText)
-          return
-        }
-
         const data = await response.json()
 
         if (data.isEmpty) {
@@ -31,19 +25,6 @@ export function AutoSync() {
 
           // Iniciar sincronización
           const syncResponse = await fetch("/api/sync")
-
-          if (!syncResponse.ok) {
-            console.error("Error en la sincronización:", syncResponse.statusText)
-            toast({
-              title: "Error en la sincronización",
-              description: "Ha ocurrido un error durante la sincronización",
-              variant: "destructive",
-              duration: 5000,
-            })
-            setIsSyncing(false)
-            return
-          }
-
           const syncData = await syncResponse.json()
 
           if (syncData.success) {
