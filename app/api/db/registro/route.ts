@@ -1,46 +1,43 @@
 import { NextResponse } from "next/server"
-import {
-  getAllRegistros,
-  getRegistrosByTipoEntidad,
-  getRegistrosByResultado,
-  getRegistrosByAccion,
-  getRegistrosCount,
-} from "@/lib/db/repositories/registro-repository"
+import db from "@/lib/db/vercel-postgres"
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const tipoEntidad = searchParams.get("tipoEntidad")
+    const tipo = searchParams.get("tipo")
     const resultado = searchParams.get("resultado")
-    const accion = searchParams.get("accion")
-    const limit = Number.parseInt(searchParams.get("limit") || "100")
-    const offset = Number.parseInt(searchParams.get("offset") || "0")
+    const desde = searchParams.get("desde")
+    const hasta = searchParams.get("hasta")
 
-    let registros
+    let query = "SELECT * FROM registro_sincronizacion WHERE 1=1"
+    const params: any[] = []
 
-    if (tipoEntidad) {
-      registros = await getRegistrosByTipoEntidad(tipoEntidad, limit, offset)
-    } else if (resultado) {
-      registros = await getRegistrosByResultado(resultado, limit, offset)
-    } else if (accion) {
-      registros = await getRegistrosByAccion(accion, limit, offset)
-    } else {
-      registros = await getAllRegistros(limit, offset)
+    if (tipo) {
+      params.push(tipo)
+      query += ` AND tipo_entidad = $${params.length}`
     }
 
-    const total = await getRegistrosCount()
+    if (resultado) {
+      params.push(resultado)
+      query += ` AND resultado = $${params.length}`
+    }
 
-    return NextResponse.json({
-      registros,
-      pagination: {
-        total,
-        limit,
-        offset,
-        pages: Math.ceil(total / limit),
-      },
-    })
+    if (desde) {
+      params.push(desde)
+      query += ` AND fecha >= $${params.length}`
+    }
+
+    if (hasta) {
+      params.push(hasta)
+      query += ` AND fecha <= $${params.length}`
+    }
+
+    query += " ORDER BY fecha DESC"
+
+    const registros = await db.executeQuery(query, params)
+    return NextResponse.json(registros)
   } catch (error) {
-    console.error("Error al obtener registros:", error)
-    return NextResponse.json({ error: "Error al obtener registros" }, { status: 500 })
+    console.error("Error al obtener registros de sincronización:", error)
+    return NextResponse.json({ error: "Error al obtener registros de sincronización" }, { status: 500 })
   }
 }

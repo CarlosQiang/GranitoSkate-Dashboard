@@ -1,3 +1,5 @@
+"use server"
+
 import { Pool } from "pg"
 
 // Configuración para conexión a Neon
@@ -80,3 +82,16 @@ export async function logSyncEvent(
     fecha: new Date(),
   })
 }
+
+const db = {
+  findAll,
+  findById,
+  findOne,
+  insert,
+  update,
+  remove,
+  logSyncEvent,
+  executeQuery,
+}
+
+export { db }
