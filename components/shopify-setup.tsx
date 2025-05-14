@@ -1,179 +1,126 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ShopifyCredentialsForm } from "@/components/shopify-credentials-form"
+import { ShopifyManualConfig } from "@/components/shopify-manual-config"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { AlertCircle, CheckCircle, RefreshCw } from "lucide-react"
+import { AlertCircle, CheckCircle } from "lucide-react"
 
 export function ShopifySetup() {
-  const [shopDomain, setShopDomain] = useState("")
-  const [accessToken, setAccessToken] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
   const [status, setStatus] = useState<{
-    success?: boolean
+    isConfigured: boolean
+    shopDomain?: string
     message?: string
-  }>({})
+    loading: boolean
+  }>({
+    isConfigured: false,
+    loading: true,
+  })
 
-  // Cargar valores actuales de las variables de entorno
   useEffect(() => {
-    const loadEnvVars = async () => {
+    const checkShopifyConfig = async () => {
       try {
-        const response = await fetch("/api/shopify/get-credentials")
+        // Verificar si hay credenciales temporales en localStorage
+        const tempShopDomain = localStorage.getItem("shopify_domain")
+        const tempAccessToken = localStorage.getItem("shopify_token")
+
+        if (tempShopDomain && tempAccessToken) {
+          // Probar la conexión con las credenciales temporales
+          const response = await fetch("/api/shopify/test-connection", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              shopDomain: tempShopDomain,
+              accessToken: tempAccessToken,
+            }),
+          })
+
+          const data = await response.json()
+
+          if (data.success) {
+            setStatus({
+              isConfigured: true,
+              shopDomain: tempShopDomain,
+              message: `Usando credenciales temporales: ${data.message}`,
+              loading: false,
+            })
+            return
+          }
+        }
+
+        // Si no hay credenciales temporales o no funcionaron, verificar las variables de entorno
+        const response = await fetch("/api/shopify/check-connection")
         const data = await response.json()
 
-        if (data.shopDomain) {
-          setShopDomain(data.shopDomain)
-        }
-
-        // No mostramos el token por seguridad, solo indicamos si está configurado
-        if (data.hasAccessToken) {
-          setAccessToken("••••••••••••••••••••••••••••••")
-        }
+        setStatus({
+          isConfigured: data.success,
+          shopDomain: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN,
+          message: data.message,
+          loading: false,
+        })
       } catch (error) {
-        console.error("Error al cargar credenciales:", error)
+        console.error("Error al verificar la configuración de Shopify:", error)
+        setStatus({
+          isConfigured: false,
+          loading: false,
+          message: error instanceof Error ? error.message : "Error desconocido",
+        })
       }
     }
 
-    loadEnvVars()
+    checkShopifyConfig()
   }, [])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setStatus({})
-
-    try {
-      // Validar que los campos no estén vacíos
-      if (!shopDomain) {
-        setStatus({
-          success: false,
-          message: "El dominio de la tienda es obligatorio",
-        })
-        setIsLoading(false)
-        return
-      }
-
-      if (!accessToken || accessToken === "••••••••••••••••••••••••••••••") {
-        setStatus({
-          success: false,
-          message: "El token de acceso es obligatorio",
-        })
-        setIsLoading(false)
-        return
-      }
-
-      // Limpiar el dominio si el usuario incluyó https:// o la parte final
-      let cleanDomain = shopDomain
-      if (cleanDomain.startsWith("https://")) {
-        cleanDomain = cleanDomain.substring(8)
-      }
-      if (cleanDomain.includes("/")) {
-        cleanDomain = cleanDomain.split("/")[0]
-      }
-
-      const response = await fetch("/api/shopify/update-credentials", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          shopDomain: cleanDomain,
-          accessToken,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        setStatus({
-          success: true,
-          message: data.message || "Credenciales actualizadas correctamente",
-        })
-
-        // Recargar la página después de 2 segundos para aplicar los cambios
-        setTimeout(() => {
-          window.location.reload()
-        }, 2000)
-      } else {
-        setStatus({
-          success: false,
-          message: data.message || "Error al actualizar las credenciales",
-        })
-      }
-    } catch (error) {
-      setStatus({
-        success: false,
-        message: error instanceof Error ? error.message : "Error desconocido",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle>Configuración de Shopify</CardTitle>
-        <CardDescription>Configura tus credenciales de Shopify para conectar con tu tienda</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="shopDomain">Dominio de la tienda</Label>
-            <Input
-              id="shopDomain"
-              placeholder="tu-tienda.myshopify.com"
-              value={shopDomain}
-              onChange={(e) => setShopDomain(e.target.value)}
-              required
-            />
-            <p className="text-xs text-muted-foreground">Ejemplo: tu-tienda.myshopify.com (sin https://)</p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="accessToken">Token de acceso</Label>
-            <Input
-              id="accessToken"
-              type="password"
-              placeholder="shpat_..."
-              value={accessToken}
-              onChange={(e) => setAccessToken(e.target.value)}
-              required
-            />
-            <p className="text-xs text-muted-foreground">
-              Puedes generar un token de acceso en tu panel de Shopify: Aplicaciones &gt; Desarrollar aplicaciones &gt;
-              Crear una aplicación
-            </p>
-          </div>
-
-          {status.message && (
-            <Alert variant={status.success ? "default" : "destructive"}>
-              {status.success ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-              <AlertTitle>{status.success ? "Éxito" : "Error"}</AlertTitle>
+    <div className="space-y-6">
+      {status.loading ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Verificando configuración de Shopify</CardTitle>
+            <CardDescription>Comprobando la conexión con Shopify...</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center p-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Estado de la conexión con Shopify</CardTitle>
+            <CardDescription>
+              {status.isConfigured
+                ? `Conectado a ${status.shopDomain}`
+                : "No se ha podido establecer conexión con Shopify"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Alert variant={status.isConfigured ? "default" : "destructive"}>
+              {status.isConfigured ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+              <AlertTitle>{status.isConfigured ? "Conexión establecida" : "Error de conexión"}</AlertTitle>
               <AlertDescription>{status.message}</AlertDescription>
             </Alert>
-          )}
+          </CardContent>
+        </Card>
+      )}
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Verificando...
-              </>
-            ) : (
-              "Guardar y verificar"
-            )}
-          </Button>
-        </form>
-      </CardContent>
-      <CardFooter className="flex justify-between text-xs text-muted-foreground">
-        <p>Estas credenciales se guardarán de forma segura en las variables de entorno de tu aplicación.</p>
-      </CardFooter>
-    </Card>
+      <Tabs defaultValue="manual">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="manual">Configuración Manual</TabsTrigger>
+          <TabsTrigger value="vercel">Configuración en Vercel</TabsTrigger>
+        </TabsList>
+        <TabsContent value="manual" className="mt-4">
+          <ShopifyManualConfig />
+        </TabsContent>
+        <TabsContent value="vercel" className="mt-4">
+          <ShopifyCredentialsForm />
+        </TabsContent>
+      </Tabs>
+    </div>
   )
 }

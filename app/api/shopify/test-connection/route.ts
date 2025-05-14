@@ -6,19 +6,15 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { shopDomain, accessToken } = body
 
-    // Usar las credenciales proporcionadas o las de las variables de entorno
-    const domain = shopDomain || process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
-    const token = accessToken || process.env.SHOPIFY_ACCESS_TOKEN
-
     // Verificar que las credenciales estén configuradas
-    if (!domain) {
+    if (!shopDomain) {
       return NextResponse.json({
         success: false,
         message: "El dominio de la tienda no está configurado",
       })
     }
 
-    if (!token) {
+    if (!accessToken) {
       return NextResponse.json({
         success: false,
         message: "El token de acceso no está configurado",
@@ -26,10 +22,10 @@ export async function POST(request: Request) {
     }
 
     // Crear un cliente GraphQL para Shopify
-    const apiUrl = `https://${domain}/admin/api/2023-10/graphql.json`
+    const apiUrl = `https://${shopDomain}/admin/api/2023-10/graphql.json`
     const client = new GraphQLClient(apiUrl, {
       headers: {
-        "X-Shopify-Access-Token": token,
+        "X-Shopify-Access-Token": accessToken,
         "Content-Type": "application/json",
       },
     })
