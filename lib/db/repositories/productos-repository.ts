@@ -1,75 +1,107 @@
-import { db } from "../neon"
-import { productos } from "../schema"
-import { eq } from "drizzle-orm"
+import { executeQuery, findAll, findById, insert, update, remove, logSyncEvent } from "../neon"
 
 export async function getAllProductos() {
-  return db.select().from(productos)
+  return findAll("productos")
 }
 
 export async function getProductoById(id: number) {
-  return db.select().from(productos).where(eq(productos.id, id))
+  const productos = await findById("productos", id)
+  return productos.length > 0 ? productos[0] : null
 }
 
 export async function getProductoByShopifyId(shopifyId: string) {
-  return db.select().from(productos).where(eq(productos.shopify_id, shopifyId))
+  const query = "SELECT * FROM productos WHERE shopify_id = $1"
+  const result = await executeQuery(query, [shopifyId])
+  return result.length > 0 ? result[0] : null
 }
 
 export async function createProducto(data: any) {
-  return db.insert(productos).values(data).returning()
+  try {
+    const producto = await insert("productos", {
+      ...data,
+      fecha_creacion: new Date(),
+      fecha_actualizacion: new Date(),
+    })
+
+    await logSyncEvent(
+      "PRODUCT",
+      producto.id.toString(),
+      "CREATE",
+      "SUCCESS",
+      "Producto creado correctamente",
+      producto,
+    )
+
+    return producto
+  } catch (error) {
+    await logSyncEvent(
+      "PRODUCT",
+      data.shopify_id || "unknown",
+      "CREATE",
+      "ERROR",
+      `Error al crear producto: ${error.message}`,
+      { error: error.message, data },
+    )
+    throw error
+  }
 }
 
 export async function updateProducto(id: number, data: any) {
-  return db
-    .update(productos)
-    .set({
+  try {
+    const producto = await update("productos", id, {
       ...data,
       fecha_actualizacion: new Date(),
     })
-    .where(eq(productos.id, id))
-    .returning()
+
+    await logSyncEvent("PRODUCT", id.toString(), "UPDATE", "SUCCESS", "Producto actualizado correctamente", producto)
+
+    return producto
+  } catch (error) {
+    await logSyncEvent("PRODUCT", id.toString(), "UPDATE", "ERROR", `Error al actualizar producto: ${error.message}`, {
+      error: error.message,
+      data,
+    })
+    throw error
+  }
 }
 
 export async function deleteProducto(id: number) {
-  return db.delete(productos).where(eq(productos.id, id)).returning()
+  try {
+    await remove("productos", id)
+
+    await logSyncEvent("PRODUCT", id.toString(), "DELETE", "SUCCESS", "Producto eliminado correctamente")
+
+    return { success: true }
+  } catch (error) {
+    await logSyncEvent("PRODUCT", id.toString(), "DELETE", "ERROR", `Error al eliminar producto: ${error.message}`, {
+      error: error.message,
+    })
+    throw error
+  }
 }
 
-export async function syncProductoWithShopify(shopifyProducto: any) {
-  // Buscar si el producto ya existe
-  const existingProductos = await getProductoByShopifyId(shopifyProducto.id)
+export async function syncProductoWithShopify(id: number, shopifyData: any) {
+  try {
+    const producto = await getProductoById(id)
 
-  if (existingProductos.length > 0) {
-    // Actualizar producto existente
-    const productoId = existingProductos[0].id
-    return updateProducto(productoId, {
-      titulo: shopifyProducto.title,
-      descripcion: shopifyProducto.description || shopifyProducto.descriptionHtml,
-      tipo_producto: shopifyProducto.productType,
-      proveedor: shopifyProducto.vendor,
-      estado: shopifyProducto.status,
-      publicado: shopifyProducto.status === "ACTIVE",
-      etiquetas: shopifyProducto.tags || [],
-      precio_base: shopifyProducto.priceRangeV2?.minVariantPrice?.amount || 0,
-      precio_comparacion: shopifyProducto.compareAtPriceRange?.minVariantPrice?.amount || null,
-      imagen_destacada_url: shopifyProducto.images?.edges?.[0]?.node?.url || null,
+    if (!producto) {
+      throw new Error(`Producto con ID ${id} no encontrado`)
+    }
+
+    const updatedProducto = await update("productos", id, {
+      shopify_id: shopifyData.id,
       ultima_sincronizacion: new Date(),
     })
-  } else {
-    // Crear nuevo producto
-    return createProducto({
-      shopify_id: shopifyProducto.id,
-      titulo: shopifyProducto.title,
-      descripcion: shopifyProducto.description || shopifyProducto.descriptionHtml,
-      tipo_producto: shopifyProducto.productType,
-      proveedor: shopifyProducto.vendor,
-      estado: shopifyProducto.status,
-      publicado: shopifyProducto.status === "ACTIVE",
-      etiquetas: shopifyProducto.tags || [],
-      precio_base: shopifyProducto.priceRangeV2?.minVariantPrice?.amount || 0,
-      precio_comparacion: shopifyProducto.compareAtPriceRange?.minVariantPrice?.amount || null,
-      imagen_destacada_url: shopifyProducto.images?.edges?.[0]?.node?.url || null,
-      fecha_creacion: new Date(),
-      fecha_actualizacion: new Date(),
-      ultima_sincronizacion: new Date(),
+
+    await logSyncEvent("PRODUCT", id.toString(), "SYNC", "SUCCESS", "Producto sincronizado con Shopify", {
+      shopifyId: shopifyData.id,
     })
+
+    return updatedProducto
+  } catch (error) {
+    await logSyncEvent("PRODUCT", id.toString(), "SYNC", "ERROR", `Error al sincronizar producto: ${error.message}`, {
+      error: error.message,
+    })
+    throw error
   }
 }

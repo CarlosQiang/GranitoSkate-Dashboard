@@ -1,32 +1,46 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import * as registroRepository from "@/lib/db/repositories/registro-repository"
+import {
+  getAllRegistros,
+  getRegistrosByTipoEntidad,
+  getRegistrosByResultado,
+  getRegistrosByAccion,
+  getRegistrosCount,
+} from "@/lib/db/repositories/registro-repository"
 
 export async function GET(request: Request) {
   try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
-
-    // Obtener parámetros de consulta
     const { searchParams } = new URL(request.url)
-    const tipo = searchParams.get("tipo")
-    const entidad = searchParams.get("entidad")
-    const limit = Number.parseInt(searchParams.get("limit") || "50")
+    const tipoEntidad = searchParams.get("tipoEntidad")
+    const resultado = searchParams.get("resultado")
+    const accion = searchParams.get("accion")
+    const limit = Number.parseInt(searchParams.get("limit") || "100")
+    const offset = Number.parseInt(searchParams.get("offset") || "0")
 
-    let eventos
-    if (tipo) {
-      eventos = await registroRepository.getSyncEventsByEntity(tipo, entidad || undefined, limit)
+    let registros
+
+    if (tipoEntidad) {
+      registros = await getRegistrosByTipoEntidad(tipoEntidad, limit, offset)
+    } else if (resultado) {
+      registros = await getRegistrosByResultado(resultado, limit, offset)
+    } else if (accion) {
+      registros = await getRegistrosByAccion(accion, limit, offset)
     } else {
-      eventos = await registroRepository.getRecentSyncEvents(limit)
+      registros = await getAllRegistros(limit, offset)
     }
 
-    return NextResponse.json(eventos)
+    const total = await getRegistrosCount()
+
+    return NextResponse.json({
+      registros,
+      pagination: {
+        total,
+        limit,
+        offset,
+        pages: Math.ceil(total / limit),
+      },
+    })
   } catch (error) {
-    console.error("Error al obtener registro de sincronización:", error)
-    return NextResponse.json({ error: "Error al obtener registro de sincronización" }, { status: 500 })
+    console.error("Error al obtener registros:", error)
+    return NextResponse.json({ error: "Error al obtener registros" }, { status: 500 })
   }
 }

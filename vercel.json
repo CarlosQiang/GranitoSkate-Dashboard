@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
-  "installCommand": "npm install --no-optional --no-audit",
+  "buildCommand": "prisma generate && next build",
+  "installCommand": "npm install --legacy-peer-deps",
   "framework": "nextjs",
   "regions": ["iad1"],
   "images": {

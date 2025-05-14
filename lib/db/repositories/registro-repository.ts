@@ -1,38 +1,46 @@
-import { db } from "../neon"
-import { registro_sincronizacion } from "../schema"
+import { executeQuery } from "../neon"
 
-export async function logSyncEvent(data: {
-  tipo_entidad: string
-  entidad_id?: string
-  accion: string
-  resultado: string
-  mensaje?: string
-  detalles?: any
-}) {
-  return db
-    .insert(registro_sincronizacion)
-    .values({
-      tipo_entidad: data.tipo_entidad,
-      entidad_id: data.entidad_id,
-      accion: data.accion,
-      resultado: data.resultado,
-      mensaje: data.mensaje,
-      detalles: data.detalles ? data.detalles : null,
-      fecha: new Date(),
-    })
-    .returning()
+export async function getAllRegistros(limit = 100, offset = 0) {
+  const query = "SELECT * FROM registro_sincronizacion ORDER BY fecha DESC LIMIT $1 OFFSET $2"
+  return executeQuery(query, [limit, offset])
 }
 
-export async function getRecentSyncEvents(limit = 50) {
-  return db.select().from(registro_sincronizacion).orderBy(registro_sincronizacion.fecha).limit(limit)
+export async function getRegistrosByTipoEntidad(tipoEntidad: string, limit = 100, offset = 0) {
+  const query = "SELECT * FROM registro_sincronizacion WHERE tipo_entidad = $1 ORDER BY fecha DESC LIMIT $2 OFFSET $3"
+  return executeQuery(query, [tipoEntidad, limit, offset])
 }
 
-export async function getSyncEventsByEntity(tipo_entidad: string, entidad_id?: string, limit = 50) {
-  let query = db.select().from(registro_sincronizacion).where(registro_sincronizacion.tipo_entidad, tipo_entidad)
+export async function getRegistrosByResultado(resultado: string, limit = 100, offset = 0) {
+  const query = "SELECT * FROM registro_sincronizacion WHERE resultado = $1 ORDER BY fecha DESC LIMIT $2 OFFSET $3"
+  return executeQuery(query, [resultado, limit, offset])
+}
 
-  if (entidad_id) {
-    query = query.where(registro_sincronizacion.entidad_id, entidad_id)
-  }
+export async function getRegistrosByAccion(accion: string, limit = 100, offset = 0) {
+  const query = "SELECT * FROM registro_sincronizacion WHERE accion = $1 ORDER BY fecha DESC LIMIT $2 OFFSET $3"
+  return executeQuery(query, [accion, limit, offset])
+}
 
-  return query.orderBy(registro_sincronizacion.fecha).limit(limit)
+export async function getRegistrosByFecha(fechaInicio: Date, fechaFin: Date, limit = 100, offset = 0) {
+  const query =
+    "SELECT * FROM registro_sincronizacion WHERE fecha BETWEEN $1 AND $2 ORDER BY fecha DESC LIMIT $3 OFFSET $4"
+  return executeQuery(query, [fechaInicio, fechaFin, limit, offset])
+}
+
+export async function getRegistrosCount() {
+  const result = await executeQuery("SELECT COUNT(*) as total FROM registro_sincronizacion")
+  return Number.parseInt(result[0].total)
+}
+
+export async function getRegistrosCountByTipoEntidad(tipoEntidad: string) {
+  const result = await executeQuery("SELECT COUNT(*) as total FROM registro_sincronizacion WHERE tipo_entidad = $1", [
+    tipoEntidad,
+  ])
+  return Number.parseInt(result[0].total)
+}
+
+export async function getRegistrosCountByResultado(resultado: string) {
+  const result = await executeQuery("SELECT COUNT(*) as total FROM registro_sincronizacion WHERE resultado = $1", [
+    resultado,
+  ])
+  return Number.parseInt(result[0].total)
 }

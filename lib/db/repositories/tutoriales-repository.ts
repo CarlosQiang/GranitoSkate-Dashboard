@@ -1,92 +1,109 @@
-import { db } from "../neon"
-import { tutoriales } from "../schema"
-import { eq } from "drizzle-orm"
+import { executeQuery, findAll, findById, insert, update, remove, logSyncEvent } from "../neon"
 
 export async function getAllTutoriales() {
-  return db.select().from(tutoriales)
+  return findAll("tutoriales")
 }
 
 export async function getTutorialById(id: number) {
-  return db.select().from(tutoriales).where(eq(tutoriales.id, id))
+  const tutoriales = await findById("tutoriales", id)
+  return tutoriales.length > 0 ? tutoriales[0] : null
 }
 
 export async function getTutorialBySlug(slug: string) {
-  return db.select().from(tutoriales).where(eq(tutoriales.slug, slug))
+  const query = "SELECT * FROM tutoriales WHERE slug = $1"
+  const result = await executeQuery(query, [slug])
+  return result.length > 0 ? result[0] : null
 }
 
 export async function getTutorialByShopifyId(shopifyId: string) {
-  return db.select().from(tutoriales).where(eq(tutoriales.shopify_id, shopifyId))
+  const query = "SELECT * FROM tutoriales WHERE shopify_id = $1"
+  const result = await executeQuery(query, [shopifyId])
+  return result.length > 0 ? result[0] : null
 }
 
 export async function createTutorial(data: any) {
-  return db.insert(tutoriales).values(data).returning()
+  try {
+    const tutorial = await insert("tutoriales", {
+      ...data,
+      fecha_creacion: new Date(),
+      fecha_actualizacion: new Date(),
+    })
+
+    await logSyncEvent(
+      "TUTORIAL",
+      tutorial.id.toString(),
+      "CREATE",
+      "SUCCESS",
+      "Tutorial creado correctamente",
+      tutorial,
+    )
+
+    return tutorial
+  } catch (error) {
+    await logSyncEvent("TUTORIAL", "unknown", "CREATE", "ERROR", `Error al crear tutorial: ${error.message}`, {
+      error: error.message,
+      data,
+    })
+    throw error
+  }
 }
 
 export async function updateTutorial(id: number, data: any) {
-  return db
-    .update(tutoriales)
-    .set({
+  try {
+    const tutorial = await update("tutoriales", id, {
       ...data,
       fecha_actualizacion: new Date(),
     })
-    .where(eq(tutoriales.id, id))
-    .returning()
+
+    await logSyncEvent("TUTORIAL", id.toString(), "UPDATE", "SUCCESS", "Tutorial actualizado correctamente", tutorial)
+
+    return tutorial
+  } catch (error) {
+    await logSyncEvent("TUTORIAL", id.toString(), "UPDATE", "ERROR", `Error al actualizar tutorial: ${error.message}`, {
+      error: error.message,
+      data,
+    })
+    throw error
+  }
 }
 
 export async function deleteTutorial(id: number) {
-  return db.delete(tutoriales).where(eq(tutoriales.id, id)).returning()
+  try {
+    await remove("tutoriales", id)
+
+    await logSyncEvent("TUTORIAL", id.toString(), "DELETE", "SUCCESS", "Tutorial eliminado correctamente")
+
+    return { success: true }
+  } catch (error) {
+    await logSyncEvent("TUTORIAL", id.toString(), "DELETE", "ERROR", `Error al eliminar tutorial: ${error.message}`, {
+      error: error.message,
+    })
+    throw error
+  }
 }
 
-export async function syncTutorialWithShopify(shopifyProducto: any) {
-  // Extraer metadatos
-  const metafields = shopifyProducto.metafields?.edges?.map((edge: any) => edge.node) || []
-  const nivelDificultad =
-    metafields.find((m: any) => m.namespace === "tutorial" && m.key === "nivel_dificultad")?.value || "intermedio"
-  const tiempoEstimado =
-    metafields.find((m: any) => m.namespace === "tutorial" && m.key === "tiempo_estimado")?.value || "0"
+export async function syncTutorialWithShopify(id: number, shopifyData: any) {
+  try {
+    const tutorial = await getTutorialById(id)
 
-  // Buscar si el tutorial ya existe
-  const existingTutoriales = await getTutorialByShopifyId(shopifyProducto.id)
+    if (!tutorial) {
+      throw new Error(`Tutorial con ID ${id} no encontrado`)
+    }
 
-  if (existingTutoriales.length > 0) {
-    // Actualizar tutorial existente
-    const tutorialId = existingTutoriales[0].id
-    return updateTutorial(tutorialId, {
-      titulo: shopifyProducto.title,
-      descripcion: shopifyProducto.description || "",
-      contenido: shopifyProducto.descriptionHtml || shopifyProducto.description || "",
-      nivel_dificultad: nivelDificultad,
-      tiempo_estimado: Number.parseInt(tiempoEstimado, 10) || 0,
-      categorias: shopifyProducto.productType ? [shopifyProducto.productType] : [],
-      tags: shopifyProducto.tags || [],
-      publicado: shopifyProducto.status === "ACTIVE",
-      fecha_publicacion: shopifyProducto.publishedAt ? new Date(shopifyProducto.publishedAt) : null,
+    const updatedTutorial = await update("tutoriales", id, {
+      shopify_id: shopifyData.id,
       ultima_sincronizacion: new Date(),
     })
-  } else {
-    // Crear slug a partir del título
-    const slug = shopifyProducto.title
-      .toLowerCase()
-      .replace(/[^\w\s]/gi, "")
-      .replace(/\s+/g, "-")
 
-    // Crear nuevo tutorial
-    return createTutorial({
-      shopify_id: shopifyProducto.id,
-      titulo: shopifyProducto.title,
-      slug,
-      descripcion: shopifyProducto.description || "",
-      contenido: shopifyProducto.descriptionHtml || shopifyProducto.description || "",
-      nivel_dificultad: nivelDificultad,
-      tiempo_estimado: Number.parseInt(tiempoEstimado, 10) || 0,
-      categorias: shopifyProducto.productType ? [shopifyProducto.productType] : [],
-      tags: shopifyProducto.tags || [],
-      publicado: shopifyProducto.status === "ACTIVE",
-      destacado: false,
-      fecha_publicacion: shopifyProducto.publishedAt ? new Date(shopifyProducto.publishedAt) : null,
-      fecha_creacion: new Date(),
-      fecha_actualizacion: new Date(),
-      ultima_sincronizacion: new Date(),
+    await logSyncEvent("TUTORIAL", id.toString(), "SYNC", "SUCCESS", "Tutorial sincronizado con Shopify", {
+      shopifyId: shopifyData.id,
     })
+
+    return updatedTutorial
+  } catch (error) {
+    await logSyncEvent("TUTORIAL", id.toString(), "SYNC", "ERROR", `Error al sincronizar tutorial: ${error.message}`, {
+      error: error.message,
+    })
+    throw error
   }
 }
