@@ -27,58 +27,34 @@ export function InitStatus() {
         method: "GET",
         headers: {
           "Cache-Control": "no-cache, no-store, must-revalidate",
-          Accept: "application/json",
         },
       })
-
-      // Verificar si la respuesta es JSON válido
-      const contentType = response.headers.get("content-type")
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error(`Respuesta no válida: esperaba JSON pero recibió ${contentType}`)
-      }
 
       const data = await response.json()
 
       // Verificar si hay datos de productos o colecciones para determinar si realmente hay un problema
-      try {
-        const productsResponse = await fetch("/api/shopify/products?limit=1", {
-          headers: {
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            Accept: "application/json",
-          },
-        })
+      const productsResponse = await fetch("/api/shopify/products?limit=1", {
+        cache: "no-store",
+      })
+      const productsData = await productsResponse.json()
 
-        if (productsResponse.ok) {
-          const productsData = await productsResponse.json()
-          // Si podemos obtener productos, entonces la conexión realmente funciona
-          const actuallyWorks = productsData && !productsData.error && productsData.products?.length > 0
-
-          setStatus({
-            checked: true,
-            // Si podemos obtener productos, consideramos que la inicialización fue exitosa
-            success: data.success || actuallyWorks,
-            message:
-              actuallyWorks && !data.success
-                ? "Sistema funcionando correctamente (ignorando error de inicialización)"
-                : data.message || "Inicialización completada correctamente",
-            isLoading: false,
-            showError: !(actuallyWorks && !data.success),
-          })
-          return
-        }
-      } catch (productError) {
-        console.warn("Error al verificar productos:", productError)
-      }
+      // Si podemos obtener productos, entonces la conexión realmente funciona
+      const actuallyWorks = productsData && !productsData.error && productsData.products?.length > 0
 
       setStatus({
         checked: true,
-        success: data.success,
-        message: data.message || "Inicialización completada",
+        // Si podemos obtener productos, consideramos que la inicialización fue exitosa
+        // incluso si el endpoint de inicialización reporta un error
+        success: data.success || actuallyWorks,
+        message:
+          actuallyWorks && !data.success
+            ? "Sistema funcionando correctamente (ignorando error de inicialización)"
+            : data.message || "Inicialización completada correctamente",
         isLoading: false,
-        showError: true,
+        // Solo mostrar el error si realmente no podemos obtener datos de Shopify
+        showError: !(actuallyWorks && !data.success),
       })
     } catch (error) {
-      console.error("Error en la inicialización:", error)
       setStatus({
         checked: true,
         success: false,

@@ -10,21 +10,9 @@ export function getBaseUrl() {
     : process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
 }
 
-const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || ""
-const accessToken = process.env.SHOPIFY_ACCESS_TOKEN || ""
-
-if (!shopDomain) {
-  console.error("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está configurado")
-}
-
-if (!accessToken) {
-  console.error("SHOPIFY_ACCESS_TOKEN no está configurado")
-}
-
 // Crear un cliente GraphQL para Shopify
-const shopifyClient = new GraphQLClient(`https://${shopDomain}/admin/api/2023-10/graphql.json`, {
+const shopifyClient = new GraphQLClient(`${getBaseUrl()}/api/shopify/proxy`, {
   headers: {
-    "X-Shopify-Access-Token": accessToken,
     "Content-Type": "application/json",
   },
 })
@@ -215,9 +203,6 @@ export function extractIdFromGid(gid: string): string {
   const parts = gid.split("/")
   return parts[parts.length - 1]
 }
-
-export { shopDomain }
-export { accessToken }
 
 // Exportar el cliente de Shopify
 export default shopifyClient
