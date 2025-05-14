@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator"
 import { useState, useEffect } from "react"
 
-export default function SincronizacionPage() {
+export default function SincronizacionClientPage() {
   return (
     <div className="container mx-auto py-6 space-y-8">
       <div>
