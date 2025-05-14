@@ -1,7 +1,0 @@
-"use client"
-
-import ClientPage from "@/app/dashboard/sincronizacion/ClientPage"
-
-export default function SincronizacionClientPage() {
-  return <ClientPage />
-}

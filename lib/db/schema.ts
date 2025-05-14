@@ -1,177 +1,105 @@
-import {
-  pgTable,
-  serial,
-  text,
-  timestamp,
-  boolean,
-  integer,
-  decimal,
-  json,
-  primaryKey,
-  varchar,
-} from "drizzle-orm/pg-core"
+// Este archivo ya no usa Drizzle ORM
 
-// Tabla de administradores (existente en la versión 43)
-export const administradores = pgTable("administradores", {
-  id: serial("id").primaryKey(),
-  nombre: text("nombre").notNull(),
-  email: text("email").notNull().unique(),
-  password: text("password").notNull(),
-  rol: text("rol").default("editor"),
-  activo: boolean("activo").default(true),
-  fecha_creacion: timestamp("fecha_creacion").defaultNow(),
-  ultima_actualizacion: timestamp("ultima_actualizacion").defaultNow(),
-})
+// Definición de tipos para las tablas
+export type Producto = {
+  id: number
+  shopify_id?: string
+  titulo: string
+  descripcion?: string
+  tipo_producto?: string
+  proveedor?: string
+  estado?: string
+  publicado: boolean
+  destacado: boolean
+  etiquetas?: string[]
+  imagen_destacada_url?: string
+  precio_base?: number
+  precio_comparacion?: number
+  sku?: string
+  codigo_barras?: string
+  inventario_disponible?: number
+  politica_inventario?: string
+  requiere_envio: boolean
+  peso?: number
+  unidad_peso?: string
+  seo_titulo?: string
+  seo_descripcion?: string
+  url_handle?: string
+  fecha_creacion: Date
+  fecha_actualizacion: Date
+  fecha_publicacion?: Date
+  ultima_sincronizacion?: Date
+}
 
-// Tabla de tutoriales
-export const tutoriales = pgTable("tutoriales", {
-  id: serial("id").primaryKey(),
-  titulo: text("titulo").notNull(),
-  descripcion: text("descripcion"),
-  contenido: text("contenido").notNull(),
-  imagen_url: text("imagen_url"),
-  autor_id: integer("autor_id").references(() => administradores.id),
-  publicado: boolean("publicado").default(false),
-  destacado: boolean("destacado").default(false),
-  fecha_creacion: timestamp("fecha_creacion").defaultNow(),
-  ultima_actualizacion: timestamp("ultima_actualizacion").defaultNow(),
-})
+export type Promocion = {
+  id: number
+  shopify_id?: string
+  titulo: string
+  descripcion?: string
+  tipo: string
+  valor?: number
+  codigo?: string
+  objetivo?: string
+  objetivo_id?: string
+  condiciones?: any
+  fecha_inicio?: Date
+  fecha_fin?: Date
+  activa: boolean
+  limite_uso?: number
+  contador_uso: number
+  es_automatica: boolean
+  fecha_creacion: Date
+  fecha_actualizacion: Date
+  ultima_sincronizacion?: Date
+}
 
-// Tabla de productos
-export const productos = pgTable("productos", {
-  id: serial("id").primaryKey(),
-  shopify_id: varchar("shopify_id", { length: 255 }).notNull().unique(),
-  nombre: text("nombre").notNull(),
-  descripcion: text("descripcion"),
-  precio: decimal("precio", { precision: 10, scale: 2 }).default("0"),
-  sku: varchar("sku", { length: 100 }),
-  inventario: integer("inventario").default(0),
-  imagen_url: text("imagen_url"),
-  activo: boolean("activo").default(true),
-  meta_titulo: text("meta_titulo"),
-  meta_descripcion: text("meta_descripcion"),
-  meta_keywords: text("meta_keywords"),
-  fecha_creacion: timestamp("fecha_creacion").defaultNow(),
-  ultima_actualizacion: timestamp("ultima_actualizacion").defaultNow(),
-})
+export type Coleccion = {
+  id: number
+  shopify_id?: string
+  titulo: string
+  descripcion?: string
+  url_handle?: string
+  imagen_url?: string
+  es_automatica: boolean
+  condiciones_automaticas?: any
+  publicada: boolean
+  seo_titulo?: string
+  seo_descripcion?: string
+  fecha_creacion: Date
+  fecha_actualizacion: Date
+  fecha_publicacion?: Date
+  ultima_sincronizacion?: Date
+}
 
-// Tabla de colecciones
-export const colecciones = pgTable("colecciones", {
-  id: serial("id").primaryKey(),
-  shopify_id: varchar("shopify_id", { length: 255 }).notNull().unique(),
-  nombre: text("nombre").notNull(),
-  descripcion: text("descripcion"),
-  imagen_url: text("imagen_url"),
-  activo: boolean("activo").default(true),
-  meta_titulo: text("meta_titulo"),
-  meta_descripcion: text("meta_descripcion"),
-  meta_keywords: text("meta_keywords"),
-  fecha_creacion: timestamp("fecha_creacion").defaultNow(),
-  ultima_actualizacion: timestamp("ultima_actualizacion").defaultNow(),
-})
+export type Tutorial = {
+  id: number
+  titulo: string
+  slug: string
+  descripcion?: string
+  contenido?: string
+  imagen_url?: string
+  nivel_dificultad?: string
+  tiempo_estimado?: number
+  categorias?: string[]
+  tags?: string[]
+  shopify_id?: string
+  publicado: boolean
+  destacado: boolean
+  autor_id?: number
+  fecha_creacion: Date
+  fecha_actualizacion: Date
+  fecha_publicacion?: Date
+  metadatos?: any
+  ultima_sincronizacion?: Date
+}
 
-// Tabla de relación entre productos y colecciones
-export const productos_colecciones = pgTable(
-  "productos_colecciones",
-  {
-    producto_id: integer("producto_id")
-      .notNull()
-      .references(() => productos.id, { onDelete: "cascade" }),
-    coleccion_id: integer("coleccion_id")
-      .notNull()
-      .references(() => colecciones.id, { onDelete: "cascade" }),
-    fecha_creacion: timestamp("fecha_creacion").defaultNow(),
-  },
-  (table) => {
-    return {
-      pk: primaryKey({ columns: [table.producto_id, table.coleccion_id] }),
-    }
-  },
-)
-
-// Tabla de clientes
-export const clientes = pgTable("clientes", {
-  id: serial("id").primaryKey(),
-  shopify_id: varchar("shopify_id", { length: 255 }).notNull().unique(),
-  nombre: varchar("nombre", { length: 100 }),
-  apellido: varchar("apellido", { length: 100 }),
-  email: varchar("email", { length: 255 }),
-  telefono: varchar("telefono", { length: 50 }),
-  direccion: text("direccion"),
-  ciudad: varchar("ciudad", { length: 100 }),
-  pais: varchar("pais", { length: 100 }),
-  codigo_postal: varchar("codigo_postal", { length: 20 }),
-  activo: boolean("activo").default(true),
-  fecha_creacion: timestamp("fecha_creacion").defaultNow(),
-  ultima_actualizacion: timestamp("ultima_actualizacion").defaultNow(),
-})
-
-// Tabla de pedidos
-export const pedidos = pgTable("pedidos", {
-  id: serial("id").primaryKey(),
-  shopify_id: varchar("shopify_id", { length: 255 }).notNull().unique(),
-  numero: varchar("numero", { length: 50 }),
-  cliente_id: varchar("cliente_id", { length: 255 }),
-  total: decimal("total", { precision: 10, scale: 2 }).default("0"),
-  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).default("0"),
-  impuestos: decimal("impuestos", { precision: 10, scale: 2 }).default("0"),
-  estado: varchar("estado", { length: 50 }).default("pending"),
-  fecha_pedido: timestamp("fecha_pedido").defaultNow(),
-  fecha_creacion: timestamp("fecha_creacion").defaultNow(),
-  ultima_actualizacion: timestamp("ultima_actualizacion").defaultNow(),
-})
-
-// Tabla de promociones
-export const promociones = pgTable("promociones", {
-  id: serial("id").primaryKey(),
-  shopify_id: varchar("shopify_id", { length: 255 }).notNull().unique(),
-  nombre: varchar("nombre", { length: 255 }).notNull(),
-  codigo: varchar("codigo", { length: 50 }),
-  tipo: varchar("tipo", { length: 50 }).default("percentage"),
-  valor: decimal("valor", { precision: 10, scale: 2 }).default("0"),
-  fecha_inicio: timestamp("fecha_inicio"),
-  fecha_fin: timestamp("fecha_fin"),
-  activo: boolean("activo").default(true),
-  fecha_creacion: timestamp("fecha_creacion").defaultNow(),
-  ultima_actualizacion: timestamp("ultima_actualizacion").defaultNow(),
-})
-
-// Tabla de registro de sincronización
-export const registro_sincronizacion = pgTable("registro_sincronizacion", {
-  id: serial("id").primaryKey(),
-  tipo: varchar("tipo", { length: 50 }).notNull(),
-  estado: varchar("estado", { length: 50 }).notNull(),
-  mensaje: text("mensaje"),
-  duracion_ms: integer("duracion_ms"),
-  fecha: timestamp("fecha").defaultNow(),
-  fecha_actualizacion: timestamp("fecha_actualizacion"),
-})
-
-// Tabla de configuración SEO
-export const seo_config = pgTable("seo_config", {
-  id: serial("id").primaryKey(),
-  entidad_tipo: varchar("entidad_tipo", { length: 50 }).notNull(), // 'producto', 'coleccion', 'pagina'
-  entidad_id: varchar("entidad_id", { length: 255 }).notNull(),
-  meta_titulo: text("meta_titulo"),
-  meta_descripcion: text("meta_descripcion"),
-  meta_keywords: text("meta_keywords"),
-  canonical_url: text("canonical_url"),
-  og_titulo: text("og_titulo"),
-  og_descripcion: text("og_descripcion"),
-  og_imagen: text("og_imagen"),
-  twitter_titulo: text("twitter_titulo"),
-  twitter_descripcion: text("twitter_descripcion"),
-  twitter_imagen: text("twitter_imagen"),
-  schema_markup: json("schema_markup"),
-  fecha_creacion: timestamp("fecha_creacion").defaultNow(),
-  ultima_actualizacion: timestamp("ultima_actualizacion").defaultNow(),
-})
-
-// Tabla de historial de cambios SEO
-export const seo_historial = pgTable("seo_historial", {
-  id: serial("id").primaryKey(),
-  config_id: integer("config_id").references(() => seo_config.id, { onDelete: "cascade" }),
-  usuario_id: integer("usuario_id").references(() => administradores.id),
-  cambios: json("cambios").notNull(),
-  fecha: timestamp("fecha").defaultNow(),
-})
+export type RegistroSincronizacion = {
+  id: number
+  tipo_entidad: string
+  entidad_id?: string
+  accion: string
+  resultado: string
+  mensaje?: string
+  detalles?: any
+  fecha: Date
+}

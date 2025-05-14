@@ -1,56 +1,53 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { db } from "@/lib/db/neon"
-import { administradores } from "@/lib/db/schema"
-import { eq } from "drizzle-orm"
-import bcrypt from "bcryptjs"
+import { prisma } from "./prisma"
+import { verifyPassword, updateLastLogin } from "./auth-service"
 
 export const authOptions: NextAuthOptions = {
-  session: {
-    strategy: "jwt",
-  },
-  pages: {
-    signIn: "/login",
-  },
   providers: [
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
+        identifier: { label: "Usuario o Email", type: "text" },
+        password: { label: "Contraseña", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null
-        }
-
         try {
-          const users = await db
-            .select()
-            .from(administradores)
-            .where(eq(administradores.email, credentials.email))
-            .limit(1)
-
-          const user = users[0]
-
-          if (!user || !user.activo) {
+          if (!credentials?.identifier || !credentials?.password) {
+            console.log("Credenciales incompletas")
             return null
           }
 
-          const passwordMatch = await bcrypt.compare(credentials.password, user.password)
+          // Buscar usuario por nombre de usuario o correo electrónico
+          const user = await prisma.administrador.findFirst({
+            where: {
+              OR: [{ nombre_usuario: credentials.identifier }, { correo_electronico: credentials.identifier }],
+              activo: true,
+            },
+          })
 
-          if (!passwordMatch) {
+          if (!user) {
+            console.log("Usuario no encontrado:", credentials.identifier)
             return null
           }
+
+          const isValidPassword = await verifyPassword(credentials.password, user.contrasena)
+          if (!isValidPassword) {
+            console.log("Contraseña inválida para usuario:", credentials.identifier)
+            return null
+          }
+
+          // Actualizar último acceso
+          await updateLastLogin(user.id)
 
           return {
             id: user.id.toString(),
-            name: user.nombre,
-            email: user.email,
+            name: user.nombre_completo || user.nombre_usuario,
+            email: user.correo_electronico,
             role: user.rol,
           }
         } catch (error) {
-          console.error("Error en autenticación:", error)
+          console.error("Error en authorize:", error)
           return null
         }
       },
@@ -65,11 +62,21 @@ export const authOptions: NextAuthOptions = {
       return token
     },
     async session({ session, token }) {
-      if (token) {
+      if (session.user) {
         session.user.id = token.id as string
         session.user.role = token.role as string
       }
       return session
     },
   },
+  pages: {
+    signIn: "/login",
+    error: "/login",
+  },
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 días
+  },
+  secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === "development",
 }

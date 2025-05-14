@@ -1,18 +1,100 @@
+"use client"
+
 import * as React from "react"
 import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { type ButtonProps, buttonVariants } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 
-const Pagination = ({ className, ...props }: React.ComponentProps<"nav">) => (
-  <nav
-    role="navigation"
-    aria-label="pagination"
-    className={cn("mx-auto flex w-full justify-center", className)}
-    {...props}
-  />
-)
-Pagination.displayName = "Pagination"
+interface PaginationProps {
+  currentPage: number
+  totalPages: number
+  onPageChange: (page: number) => void
+}
+
+export function Pagination({ currentPage, totalPages, onPageChange }: PaginationProps) {
+  // Generar array de páginas a mostrar
+  const getPageNumbers = () => {
+    const pages = []
+    const maxPagesToShow = 5
+
+    if (totalPages <= maxPagesToShow) {
+      // Si hay pocas páginas, mostrar todas
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i)
+      }
+    } else {
+      // Mostrar páginas alrededor de la actual
+      let startPage = Math.max(1, currentPage - 2)
+      const endPage = Math.min(totalPages, startPage + maxPagesToShow - 1)
+
+      // Ajustar si estamos cerca del final
+      if (endPage - startPage < maxPagesToShow - 1) {
+        startPage = Math.max(1, endPage - maxPagesToShow + 1)
+      }
+
+      // Añadir primera página y elipsis si es necesario
+      if (startPage > 1) {
+        pages.push(1)
+        if (startPage > 2) {
+          pages.push("...")
+        }
+      }
+
+      // Añadir páginas intermedias
+      for (let i = startPage; i <= endPage; i++) {
+        pages.push(i)
+      }
+
+      // Añadir última página y elipsis si es necesario
+      if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+          pages.push("...")
+        }
+        pages.push(totalPages)
+      }
+    }
+
+    return pages
+  }
+
+  const pageNumbers = getPageNumbers()
+
+  return (
+    <div className="flex justify-center items-center gap-1 mt-6">
+      <Button variant="outline" size="icon" onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1}>
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+
+      {pageNumbers.map((page, index) =>
+        typeof page === "number" ? (
+          <Button
+            key={index}
+            variant={currentPage === page ? "default" : "outline"}
+            size="sm"
+            onClick={() => onPageChange(page)}
+          >
+            {page}
+          </Button>
+        ) : (
+          <span key={index} className="px-2">
+            {page}
+          </span>
+        ),
+      )}
+
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+      >
+        <ChevronRight className="h-4 w-4" />
+      </Button>
+    </div>
+  )
+}
 
 const PaginationContent = React.forwardRef<HTMLUListElement, React.ComponentProps<"ul">>(
   ({ className, ...props }, ref) => (
@@ -70,12 +152,4 @@ const PaginationEllipsis = ({ className, ...props }: React.ComponentProps<"span"
 )
 PaginationEllipsis.displayName = "PaginationEllipsis"
 
-export {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-}
+export { PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious }
