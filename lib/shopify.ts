@@ -1,26 +1,16 @@
 import { GraphQLClient } from "graphql-request"
 
-// Obtener las credenciales de Shopify desde las variables de entorno
-const shopifyStoreUrl = process.env.SHOPIFY_STORE_URL || ""
+// Obtener las variables de entorno
+const shopifyDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || ""
 const shopifyAccessToken = process.env.SHOPIFY_ACCESS_TOKEN || ""
 
-// Crear el cliente GraphQL para Shopify
-const shopifyClient = new GraphQLClient(`https://${shopifyStoreUrl}/admin/api/2023-10/graphql.json`, {
+// Crear el cliente GraphQL para Shopify con la URL correcta
+const shopifyClient = new GraphQLClient(`https://${shopifyDomain}/admin/api/2023-10/graphql.json`, {
   headers: {
     "X-Shopify-Access-Token": shopifyAccessToken,
     "Content-Type": "application/json",
   },
 })
-
-// Función para obtener la URL base
-export function getBaseUrl() {
-  if (typeof window !== "undefined") {
-    return window.location.origin
-  }
-  return process.env.NEXT_PUBLIC_VERCEL_URL
-    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-    : process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
-}
 
 // Función para realizar consultas GraphQL a Shopify
 export async function shopifyFetch({ query, variables = {} }) {
@@ -29,6 +19,23 @@ export async function shopifyFetch({ query, variables = {} }) {
       query: query.substring(0, 100) + "...", // Solo para logging, truncamos la consulta
       variables,
     })
+
+    // Verificar que las variables de entorno estén configuradas
+    if (!shopifyDomain) {
+      console.error("Error: NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está configurado")
+      return {
+        data: null,
+        errors: [{ message: "NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está configurado" }],
+      }
+    }
+
+    if (!shopifyAccessToken) {
+      console.error("Error: SHOPIFY_ACCESS_TOKEN no está configurado")
+      return {
+        data: null,
+        errors: [{ message: "SHOPIFY_ACCESS_TOKEN no está configurado" }],
+      }
+    }
 
     const result = await shopifyClient.request(query, variables)
 
@@ -80,6 +87,8 @@ export async function shopifyFetch({ query, variables = {} }) {
 
 // Función para formatear IDs de Shopify
 export function formatShopifyId(id: string, type: string): string {
+  if (!id) return `gid://shopify/${type}/0`
+
   if (id.includes("gid://shopify/")) {
     return id
   }
