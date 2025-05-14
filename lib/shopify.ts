@@ -216,5 +216,8 @@ export function extractIdFromGid(gid: string): string {
   return parts[parts.length - 1]
 }
 
+export { shopDomain }
+export { accessToken }
+
 // Exportar el cliente de Shopify
 export default shopifyClient
