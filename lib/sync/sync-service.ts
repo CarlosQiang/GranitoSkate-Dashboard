@@ -4,7 +4,7 @@ import * as shopifyAPI from "@/lib/api/products"
 import * as collectionsAPI from "@/lib/api/colecciones"
 import * as customersAPI from "@/lib/api/customers"
 import * as ordersAPI from "@/lib/api/orders"
-import * as promotionsAPI from "@/lib/api/promociones"
+import { fetchPromotions } from "@/lib/api/promociones"
 
 // Función para sincronizar productos
 export async function syncProducts() {
@@ -273,7 +273,7 @@ export async function syncOrders() {
 export async function syncPromotions() {
   try {
     // Obtener promociones de Shopify
-    const shopifyPromotions = await promotionsAPI.fetchPromotions()
+    const shopifyPromotions = await fetchPromotions()
 
     // Contador para estadísticas
     let created = 0
