@@ -1,418 +1,504 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import * as z from "zod"
+import { Button } from "@/components/ui/button"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Search, Globe, Share2, Twitter } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
-import { fetchSeoMetafields, saveSeoMetafields } from "@/lib/api/metafields"
-import type { SeoMetafields } from "@/types/metafields"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertCircle, Check, Info } from "lucide-react"
+import { fetchSeoMetafields, updateSeoMetafields } from "@/lib/api/seo"
 
-interface SeoFormProps {
-  ownerId: string
-  ownerType: string
-  onSave?: () => void
-  defaultTitle?: string
-  defaultDescription?: string
-}
+// Esquema de validación para el formulario SEO
+const seoFormSchema = z.object({
+  title: z.string().min(5, {
+    message: "El título debe tener al menos 5 caracteres.",
+  }),
+  description: z.string().min(10, {
+    message: "La descripción debe tener al menos 10 caracteres.",
+  }),
+  keywords: z.string().optional(),
+  ogTitle: z.string().optional(),
+  ogDescription: z.string().optional(),
+  ogImage: z.string().url().optional().or(z.literal("")),
+  twitterTitle: z.string().optional(),
+  twitterDescription: z.string().optional(),
+  twitterImage: z.string().url().optional().or(z.literal("")),
+  canonicalUrl: z.string().url().optional().or(z.literal("")),
+})
 
-export function SeoForm({ ownerId, ownerType, onSave, defaultTitle = "", defaultDescription = "" }: SeoFormProps) {
-  const { toast } = useToast()
+export function SeoForm({ ownerId, ownerType, defaultTitle = "", defaultDescription = "" }) {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [seo, setSeo] = useState<SeoMetafields>({
-    title: defaultTitle,
-    description: defaultDescription,
-    keywords: [],
-    ogTitle: "",
-    ogDescription: "",
-    ogImage: "",
-    twitterTitle: "",
-    twitterDescription: "",
-    twitterImage: "",
-    canonicalUrl: "",
+  const [activeTab, setActiveTab] = useState("general")
+  const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle")
+  const [errorMessage, setErrorMessage] = useState("")
+
+  // Inicializar el formulario con valores por defecto
+  const form = useForm<z.infer<typeof seoFormSchema>>({
+    resolver: zodResolver(seoFormSchema),
+    defaultValues: {
+      title: defaultTitle,
+      description: defaultDescription,
+      keywords: "",
+      ogTitle: "",
+      ogDescription: "",
+      ogImage: "",
+      twitterTitle: "",
+      twitterDescription: "",
+      twitterImage: "",
+      canonicalUrl: "",
+    },
   })
 
+  // Cargar los metafields existentes
   useEffect(() => {
-    async function loadSeoData() {
-      setIsLoading(true)
+    async function loadSeoMetafields() {
       try {
-        const seoData = await fetchSeoMetafields(ownerId, ownerType)
+        setIsLoading(true)
+        setErrorMessage("")
 
-        // Si no hay datos de SEO, usar los valores por defecto
-        if (!seoData.title && defaultTitle) {
-          seoData.title = defaultTitle
+        const metafields = await fetchSeoMetafields(ownerId, ownerType)
+
+        // Mapear los metafields a los campos del formulario
+        const formValues: any = {
+          title: defaultTitle,
+          description: defaultDescription,
+          keywords: "",
+          ogTitle: "",
+          ogDescription: "",
+          ogImage: "",
+          twitterTitle: "",
+          twitterDescription: "",
+          twitterImage: "",
+          canonicalUrl: "",
         }
 
-        if (!seoData.description && defaultDescription) {
-          seoData.description = defaultDescription
-        }
-
-        setSeo(seoData)
-      } catch (error) {
-        console.error("Error loading SEO data:", error)
-        toast({
-          title: "Error",
-          description: "No se pudieron cargar los datos de SEO",
-          variant: "destructive",
+        // Procesar cada metafield y asignarlo al campo correspondiente
+        metafields.forEach((meta) => {
+          if (meta.namespace === "seo") {
+            if (meta.key === "title") {
+              formValues.title = meta.value
+            } else if (meta.key === "description") {
+              formValues.description = meta.value
+            } else if (meta.key === "keywords") {
+              try {
+                const keywords = JSON.parse(meta.value)
+                formValues.keywords = Array.isArray(keywords) ? keywords.join(", ") : keywords
+              } catch (e) {
+                formValues.keywords = meta.value
+              }
+            } else if (meta.key === "og_title") {
+              formValues.ogTitle = meta.value
+            } else if (meta.key === "og_description") {
+              formValues.ogDescription = meta.value
+            } else if (meta.key === "og_image") {
+              formValues.ogImage = meta.value
+            } else if (meta.key === "twitter_title") {
+              formValues.twitterTitle = meta.value
+            } else if (meta.key === "twitter_description") {
+              formValues.twitterDescription = meta.value
+            } else if (meta.key === "twitter_image") {
+              formValues.twitterImage = meta.value
+            } else if (meta.key === "canonical_url") {
+              formValues.canonicalUrl = meta.value
+            }
+          }
         })
+
+        // Actualizar el formulario con los valores cargados
+        form.reset(formValues)
+      } catch (error) {
+        console.error("Error loading SEO metafields:", error)
+        setErrorMessage(error.message || "Error al cargar la configuración SEO")
       } finally {
         setIsLoading(false)
       }
     }
 
-    loadSeoData()
-  }, [ownerId, ownerType, defaultTitle, defaultDescription, toast])
+    loadSeoMetafields()
+  }, [ownerId, ownerType, defaultTitle, defaultDescription, form])
 
-  // Modificar la función handleSave para incluir un indicador de éxito más visible
-  const handleSave = async () => {
-    setIsSaving(true)
+  // Manejar el envío del formulario
+  async function onSubmit(values: z.infer<typeof seoFormSchema>) {
     try {
-      const success = await saveSeoMetafields(ownerId, ownerType, seo)
+      setIsSaving(true)
+      setSaveStatus("idle")
+      setErrorMessage("")
 
-      if (success) {
-        toast({
-          title: "SEO guardado",
-          description: "La configuración de SEO se ha guardado correctamente",
-          variant: "success",
-        })
+      // Convertir keywords de string a array
+      const keywordsArray = values.keywords ? values.keywords.split(",").map((keyword) => keyword.trim()) : []
 
-        // Añadir un indicador visual de éxito
-        const successElement = document.createElement("div")
-        successElement.className =
-          "fixed top-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded z-50 animate-fade-in-out"
-        successElement.innerHTML = `
-        <div class="flex items-center">
-          <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
-          </svg>
-          <span>SEO guardado correctamente</span>
-        </div>
-      `
-        document.body.appendChild(successElement)
-        setTimeout(() => {
-          document.body.removeChild(successElement)
-        }, 3000)
+      // Preparar los metafields para guardar
+      const metafieldsToSave = [
+        {
+          namespace: "seo",
+          key: "title",
+          value: values.title,
+          type: "single_line_text_field",
+        },
+        {
+          namespace: "seo",
+          key: "description",
+          value: values.description,
+          type: "multi_line_text_field",
+        },
+        {
+          namespace: "seo",
+          key: "keywords",
+          value: JSON.stringify(keywordsArray),
+          type: "json",
+        },
+      ]
 
-        if (onSave) {
-          onSave()
-        }
-      } else {
-        toast({
-          title: "Error",
-          description: "No se pudo guardar la configuración de SEO",
-          variant: "destructive",
+      // Añadir metafields opcionales si tienen valor
+      if (values.ogTitle) {
+        metafieldsToSave.push({
+          namespace: "seo",
+          key: "og_title",
+          value: values.ogTitle,
+          type: "single_line_text_field",
         })
       }
+
+      if (values.ogDescription) {
+        metafieldsToSave.push({
+          namespace: "seo",
+          key: "og_description",
+          value: values.ogDescription,
+          type: "multi_line_text_field",
+        })
+      }
+
+      if (values.ogImage) {
+        metafieldsToSave.push({
+          namespace: "seo",
+          key: "og_image",
+          value: values.ogImage,
+          type: "url",
+        })
+      }
+
+      if (values.twitterTitle) {
+        metafieldsToSave.push({
+          namespace: "seo",
+          key: "twitter_title",
+          value: values.twitterTitle,
+          type: "single_line_text_field",
+        })
+      }
+
+      if (values.twitterDescription) {
+        metafieldsToSave.push({
+          namespace: "seo",
+          key: "twitter_description",
+          value: values.twitterDescription,
+          type: "multi_line_text_field",
+        })
+      }
+
+      if (values.twitterImage) {
+        metafieldsToSave.push({
+          namespace: "seo",
+          key: "twitter_image",
+          value: values.twitterImage,
+          type: "url",
+        })
+      }
+
+      if (values.canonicalUrl) {
+        metafieldsToSave.push({
+          namespace: "seo",
+          key: "canonical_url",
+          value: values.canonicalUrl,
+          type: "url",
+        })
+      }
+
+      // Guardar los metafields
+      const result = await updateSeoMetafields(ownerId, metafieldsToSave, ownerType)
+
+      if (result.success) {
+        setSaveStatus("success")
+        setTimeout(() => setSaveStatus("idle"), 3000)
+      } else {
+        throw new Error("Error al guardar la configuración SEO")
+      }
     } catch (error) {
-      console.error("Error saving SEO:", error)
-      toast({
-        title: "Error",
-        description: "Ocurrió un error al guardar la configuración de SEO",
-        variant: "destructive",
-      })
+      console.error("Error saving SEO metafields:", error)
+      setSaveStatus("error")
+      setErrorMessage(error.message || "Error al guardar la configuración SEO")
     } finally {
       setIsSaving(false)
     }
   }
 
-  const handleInputChange = (field: keyof SeoMetafields, value: string | string[]) => {
-    setSeo((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
-  }
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Cargando SEO...</CardTitle>
-          <CardDescription>Obteniendo configuración de SEO</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-40 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
-            Optimización para buscadores (SEO)
-          </CardTitle>
-          <CardDescription>
-            Configura cómo aparecerá este contenido en los resultados de búsqueda y redes sociales
-          </CardDescription>
+    <div className="space-y-4">
+      {errorMessage && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{errorMessage}</AlertDescription>
+        </Alert>
+      )}
+
+      {saveStatus === "success" && (
+        <Alert className="bg-green-50 border-green-200">
+          <Check className="h-4 w-4 text-green-600" />
+          <AlertTitle className="text-green-800">Guardado correctamente</AlertTitle>
+          <AlertDescription className="text-green-700">
+            La configuración SEO se ha guardado correctamente.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {isLoading ? (
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-1/3" />
         </div>
-        <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving ? "Guardando..." : "Guardar SEO"}
-        </Button>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="general">
-          <TabsList>
-            <TabsTrigger value="general">
-              <Search className="mr-2 h-4 w-4" />
-              General
-            </TabsTrigger>
-            <TabsTrigger value="social">
-              <Share2 className="mr-2 h-4 w-4" />
-              Open Graph
-            </TabsTrigger>
-            <TabsTrigger value="twitter">
-              <Twitter className="mr-2 h-4 w-4" />
-              Twitter
-            </TabsTrigger>
-            <TabsTrigger value="advanced">
-              <Globe className="mr-2 h-4 w-4" />
-              Avanzado
-            </TabsTrigger>
-          </TabsList>
+      ) : (
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="mb-4">
+                <TabsTrigger value="general">General</TabsTrigger>
+                <TabsTrigger value="opengraph">Open Graph</TabsTrigger>
+                <TabsTrigger value="twitter">Twitter</TabsTrigger>
+                <TabsTrigger value="advanced">Avanzado</TabsTrigger>
+              </TabsList>
 
-          <TabsContent value="general" className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <Label htmlFor="seo-title">Título SEO</Label>
-              <Input
-                id="seo-title"
-                placeholder="Título para motores de búsqueda"
-                value={seo.title}
-                onChange={(e) => handleInputChange("title", e.target.value)}
-              />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Recomendado: 50-60 caracteres</span>
-                <span className={seo.title.length > 60 ? "text-destructive" : ""}>{seo.title.length}/60</span>
-              </div>
-            </div>
+              <TabsContent value="general" className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Título SEO</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Título para SEO" {...field} />
+                      </FormControl>
+                      <FormDescription className="flex justify-between">
+                        <span>Título que se mostrará en los resultados de búsqueda</span>
+                        <Badge variant={field.value.length > 60 ? "destructive" : "outline"}>
+                          {field.value.length}/60
+                        </Badge>
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <div className="space-y-2">
-              <Label htmlFor="seo-description">Descripción SEO</Label>
-              <Textarea
-                id="seo-description"
-                placeholder="Descripción para motores de búsqueda"
-                value={seo.description}
-                onChange={(e) => handleInputChange("description", e.target.value)}
-                rows={3}
-              />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Recomendado: 150-160 caracteres</span>
-                <span className={seo.description.length > 160 ? "text-destructive" : ""}>
-                  {seo.description.length}/160
-                </span>
-              </div>
-            </div>
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Descripción SEO</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Descripción para SEO" {...field} />
+                      </FormControl>
+                      <FormDescription className="flex justify-between">
+                        <span>Descripción que se mostrará en los resultados de búsqueda</span>
+                        <Badge variant={field.value.length > 160 ? "destructive" : "outline"}>
+                          {field.value.length}/160
+                        </Badge>
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <div className="space-y-2">
-              <Label htmlFor="seo-keywords">Palabras clave (separadas por comas)</Label>
-              <Input
-                id="seo-keywords"
-                placeholder="skate, skateboard, tablas, ruedas"
-                value={Array.isArray(seo.keywords) ? seo.keywords.join(", ") : ""}
-                onChange={(e) =>
-                  handleInputChange(
-                    "keywords",
-                    e.target.value
-                      .split(",")
-                      .map((k) => k.trim())
-                      .filter(Boolean),
-                  )
-                }
-              />
-              <div className="flex flex-wrap gap-1 mt-2">
-                {Array.isArray(seo.keywords) &&
-                  seo.keywords.map((keyword, index) => (
-                    <Badge key={index} variant="secondary">
-                      {keyword}
-                    </Badge>
-                  ))}
-              </div>
-            </div>
+                <FormField
+                  control={form.control}
+                  name="keywords"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Palabras clave</FormLabel>
+                      <FormControl>
+                        <Input placeholder="palabra1, palabra2, palabra3" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Palabras clave separadas por comas (tienen poco impacto en SEO moderno)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </TabsContent>
 
-            <div className="mt-6 border rounded-md p-4 bg-muted/30">
-              <h4 className="font-medium mb-2 flex items-center">
-                <Search className="mr-2 h-4 w-4" />
-                Vista previa en Google
-              </h4>
-              <div className="space-y-1">
-                <h3 className="text-blue-600 text-lg font-medium hover:underline cursor-pointer truncate">
-                  {seo.title || defaultTitle || "Título de la página"}
-                </h3>
-                <p className="text-green-700 text-sm">www.granitoskate.com</p>
-                <p className="text-sm text-gray-600 line-clamp-2">
-                  {seo.description || defaultDescription || "Descripción de la página..."}
-                </p>
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="social" className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <Label htmlFor="og-title">Título para Open Graph</Label>
-              <Input
-                id="og-title"
-                placeholder="Título para compartir en redes sociales"
-                value={seo.ogTitle || ""}
-                onChange={(e) => handleInputChange("ogTitle", e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">Si se deja vacío, se usará el título SEO general</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="og-description">Descripción para Open Graph</Label>
-              <Textarea
-                id="og-description"
-                placeholder="Descripción para compartir en redes sociales"
-                value={seo.ogDescription || ""}
-                onChange={(e) => handleInputChange("ogDescription", e.target.value)}
-                rows={3}
-              />
-              <p className="text-xs text-muted-foreground">Si se deja vacío, se usará la descripción SEO general</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="og-image">URL de imagen para Open Graph</Label>
-              <Input
-                id="og-image"
-                placeholder="https://ejemplo.com/imagen.jpg"
-                value={seo.ogImage || ""}
-                onChange={(e) => handleInputChange("ogImage", e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">Tamaño recomendado: 1200x630 píxeles</p>
-            </div>
-
-            <div className="mt-6 border rounded-md p-4 bg-blue-50">
-              <h4 className="font-medium mb-2 flex items-center text-blue-800">
-                <Share2 className="mr-2 h-4 w-4" />
-                Vista previa en Facebook
-              </h4>
-              <div className="bg-white border rounded-md overflow-hidden">
-                {seo.ogImage && (
-                  <div className="aspect-[1.91/1] bg-gray-100 relative">
-                    <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-                      Vista previa de imagen
+              <TabsContent value="opengraph" className="space-y-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Info className="h-4 w-4 text-blue-500" />
+                      <p className="text-sm text-muted-foreground">
+                        Open Graph es utilizado por Facebook y otras redes sociales para mostrar previsualizaciones
+                        enriquecidas cuando se comparte tu contenido.
+                      </p>
                     </div>
-                  </div>
-                )}
-                <div className="p-3">
-                  <p className="text-xs text-gray-500">www.granitoskate.com</p>
-                  <h3 className="font-bold">{seo.ogTitle || seo.title || defaultTitle || "Título de la página"}</h3>
-                  <p className="text-sm text-gray-600 line-clamp-2">
-                    {seo.ogDescription || seo.description || defaultDescription || "Descripción de la página..."}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </TabsContent>
 
-          <TabsContent value="twitter" className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <Label htmlFor="twitter-title">Título para Twitter</Label>
-              <Input
-                id="twitter-title"
-                placeholder="Título para compartir en Twitter"
-                value={seo.twitterTitle || ""}
-                onChange={(e) => handleInputChange("twitterTitle", e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Si se deja vacío, se usará el título de Open Graph o el título SEO general
-              </p>
-            </div>
+                    <FormField
+                      control={form.control}
+                      name="ogTitle"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Título Open Graph</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Título para compartir en redes sociales" {...field} />
+                          </FormControl>
+                          <FormDescription>Si se deja vacío, se utilizará el título SEO general</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-            <div className="space-y-2">
-              <Label htmlFor="twitter-description">Descripción para Twitter</Label>
-              <Textarea
-                id="twitter-description"
-                placeholder="Descripción para compartir en Twitter"
-                value={seo.twitterDescription || ""}
-                onChange={(e) => handleInputChange("twitterDescription", e.target.value)}
-                rows={3}
-              />
-              <p className="text-xs text-muted-foreground">
-                Si se deja vacío, se usará la descripción de Open Graph o la descripción SEO general
-              </p>
-            </div>
+                    <FormField
+                      control={form.control}
+                      name="ogDescription"
+                      render={({ field }) => (
+                        <FormItem className="mt-4">
+                          <FormLabel>Descripción Open Graph</FormLabel>
+                          <FormControl>
+                            <Textarea placeholder="Descripción para compartir en redes sociales" {...field} />
+                          </FormControl>
+                          <FormDescription>Si se deja vacío, se utilizará la descripción SEO general</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-            <div className="space-y-2">
-              <Label htmlFor="twitter-image">URL de imagen para Twitter</Label>
-              <Input
-                id="twitter-image"
-                placeholder="https://ejemplo.com/imagen.jpg"
-                value={seo.twitterImage || ""}
-                onChange={(e) => handleInputChange("twitterImage", e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">Tamaño recomendado: 1200x600 píxeles</p>
-            </div>
+                    <FormField
+                      control={form.control}
+                      name="ogImage"
+                      render={({ field }) => (
+                        <FormItem className="mt-4">
+                          <FormLabel>Imagen Open Graph</FormLabel>
+                          <FormControl>
+                            <Input placeholder="https://ejemplo.com/imagen.jpg" {...field} />
+                          </FormControl>
+                          <FormDescription>URL de la imagen para compartir en redes sociales</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-            <div className="mt-6 border rounded-md p-4 bg-blue-50">
-              <h4 className="font-medium mb-2 flex items-center text-blue-800">
-                <Twitter className="mr-2 h-4 w-4" />
-                Vista previa en Twitter
-              </h4>
-              <div className="bg-white border rounded-md overflow-hidden">
-                {(seo.twitterImage || seo.ogImage) && (
-                  <div className="aspect-[2/1] bg-gray-100 relative">
-                    <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-                      Vista previa de imagen
+              <TabsContent value="twitter" className="space-y-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Info className="h-4 w-4 text-blue-500" />
+                      <p className="text-sm text-muted-foreground">
+                        Las tarjetas de Twitter permiten adjuntar fotos, videos y experiencias multimedia a tus tweets.
+                      </p>
                     </div>
-                  </div>
-                )}
-                <div className="p-3">
-                  <h3 className="font-bold">
-                    {seo.twitterTitle || seo.ogTitle || seo.title || defaultTitle || "Título de la página"}
-                  </h3>
-                  <p className="text-sm text-gray-600 line-clamp-2">
-                    {seo.twitterDescription ||
-                      seo.ogDescription ||
-                      seo.description ||
-                      defaultDescription ||
-                      "Descripción de la página..."}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">www.granitoskate.com</p>
-                </div>
-              </div>
-            </div>
-          </TabsContent>
 
-          <TabsContent value="advanced" className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <Label htmlFor="canonical-url">URL canónica</Label>
-              <Input
-                id="canonical-url"
-                placeholder="https://www.granitoskate.com/ruta-canonica"
-                value={seo.canonicalUrl || ""}
-                onChange={(e) => handleInputChange("canonicalUrl", e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">Establece la URL canónica para evitar contenido duplicado</p>
-            </div>
+                    <FormField
+                      control={form.control}
+                      name="twitterTitle"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Título Twitter</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Título para compartir en Twitter" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            Si se deja vacío, se utilizará el título Open Graph o el título SEO general
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-            <div className="space-y-2">
-              <Label htmlFor="structured-data">Datos estructurados (JSON-LD)</Label>
-              <Textarea
-                id="structured-data"
-                placeholder='{"@context":"https://schema.org","@type":"Product",...}'
-                value={seo.structuredData || ""}
-                onChange={(e) => handleInputChange("structuredData", e.target.value)}
-                rows={6}
-                className="font-mono text-sm"
-              />
-              <p className="text-xs text-muted-foreground">
-                Datos estructurados en formato JSON-LD para mejorar la visualización en resultados de búsqueda
-              </p>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+                    <FormField
+                      control={form.control}
+                      name="twitterDescription"
+                      render={({ field }) => (
+                        <FormItem className="mt-4">
+                          <FormLabel>Descripción Twitter</FormLabel>
+                          <FormControl>
+                            <Textarea placeholder="Descripción para compartir en Twitter" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            Si se deja vacío, se utilizará la descripción Open Graph o la descripción SEO general
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="twitterImage"
+                      render={({ field }) => (
+                        <FormItem className="mt-4">
+                          <FormLabel>Imagen Twitter</FormLabel>
+                          <FormControl>
+                            <Input placeholder="https://ejemplo.com/imagen.jpg" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            URL de la imagen para compartir en Twitter. Si se deja vacío, se utilizará la imagen Open
+                            Graph
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="advanced" className="space-y-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Info className="h-4 w-4 text-blue-500" />
+                      <p className="text-sm text-muted-foreground">
+                        Configuración avanzada para SEO. Estos campos son opcionales pero pueden mejorar el
+                        posicionamiento en casos específicos.
+                      </p>
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="canonicalUrl"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>URL Canónica</FormLabel>
+                          <FormControl>
+                            <Input placeholder="https://ejemplo.com/pagina-original" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            URL canónica para evitar contenido duplicado. Déjala en blanco para usar la URL actual
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+
+            <Button type="submit" disabled={isSaving}>
+              {isSaving ? "Guardando..." : "Guardar SEO"}
+            </Button>
+          </form>
+        </Form>
+      )}
+    </div>
   )
 }
