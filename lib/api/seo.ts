@@ -1,4 +1,4 @@
-import shopifyClient, { formatShopifyId } from "@/lib/shopify"
+import { shopifyClient, formatShopifyId } from "@/lib/shopify"
 import type { MetafieldDefinition, Metafield, SeoSettings, LocalBusinessInfo, SocialMediaProfiles } from "@/types/seo"
 import { gql } from "graphql-request"
 

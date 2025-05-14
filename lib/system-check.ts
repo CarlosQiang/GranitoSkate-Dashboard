@@ -1,5 +1,5 @@
 import { getSession } from "next-auth/react"
-import shopifyClient from "./shopify"
+import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 
 // Función para verificar el estado del sistema

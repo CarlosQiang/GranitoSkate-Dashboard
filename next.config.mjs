@@ -9,7 +9,6 @@ const nextConfig = {
   },
   images: {
     domains: ['cdn.shopify.com'],
-    unoptimized: true,
   },
   async headers() {
     return [
@@ -45,7 +44,7 @@ const nextConfig = {
   experimental: {
     // Corregido: debe ser un objeto, no un booleano
     serverActions: {
-      allowedOrigins: ['localhost:3000', '*.vercel.app'],
+      allowedOrigins: ["localhost:3000", "granitoskate.vercel.app"],
     },
   },
 };

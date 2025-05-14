@@ -1,4 +1,4 @@
-import shopifyClient from "@/lib/shopify"
+import { shopifyClient } from "@/lib/shopify"
 import { gql } from "graphql-request"
 
 export interface CustomerFilters {

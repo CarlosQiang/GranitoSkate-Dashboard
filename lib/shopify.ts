@@ -1,5 +1,17 @@
 import { GraphQLClient } from "graphql-request"
 
+// Obtener las credenciales de Shopify desde las variables de entorno
+const shopifyStoreUrl = process.env.SHOPIFY_STORE_URL || ""
+const shopifyAccessToken = process.env.SHOPIFY_ACCESS_TOKEN || ""
+
+// Crear el cliente GraphQL para Shopify
+const shopifyClient = new GraphQLClient(`https://${shopifyStoreUrl}/admin/api/2023-10/graphql.json`, {
+  headers: {
+    "X-Shopify-Access-Token": shopifyAccessToken,
+    "Content-Type": "application/json",
+  },
+})
+
 // Función para obtener la URL base
 export function getBaseUrl() {
   if (typeof window !== "undefined") {
@@ -9,13 +21,6 @@ export function getBaseUrl() {
     ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
     : process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
 }
-
-// Crear un cliente GraphQL para Shopify
-const shopifyClient = new GraphQLClient(`${getBaseUrl()}/api/shopify/proxy`, {
-  headers: {
-    "Content-Type": "application/json",
-  },
-})
 
 // Función para realizar consultas GraphQL a Shopify
 export async function shopifyFetch({ query, variables = {} }) {
@@ -73,30 +78,12 @@ export async function shopifyFetch({ query, variables = {} }) {
   }
 }
 
-// Mejorar la función formatShopifyId para manejar todos los casos posibles
-export function formatShopifyId(id: string | number | null | undefined, resourceType: string): string {
-  if (!id) {
-    console.warn(`ID inválido proporcionado para ${resourceType}:`, id)
-    return `gid://shopify/${resourceType}/0` // ID por defecto para evitar errores
-  }
-
-  // Si el ID ya tiene el formato correcto, devolverlo tal cual
-  if (typeof id === "string" && id.startsWith(`gid://shopify/${resourceType}/`)) {
+// Función para formatear IDs de Shopify
+export function formatShopifyId(id: string, type: string): string {
+  if (id.includes("gid://shopify/")) {
     return id
   }
-
-  // Si el ID es un número o una cadena que representa un número
-  const idStr = String(id)
-
-  // Si el ID ya contiene el prefijo gid://shopify/ pero no el tipo de recurso correcto
-  if (idStr.startsWith("gid://shopify/")) {
-    const parts = idStr.split("/")
-    const numericId = parts[parts.length - 1]
-    return `gid://shopify/${resourceType}/${numericId}`
-  }
-
-  // Si el ID es solo el número
-  return `gid://shopify/${resourceType}/${idStr}`
+  return `gid://shopify/${type}/${id}`
 }
 
 // Función para realizar una consulta de prueba a Shopify
@@ -218,5 +205,6 @@ export function extractIdFromGid(gid: string): string {
   return parts[parts.length - 1]
 }
 
-// Exportar el cliente de Shopify como exportación por defecto
+// Exportar el cliente como default y también como exportación nombrada
+export { shopifyClient }
 export default shopifyClient

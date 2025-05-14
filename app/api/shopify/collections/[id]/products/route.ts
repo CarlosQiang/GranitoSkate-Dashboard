@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import shopifyClient from "@/lib/shopify"
+import { shopifyClient } from "@/lib/shopify"
 import { gql } from "graphql-request"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
