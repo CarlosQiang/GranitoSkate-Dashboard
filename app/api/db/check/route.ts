@@ -3,21 +3,31 @@ import { sql } from "@vercel/postgres"
 
 export async function GET() {
   try {
-    // Verificar la conexión a la base de datos
-    const result = await sql`SELECT NOW() as timestamp`
+    // Verificar si hay datos en las tablas principales
+    const tables = ["productos", "colecciones", "clientes", "pedidos", "promociones"]
+    let isEmpty = true
+
+    for (const table of tables) {
+      const result = await sql`SELECT COUNT(*) as count FROM ${sql.identifier(table)}`
+      const count = Number.parseInt(result.rows[0].count)
+
+      if (count > 0) {
+        isEmpty = false
+        break
+      }
+    }
 
     return NextResponse.json({
-      status: "ok",
-      message: "Conexión a la base de datos establecida correctamente",
-      timestamp: result.rows[0].timestamp,
+      success: true,
+      isEmpty,
     })
   } catch (error) {
-    console.error("Error al verificar la conexión a la base de datos:", error)
-
+    console.error("Error al verificar la base de datos:", error)
     return NextResponse.json(
       {
-        status: "error",
-        message: `Error al conectar con la base de datos: ${(error as Error).message}`,
+        success: false,
+        message: "Error al verificar la base de datos",
+        error: (error as Error).message,
       },
       { status: 500 },
     )
