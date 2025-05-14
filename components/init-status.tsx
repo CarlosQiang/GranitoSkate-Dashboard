@@ -51,9 +51,11 @@ export function InitStatus() {
   if (!status.checked) return null
 
   return (
-    <Alert variant={status.success ? "default" : "destructive"} className="mb-4">
-      {status.success ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-      <AlertTitle>{status.success ? "Inicialización completada" : "Error de inicialización"}</AlertTitle>
+    <Alert variant={status.success ? "default" : "destructive"} className="w-full mb-4">
+      <div className="flex items-center gap-2">
+        {status.success ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+        <AlertTitle>{status.success ? "Inicialización completada" : "Error de inicialización"}</AlertTitle>
+      </div>
       <AlertDescription>{status.message}</AlertDescription>
     </Alert>
   )

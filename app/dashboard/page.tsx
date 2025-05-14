@@ -4,7 +4,6 @@ import { RecentOrders } from "@/components/recent-orders"
 import { RecentProducts } from "@/components/recent-products"
 import { DashboardStats } from "@/components/dashboard-stats"
 import { Skeleton } from "@/components/ui/skeleton"
-// Importar el componente InitStatus
 import { InitStatus } from "@/components/init-status"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -37,8 +36,8 @@ function StatsLoading() {
 
 export default function DashboardPage() {
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="space-y-6 max-w-full">
+      <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">Bienvenido al panel de administración de GranitoSkate</p>
@@ -46,11 +45,9 @@ export default function DashboardPage() {
         <InitStatus />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Suspense fallback={<StatsLoading />}>
-          <DashboardStats />
-        </Suspense>
-      </div>
+      <Suspense fallback={<StatsLoading />}>
+        <DashboardStats />
+      </Suspense>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="col-span-1">

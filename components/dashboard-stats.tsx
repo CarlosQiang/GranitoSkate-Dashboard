@@ -49,11 +49,11 @@ export function DashboardStats() {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
       {loading ? (
         <>
           {[...Array(4)].map((_, i) => (
-            <Card key={i}>
+            <Card key={i} className="w-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                   <Skeleton className="h-4 w-[120px]" />
@@ -68,7 +68,7 @@ export function DashboardStats() {
           ))}
         </>
       ) : error ? (
-        <div className="col-span-4">
+        <div className="col-span-full">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
@@ -77,7 +77,7 @@ export function DashboardStats() {
         </div>
       ) : stats ? (
         <>
-          <Card>
+          <Card className="w-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Ventas Totales</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -89,7 +89,7 @@ export function DashboardStats() {
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="w-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pedidos</CardTitle>
               <ShoppingCart className="h-4 w-4 text-muted-foreground" />
@@ -101,7 +101,7 @@ export function DashboardStats() {
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="w-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Clientes</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
@@ -113,7 +113,7 @@ export function DashboardStats() {
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="w-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Productos</CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />

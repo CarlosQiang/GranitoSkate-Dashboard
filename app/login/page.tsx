@@ -21,13 +21,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const [email, setEmail] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!email || !password) {
+    if (!identifier || !password) {
       setError("Por favor, completa todos los campos")
       return
     }
@@ -38,7 +36,7 @@ export default function LoginPage() {
     try {
       const result = await signIn("credentials", {
         redirect: false,
-        identifier: email,
+        identifier,
         password,
       })
 
@@ -76,13 +74,13 @@ export default function LoginPage() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="identifier">Usuario o Email</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="tu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="identifier"
+                  type="text"
+                  placeholder="nombre_usuario o tu@email.com"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
                   required
                 />
               </div>
