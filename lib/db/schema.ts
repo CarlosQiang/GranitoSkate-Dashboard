@@ -71,28 +71,6 @@ export type Coleccion = {
   ultima_sincronizacion?: Date
 }
 
-export type Tutorial = {
-  id: number
-  titulo: string
-  slug: string
-  descripcion?: string
-  contenido?: string
-  imagen_url?: string
-  nivel_dificultad?: string
-  tiempo_estimado?: number
-  categorias?: string[]
-  tags?: string[]
-  shopify_id?: string
-  publicado: boolean
-  destacado: boolean
-  autor_id?: number
-  fecha_creacion: Date
-  fecha_actualizacion: Date
-  fecha_publicacion?: Date
-  metadatos?: any
-  ultima_sincronizacion?: Date
-}
-
 export type RegistroSincronizacion = {
   id: number
   tipo_entidad: string
