@@ -29,6 +29,9 @@ export async function obtenerColecciones(params: ParametrosBusquedaColeccion = {
               descriptionHtml
               productsCount
               updatedAt
+              image {
+                url
+              }
             }
           }
         }
@@ -48,6 +51,7 @@ export async function obtenerColecciones(params: ParametrosBusquedaColeccion = {
         descripcion: node.descriptionHtml,
         productoCount: node.productsCount,
         fechaActualizacion: node.updatedAt,
+        image: node.image,
       }
     })
   } catch (error) {
@@ -73,6 +77,18 @@ export async function obtenerColeccionPorId(id) {
           descriptionHtml
           productsCount
           updatedAt
+          image {
+            url
+          }
+          products(first: 50) {
+            edges {
+              node {
+                id
+                title
+                handle
+              }
+            }
+          }
         }
       }
     `
@@ -93,6 +109,8 @@ export async function obtenerColeccionPorId(id) {
       descripcion: collection.descriptionHtml,
       productoCount: collection.productsCount,
       fechaActualizacion: collection.updatedAt,
+      image: collection.image,
+      productos: collection.products.edges.map((edge) => edge.node.id),
     }
   } catch (error) {
     console.error(`Error al obtener colección ${id}:`, error)
@@ -264,6 +282,62 @@ export async function removeProductsFromCollection(collectionId, productIds) {
   } catch (error) {
     console.error("Error al eliminar productos de la colección:", error)
     throw new Error(`Error al eliminar productos: ${error.message}`)
+  }
+}
+
+/**
+ * Obtiene los productos de una colección
+ * @param collectionId ID de la colección
+ * @returns Lista de productos de la colección
+ */
+export async function fetchCollectionProducts(collectionId) {
+  try {
+    // Asegurarse de que el ID esté en el formato correcto
+    const formattedCollectionId = collectionId.includes("gid://shopify/")
+      ? collectionId
+      : `gid://shopify/Collection/${collectionId}`
+
+    // Construir la consulta GraphQL
+    const query = gql`
+      query GetCollectionProducts($collectionId: ID!) {
+        collection(id: $collectionId) {
+          products(first: 250) {
+            edges {
+              node {
+                id
+                title
+                handle
+                featuredImage {
+                  url
+                }
+                priceRange {
+                  minVariantPrice {
+                    amount
+                    currencyCode
+                  }
+                }
+                status
+              }
+            }
+          }
+        }
+      }
+    `
+
+    // Ejecutar la consulta
+    const data = await shopifyClient.request(query, {
+      collectionId: formattedCollectionId,
+    })
+
+    // Si no hay colección o productos, devolver un array vacío
+    if (!data.collection || !data.collection.products) {
+      return { edges: [] }
+    }
+
+    return data.collection.products
+  } catch (error) {
+    console.error(`Error al obtener productos de la colección ${collectionId}:`, error)
+    throw new Error(`Error al obtener productos de la colección: ${error.message}`)
   }
 }
 

@@ -30,17 +30,21 @@ export function DashboardStats() {
     loadStats()
   }, [])
 
-  const formatCurrency = (value: number, currency = "EUR") => {
+  const formatCurrency = (value: number | string | null | undefined, currency = "EUR") => {
     try {
+      // Convertir a número si es necesario
+      const numValue = typeof value === "string" ? Number.parseFloat(value) : value || 0
+
       // Asegurarse de que siempre haya un código de moneda válido
       const currencyCode = currency || "EUR"
+
       return new Intl.NumberFormat("es-ES", {
         style: "currency",
         currency: currencyCode,
-      }).format(value)
+      }).format(numValue)
     } catch (error) {
       console.error("Error al formatear moneda:", error)
-      return `${value.toFixed(2)} €`
+      return `${value || 0} €`
     }
   }
 
@@ -79,10 +83,9 @@ export function DashboardStats() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(stats.totalSales, stats.currency)}</div>
+              <div className="text-2xl font-bold">{formatCurrency(stats.totalSales || 0, stats.currency)}</div>
               <p className="text-xs text-muted-foreground">
-                {stats.salesChange >= 0 ? "+" : ""}
-                {stats.salesChange}% desde el mes pasado
+                {(stats.salesChange >= 0 ? "+" : "") + (stats.salesChange || 0)}% desde el mes pasado
               </p>
             </CardContent>
           </Card>
@@ -92,10 +95,9 @@ export function DashboardStats() {
               <ShoppingCart className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalOrders}</div>
+              <div className="text-2xl font-bold">{stats.totalOrders || 0}</div>
               <p className="text-xs text-muted-foreground">
-                {stats.ordersChange >= 0 ? "+" : ""}
-                {stats.ordersChange}% desde el mes pasado
+                {(stats.ordersChange >= 0 ? "+" : "") + (stats.ordersChange || 0)}% desde el mes pasado
               </p>
             </CardContent>
           </Card>
@@ -105,10 +107,9 @@ export function DashboardStats() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalCustomers}</div>
+              <div className="text-2xl font-bold">{stats.totalCustomers || 0}</div>
               <p className="text-xs text-muted-foreground">
-                {stats.customersChange >= 0 ? "+" : ""}
-                {stats.customersChange}% desde el mes pasado
+                {(stats.customersChange >= 0 ? "+" : "") + (stats.customersChange || 0)}% desde el mes pasado
               </p>
             </CardContent>
           </Card>
@@ -118,10 +119,9 @@ export function DashboardStats() {
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalProducts}</div>
+              <div className="text-2xl font-bold">{stats.totalProducts || 0}</div>
               <p className="text-xs text-muted-foreground">
-                {stats.productsChange >= 0 ? "+" : ""}
-                {stats.productsChange}% desde el mes pasado
+                {(stats.productsChange >= 0 ? "+" : "") + (stats.productsChange || 0)}% desde el mes pasado
               </p>
             </CardContent>
           </Card>

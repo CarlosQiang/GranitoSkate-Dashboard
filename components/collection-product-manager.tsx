@@ -7,9 +7,10 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { fetchProducts } from "@/lib/api/products"
-import { fetchCollectionProducts, addProductsToCollection, removeProductsFromCollection } from "@/lib/api/collections"
-import { Loader2 } from "lucide-react"
+import { fetchCollectionProducts, addProductsToCollection, removeProductsFromCollection } from "@/lib/api/colecciones"
+import { Loader2, Package } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import Image from "next/image"
 
 interface CollectionProductManagerProps {
   productId?: string
@@ -156,6 +157,16 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
     }
   }
 
+  // Get image URL from product
+  const getProductImageUrl = (product) => {
+    if (!product) return null
+
+    if (product.featuredImage) return product.featuredImage.url
+    if (product.image) return typeof product.image === "string" ? product.image : product.image?.url
+
+    return null
+  }
+
   // Filter products based on search term
   const filteredProducts = products.filter((product) => {
     // If we're in "add" mode, exclude products that are already in the collection
@@ -214,12 +225,26 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
                 </div>
               ) : (
                 filteredProducts.map((product) => (
-                  <div key={product.id} className="flex items-center space-x-2 p-2 hover:bg-muted rounded-md">
+                  <div key={product.id} className="flex items-center space-x-3 p-2 hover:bg-muted rounded-md">
                     <Checkbox
                       id={`product-${product.id}`}
                       checked={selectedProducts.includes(product.id)}
                       onCheckedChange={() => handleProductSelection(product.id)}
                     />
+                    <div className="relative h-10 w-10 overflow-hidden rounded-md">
+                      {getProductImageUrl(product) ? (
+                        <Image
+                          src={getProductImageUrl(product) || "/placeholder.svg"}
+                          alt={product.title}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center bg-gray-100">
+                          <Package className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
                     <label
                       htmlFor={`product-${product.id}`}
                       className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"

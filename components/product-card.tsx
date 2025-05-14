@@ -63,7 +63,9 @@ export function ProductCard({ product }) {
             </Badge>
           </div>
         </CardContent>
-        <CardFooter className="p-4 pt-0 text-xs text-muted-foreground border-t mt-auto">ID: {cleanId(id)}</CardFooter>
+        <CardFooter className="p-4 pt-0 text-xs text-muted-foreground border-t mt-auto">
+          <span className="truncate">ID: {cleanId(id)}</span>
+        </CardFooter>
       </Card>
     </Link>
   )
