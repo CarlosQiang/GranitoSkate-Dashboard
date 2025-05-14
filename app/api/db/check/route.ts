@@ -6,21 +6,22 @@ export const revalidate = 0
 
 export async function GET() {
   try {
-    // Verificar la conexión a la base de datos
-    const result = await sql`SELECT NOW() as time`
+    // Intentar ejecutar una consulta simple para verificar la conexión
+    const result = await sql`SELECT 1 as check_connection`
 
     return NextResponse.json({
-      status: "ok",
+      success: true,
       message: "Conexión a la base de datos establecida correctamente",
-      timestamp: result.rows[0].time,
+      timestamp: new Date().toISOString(),
     })
   } catch (error) {
     console.error("Error al verificar la conexión a la base de datos:", error)
+
     return NextResponse.json(
       {
-        status: "error",
-        message: "Error al conectar con la base de datos",
-        error: error instanceof Error ? error.message : "Error desconocido",
+        success: false,
+        message: `Error al verificar la conexión a la base de datos: ${error instanceof Error ? error.message : "Error desconocido"}`,
+        timestamp: new Date().toISOString(),
       },
       { status: 500 },
     )
