@@ -8,8 +8,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { InitStatus } from "@/components/init-status"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { SincronizacionTutoriales } from "@/components/sincronizacion-tutoriales"
-import { SubirTutorialesShopify } from "@/components/subir-tutoriales-shopify"
+// Eliminar importaciones de componentes de tutoriales
+// import { SincronizacionTutoriales } from "@/components/sincronizacion-tutoriales"
+// import { SubirTutorialesShopify } from "@/components/subir-tutoriales-shopify"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -104,7 +105,8 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
+      {/* Eliminar la sección de tutoriales */}
+      {/* <div className="grid grid-cols-1 gap-6">
         <Card>
           <CardHeader>
             <CardTitle>Tutoriales</CardTitle>
@@ -117,7 +119,7 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </div> */}
     </div>
   )
 }

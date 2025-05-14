@@ -1,50 +1,37 @@
+"use server"
+
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 
-export async function verificarColeccionTutoriales() {
+export async function inicializarShopify() {
   try {
-    // Consulta para obtener la colección "Tutoriales"
+    // Verificar la conexión con Shopify
     const query = gql`
       query {
-        collections(first: 1, query: "title:Tutoriales") {
-          edges {
-            node {
-              id
-              title
-            }
-          }
+        shop {
+          name
         }
       }
     `
 
     const data = await shopifyClient.request(query)
 
-    if (!data || !data.collections || !data.collections.edges) {
+    if (data && data.shop && data.shop.name) {
+      return {
+        success: true,
+        message: `Conexión exitosa a la tienda: ${data.shop.name}`,
+      }
+    } else {
       return {
         success: false,
-        message: "No se pudo obtener la colección de tutoriales",
+        message: "No se pudo obtener información de la tienda",
       }
-    }
-
-    const coleccion = data.collections.edges[0]?.node
-
-    if (!coleccion) {
-      return {
-        success: false,
-        message: "No se encontró la colección 'Tutoriales'",
-      }
-    }
-
-    return {
-      success: true,
-      message: "Colección 'Tutoriales' encontrada",
-      collectionId: coleccion.id,
     }
   } catch (error) {
-    console.error("Error al verificar la colección de tutoriales:", error)
+    console.error("Error al inicializar Shopify:", error)
     return {
       success: false,
-      message: `Error al verificar la colección de tutoriales: ${(error as Error).message}`,
+      message: `Error al inicializar Shopify: ${(error as Error).message}`,
     }
   }
 }
