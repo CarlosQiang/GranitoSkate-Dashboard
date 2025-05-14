@@ -620,9 +620,24 @@ export async function saveLocalBusinessInfo(info: LocalBusinessInfo): Promise<bo
 // Obtener perfiles de redes sociales
 export async function getSocialMediaProfiles(): Promise<SocialMediaProfiles | null> {
   try {
-    const metafields = await getMetafields("1", "SHOP", "social_media")
+    // Verificar que tenemos un ID válido para la tienda
+    const shopId = "1" // ID fijo para la tienda
 
-    if (!metafields.length) {
+    if (!shopId) {
+      console.error("ID de tienda no disponible")
+      return {
+        facebook: "",
+        instagram: "",
+        twitter: "",
+        youtube: "",
+        linkedin: "",
+        tiktok: "",
+      }
+    }
+
+    const metafields = await getMetafields(shopId, "SHOP", "social_media")
+
+    if (!metafields || !metafields.length) {
       return {
         facebook: "",
         instagram: "",
@@ -647,7 +662,15 @@ export async function getSocialMediaProfiles(): Promise<SocialMediaProfiles | nu
     }
 
     try {
-      return JSON.parse(profilesMetafield.value)
+      const profiles = JSON.parse(profilesMetafield.value)
+      return {
+        facebook: profiles.facebook || "",
+        instagram: profiles.instagram || "",
+        twitter: profiles.twitter || "",
+        youtube: profiles.youtube || "",
+        linkedin: profiles.linkedin || "",
+        tiktok: profiles.tiktok || "",
+      }
     } catch (e) {
       console.error("Error parsing social media profiles:", e)
       return {
@@ -675,10 +698,28 @@ export async function getSocialMediaProfiles(): Promise<SocialMediaProfiles | nu
 // Guardar perfiles de redes sociales
 export async function saveSocialMediaProfiles(profiles: SocialMediaProfiles): Promise<boolean> {
   try {
-    const result = await setMetafield("1", "SHOP", {
+    // Verificar que tenemos un ID válido para la tienda
+    const shopId = "1" // ID fijo para la tienda
+
+    if (!shopId) {
+      console.error("ID de tienda no disponible")
+      return false
+    }
+
+    // Asegurarse de que todos los valores son strings
+    const cleanProfiles = {
+      facebook: profiles.facebook || "",
+      instagram: profiles.instagram || "",
+      twitter: profiles.twitter || "",
+      youtube: profiles.youtube || "",
+      linkedin: profiles.linkedin || "",
+      tiktok: profiles.tiktok || "",
+    }
+
+    const result = await setMetafield(shopId, "SHOP", {
       namespace: "social_media",
       key: "profiles",
-      value: JSON.stringify(profiles),
+      value: JSON.stringify(cleanProfiles),
       type: "json",
     })
 

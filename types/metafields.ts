@@ -13,18 +13,17 @@ export interface LocalBusinessData {
   postalCode?: string
   region?: string
   country?: string
-  phone?: string
+  telephone?: string
   email?: string
+  openingHours?: string
   latitude?: string
   longitude?: string
-  openingHours?: string
-  priceRange?: string
 }
 
 export interface SocialMediaData {
   facebook?: string
-  twitter?: string
   instagram?: string
+  twitter?: string
   youtube?: string
   pinterest?: string
   linkedin?: string
@@ -42,7 +41,6 @@ export interface SeoMetafields {
   twitterDescription?: string
   twitterImage?: string
   canonicalUrl?: string
-  structuredData?: string
 }
 
 export interface LocalBusinessMetafields {
@@ -74,27 +72,12 @@ export interface StructuredDataConfig {
   data: Record<string, any>
 }
 
-export type MetafieldType =
-  | "single_line_text_field"
-  | "multi_line_text_field"
-  | "number_integer"
-  | "number_decimal"
-  | "json"
-  | "boolean"
-  | "date"
-  | "date_time"
-  | "url"
-
-export interface LocalBusinessInfo {
-  name: string
-  streetAddress: string
-  addressLocality: string
-  addressRegion: string
-  postalCode: string
-  addressCountry: string
-  telephone: string
-  email: string
-  openingHours: string[]
-  latitude: number
-  longitude: number
+export interface SocialMediaProfiles {
+  facebook?: string
+  twitter?: string
+  instagram?: string
+  youtube?: string
+  linkedin?: string
+  pinterest?: string
+  tiktok?: string
 }

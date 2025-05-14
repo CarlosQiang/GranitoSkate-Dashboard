@@ -7,8 +7,8 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Facebook, Instagram, Twitter, Youtube, Linkedin, Globe, Save } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { fetchSocialMediaMetafields, saveSocialMediaMetafields } from "@/lib/api/metafields"
-import type { SocialMediaMetafields } from "@/types/metafields"
+import { getSocialMediaProfiles, saveSocialMediaProfiles } from "@/lib/api/seo"
+import type { SocialMediaProfiles } from "@/types/metafields"
 
 interface SocialMediaFormProps {
   onSave?: () => void
@@ -18,7 +18,7 @@ export function SocialMediaForm({ onSave }: SocialMediaFormProps) {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [socialMedia, setSocialMedia] = useState<SocialMediaMetafields>({
+  const [socialMedia, setSocialMedia] = useState<SocialMediaProfiles>({
     facebook: "",
     instagram: "",
     twitter: "",
@@ -32,8 +32,10 @@ export function SocialMediaForm({ onSave }: SocialMediaFormProps) {
     async function loadSocialMediaData() {
       setIsLoading(true)
       try {
-        const data = await fetchSocialMediaMetafields()
-        setSocialMedia(data)
+        const data = await getSocialMediaProfiles()
+        if (data) {
+          setSocialMedia(data)
+        }
       } catch (error) {
         console.error("Error loading social media data:", error)
         toast({
@@ -52,7 +54,7 @@ export function SocialMediaForm({ onSave }: SocialMediaFormProps) {
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      const success = await saveSocialMediaMetafields("1", socialMedia)
+      const success = await saveSocialMediaProfiles(socialMedia)
 
       if (success) {
         toast({
@@ -82,7 +84,7 @@ export function SocialMediaForm({ onSave }: SocialMediaFormProps) {
     }
   }
 
-  const handleInputChange = (field: keyof SocialMediaMetafields, value: string) => {
+  const handleInputChange = (field: keyof SocialMediaProfiles, value: string) => {
     setSocialMedia((prev) => ({
       ...prev,
       [field]: value,
