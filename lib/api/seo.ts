@@ -632,7 +632,15 @@ export async function getShopSeoSettings(): Promise<SeoSettings | null> {
       return null
     }
 
-    return JSON.parse(seoMetafield.value)
+    const seoSettings = JSON.parse(seoMetafield.value)
+
+    return {
+      ...seoSettings,
+      marketTitle: seoSettings.marketTitle || "",
+      marketDescription: seoSettings.marketDescription || "",
+      marketKeywords: seoSettings.marketKeywords || [],
+      targetCountries: seoSettings.targetCountries || [],
+    }
   } catch (error) {
     console.error("Error getting shop SEO settings:", error)
     return null
@@ -660,6 +668,30 @@ export async function saveShopSeoSettings(settings: SeoSettings): Promise<boolea
         namespace: "seo",
         key: "keywords",
         value: JSON.stringify(settings.keywords || []),
+        type: "json",
+      },
+      {
+        namespace: "seo",
+        key: "marketTitle",
+        value: settings.marketTitle,
+        type: "single_line_text_field",
+      },
+      {
+        namespace: "seo",
+        key: "marketDescription",
+        value: settings.marketDescription,
+        type: "multi_line_text_field",
+      },
+      {
+        namespace: "seo",
+        key: "marketKeywords",
+        value: JSON.stringify(settings.marketKeywords || []),
+        type: "json",
+      },
+      {
+        namespace: "seo",
+        key: "targetCountries",
+        value: JSON.stringify(settings.targetCountries || []),
         type: "json",
       },
     ]

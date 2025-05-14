@@ -7,7 +7,6 @@ import {
   Package,
   BarChart3,
   Percent,
-  Globe,
   Search,
   AlertTriangle,
   UserCog,
@@ -40,11 +39,11 @@ export const navigationItems = [
     href: "/dashboard/seo",
     icon: Search,
   },
-  {
-    name: "Mercados",
-    href: "/dashboard/seo-markets",
-    icon: Globe,
-  },
+  // {
+  //   name: "Mercados",
+  //   href: "/dashboard/seo-markets",
+  //   icon: Globe,
+  // },
   {
     name: "Pedidos",
     href: "/dashboard/orders",
@@ -116,12 +115,12 @@ export const mainNav = [
     icon: Search,
     color: "text-blue-500",
   },
-  {
-    title: "Mercados",
-    href: "/dashboard/seo-markets",
-    icon: Globe,
-    color: "text-green-500",
-  },
+  // {
+  //   title: "Mercados",
+  //   href: "/dashboard/seo-markets",
+  //   icon: Globe,
+  //   color: "text-green-500",
+  // },
   {
     title: "Contenido",
     href: "/dashboard/content",
@@ -200,11 +199,11 @@ export const dashboardConfig = {
       href: "/dashboard/seo",
       icon: "search",
     },
-    {
-      title: "Mercados",
-      href: "/dashboard/seo-markets",
-      icon: "globe",
-    },
+    // {
+    //   title: "Mercados",
+    //   href: "/dashboard/seo-markets",
+    //   icon: "globe",
+    // },
     {
       title: "Analítica",
       href: "/dashboard/analytics",

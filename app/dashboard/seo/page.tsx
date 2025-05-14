@@ -11,6 +11,9 @@ import { SocialMediaForm } from "@/components/social-media-form"
 import { StructuredDataGenerator } from "@/components/structured-data-generator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getShopSeoSettings } from "@/lib/api/seo"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 
 export default function SeoPage() {
   const [activeTab, setActiveTab] = useState("general")
@@ -50,9 +53,9 @@ export default function SeoPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">SEO y Posicionamiento</h1>
+          <h1 className="text-3xl font-bold tracking-tight">SEO y Mercados</h1>
           <p className="text-muted-foreground">
-            Gestiona la configuración de SEO, negocio local y redes sociales para mejorar tu posicionamiento
+            Gestiona la configuración de SEO, mercados, negocio local y redes sociales para mejorar tu posicionamiento
           </p>
         </div>
 
@@ -68,9 +71,9 @@ export default function SeoPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">SEO y Posicionamiento</h1>
+        <h1 className="text-3xl font-bold tracking-tight">SEO y Mercados</h1>
         <p className="text-muted-foreground">
-          Gestiona la configuración de SEO, negocio local y redes sociales para mejorar tu posicionamiento
+          Gestiona la configuración de SEO, mercados, negocio local y redes sociales para mejorar tu posicionamiento
         </p>
       </div>
 
@@ -96,6 +99,10 @@ export default function SeoPage() {
           <TabsTrigger value="social">
             <Globe className="mr-2 h-4 w-4" />
             Redes Sociales
+          </TabsTrigger>
+          <TabsTrigger value="markets">
+            <Globe className="mr-2 h-4 w-4" />
+            Mercados
           </TabsTrigger>
           <TabsTrigger value="structured">
             <Code className="mr-2 h-4 w-4" />
@@ -138,6 +145,61 @@ export default function SeoPage() {
 
             <TabsContent value="social" className="space-y-4">
               <SocialMediaForm />
+            </TabsContent>
+
+            <TabsContent value="markets" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Configuración de Mercados</CardTitle>
+                  <CardDescription>Configura la información de mercados y presencia web para tu tienda</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="space-y-4">
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-64 w-full" />
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="market-title">Título SEO para Mercados</Label>
+                        <Input
+                          id="market-title"
+                          placeholder="Título SEO para mercados internacionales"
+                          defaultValue={shopInfo?.marketTitle || ""}
+                        />
+                        <p className="text-xs text-muted-foreground">Recomendado: 50-60 caracteres.</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="market-description">Descripción SEO para Mercados</Label>
+                        <Textarea
+                          id="market-description"
+                          placeholder="Descripción SEO para mercados internacionales"
+                          defaultValue={shopInfo?.marketDescription || ""}
+                        />
+                        <p className="text-xs text-muted-foreground">Recomendado: 150-160 caracteres.</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="market-keywords">Palabras clave para Mercados (separadas por comas)</Label>
+                        <Input
+                          id="market-keywords"
+                          placeholder="skate, skateboard, tablas, ruedas"
+                          defaultValue={shopInfo?.marketKeywords?.join(", ") || ""}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="market-countries">Países objetivo (separados por comas)</Label>
+                        <Input
+                          id="market-countries"
+                          placeholder="España, México, Argentina"
+                          defaultValue={shopInfo?.targetCountries?.join(", ") || ""}
+                        />
+                        <p className="text-xs text-muted-foreground">Países donde quieres tener presencia comercial.</p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="structured" className="space-y-4">
