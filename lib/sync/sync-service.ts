@@ -5,6 +5,7 @@ import * as collectionsAPI from "@/lib/api/colecciones"
 import * as customersAPI from "@/lib/api/customers"
 import * as ordersAPI from "@/lib/api/orders"
 import * as promotionsAPI from "@/lib/api/promociones"
+import { syncProductoWithShopify } from "@/lib/db/repositories/productos-repository"
 
 // Función para sincronizar productos
 export async function syncProducts() {
@@ -23,13 +24,12 @@ export async function syncProducts() {
         // Verificar si el producto ya existe en la base de datos
         const existingProduct = await checkProductExists(product.id)
 
+        // Sincronizar el producto con la base de datos
+        await syncProductoWithShopify(product)
+
         if (existingProduct) {
-          // Actualizar producto existente
-          await updateProductInDB(existingProduct.id, product)
           updated++
         } else {
-          // Crear nuevo producto
-          await insertProductIntoDB(product)
           created++
         }
       } catch (error) {
@@ -424,84 +424,6 @@ async function checkPromotionExists(shopifyId: string) {
 }
 
 // Funciones para insertar en la base de datos
-async function insertProductIntoDB(product: any) {
-  const {
-    id: shopify_id,
-    title: titulo,
-    description: descripcion,
-    productType: tipo_producto,
-    vendor: proveedor,
-    status: estado,
-    image,
-    price,
-    inventoryQuantity,
-    tags,
-  } = product
-
-  await sql`
-    INSERT INTO productos (
-      shopify_id, titulo, descripcion, tipo_producto, proveedor, estado,
-      publicado, imagen_destacada_url, precio_base, inventario_disponible,
-      etiquetas, fecha_creacion, fecha_actualizacion, ultima_sincronizacion
-    ) VALUES (
-      ${shopify_id}, ${titulo}, ${descripcion || null}, ${tipo_producto || null}, 
-      ${proveedor || null}, ${estado || null}, ${estado === "active"}, 
-      ${image || null}, ${price || 0}, ${inventoryQuantity || 0},
-      ${tags ? JSON.stringify(tags) : null}, NOW(), NOW(), NOW()
-    )
-  `
-
-  // Registrar evento
-  await logSyncEvent({
-    tipo_entidad: "PRODUCT",
-    entidad_id: shopify_id,
-    accion: "CREATE",
-    resultado: "SUCCESS",
-    mensaje: `Producto creado: ${titulo}`,
-  })
-}
-
-async function updateProductInDB(id: number, product: any) {
-  const {
-    id: shopify_id,
-    title: titulo,
-    description: descripcion,
-    productType: tipo_producto,
-    vendor: proveedor,
-    status: estado,
-    image,
-    price,
-    inventoryQuantity,
-    tags,
-  } = product
-
-  await sql`
-    UPDATE productos SET
-      titulo = ${titulo},
-      descripcion = ${descripcion || null},
-      tipo_producto = ${tipo_producto || null},
-      proveedor = ${proveedor || null},
-      estado = ${estado || null},
-      publicado = ${estado === "active"},
-      imagen_destacada_url = ${image || null},
-      precio_base = ${price || 0},
-      inventario_disponible = ${inventoryQuantity || 0},
-      etiquetas = ${tags ? JSON.stringify(tags) : null},
-      fecha_actualizacion = NOW(),
-      ultima_sincronizacion = NOW()
-    WHERE id = ${id}
-  `
-
-  // Registrar evento
-  await logSyncEvent({
-    tipo_entidad: "PRODUCT",
-    entidad_id: shopify_id,
-    accion: "UPDATE",
-    resultado: "SUCCESS",
-    mensaje: `Producto actualizado: ${titulo}`,
-  })
-}
-
 async function insertCollectionIntoDB(collection: any) {
   const {
     id: shopify_id,

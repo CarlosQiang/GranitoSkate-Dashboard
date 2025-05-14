@@ -3,17 +3,17 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import * as productosRepository from "@/lib/db/repositories/productos-repository"
 import { logSyncEvent } from "@/lib/db/repositories/registro-repository"
+import { getProductoCompleto } from "@/lib/db/repositories/productos-repository"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    const id = Number.parseInt(params.id)
+
+    if (isNaN(id)) {
+      return NextResponse.json({ error: "ID de producto inválido" }, { status: 400 })
     }
 
-    const id = Number.parseInt(params.id)
-    const producto = await productosRepository.getProductoById(id)
+    const producto = await getProductoCompleto(id)
 
     if (!producto) {
       return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 })
@@ -21,8 +21,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
     return NextResponse.json(producto)
   } catch (error) {
-    console.error(`Error al obtener producto ${params.id}:`, error)
-    return NextResponse.json({ error: "Error al obtener producto" }, { status: 500 })
+    console.error("Error al obtener producto:", error)
+    return NextResponse.json({ error: "Error al obtener producto", details: (error as Error).message }, { status: 500 })
   }
 }
 

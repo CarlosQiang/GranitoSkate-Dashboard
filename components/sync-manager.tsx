@@ -1,70 +1,121 @@
 "use client"
 
+import { CardFooter } from "@/components/ui/card"
+
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { RefreshCw, Database, CheckCircle2, XCircle, AlertCircle } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Progress } from "@/components/ui/progress"
+import { CheckCircle, AlertCircle, RefreshCw, Clock } from "lucide-react"
 
 export function SyncManager() {
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
-  const [message, setMessage] = useState<string>("")
-  const [result, setResult] = useState<any>(null)
-  const [activeTab, setActiveTab] = useState<string>("all")
+  const [syncStatus, setSyncStatus] = useState<{
+    isLoading: boolean
+    entity: string | null
+    result: any | null
+    error: string | null
+  }>({
+    isLoading: false,
+    entity: null,
+    result: null,
+    error: null,
+  })
 
-  const syncEntity = async (entity: string) => {
-    setStatus("loading")
-    setMessage(`Sincronizando ${getEntityName(entity)}...`)
-    setResult(null)
+  const startSync = async (entity: string) => {
+    setSyncStatus({
+      isLoading: true,
+      entity,
+      result: null,
+      error: null,
+    })
 
     try {
       const response = await fetch(`/api/sync?entity=${entity}`)
       const data = await response.json()
 
-      if (data.success) {
-        setStatus("success")
-        setMessage(`Sincronización de ${getEntityName(entity)} completada`)
-        setResult(data.result)
-      } else {
-        setStatus("error")
-        setMessage(data.message || `Error al sincronizar ${getEntityName(entity)}`)
+      if (!response.ok) {
+        throw new Error(data.message || "Error en la sincronización")
       }
+
+      setSyncStatus({
+        isLoading: false,
+        entity,
+        result: data.result,
+        error: null,
+      })
     } catch (error) {
-      setStatus("error")
-      setMessage(`Error al sincronizar ${getEntityName(entity)}: ${(error as Error).message}`)
+      console.error(`Error al sincronizar ${entity}:`, error)
+      setSyncStatus({
+        isLoading: false,
+        entity,
+        result: null,
+        error: error instanceof Error ? error.message : "Error desconocido",
+      })
     }
   }
 
-  const syncAll = async () => {
-    setStatus("loading")
-    setMessage("Sincronizando todos los datos...")
-    setResult(null)
-
-    try {
-      const response = await fetch("/api/sync")
-      const data = await response.json()
-
-      if (data.success) {
-        setStatus("success")
-        setMessage("Sincronización completa finalizada")
-        setResult(data.result)
-      } else {
-        setStatus("error")
-        setMessage(data.message || "Error en la sincronización")
-      }
-    } catch (error) {
-      setStatus("error")
-      setMessage(`Error en la sincronización: ${(error as Error).message}`)
+  const renderSyncResult = (entity: string) => {
+    if (syncStatus.isLoading && syncStatus.entity === entity) {
+      return (
+        <div className="flex flex-col items-center justify-center p-4">
+          <RefreshCw className="h-8 w-8 animate-spin text-blue-500 mb-2" />
+          <p className="text-sm text-gray-500">Sincronizando {getEntityName(entity)}...</p>
+          <Progress className="w-full mt-4" value={undefined} />
+        </div>
+      )
     }
-  }
 
-  const handleTabChange = (value: string) => {
-    setActiveTab(value)
-    setStatus("idle")
-    setMessage("")
-    setResult(null)
+    if (syncStatus.error && syncStatus.entity === entity) {
+      return (
+        <Alert variant="destructive" className="mt-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{syncStatus.error}</AlertDescription>
+        </Alert>
+      )
+    }
+
+    if (syncStatus.result && syncStatus.entity === entity) {
+      const result = syncStatus.entity === "all" ? syncStatus.result[entity] : syncStatus.result
+
+      if (!result) return null
+
+      return (
+        <div className="mt-4 space-y-2">
+          <Alert variant="default" className="bg-green-50 border-green-200">
+            <CheckCircle className="h-4 w-4 text-green-500" />
+            <AlertTitle className="text-green-700">Sincronización completada</AlertTitle>
+            <AlertDescription className="text-green-600">
+              Se han sincronizado {result.total} {getEntityName(entity)}.
+            </AlertDescription>
+          </Alert>
+
+          <div className="grid grid-cols-3 gap-2 mt-2">
+            <div className="bg-green-50 p-2 rounded-md text-center">
+              <p className="text-sm text-gray-500">Creados</p>
+              <p className="text-xl font-bold text-green-600">{result.created}</p>
+            </div>
+            <div className="bg-blue-50 p-2 rounded-md text-center">
+              <p className="text-sm text-gray-500">Actualizados</p>
+              <p className="text-xl font-bold text-blue-600">{result.updated}</p>
+            </div>
+            <div className="bg-red-50 p-2 rounded-md text-center">
+              <p className="text-sm text-gray-500">Fallidos</p>
+              <p className="text-xl font-bold text-red-600">{result.failed}</p>
+            </div>
+          </div>
+
+          <div className="text-xs text-gray-500 flex items-center mt-2">
+            <Clock className="h-3 w-3 mr-1" />
+            Última sincronización: {new Date().toLocaleString()}
+          </div>
+        </div>
+      )
+    }
+
+    return null
   }
 
   const getEntityName = (entity: string): string => {
@@ -79,354 +130,152 @@ export function SyncManager() {
         return "pedidos"
       case "promotions":
         return "promociones"
+      case "all":
+        return "todo"
       default:
-        return "todos los datos"
-    }
-  }
-
-  const renderSyncButton = (entity: string) => {
-    const isLoading = status === "loading" && activeTab === entity
-
-    return (
-      <Button
-        onClick={() => (entity === "all" ? syncAll() : syncEntity(entity))}
-        disabled={status === "loading"}
-        className="w-full"
-      >
-        {isLoading ? (
-          <>
-            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-            Sincronizando...
-          </>
-        ) : (
-          <>
-            <Database className="mr-2 h-4 w-4" />
-            Sincronizar {getEntityName(entity)}
-          </>
-        )}
-      </Button>
-    )
-  }
-
-  const renderResult = () => {
-    if (!result) return null
-
-    if (activeTab === "all") {
-      return (
-        <div className="space-y-4 mt-4">
-          {Object.entries(result).map(([entity, data]: [string, any]) => (
-            <div key={entity} className="border rounded-md p-4">
-              <h3 className="font-medium text-lg mb-2 capitalize">{entity}</h3>
-              <div className="grid grid-cols-4 gap-2 text-sm">
-                <div className="bg-green-50 p-2 rounded-md">
-                  <p className="text-green-700 font-medium">Creados</p>
-                  <p className="text-2xl font-bold text-green-600">{data.created}</p>
-                </div>
-                <div className="bg-blue-50 p-2 rounded-md">
-                  <p className="text-blue-700 font-medium">Actualizados</p>
-                  <p className="text-2xl font-bold text-blue-600">{data.updated}</p>
-                </div>
-                <div className="bg-red-50 p-2 rounded-md">
-                  <p className="text-red-700 font-medium">Fallidos</p>
-                  <p className="text-2xl font-bold text-red-600">{data.failed}</p>
-                </div>
-                <div className="bg-gray-50 p-2 rounded-md">
-                  <p className="text-gray-700 font-medium">Total</p>
-                  <p className="text-2xl font-bold text-gray-600">{data.total}</p>
-                </div>
-              </div>
-              <div className="mt-2">
-                <Progress value={((data.created + data.updated) / data.total) * 100} className="h-2" />
-              </div>
-            </div>
-          ))}
-        </div>
-      )
-    } else {
-      return (
-        <div className="space-y-4 mt-4">
-          <div className="grid grid-cols-4 gap-2 text-sm">
-            <div className="bg-green-50 p-2 rounded-md">
-              <p className="text-green-700 font-medium">Creados</p>
-              <p className="text-2xl font-bold text-green-600">{result.created}</p>
-            </div>
-            <div className="bg-blue-50 p-2 rounded-md">
-              <p className="text-blue-700 font-medium">Actualizados</p>
-              <p className="text-2xl font-bold text-blue-600">{result.updated}</p>
-            </div>
-            <div className="bg-red-50 p-2 rounded-md">
-              <p className="text-red-700 font-medium">Fallidos</p>
-              <p className="text-2xl font-bold text-red-600">{result.failed}</p>
-            </div>
-            <div className="bg-gray-50 p-2 rounded-md">
-              <p className="text-gray-700 font-medium">Total</p>
-              <p className="text-2xl font-bold text-gray-600">{result.total}</p>
-            </div>
-          </div>
-          <div className="mt-2">
-            <Progress value={((result.created + result.updated) / result.total) * 100} className="h-2" />
-          </div>
-        </div>
-      )
+        return entity
     }
   }
 
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Database className="h-5 w-5" />
-          Sincronización de Datos
-        </CardTitle>
-        <CardDescription>Sincroniza los datos entre Shopify y la base de datos</CardDescription>
+        <CardTitle>Sincronización con Shopify</CardTitle>
+        <CardDescription>Sincroniza los datos de tu tienda Shopify con la base de datos local.</CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="all" value={activeTab} onValueChange={handleTabChange}>
+        <Tabs defaultValue="products">
           <TabsList className="grid grid-cols-6 mb-4">
-            <TabsTrigger value="all">Todo</TabsTrigger>
             <TabsTrigger value="products">Productos</TabsTrigger>
             <TabsTrigger value="collections">Colecciones</TabsTrigger>
             <TabsTrigger value="customers">Clientes</TabsTrigger>
             <TabsTrigger value="orders">Pedidos</TabsTrigger>
             <TabsTrigger value="promotions">Promociones</TabsTrigger>
+            <TabsTrigger value="all">Todo</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="all">
-            {status === "loading" && (
-              <Alert>
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                <AlertTitle>Sincronizando</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
-
-            {status === "success" && (
-              <Alert className="bg-green-50 border-green-200">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                <AlertTitle>Sincronización completada</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
-
-            {status === "error" && (
-              <Alert variant="destructive">
-                <XCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
-
-            {status === "idle" && (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Sincronización pendiente</AlertTitle>
-                <AlertDescription>
-                  Haz clic en el botón para sincronizar todos los datos entre Shopify y la base de datos
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {renderResult()}
-          </TabsContent>
-
           <TabsContent value="products">
-            {status === "loading" && (
-              <Alert>
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                <AlertTitle>Sincronizando</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
-
-            {status === "success" && (
-              <Alert className="bg-green-50 border-green-200">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                <AlertTitle>Sincronización completada</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
-
-            {status === "error" && (
-              <Alert variant="destructive">
-                <XCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
-
-            {status === "idle" && (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Sincronización pendiente</AlertTitle>
-                <AlertDescription>
-                  Haz clic en el botón para sincronizar los productos entre Shopify y la base de datos
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {renderResult()}
+            <div className="space-y-4">
+              <p className="text-sm text-gray-500">
+                Sincroniza los productos de tu tienda Shopify con la base de datos local. Esto incluirá variantes,
+                imágenes y metadatos.
+              </p>
+              <Button onClick={() => startSync("products")} disabled={syncStatus.isLoading} className="w-full">
+                {syncStatus.isLoading && syncStatus.entity === "products" ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Sincronizando...
+                  </>
+                ) : (
+                  "Sincronizar Productos"
+                )}
+              </Button>
+              {renderSyncResult("products")}
+            </div>
           </TabsContent>
 
           <TabsContent value="collections">
-            {status === "loading" && (
-              <Alert>
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                <AlertTitle>Sincronizando</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
-
-            {status === "success" && (
-              <Alert className="bg-green-50 border-green-200">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                <AlertTitle>Sincronización completada</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
-
-            {status === "error" && (
-              <Alert variant="destructive">
-                <XCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
-
-            {status === "idle" && (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Sincronización pendiente</AlertTitle>
-                <AlertDescription>
-                  Haz clic en el botón para sincronizar las colecciones entre Shopify y la base de datos
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {renderResult()}
+            <div className="space-y-4">
+              <p className="text-sm text-gray-500">
+                Sincroniza las colecciones de tu tienda Shopify con la base de datos local. Esto incluirá las relaciones
+                con productos.
+              </p>
+              <Button onClick={() => startSync("collections")} disabled={syncStatus.isLoading} className="w-full">
+                {syncStatus.isLoading && syncStatus.entity === "collections" ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Sincronizando...
+                  </>
+                ) : (
+                  "Sincronizar Colecciones"
+                )}
+              </Button>
+              {renderSyncResult("collections")}
+            </div>
           </TabsContent>
 
           <TabsContent value="customers">
-            {status === "loading" && (
-              <Alert>
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                <AlertTitle>Sincronizando</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
-
-            {status === "success" && (
-              <Alert className="bg-green-50 border-green-200">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                <AlertTitle>Sincronización completada</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
-
-            {status === "error" && (
-              <Alert variant="destructive">
-                <XCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
-
-            {status === "idle" && (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Sincronización pendiente</AlertTitle>
-                <AlertDescription>
-                  Haz clic en el botón para sincronizar los clientes entre Shopify y la base de datos
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {renderResult()}
+            <div className="space-y-4">
+              <p className="text-sm text-gray-500">
+                Sincroniza los clientes de tu tienda Shopify con la base de datos local.
+              </p>
+              <Button onClick={() => startSync("customers")} disabled={syncStatus.isLoading} className="w-full">
+                {syncStatus.isLoading && syncStatus.entity === "customers" ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Sincronizando...
+                  </>
+                ) : (
+                  "Sincronizar Clientes"
+                )}
+              </Button>
+              {renderSyncResult("customers")}
+            </div>
           </TabsContent>
 
           <TabsContent value="orders">
-            {status === "loading" && (
-              <Alert>
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                <AlertTitle>Sincronizando</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
-
-            {status === "success" && (
-              <Alert className="bg-green-50 border-green-200">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                <AlertTitle>Sincronización completada</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
-
-            {status === "error" && (
-              <Alert variant="destructive">
-                <XCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
-
-            {status === "idle" && (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Sincronización pendiente</AlertTitle>
-                <AlertDescription>
-                  Haz clic en el botón para sincronizar los pedidos entre Shopify y la base de datos
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {renderResult()}
+            <div className="space-y-4">
+              <p className="text-sm text-gray-500">
+                Sincroniza los pedidos de tu tienda Shopify con la base de datos local.
+              </p>
+              <Button onClick={() => startSync("orders")} disabled={syncStatus.isLoading} className="w-full">
+                {syncStatus.isLoading && syncStatus.entity === "orders" ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Sincronizando...
+                  </>
+                ) : (
+                  "Sincronizar Pedidos"
+                )}
+              </Button>
+              {renderSyncResult("orders")}
+            </div>
           </TabsContent>
 
           <TabsContent value="promotions">
-            {status === "loading" && (
-              <Alert>
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                <AlertTitle>Sincronizando</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
+            <div className="space-y-4">
+              <p className="text-sm text-gray-500">
+                Sincroniza las promociones de tu tienda Shopify con la base de datos local.
+              </p>
+              <Button onClick={() => startSync("promotions")} disabled={syncStatus.isLoading} className="w-full">
+                {syncStatus.isLoading && syncStatus.entity === "promotions" ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Sincronizando...
+                  </>
+                ) : (
+                  "Sincronizar Promociones"
+                )}
+              </Button>
+              {renderSyncResult("promotions")}
+            </div>
+          </TabsContent>
 
-            {status === "success" && (
-              <Alert className="bg-green-50 border-green-200">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                <AlertTitle>Sincronización completada</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
-
-            {status === "error" && (
-              <Alert variant="destructive">
-                <XCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
-
-            {status === "idle" && (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Sincronización pendiente</AlertTitle>
-                <AlertDescription>
-                  Haz clic en el botón para sincronizar las promociones entre Shopify y la base de datos
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {renderResult()}
+          <TabsContent value="all">
+            <div className="space-y-4">
+              <p className="text-sm text-gray-500">
+                Sincroniza todos los datos de tu tienda Shopify con la base de datos local. Este proceso puede tardar
+                varios minutos.
+              </p>
+              <Button onClick={() => startSync("all")} disabled={syncStatus.isLoading} className="w-full">
+                {syncStatus.isLoading && syncStatus.entity === "all" ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Sincronizando...
+                  </>
+                ) : (
+                  "Sincronizar Todo"
+                )}
+              </Button>
+              {renderSyncResult("all")}
+            </div>
           </TabsContent>
         </Tabs>
       </CardContent>
-      <CardFooter>
-        {activeTab === "all" && renderSyncButton("all")}
-        {activeTab === "products" && renderSyncButton("products")}
-        {activeTab === "collections" && renderSyncButton("collections")}
-        {activeTab === "customers" && renderSyncButton("customers")}
-        {activeTab === "orders" && renderSyncButton("orders")}
-        {activeTab === "promotions" && renderSyncButton("promotions")}
+      <CardFooter className="flex justify-between">
+        <p className="text-xs text-gray-500">
+          La sincronización puede tardar varios minutos dependiendo de la cantidad de datos.
+        </p>
       </CardFooter>
     </Card>
   )
