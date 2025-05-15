@@ -9,11 +9,23 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/components/ui/use-toast"
 import { CustomerFilters, type CustomerFilter } from "@/components/customer-filters"
 import { ExportCustomers } from "@/components/export-customers"
-import { fetchCustomers, type CustomerFilters as ApiCustomerFilters } from "@/lib/api/customers"
+import { fetchCustomers, type CustomerFilters as ApiCustomerFilters, deleteCustomer } from "@/lib/api/customers"
 import { formatDate, formatCurrency } from "@/lib/utils"
-import { MoreHorizontal, Pencil, ShoppingCart, UserPlus, RefreshCw } from "lucide-react"
+import { MoreHorizontal, Pencil, ShoppingCart, UserPlus, RefreshCw, Eye, Trash2 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { CustomerDetail } from "@/components/customer-detail"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import Link from "next/link"
 
 interface Customer {
   id: string
@@ -181,6 +193,30 @@ export default function CustomersPage() {
     setIsDetailOpen(false)
   }
 
+  const handleDeleteCustomer = async (customerId: string) => {
+    try {
+      setIsLoading(true)
+      await deleteCustomer(customerId)
+
+      toast({
+        title: "Cliente eliminado",
+        description: "El cliente ha sido eliminado correctamente",
+      })
+
+      // Recargar la lista de clientes
+      loadCustomers()
+    } catch (error) {
+      console.error("Error deleting customer:", error)
+      toast({
+        title: "Error",
+        description: `No se pudo eliminar el cliente: ${(error as Error).message}`,
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -330,6 +366,38 @@ export default function CustomersPage() {
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="icon" asChild>
+                          <Link href={`/dashboard/customers/${customer.id}`}>
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Esta acción no se puede deshacer. Se eliminará permanentemente este cliente y todos sus
+                                datos asociados.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteCustomer(customer.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Eliminar
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

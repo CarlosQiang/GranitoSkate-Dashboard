@@ -122,8 +122,11 @@ export default function NewCustomerPage() {
         description: "El cliente se ha creado correctamente",
       })
 
-      // Redirigir a la página de detalles del cliente
-      router.push(`/dashboard/customers/${result.id}`)
+      // Esperar un momento antes de redirigir para asegurar que la toast se muestre
+      setTimeout(() => {
+        // Redirigir a la página de listado de clientes en lugar de a la página de detalles
+        router.push("/dashboard/customers")
+      }, 1000)
     } catch (error) {
       console.error("Error creating customer:", error)
       toast({
@@ -131,7 +134,6 @@ export default function NewCustomerPage() {
         description: `No se pudo crear el cliente: ${(error as Error).message}`,
         variant: "destructive",
       })
-    } finally {
       setIsSubmitting(false)
     }
   }

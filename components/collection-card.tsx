@@ -37,7 +37,7 @@ export function CollectionCard({ collection }) {
             </Badge>
           </div>
         </CardContent>
-        <CardFooter className="p-4 pt-0 text-xs text-muted-foreground border-t mt-auto">
+        <CardFooter className="p-4 pt-0 text-xs text-muted-foreground">
           <span className="truncate">ID: {numericId}</span>
         </CardFooter>
       </Card>

@@ -6,6 +6,7 @@ import { DashboardLayoutWrapper } from "@/components/dashboard-layout-wrapper"
 import { Suspense } from "react"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { AutoSync } from "@/components/auto-sync"
+import { AutoSyncProducts } from "@/components/auto-sync-products"
 
 export const metadata: Metadata = {
   title: "Dashboard - GranitoSkate",
@@ -52,6 +53,7 @@ export default async function DashboardLayout({
             <DashboardLayoutWrapper>
               <AutoSync />
               <Suspense fallback={<LoadingSpinner />}>{children}</Suspense>
+              <AutoSyncProducts />
             </DashboardLayoutWrapper>
           </div>
         </main>

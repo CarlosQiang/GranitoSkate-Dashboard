@@ -48,58 +48,34 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
 
-  // Modificar la función useEffect para manejar mejor los errores de ID
+  // Actualizar la función useEffect para manejar correctamente los errores y mostrar la información
+
   useEffect(() => {
     async function loadPromotion() {
       try {
         setIsLoading(true)
-        console.log("Cargando promoción con ID:", params.id)
+        console.log(`Cargando promoción con ID: ${params.id}`)
 
-        // Verificar si el ID es válido antes de hacer la petición
-        if (!params.id || params.id === "undefined" || params.id === "[id]") {
-          throw new Error("ID de promoción no válido")
-        }
-
-        // Intentar formatear el ID si es necesario
-        let formattedId = params.id
-        if (formattedId.includes("gid://shopify/")) {
-          // Extraer solo el ID numérico
-          const matches = formattedId.match(/\/(\d+)$/)
-          if (matches && matches[1]) {
-            formattedId = matches[1]
-          }
-        }
-
-        const data = await fetchPriceListById(formattedId)
+        // Intentar obtener la promoción
+        const data = await fetchPriceListById(params.id)
         console.log("Datos de promoción recibidos:", data)
-        setPromotion(data)
-        setError(null)
+
+        if (data) {
+          setPromotion(data)
+          setError(null)
+        } else {
+          throw new Error("No se pudo obtener la información de la promoción")
+        }
       } catch (err) {
         console.error("Error al cargar la promoción:", err)
         setError(`No se pudo cargar la promoción: ${(err as Error).message}`)
-
-        // Crear una promoción simulada para mostrar algo al usuario
-        setPromotion({
-          id: params.id,
-          title: `Promoción ${params.id}`,
-          startDate: new Date().toISOString(),
-          endDate: null,
-          status: "ACTIVE",
-          type: "PERCENTAGE_DISCOUNT",
-          value: 10,
-          target: "CART",
-          active: true,
-          code: null,
-          description: "Promoción simulada debido a un error en la API",
-          error: true,
-        } as any)
       } finally {
         setIsLoading(false)
       }
     }
 
     loadPromotion()
-  }, [params.id, retryCount])
+  }, [params.id])
 
   const handleDelete = async () => {
     try {
@@ -121,6 +97,8 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
     }
   }
 
+  // Actualizar la función togglePromotionStatus para manejar correctamente los errores
+
   const togglePromotionStatus = async () => {
     if (!promotion) return
 
@@ -128,14 +106,23 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
       const now = new Date()
       const isActive = promotion.active
 
+      // Mostrar toast de carga
+      toast({
+        title: isActive ? "Desactivando promoción..." : "Activando promoción...",
+        description: "Por favor espere mientras procesamos su solicitud",
+      })
+
       // Si está activa, la desactivamos poniendo la fecha de fin en el pasado
       // Si está inactiva, la activamos quitando la fecha de fin
       const updateData = {
         endDate: isActive ? new Date(now.getTime() - 86400000).toISOString() : undefined,
+        active: !isActive, // Añadir explícitamente el cambio de estado
       }
 
-      await updatePriceList(params.id, updateData)
+      // Intentar actualizar la promoción
+      const updatedPromotion = await updatePriceList(params.id, updateData)
 
+      // Mostrar toast de éxito
       toast({
         title: isActive ? "Promoción desactivada" : "Promoción activada",
         description: isActive
@@ -143,12 +130,17 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
           : "La promoción ha sido activada correctamente",
       })
 
-      // Actualizar el estado local
-      setPromotion({
-        ...promotion,
-        active: !isActive,
-        endDate: isActive ? new Date(now.getTime() - 86400000).toISOString() : undefined,
-      })
+      // Actualizar el estado local con los datos devueltos por la API
+      if (updatedPromotion) {
+        setPromotion(updatedPromotion)
+      } else {
+        // Si no hay datos, actualizar manualmente
+        setPromotion({
+          ...promotion,
+          active: !isActive,
+          endDate: isActive ? new Date(now.getTime() - 86400000).toISOString() : undefined,
+        })
+      }
     } catch (error) {
       console.error("Error updating promotion status:", error)
       toast({
