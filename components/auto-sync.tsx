@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { toast } from "@/components/ui/use-toast"
 
 export function AutoSync() {
   const [syncStatus, setSyncStatus] = useState<{
@@ -19,6 +20,8 @@ export function AutoSync() {
     error: null,
     showAlert: true,
   })
+
+  const [isSyncing, setIsSyncing] = useState(false)
 
   const checkDatabaseStatus = async () => {
     try {
@@ -108,6 +111,45 @@ export function AutoSync() {
     }
   }
 
+  const syncProducts = async () => {
+    try {
+      setIsSyncing(true)
+
+      // Usar POST en lugar de GET
+      const response = await fetch("/api/sync/products", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ limit: 50 }), // Limitar a 50 productos para evitar sobrecarga
+      })
+
+      if (!response.ok) {
+        throw new Error(`Error en la respuesta: ${response.status} ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      console.log("Sincronización completada:", data)
+
+      // Mostrar notificación de éxito
+      toast({
+        title: "Sincronización completada",
+        description: `Se han sincronizado ${data.created + data.updated} productos.`,
+      })
+    } catch (error) {
+      console.error("Error en sincronización automática:", error)
+
+      // Mostrar notificación de error
+      toast({
+        title: "Error de sincronización",
+        description: `No se pudieron sincronizar los productos: ${error.message}`,
+        variant: "destructive",
+      })
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   useEffect(() => {
     // Solo ejecutar la verificación si estamos en el cliente
     if (typeof window !== "undefined") {
@@ -174,11 +216,11 @@ export function AutoSync() {
             <Button
               variant="outline"
               size="sm"
-              onClick={syncData}
-              disabled={syncStatus.isLoading}
+              onClick={syncProducts}
+              disabled={isSyncing}
               className="flex-shrink-0 border-blue-300 text-blue-700 hover:bg-blue-50"
             >
-              {syncStatus.isLoading ? (
+              {isSyncing ? (
                 <>
                   <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
                   Sincronizando...

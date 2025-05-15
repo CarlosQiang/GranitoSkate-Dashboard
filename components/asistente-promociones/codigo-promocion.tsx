@@ -7,19 +7,22 @@ import { Button } from "@/components/ui/button"
 import { Code, RefreshCw } from "lucide-react"
 
 interface FormularioCodigoPromocionProps {
-  requiereCodigo: boolean
-  codigo: string
-  onChange: (datos: { requiereCodigo: boolean; codigo: string }) => void
+  codigo: {
+    usarCodigo: boolean
+    codigo: string
+    generarAutomaticamente?: boolean
+  }
+  onChange: (datos: any) => void
 }
 
-export function FormularioCodigoPromocion({ requiereCodigo, codigo, onChange }: FormularioCodigoPromocionProps) {
+export function FormularioCodigoPromocion({ codigo, onChange }: FormularioCodigoPromocionProps) {
   const generarCodigoAleatorio = () => {
     const caracteres = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
     let resultado = ""
     for (let i = 0; i < 8; i++) {
       resultado += caracteres.charAt(Math.floor(Math.random() * caracteres.length))
     }
-    onChange({ requiereCodigo, codigo: resultado })
+    onChange({ ...codigo, codigo: resultado })
   }
 
   return (
@@ -40,19 +43,19 @@ export function FormularioCodigoPromocion({ requiereCodigo, codigo, onChange }: 
             </div>
             <Switch
               id="requiere-codigo"
-              checked={requiereCodigo}
-              onCheckedChange={(checked) => onChange({ requiereCodigo: checked, codigo })}
+              checked={codigo.usarCodigo}
+              onCheckedChange={(checked) => onChange({ ...codigo, usarCodigo: checked })}
             />
           </div>
 
-          {requiereCodigo && (
+          {codigo.usarCodigo && (
             <div className="ml-7 space-y-2">
               <div className="flex space-x-2">
                 <Input
                   id="codigo"
                   placeholder="Ej: VERANO2023"
-                  value={codigo}
-                  onChange={(e) => onChange({ requiereCodigo, codigo: e.target.value.toUpperCase() })}
+                  value={codigo.codigo}
+                  onChange={(e) => onChange({ ...codigo, codigo: e.target.value.toUpperCase() })}
                   className="uppercase"
                 />
                 <Button type="button" variant="outline" onClick={generarCodigoAleatorio}>

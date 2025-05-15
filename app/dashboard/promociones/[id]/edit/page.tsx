@@ -15,6 +15,29 @@ import { useToast } from "@/components/ui/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, ArrowLeft, Calendar } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useForm } from "react-hook-form"
+import { z } from "zod"
+import { zodResolver } from "@hookform/resolvers/zod"
+
+const formSchema = z.object({
+  title: z.string().min(2, {
+    message: "El título debe tener al menos 2 caracteres.",
+  }),
+  description: z.string().optional(),
+  type: z.enum(["PERCENTAGE_DISCOUNT", "FIXED_AMOUNT_DISCOUNT"]),
+  value: z.number().min(0.01, {
+    message: "El valor debe ser mayor a 0.",
+  }),
+  code: z.string().optional(),
+  target: z.enum(["CART", "PRODUCT", "CATEGORY"]),
+  targetId: z.string().optional(),
+  startDate: z.date(),
+  endDate: z.date().optional(),
+  active: z.boolean().default(false),
+  usageLimit: z.number().optional(),
+})
+
+type FormSchemaType = z.infer<typeof formSchema>
 
 export default function EditarPromocionPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -24,31 +47,66 @@ export default function EditarPromocionPage({ params }: { params: { id: string }
   const [error, setError] = useState<string | null>(null)
   const [promocion, setPromocion] = useState<any>(null)
 
+  const form = useForm<FormSchemaType>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      type: "PERCENTAGE_DISCOUNT",
+      value: 0,
+      code: "",
+      target: "CART",
+      targetId: "",
+      startDate: new Date(),
+      endDate: undefined,
+      active: false,
+      usageLimit: 0,
+    },
+    mode: "onChange",
+  })
+
   useEffect(() => {
-    async function cargarPromocion() {
+    async function loadPromotion() {
       try {
         setIsLoading(true)
+        console.log(`Fetching promotion with ID: ${params.id}`)
+
+        // Intentar obtener la promoción
         const data = await obtenerPromocionPorId(params.id)
-        setPromocion({
-          id: data.id,
-          titulo: data.title || "",
-          codigo: data.code || "",
-          valor: data.value?.toString() || "10",
-          tipo: data.valueType === "percentage" ? "PORCENTAJE_DESCUENTO" : "CANTIDAD_FIJA",
-          fechaInicio: data.startsAt ? new Date(data.startsAt) : new Date(),
-          fechaFin: data.endsAt ? new Date(data.endsAt) : null,
-          activa: data.status === "ACTIVE",
-        })
+
+        if (data) {
+          console.log("Promotion data loaded:", data)
+          setPromocion(data)
+
+          // Inicializar el formulario con los datos de la promoción
+          form.reset({
+            title: data.titulo || "",
+            description: data.descripcion || "",
+            type: data.tipo || "PERCENTAGE_DISCOUNT",
+            value: data.valor || 0,
+            code: data.codigo || "",
+            target: data.target || "CART",
+            targetId: data.targetId || "",
+            startDate: data.fechaInicio ? new Date(data.fechaInicio) : new Date(),
+            endDate: data.fechaFin ? (data.fechaFin ? new Date(data.fechaFin) : undefined) : undefined,
+            active: data.activa || false,
+            usageLimit: data.usageLimit || 0,
+          })
+
+          setError(null)
+        } else {
+          throw new Error("No se pudo obtener la información de la promoción")
+        }
       } catch (err) {
-        console.error("Error al cargar la promoción:", err)
+        console.error("Error fetching discount details:", err)
         setError(`No se pudo cargar la promoción: ${(err as Error).message}`)
       } finally {
         setIsLoading(false)
       }
     }
 
-    cargarPromocion()
-  }, [params.id])
+    loadPromotion()
+  }, [params.id, form])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

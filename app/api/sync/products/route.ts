@@ -8,6 +8,8 @@ const logger = new Logger({
   source: "api-sync-products",
 })
 
+// Asegurarnos de que la ruta de API acepte solicitudes POST
+
 export async function POST(request: Request) {
   try {
     // Verificar autenticación
@@ -17,7 +19,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    // Obtener parámetros de la solicitud (opcional)
+    // Obtener parámetros de la solicitud
     const body = await request.json().catch(() => ({}))
     const limit = body.limit || 250
 
@@ -39,4 +41,9 @@ export async function POST(request: Request) {
       { status: 500 },
     )
   }
+}
+
+// Añadir soporte para GET para compatibilidad con versiones anteriores
+export async function GET() {
+  return NextResponse.json({ error: "Método no permitido. Use POST en su lugar." }, { status: 405 })
 }
