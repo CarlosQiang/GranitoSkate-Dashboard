@@ -4,10 +4,9 @@ import { useEffect, useState } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useToast } from "@/components/ui/use-toast"
+import { toast } from "@/components/ui/use-toast"
 
 export function AutoSync() {
-  const { toast } = useToast()
   const [syncStatus, setSyncStatus] = useState<{
     isChecking: boolean
     needsSync: boolean
@@ -72,6 +71,46 @@ export function AutoSync() {
     }
   }
 
+  const syncData = async () => {
+    try {
+      setSyncStatus((prev) => ({ ...prev, isLoading: true }))
+
+      const response = await fetch("/api/sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`Error al sincronizar datos: ${response.status} ${response.statusText}`)
+      }
+
+      const data = await response.json()
+
+      if (!data.success) {
+        throw new Error(data.message || "Error desconocido durante la sincronización")
+      }
+
+      setSyncStatus({
+        isChecking: false,
+        needsSync: false,
+        isLoading: false,
+        error: null,
+        showAlert: false,
+      })
+    } catch (error) {
+      console.error("Error durante la sincronización:", error)
+      setSyncStatus((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: error instanceof Error ? error.message : "Error desconocido durante la sincronización",
+        showAlert: true,
+      }))
+    }
+  }
+
   const syncProducts = async () => {
     try {
       setIsSyncing(true)
@@ -86,8 +125,7 @@ export function AutoSync() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.message || `Error en la respuesta: ${response.status} ${response.statusText}`)
+        throw new Error(`Error en la respuesta: ${response.status} ${response.statusText}`)
       }
 
       const data = await response.json()
@@ -96,11 +134,8 @@ export function AutoSync() {
       // Mostrar notificación de éxito
       toast({
         title: "Sincronización completada",
-        description: `Se han sincronizado ${data.result?.created + data.result?.updated || 0} productos.`,
+        description: `Se han sincronizado ${data.created + data.updated} productos.`,
       })
-
-      // Ocultar alerta después de sincronización exitosa
-      setSyncStatus((prev) => ({ ...prev, showAlert: false }))
     } catch (error) {
       console.error("Error en sincronización automática:", error)
 

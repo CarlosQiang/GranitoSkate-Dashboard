@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react"
+import { AlertCircle, Loader2 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from "next/link"
 
@@ -25,7 +25,6 @@ export default function NuevoAdministradorForm() {
   })
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -38,10 +37,6 @@ export default function NuevoAdministradorForm() {
 
   const handleSwitchChange = (name: string, checked: boolean) => {
     setFormData((prev) => ({ ...prev, [name]: checked }))
-  }
-
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -108,25 +103,14 @@ export default function NuevoAdministradorForm() {
 
         <div className="space-y-2">
           <Label htmlFor="contrasena">Contraseña</Label>
-          <div className="relative">
-            <Input
-              id="contrasena"
-              name="contrasena"
-              type={showPassword ? "text" : "password"}
-              value={formData.contrasena}
-              onChange={handleChange}
-              required
-              className="pr-10"
-            />
-            <button
-              type="button"
-              onClick={togglePasswordVisibility}
-              className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700 focus:outline-none"
-              aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-            >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
+          <Input
+            id="contrasena"
+            name="contrasena"
+            type="password"
+            value={formData.contrasena}
+            onChange={handleChange}
+            required
+          />
         </div>
 
         <div className="space-y-2">

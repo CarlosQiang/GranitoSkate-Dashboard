@@ -1,75 +1,49 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import * as syncService from "@/lib/sync/sync-service"
+import { syncAllProducts } from "@/lib/services/product-sync-service"
+import { Logger } from "next-axiom"
 
-export async function GET(request: Request) {
-  try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
+const logger = new Logger({
+  source: "api-sync-products",
+})
 
-    // Redirigir a POST
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Por favor, usa el método POST para sincronizar productos",
-      },
-      { status: 405 },
-    )
-  } catch (error) {
-    console.error("Error en la sincronización:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Error en la sincronización",
-        error: (error as Error).message,
-      },
-      { status: 500 },
-    )
-  }
-}
+// Asegurarnos de que la ruta de API acepte solicitudes POST
 
 export async function POST(request: Request) {
   try {
     // Verificar autenticación
     const session = await getServerSession(authOptions)
     if (!session) {
+      logger.warn("Intento de acceso no autorizado a la API de sincronización de productos")
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    // Obtener datos de la solicitud
-    let limit = 50
-    try {
-      const data = await request.json()
-      if (data && typeof data.limit === "number") {
-        limit = data.limit
-      }
-    } catch (e) {
-      // Si no hay cuerpo JSON o hay un error al parsearlo, usar el valor predeterminado
-    }
+    // Obtener parámetros de la solicitud
+    const body = await request.json().catch(() => ({}))
+    const limit = body.limit || 250
 
-    console.log(`Sincronizando productos con límite: ${limit}`)
+    // Iniciar sincronización
+    logger.info("Iniciando sincronización de productos", { limit })
+    const result = await syncAllProducts(limit)
 
-    // Sincronizar productos
-    const result = await syncService.syncProducts(limit)
-
-    return NextResponse.json({
-      success: true,
-      message: "Sincronización de productos completada",
-      result,
-    })
+    return NextResponse.json(result)
   } catch (error) {
-    console.error("Error en la sincronización de productos:", error)
+    logger.error("Error en la sincronización de productos", {
+      error: error instanceof Error ? error.message : "Error desconocido",
+    })
+
     return NextResponse.json(
       {
-        success: false,
-        message: "Error en la sincronización de productos",
-        error: (error as Error).message,
+        error: "Error en la sincronización de productos",
+        details: error instanceof Error ? error.message : "Error desconocido",
       },
       { status: 500 },
     )
   }
+}
+
+// Añadir soporte para GET para compatibilidad con versiones anteriores
+export async function GET() {
+  return NextResponse.json({ error: "Método no permitido. Use POST en su lugar." }, { status: 405 })
 }

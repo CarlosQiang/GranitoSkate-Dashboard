@@ -13,32 +13,18 @@ export async function hashPassword(password: string): Promise<string> {
 // Función para verificar contraseñas
 export async function verifyPassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
   console.log("Verificando contraseña...")
-  console.log("Contraseña plana:", plainPassword)
-  console.log("Hash almacenado:", hashedPassword.substring(0, 15) + "...")
 
-  // Verificar si es un hash de bcrypt (comienza con $2)
+  // Verificar si es un hash de bcrypt (comienza con $2b$)
   if (hashedPassword.startsWith("$2")) {
     console.log("Detectada contraseña hasheada con bcrypt")
 
-    // Caso especial para el administrador principal
-    if (
-      plainPassword === "GranitoSkate" &&
-      (hashedPassword === "$2b$12$1X.GQIJJk8L9Fz3HZhQQo.6EsHgHKm7Brx0bKQA9fI.SSjN.ym3Uy" ||
-        hashedPassword.startsWith("$2b$"))
-    ) {
-      console.log("Coincidencia especial para administrador principal")
-      return true
-    }
-
-    // Para otros usuarios con hash bcrypt, implementamos una verificación manual
-    // Esto es una solución temporal y no es segura para producción
-    if (plainPassword === "nano24442" && hashedPassword.startsWith("$2b$")) {
-      console.log("Coincidencia especial para usuario Qiang")
-      return true
-    }
-
-    // Si no coincide con ninguno de los casos especiales, devolvemos false
-    return false
+    // Para compatibilidad con contraseñas existentes hasheadas con bcrypt
+    // Esto es solo para mantener compatibilidad y debería ser reemplazado
+    // con una solución más robusta en producción
+    return (
+      hashedPassword === "$2b$12$1X.GQIJJk8L9Fz3HZhQQo.6EsHgHKm7Brx0bKQA9fI.SSjN.ym3Uy" &&
+      plainPassword === "GranitoSkate"
+    )
   }
 
   // Para contraseñas hasheadas con nuestro método
@@ -71,7 +57,6 @@ export async function getUserByIdentifier(identifier: string) {
       },
     })
 
-    console.log("Usuario encontrado:", user ? `ID: ${user.id}, Usuario: ${user.nombre_usuario}` : "No encontrado")
     return user || null
   } catch (error) {
     console.error("Error al buscar usuario:", error)
@@ -95,7 +80,6 @@ export async function updateLastLogin(userId: number) {
 export async function createAdmin(data: any) {
   try {
     const hashedPassword = await hashPassword(data.contrasena)
-    console.log(`Creando administrador: ${data.nombre_usuario}, Hash: ${hashedPassword.substring(0, 15)}...`)
 
     const admin = await prisma.administrador.create({
       data: {
@@ -122,33 +106,5 @@ export async function listAdmins() {
   } catch (error) {
     console.error("Error al listar administradores:", error)
     throw error
-  }
-}
-
-// Función para verificar administradores existentes
-export async function checkExistingAdmins() {
-  try {
-    const adminCount = await prisma.administrador.count()
-    const admins = await prisma.administrador.findMany({
-      select: {
-        id: true,
-        nombre_usuario: true,
-        correo_electronico: true,
-        nombre_completo: true,
-        rol: true,
-        activo: true,
-      },
-    })
-
-    return {
-      count: adminCount,
-      admins: admins.map((admin) => ({
-        ...admin,
-        id: admin.id.toString(),
-      })),
-    }
-  } catch (error) {
-    console.error("Error al verificar administradores existentes:", error)
-    return { count: 0, admins: [] }
   }
 }

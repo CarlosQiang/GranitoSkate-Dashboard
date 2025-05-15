@@ -18,8 +18,6 @@ export const authOptions: NextAuthOptions = {
             return null
           }
 
-          console.log(`Intentando autenticar: ${credentials.identifier}`)
-
           // Buscar usuario por nombre de usuario o correo electrónico
           const user = await prisma.administrador.findFirst({
             where: {
@@ -29,22 +27,15 @@ export const authOptions: NextAuthOptions = {
           })
 
           if (!user) {
-            console.log(`Usuario no encontrado: ${credentials.identifier}`)
+            console.log("Usuario no encontrado:", credentials.identifier)
             return null
           }
 
-          console.log(`Usuario encontrado: ${user.nombre_usuario}, verificando contraseña...`)
-          console.log(`Hash almacenado: ${user.contrasena.substring(0, 15)}...`)
-
-          // Verificar contraseña
           const isValidPassword = await verifyPassword(credentials.password, user.contrasena)
-
           if (!isValidPassword) {
-            console.log("Contraseña inválida")
+            console.log("Contraseña inválida para usuario:", credentials.identifier)
             return null
           }
-
-          console.log("Autenticación exitosa, actualizando último acceso...")
 
           // Actualizar último acceso
           await updateLastLogin(user.id)
@@ -86,6 +77,6 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 días
   },
-  secret: process.env.NEXTAUTH_SECRET || "tu_secreto_seguro_aqui",
+  secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development",
 }

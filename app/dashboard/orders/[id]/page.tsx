@@ -8,29 +8,16 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ArrowLeft, AlertCircle, RefreshCw, Trash2, AlertTriangle } from "lucide-react"
+import { ArrowLeft, AlertCircle, RefreshCw } from "lucide-react"
 import { fetchOrderById } from "@/lib/api/orders"
 import { formatDate, formatCurrency } from "@/lib/utils"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-} from "@/components/ui/dialog"
-import { useToast } from "@/components/ui/use-toast"
 
 export default function OrderDetailsPage() {
   const params = useParams()
   const router = useRouter()
-  const { toast } = useToast()
   const [order, setOrder] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   const orderId = params?.id
 
@@ -86,34 +73,6 @@ export default function OrderDetailsPage() {
       setError(error.message || "No se pudo cargar los detalles del pedido")
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  const handleDeleteOrder = async () => {
-    try {
-      setIsDeleting(true)
-
-      // Simulamos la eliminación
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
-      toast({
-        title: "Pedido eliminado",
-        description: "El pedido ha sido cancelado y archivado correctamente",
-        variant: "default",
-      })
-
-      // Cerrar el diálogo y redirigir a la lista de pedidos
-      setShowDeleteDialog(false)
-      router.push("/dashboard/orders")
-    } catch (error) {
-      console.error("Error deleting order:", error)
-      toast({
-        title: "Error",
-        description: error.message || "No se pudo eliminar el pedido",
-        variant: "destructive",
-      })
-    } finally {
-      setIsDeleting(false)
     }
   }
 
@@ -230,15 +189,9 @@ export default function OrderDetailsPage() {
           </Button>
           <h1 className="text-3xl font-bold tracking-tight">Pedido {order.name}</h1>
         </div>
-        <div className="flex items-center space-x-2">
-          <Badge className={getStatusColor(order.displayFulfillmentStatus)}>
-            {order.displayFulfillmentStatus || "PENDIENTE"}
-          </Badge>
-          <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)}>
-            <Trash2 className="mr-2 h-4 w-4" />
-            Eliminar
-          </Button>
-        </div>
+        <Badge className={getStatusColor(order.displayFulfillmentStatus)}>
+          {order.displayFulfillmentStatus || "PENDIENTE"}
+        </Badge>
       </div>
 
       <Card>
@@ -341,54 +294,6 @@ export default function OrderDetailsPage() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Diálogo de confirmación para eliminar pedido */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center">
-              <AlertTriangle className="h-5 w-5 text-destructive mr-2" />
-              Confirmar eliminación
-            </DialogTitle>
-            <DialogDescription>
-              ¿Estás seguro de que deseas eliminar el pedido <strong>{order.name}</strong>?
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground mb-2">
-              Esta acción cancelará el pedido y lo archivará en Shopify. No se puede deshacer.
-            </p>
-            <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-amber-800 text-sm">
-              <p className="font-medium">Importante:</p>
-              <ul className="list-disc list-inside mt-1 space-y-1">
-                <li>Los pedidos eliminados no se pueden recuperar</li>
-                <li>Si el pedido ya ha sido pagado, considera emitir un reembolso antes de eliminarlo</li>
-                <li>Si el pedido ya ha sido enviado, no se recomienda eliminarlo</li>
-              </ul>
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" disabled={isDeleting}>
-                Cancelar
-              </Button>
-            </DialogClose>
-            <Button variant="destructive" onClick={handleDeleteOrder} disabled={isDeleting}>
-              {isDeleting ? (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  Eliminando...
-                </>
-              ) : (
-                <>
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Eliminar pedido
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

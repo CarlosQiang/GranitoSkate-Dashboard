@@ -9,7 +9,6 @@ import { fetchCollectionById } from "@/lib/api/collections"
 import { CollectionProductManager } from "@/components/collection-product-manager"
 import { ArrowLeft, Package, Loader2, AlertCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { formatShopifyId } from "@/lib/shopify"
 
 export default function CollectionProductsPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -96,13 +95,9 @@ export default function CollectionProductsPage({ params }: { params: { id: strin
             {collection.title}
           </CardTitle>
           <CardDescription>
-            {typeof collection.productsCount === "number"
-              ? collection.productsCount === 1
-                ? "1 producto en esta colección"
-                : `${collection.productsCount} productos en esta colección`
-              : collection.products?.length === 1
-                ? "1 producto en esta colección"
-                : `${collection.products?.length || 0} productos en esta colección`}
+            {collection.productsCount === 1
+              ? "1 producto en esta colección"
+              : `${collection.productsCount} productos en esta colección`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -113,7 +108,7 @@ export default function CollectionProductsPage({ params }: { params: { id: strin
             </TabsList>
             <TabsContent value="add">
               <CollectionProductManager
-                collectionId={formatShopifyId(params.id, "Collection")}
+                collectionId={params.id}
                 onComplete={handleComplete}
                 mode="add"
                 key={`add-${refreshKey}`}
@@ -121,7 +116,7 @@ export default function CollectionProductsPage({ params }: { params: { id: strin
             </TabsContent>
             <TabsContent value="remove">
               <CollectionProductManager
-                collectionId={formatShopifyId(params.id, "Collection")}
+                collectionId={params.id}
                 onComplete={handleComplete}
                 mode="remove"
                 key={`remove-${refreshKey}`}
