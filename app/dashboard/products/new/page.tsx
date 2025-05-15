@@ -36,6 +36,7 @@ export default function NewProductPage() {
         title: "Default",
       },
     ],
+    inventoryQuantity: 0, // Movido fuera de variants
   })
 
   const handleInputChange = (e) => {
@@ -51,6 +52,12 @@ export default function NewProductPage() {
       setFormData({
         ...formData,
         variants: updatedVariants,
+      })
+    } else if (name === "inventoryQuantity") {
+      // Manejar el inventario separadamente
+      setFormData({
+        ...formData,
+        inventoryQuantity: value ? Number.parseInt(value, 10) : 0,
       })
     } else {
       setFormData({
@@ -82,7 +89,7 @@ export default function NewProductPage() {
       // Preparar los datos para la API de Shopify
       const productData = {
         title: formData.title,
-        descriptionHtml: formData.description,
+        description: formData.description,
         handle: handle,
         status: formData.status,
         vendor: formData.vendor,
@@ -95,6 +102,8 @@ export default function NewProductPage() {
             title: formData.variants[0].title || "Default Title",
           },
         ],
+        // Añadir la cantidad de inventario separadamente
+        inventoryQuantity: formData.inventoryQuantity,
         // Añadir la imagen si existe
         image: productImage,
         // Generar automáticamente los metafields de SEO
@@ -277,11 +286,18 @@ export default function NewProductPage() {
                     placeholder="Ej: GS-001"
                   />
                 </div>
-              </div>
-              <div className="bg-yellow-50 p-4 rounded-md border border-yellow-200">
-                <p className="text-sm text-yellow-800">
-                  El inventario se configurará automáticamente después de crear el producto.
-                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="inventoryQuantity">Cantidad en stock</Label>
+                  <Input
+                    id="inventoryQuantity"
+                    name="inventoryQuantity"
+                    type="number"
+                    min="0"
+                    value={formData.inventoryQuantity}
+                    onChange={handleInputChange}
+                    placeholder="0"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
