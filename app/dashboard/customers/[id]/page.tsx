@@ -66,7 +66,11 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
     try {
       setLoading(true)
       setError(null)
-      const data = await fetchCustomerById(params.id)
+
+      // Asegurarse de que el ID no tenga el prefijo "gid://"
+      const cleanId = params.id.includes("gid://") ? params.id.split("/").pop() : params.id
+
+      const data = await fetchCustomerById(cleanId)
       setCustomer(data)
       setEditedCustomer(data)
 
