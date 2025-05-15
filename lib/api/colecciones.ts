@@ -2,7 +2,7 @@ import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 
 // Función para obtener todas las colecciones
-export async function fetchCollections() {
+export async function obtenerColecciones() {
   try {
     const query = gql`
       query {
@@ -58,7 +58,7 @@ export async function fetchCollections() {
 }
 
 // Función para obtener una colección por ID
-export async function fetchCollectionById(id) {
+export async function obtenerColeccionPorId(id) {
   try {
     // Ensure the ID has the correct format
     const formattedId = id.includes("gid://shopify/Collection/") ? id : `gid://shopify/Collection/${id}`
@@ -151,7 +151,7 @@ export async function fetchCollectionProducts(collectionId) {
 }
 
 // Función para crear una nueva colección
-export async function createCollection(collectionData) {
+export async function crearColeccion(collectionData) {
   try {
     const mutation = gql`
       mutation collectionCreate($input: CollectionInput!) {
@@ -195,7 +195,7 @@ export async function createCollection(collectionData) {
 }
 
 // Función para actualizar una colección existente
-export async function updateCollection(id, collectionData) {
+export async function actualizarColeccion(id, collectionData) {
   try {
     const mutation = gql`
       mutation collectionUpdate($input: CollectionInput!) {
@@ -240,7 +240,7 @@ export async function updateCollection(id, collectionData) {
 }
 
 // Función para eliminar una colección
-export async function deleteCollection(id) {
+export async function eliminarColeccion(id) {
   try {
     const mutation = gql`
       mutation collectionDelete($input: CollectionDeleteInput!) {
@@ -273,8 +273,8 @@ export async function deleteCollection(id) {
   }
 }
 
-// Función para añadir productos a una colección - CORREGIDA
-export async function addProductsToCollection(collectionId, productIds) {
+// Función para añadir productos a una colección
+export async function agregarProductoAColeccion(collectionId, productIds) {
   try {
     // Aseguramos que el ID de la colección tenga el formato correcto
     const formattedCollectionId = collectionId.includes("gid://shopify/Collection/")
@@ -335,8 +335,8 @@ export async function addProductsToCollection(collectionId, productIds) {
   }
 }
 
-// Función para eliminar productos de una colección - CORREGIDA
-export async function removeProductsFromCollection(collectionId, productIds) {
+// Función para eliminar productos de una colección
+export async function eliminarProductoDeColeccion(collectionId, productIds) {
   try {
     // Aseguramos que el ID de la colección tenga el formato correcto
     const formattedCollectionId = collectionId.includes("gid://shopify/Collection/")
@@ -459,3 +459,14 @@ export async function fetchProductsNotInCollection(collectionId) {
     throw new Error(`Error al cargar productos no incluidos en la colección: ${error.message}`)
   }
 }
+
+// También exportamos las funciones con nombres en inglés para compatibilidad
+export const fetchCollections = obtenerColecciones
+export const fetchCollectionById = obtenerColeccionPorId
+export const createCollection = crearColeccion
+export const updateCollection = actualizarColeccion
+export const deleteCollection = eliminarColeccion
+export const addProductToCollection = agregarProductoAColeccion
+export const removeProductFromCollection = eliminarProductoDeColeccion
+export const addProductsToCollection = agregarProductoAColeccion
+export const removeProductsFromCollection = eliminarProductoDeColeccion
