@@ -12,10 +12,11 @@ import {
   addProductsToCollection,
   removeProductsFromCollection,
   fetchProductsNotInCollection,
-} from "@/lib/api/colecciones"
+} from "@/lib/api/collections"
 import { Loader2, Package } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import Image from "next/image"
+import { formatShopifyId } from "@/lib/shopify"
 
 interface CollectionProductManagerProps {
   productId?: string
@@ -27,7 +28,6 @@ interface CollectionProductManagerProps {
 export function CollectionProductManager({ productId, collectionId, onComplete, mode }: CollectionProductManagerProps) {
   const { toast } = useToast()
   const [products, setProducts] = useState<any[]>([])
-  const [collectionProducts, setCollectionProducts] = useState<any[]>([])
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -41,33 +41,27 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
 
       try {
         // Ensure we have a clean ID (remove any Shopify prefixes)
-        const cleanCollectionId = collectionId
-          ? collectionId.includes("/")
-            ? collectionId
-            : `gid://shopify/Collection/${collectionId}`
-          : undefined
+        const cleanCollectionId = collectionId ? formatShopifyId(collectionId, "Collection") : undefined
+        const cleanProductId = productId ? formatShopifyId(productId, "Product") : undefined
 
-        const cleanProductId = productId
-          ? productId.includes("/")
-            ? productId
-            : `gid://shopify/Product/${productId}`
-          : undefined
+        console.log("Loading products for collection:", cleanCollectionId, "Mode:", mode)
 
         // If we're in "add" mode, we need products not in the collection
         if (mode === "add" && cleanCollectionId) {
           const productsNotInCollection = await fetchProductsNotInCollection(cleanCollectionId)
+          console.log("Products not in collection:", productsNotInCollection)
           setProducts(productsNotInCollection.edges.map((edge) => edge.node))
         }
         // If we're in "remove" mode, we need products in the collection
         else if (mode === "remove" && cleanCollectionId) {
           const productsInCollection = await fetchCollectionProducts(cleanCollectionId)
-          // Extract the actual product nodes from the edges
-          const collectionProductNodes = productsInCollection?.edges?.map((edge) => edge.node) || []
-          setProducts(collectionProductNodes)
+          console.log("Products in collection:", productsInCollection)
+          setProducts(productsInCollection)
         }
         // Fallback to all products if we can't determine which to show
         else {
           const allProducts = await fetchProducts()
+          console.log("All products:", allProducts)
           setProducts(allProducts)
         }
 
@@ -116,15 +110,18 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
 
     try {
       // Ensure we have a clean collection ID
-      const cleanCollectionId = collectionId
-        ? collectionId.includes("/")
-          ? collectionId
-          : `gid://shopify/Collection/${collectionId}`
-        : undefined
+      const cleanCollectionId = collectionId ? formatShopifyId(collectionId, "Collection") : undefined
 
       if (!cleanCollectionId) {
         throw new Error("ID de colección no válido")
       }
+
+      console.log(
+        `${mode === "add" ? "Adding" : "Removing"} products:`,
+        selectedProducts,
+        "to collection:",
+        cleanCollectionId,
+      )
 
       if (mode === "add") {
         await addProductsToCollection(cleanCollectionId, selectedProducts)

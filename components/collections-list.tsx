@@ -19,6 +19,7 @@ export function CollectionsList() {
       try {
         setLoading(true)
         const data = await fetchCollections()
+        console.log("Collections loaded:", data)
         setCollections(data)
         setError(null)
       } catch (err) {
@@ -82,7 +83,13 @@ export function CollectionsList() {
           </div>
           <CardContent className="p-4 flex-grow">
             <h3 className="text-lg font-semibold line-clamp-1">{collection.title}</h3>
-            <p className="text-sm text-gray-500">{collection.productsCount} productos</p>
+            <p className="text-sm text-gray-500">
+              {typeof collection.productsCount === "number"
+                ? `${collection.productsCount} productos`
+                : collection.products?.length
+                  ? `${collection.products.length} productos`
+                  : "0 productos"}
+            </p>
           </CardContent>
           <CardFooter className="flex justify-between p-4 pt-0 border-t">
             <Button asChild variant="outline" size="sm">

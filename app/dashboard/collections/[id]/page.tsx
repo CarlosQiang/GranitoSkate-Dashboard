@@ -104,7 +104,7 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
 
       const updateData = {
         title: formData.title,
-        descriptionHtml: formData.description,
+        description: formData.description,
         // Generar automáticamente los metafields de SEO
         metafields: generateSeoMetafields(formData.title, formData.description),
       }

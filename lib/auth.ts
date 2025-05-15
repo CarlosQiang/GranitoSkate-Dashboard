@@ -1,7 +1,6 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { prisma } from "./prisma"
-import { verifyPassword, updateLastLogin } from "./auth-service"
+import { getUserByIdentifier, verifyPassword, updateLastLogin } from "./auth-service"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -12,32 +11,29 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Contraseña", type: "password" },
       },
       async authorize(credentials) {
-        try {
-          if (!credentials?.identifier || !credentials?.password) {
-            console.log("Credenciales incompletas")
-            return null
-          }
+        if (!credentials?.identifier || !credentials?.password) {
+          console.error("Credenciales incompletas")
+          return null
+        }
 
-          // Buscar usuario por nombre de usuario o correo electrónico
-          const user = await prisma.administrador.findFirst({
-            where: {
-              OR: [{ nombre_usuario: credentials.identifier }, { correo_electronico: credentials.identifier }],
-              activo: true,
-            },
-          })
+        try {
+          console.log(`Buscando usuario con identificador: ${credentials.identifier}`)
+          const user = await getUserByIdentifier(credentials.identifier)
 
           if (!user) {
-            console.log("Usuario no encontrado:", credentials.identifier)
+            console.error("Usuario no encontrado")
             return null
           }
 
-          const isValidPassword = await verifyPassword(credentials.password, user.contrasena)
-          if (!isValidPassword) {
-            console.log("Contraseña inválida para usuario:", credentials.identifier)
+          console.log("Usuario encontrado, verificando contraseña...")
+          const isValid = await verifyPassword(credentials.password, user.contrasena)
+
+          if (!isValid) {
+            console.error("Contraseña inválida")
             return null
           }
 
-          // Actualizar último acceso
+          console.log("Autenticación exitosa, actualizando último acceso...")
           await updateLastLogin(user.id)
 
           return {
@@ -53,6 +49,10 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
+  pages: {
+    signIn: "/login",
+    error: "/login",
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
@@ -62,21 +62,16 @@ export const authOptions: NextAuthOptions = {
       return token
     },
     async session({ session, token }) {
-      if (session.user) {
+      if (token) {
         session.user.id = token.id as string
         session.user.role = token.role as string
       }
       return session
     },
   },
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 días
+    maxAge: 24 * 60 * 60, // 24 horas
   },
-  secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development",
 }
