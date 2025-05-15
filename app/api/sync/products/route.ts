@@ -2,20 +2,29 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { syncAllProducts } from "@/lib/services/product-sync-service"
-import { Logger } from "next-axiom"
 
-const logger = new Logger({
-  source: "api-sync-products",
-})
+export async function GET() {
+  try {
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
 
-// Asegurarnos de que la ruta de API acepte solicitudes POST
+    const limit = 50 // Valor predeterminado para GET
+    const result = await syncAllProducts(limit)
+    return NextResponse.json(result)
+  } catch (error) {
+    console.error("Error al sincronizar productos:", error)
+    return NextResponse.json({ error: `Error al sincronizar productos: ${(error as Error).message}` }, { status: 500 })
+  }
+}
 
 export async function POST(request: Request) {
   try {
     // Verificar autenticación
     const session = await getServerSession(authOptions)
     if (!session) {
-      logger.warn("Intento de acceso no autorizado a la API de sincronización de productos")
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
@@ -24,26 +33,10 @@ export async function POST(request: Request) {
     const limit = body.limit || 250
 
     // Iniciar sincronización
-    logger.info("Iniciando sincronización de productos", { limit })
     const result = await syncAllProducts(limit)
-
     return NextResponse.json(result)
   } catch (error) {
-    logger.error("Error en la sincronización de productos", {
-      error: error instanceof Error ? error.message : "Error desconocido",
-    })
-
-    return NextResponse.json(
-      {
-        error: "Error en la sincronización de productos",
-        details: error instanceof Error ? error.message : "Error desconocido",
-      },
-      { status: 500 },
-    )
+    console.error("Error al sincronizar productos:", error)
+    return NextResponse.json({ error: `Error al sincronizar productos: ${(error as Error).message}` }, { status: 500 })
   }
-}
-
-// Añadir soporte para GET para compatibilidad con versiones anteriores
-export async function GET() {
-  return NextResponse.json({ error: "Método no permitido. Use POST en su lugar." }, { status: 405 })
 }
