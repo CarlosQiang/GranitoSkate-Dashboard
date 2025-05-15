@@ -2,7 +2,7 @@ import { sql } from "@vercel/postgres"
 import { logSyncEvent } from "@/lib/db/repositories/registro-repository"
 import { syncProductoWithShopify } from "@/lib/db/repositories/productos-repository"
 import * as shopifyAPI from "@/lib/api/products"
-import * as collectionsAPI from "@/lib/api/collections" // Cambiado de colecciones a collections
+import * as collectionsAPI from "@/lib/api/colecciones"
 import * as customersAPI from "@/lib/api/customers"
 import * as ordersAPI from "@/lib/api/orders"
 import * as promotionsAPI from "@/lib/api/promociones"
@@ -75,7 +75,7 @@ export async function syncProducts() {
 export async function syncCollections() {
   try {
     // Obtener colecciones de Shopify
-    const shopifyCollections = await collectionsAPI.fetchCollections() // Cambiado de obtenerColecciones a fetchCollections
+    const shopifyCollections = await collectionsAPI.obtenerColecciones()
 
     // Contador para estadísticas
     let created = 0
@@ -488,7 +488,7 @@ async function updateCollectionInDB(id: number, collection: any) {
 async function syncCollectionProducts(collectionId: string) {
   try {
     // Obtener productos de la colección desde Shopify
-    const collectionProducts = await collectionsAPI.fetchCollectionById(collectionId.split("/").pop() || "") // Cambiado de obtenerColeccionPorId a fetchCollectionById
+    const collectionProducts = await collectionsAPI.obtenerColeccionPorId(collectionId.split("/").pop())
 
     // Obtener la colección de la base de datos
     const collectionResult = await sql`SELECT id FROM colecciones WHERE shopify_id = ${collectionId}`

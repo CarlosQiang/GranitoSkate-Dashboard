@@ -6,6 +6,7 @@ import Image from "next/image"
 import { Edit, Package } from "lucide-react"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { fetchCollections } from "@/lib/api/collections"
 import { LoadingState } from "@/components/loading-state"
 
 export function CollectionsList() {
@@ -17,13 +18,7 @@ export function CollectionsList() {
     const loadCollections = async () => {
       try {
         setLoading(true)
-        const response = await fetch("/api/shopify/collections")
-
-        if (!response.ok) {
-          throw new Error(`Error HTTP: ${response.status}`)
-        }
-
-        const data = await response.json()
+        const data = await fetchCollections()
         setCollections(data)
         setError(null)
       } catch (err) {

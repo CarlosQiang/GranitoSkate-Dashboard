@@ -18,7 +18,6 @@ import {
   updateCustomerAddress,
   deleteCustomerAddress,
   setDefaultCustomerAddress,
-  deleteCustomer,
 } from "@/lib/api/customers"
 import { ArrowLeft, Loader2, Pencil, Save, Plus, Trash2, Check } from "lucide-react"
 import Link from "next/link"
@@ -260,30 +259,6 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
     router.push(`/dashboard/orders/customer/${params.id}`)
   }
 
-  const handleDeleteCustomer = async () => {
-    try {
-      setIsSaving(true)
-      await deleteCustomer(params.id)
-
-      toast({
-        title: "Cliente eliminado",
-        description: "El cliente ha sido eliminado correctamente",
-      })
-
-      // Redirigir a la lista de clientes
-      router.push("/dashboard/customers")
-    } catch (error) {
-      console.error("Error deleting customer:", error)
-      toast({
-        title: "Error",
-        description: `No se pudo eliminar el cliente: ${(error as Error).message}`,
-        variant: "destructive",
-      })
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
   if (loading) {
     return (
       <div className="container mx-auto py-6 flex items-center justify-center min-h-[400px]">
@@ -345,19 +320,10 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
 
         <div className="flex gap-2">
           {!isEditing ? (
-            <>
-              <Button onClick={() => setIsEditing(true)}>
-                <Pencil className="h-4 w-4 mr-2" />
-                Editar
-              </Button>
-
-              <Button variant="destructive" asChild>
-                <Link href={`/dashboard/customers/${params.id}/delete`}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Eliminar
-                </Link>
-              </Button>
-            </>
+            <Button onClick={() => setIsEditing(true)}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Editar
+            </Button>
           ) : (
             <>
               <Button

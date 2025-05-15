@@ -115,12 +115,13 @@ export function AutoSync() {
     try {
       setIsSyncing(true)
 
-      // Usar GET en lugar de POST para evitar problemas de CORS o método no permitido
+      // Usar POST en lugar de GET
       const response = await fetch("/api/sync/products", {
-        method: "GET",
+        method: "POST",
         headers: {
-          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({ limit: 50 }), // Limitar a 50 productos para evitar sobrecarga
       })
 
       if (!response.ok) {
