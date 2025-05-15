@@ -3,14 +3,56 @@
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 
-export async function updateCollection(id: string, collectionData: any) {
+export async function fetchCollections() {
+  try {
+    const query = gql`
+      query {
+        collections(first: 250) {
+          edges {
+            node {
+              id
+              title
+              handle
+              descriptionHtml
+              image {
+                url
+                altText
+              }
+              productsCount
+            }
+          }
+        }
+      }
+    `
+
+    const data = await shopifyClient.request(query)
+
+    return data.collections.edges.map((edge) => ({
+      id: edge.node.id,
+      title: edge.node.title,
+      handle: edge.node.handle,
+      description: edge.node.descriptionHtml,
+      image: {
+        url: edge.node.image?.url || null,
+        altText: edge.node.image?.altText || null,
+      },
+      productsCount: edge.node.productsCount || 0,
+    }))
+  } catch (error) {
+    console.error("Error fetching collections:", error)
+    return []
+  }
+}
+
+export async function createCollection(collectionData) {
   try {
     const mutation = gql`
-      mutation collectionUpdate($input: CollectionInput!) {
-        collectionUpdate(input: $input) {
+      mutation collectionCreate($input: CollectionInput!) {
+        collectionCreate(input: $input) {
           collection {
             id
             title
+            handle
           }
           userErrors {
             field
@@ -22,55 +64,60 @@ export async function updateCollection(id: string, collectionData: any) {
 
     const variables = {
       input: {
-        id: id,
         title: collectionData.title,
         descriptionHtml: collectionData.descriptionHtml,
+        handle: collectionData.handle,
         metafields: collectionData.metafields,
       },
     }
 
     const data = await shopifyClient.request(mutation, variables)
 
-    if (data.collectionUpdate.userErrors && data.collectionUpdate.userErrors.length > 0) {
-      throw new Error(data.collectionUpdate.userErrors[0].message)
+    if (data.collectionCreate.userErrors.length > 0) {
+      throw new Error(data.collectionCreate.userErrors[0].message)
     }
 
-    return data.collectionUpdate.collection
+    return data.collectionCreate.collection
   } catch (error) {
-    console.error(`Error al actualizar la colección con ID ${id}:`, error)
-    throw new Error(`Error al actualizar la colección: ${error.message}`)
+    console.error("Error creating collection:", error)
+    throw error
   }
 }
 
-export async function deleteCollection(id: string): Promise<string> {
+export async function fetchCollectionById(id: string) {
   try {
-    const mutation = gql`
-      mutation collectionDelete($input: CollectionDeleteInput!) {
-        collectionDelete(input: $input) {
-          deletedCollectionId
-          userErrors {
-            field
-            message
+    const query = gql`
+      query GetCollection($id: ID!) {
+        collection(id: $id) {
+          id
+          title
+          handle
+          descriptionHtml
+          image {
+            url
+            altText
           }
+          productsCount
         }
       }
     `
 
     const variables = {
-      input: {
-        id: id,
-      },
+      id: `gid://shopify/Collection/${id}`,
     }
 
-    const data = await shopifyClient.request(mutation, variables)
+    const data = await shopifyClient.request(query, variables)
 
-    if (data.collectionDelete.userErrors.length > 0) {
-      throw new Error(data.collectionDelete.userErrors[0].message)
+    return {
+      id: data.collection.id,
+      title: data.collection.title,
+      handle: data.collection.handle,
+      description: data.collection.descriptionHtml,
+      image: data.collection.image,
+      productsCount: data.collection.productsCount,
     }
-
-    return data.collectionDelete.deletedCollectionId
   } catch (error) {
-    console.error(`Error al eliminar la colección con ID ${id}:`, error)
-    throw new Error(`Error al eliminar la colección: ${error.message}`)
+    console.error(`Error fetching collection with ID ${id}:`, error)
+    return null
   }
 }
