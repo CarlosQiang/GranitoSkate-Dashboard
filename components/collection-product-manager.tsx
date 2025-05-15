@@ -9,10 +9,10 @@ import { useToast } from "@/components/ui/use-toast"
 import { fetchProducts } from "@/lib/api/products"
 import {
   fetchCollectionProducts,
-  addProductsToCollection,
-  removeProductsFromCollection,
+  addProductToCollection,
+  removeProductFromCollection,
   fetchProductsNotInCollection,
-} from "@/lib/api/colecciones"
+} from "@/lib/api/collections"
 import { Loader2, Package } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import Image from "next/image"
@@ -56,7 +56,7 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
         // If we're in "add" mode, we need products not in the collection
         if (mode === "add" && cleanCollectionId) {
           const productsNotInCollection = await fetchProductsNotInCollection(cleanCollectionId)
-          setProducts(productsNotInCollection.edges.map((edge) => edge.node))
+          setProducts(productsNotInCollection.edges?.map((edge) => edge.node) || [])
         }
         // If we're in "remove" mode, we need products in the collection
         else if (mode === "remove" && cleanCollectionId) {
@@ -127,13 +127,21 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
       }
 
       if (mode === "add") {
-        await addProductsToCollection(cleanCollectionId, selectedProducts)
+        // Process each product individually
+        for (const productId of selectedProducts) {
+          await addProductToCollection(cleanCollectionId, productId)
+        }
+
         toast({
           title: "Productos añadidos",
           description: `${selectedProducts.length} productos añadidos a la colección`,
         })
       } else {
-        await removeProductsFromCollection(cleanCollectionId, selectedProducts)
+        // Process each product individually
+        for (const productId of selectedProducts) {
+          await removeProductFromCollection(cleanCollectionId, productId)
+        }
+
         toast({
           title: "Productos eliminados",
           description: `${selectedProducts.length} productos eliminados de la colección`,
