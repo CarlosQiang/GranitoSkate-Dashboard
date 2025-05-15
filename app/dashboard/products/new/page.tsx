@@ -12,15 +12,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Save, AlertCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { createProduct } from "@/lib/api/products"
-import { generateSeoMetafields, generateSeoHandle } from "@/lib/seo-utils"
-import { SeoPreview } from "@/components/seo-preview"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ImageUpload } from "@/components/image-upload"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function NewProductPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
   const [productImage, setProductImage] = useState(null)
   const [formData, setFormData] = useState({
     title: "",
@@ -28,44 +27,19 @@ export default function NewProductPage() {
     status: "ACTIVE",
     vendor: "GranitoSkate",
     productType: "SKATEBOARD",
-    variants: [
-      {
-        price: "",
-        compareAtPrice: "",
-        sku: "",
-        title: "Default",
-      },
-    ],
-    // Mantenemos el campo pero no lo usaremos para la creación inicial
-    inventoryQuantity: 0,
+    price: "",
+    compareAtPrice: "",
+    sku: "",
+    inventoryQuantity: "10", // Añadimos un valor por defecto
+    handle: "",
   })
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
-
-    if (name.startsWith("variants[0].")) {
-      const variantField = name.split(".")[1]
-      const updatedVariants = [...formData.variants]
-      updatedVariants[0] = {
-        ...updatedVariants[0],
-        [variantField]: value,
-      }
-      setFormData({
-        ...formData,
-        variants: updatedVariants,
-      })
-    } else if (name === "inventoryQuantity") {
-      // Manejar el inventario separadamente
-      setFormData({
-        ...formData,
-        inventoryQuantity: value ? Number.parseInt(value, 10) : 0,
-      })
-    } else {
-      setFormData({
-        ...formData,
-        [name]: value,
-      })
-    }
+    setFormData({
+      ...formData,
+      [name]: value,
+    })
   }
 
   const handleStatusChange = (checked) => {
@@ -81,54 +55,49 @@ export default function NewProductPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setIsSaving(true)
+    setIsLoading(true)
+    setError(null)
 
     try {
-      // Generar handle SEO-friendly
-      const handle = generateSeoHandle(formData.title)
+      if (!formData.title) {
+        throw new Error("El nombre del producto es obligatorio")
+      }
 
-      // Preparar los datos para la API de Shopify
+      // Generar un handle a partir del título si no se ha especificado
+      if (!formData.handle) {
+        formData.handle =
+          formData.title
+            .toLowerCase()
+            .replace(/[^\w\s]/gi, "")
+            .replace(/\s+/g, "-") + "-"
+      }
+
+      // Preparar los datos para la API
       const productData = {
-        title: formData.title,
-        description: formData.description,
-        handle: handle,
-        status: formData.status,
-        vendor: formData.vendor,
-        productType: formData.productType,
-        variants: [
-          {
-            price: formData.variants[0].price || "0.00",
-            compareAtPrice: formData.variants[0].compareAtPrice || null,
-            sku: formData.variants[0].sku || "",
-            title: formData.variants[0].title || "Default Title",
-          },
-        ],
-        // No enviamos inventoryQuantity para evitar errores
-        // Añadir la imagen si existe
+        ...formData,
         image: productImage,
-        // Generar automáticamente los metafields de SEO
-        metafields: generateSeoMetafields(formData.title, formData.description),
       }
 
       console.log("Enviando datos para crear producto:", productData)
-      const product = await createProduct(productData)
-      console.log("Producto creado:", product)
+      const result = await createProduct(productData)
 
       toast({
         title: "¡Producto creado!",
-        description: "Tu producto ya está disponible en la tienda y optimizado para buscadores",
+        description: "El producto se ha creado correctamente",
       })
 
-      router.push("/dashboard/products")
+      // Redirigir a la página del producto
+      router.push(`/dashboard/products/${result.id.split("/").pop()}`)
     } catch (error) {
       console.error("Error creating product:", error)
+      setError(error.message || "No se pudo crear el producto")
       toast({
         title: "Error",
         description: `No se pudo crear el producto: ${error.message}`,
         variant: "destructive",
       })
     } finally {
-      setIsSaving(false)
+      setIsLoading(false)
     }
   }
 
@@ -140,13 +109,21 @@ export default function NewProductPage() {
             <ArrowLeft className="h-4 w-4" />
             <span className="sr-only">Volver</span>
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">Nuevo producto</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Nuevo producto</h1>
         </div>
-        <Button onClick={handleSubmit} disabled={isSaving || !formData.title || !formData.variants[0].price}>
+        <Button onClick={handleSubmit} disabled={isLoading || !formData.title}>
           <Save className="mr-2 h-4 w-4" />
-          {isSaving ? "Guardando..." : "Guardar producto"}
+          {isLoading ? "Guardando..." : "Guardar producto"}
         </Button>
       </div>
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       <Alert className="bg-blue-50 border-blue-200">
         <AlertCircle className="h-4 w-4 text-blue-600" />
@@ -157,14 +134,14 @@ export default function NewProductPage() {
         </AlertDescription>
       </Alert>
 
-      <Tabs defaultValue="general">
+      <Tabs defaultValue="basic">
         <TabsList>
-          <TabsTrigger value="general">Información básica</TabsTrigger>
-          <TabsTrigger value="variants">Precio y stock</TabsTrigger>
+          <TabsTrigger value="basic">Información básica</TabsTrigger>
+          <TabsTrigger value="price">Precio y stock</TabsTrigger>
           <TabsTrigger value="images">Imágenes</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="general" className="space-y-6">
+        <TabsContent value="basic" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Información del producto</CardTitle>
@@ -228,12 +205,9 @@ export default function NewProductPage() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Vista previa de Google */}
-          {formData.title && <SeoPreview title={formData.title} description={formData.description} />}
         </TabsContent>
 
-        <TabsContent value="variants" className="space-y-6">
+        <TabsContent value="price" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Precio y disponibilidad</CardTitle>
@@ -249,10 +223,10 @@ export default function NewProductPage() {
                     <span className="absolute left-3 top-1/2 -translate-y-1/2">€</span>
                     <Input
                       id="price"
-                      name="variants[0].price"
+                      name="price"
                       type="number"
                       step="0.01"
-                      value={formData.variants[0].price}
+                      value={formData.price}
                       onChange={handleInputChange}
                       placeholder="0.00"
                       className="pl-8"
@@ -266,10 +240,10 @@ export default function NewProductPage() {
                     <span className="absolute left-3 top-1/2 -translate-y-1/2">€</span>
                     <Input
                       id="compareAtPrice"
-                      name="variants[0].compareAtPrice"
+                      name="compareAtPrice"
                       type="number"
                       step="0.01"
-                      value={formData.variants[0].compareAtPrice}
+                      value={formData.compareAtPrice}
                       onChange={handleInputChange}
                       placeholder="0.00"
                       className="pl-8"
@@ -280,8 +254,8 @@ export default function NewProductPage() {
                   <Label htmlFor="sku">Código de referencia (SKU)</Label>
                   <Input
                     id="sku"
-                    name="variants[0].sku"
-                    value={formData.variants[0].sku}
+                    name="sku"
+                    value={formData.sku}
                     onChange={handleInputChange}
                     placeholder="Ej: GS-001"
                   />
@@ -295,11 +269,8 @@ export default function NewProductPage() {
                     min="0"
                     value={formData.inventoryQuantity}
                     onChange={handleInputChange}
-                    placeholder="0"
+                    placeholder="10"
                   />
-                  <p className="text-xs text-amber-600">
-                    Nota: El stock se configurará automáticamente después de crear el producto.
-                  </p>
                 </div>
               </div>
             </CardContent>

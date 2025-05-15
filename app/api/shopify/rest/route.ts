@@ -1,301 +1,94 @@
-import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { type NextRequest, NextResponse } from "next/server"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
-import { Logger } from "next-axiom"
 
-const logger = new Logger({
-  source: "api-shopify-rest",
-})
-
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    // Verificar autenticación
     const session = await getServerSession(authOptions)
     if (!session) {
-      logger.warn("Intento de acceso no autorizado a la API REST de Shopify")
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    // Verificar variables de entorno
-    const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
-    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
-
-    if (!shopDomain || !accessToken) {
-      logger.error("Configuración de Shopify incompleta", {
-        hasDomain: !!shopDomain,
-        hasToken: !!accessToken,
-      })
-
-      return NextResponse.json({ error: "Configuración de Shopify incompleta" }, { status: 500 })
-    }
-
-    // Obtener la ruta de la solicitud
     const { searchParams } = new URL(request.url)
-    const path = searchParams.get("path")
+    const endpoint = searchParams.get("endpoint")
 
-    if (!path) {
-      return NextResponse.json({ error: "Falta el parámetro 'path'" }, { status: 400 })
+    if (!endpoint) {
+      return NextResponse.json({ error: "Endpoint no especificado" }, { status: 400 })
     }
 
-    logger.debug("Enviando solicitud REST GET a Shopify", { path })
+    const shopifyDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
+    const shopifyToken = process.env.SHOPIFY_ACCESS_TOKEN
 
-    // Hacer la solicitud a la API REST de Shopify
-    const response = await fetch(`https://${shopDomain}/admin/api/2023-10/${path}`, {
-      method: "GET",
+    if (!shopifyDomain || !shopifyToken) {
+      return NextResponse.json({ error: "Faltan credenciales de Shopify en las variables de entorno" }, { status: 500 })
+    }
+
+    const url = `https://${shopifyDomain}${endpoint}`
+
+    const response = await fetch(url, {
       headers: {
-        "X-Shopify-Access-Token": accessToken,
+        "X-Shopify-Access-Token": shopifyToken,
         "Content-Type": "application/json",
       },
     })
 
-    // Verificar si la respuesta es exitosa
-    if (!response.ok) {
-      const errorText = await response.text()
-      logger.error(`Error en la respuesta REST de Shopify (${response.status})`, { errorText })
+    const data = await response.json()
 
-      return NextResponse.json(
-        {
-          error: `Error en la respuesta de Shopify: ${response.status} ${response.statusText}`,
-          details: errorText,
-        },
-        { status: response.status },
-      )
+    if (!response.ok) {
+      console.error("Error en la respuesta de Shopify REST:", data)
+      return NextResponse.json({ error: "Error en la petición a Shopify", details: data }, { status: response.status })
     }
 
-    // Devolver la respuesta
-    const data = await response.json()
     return NextResponse.json(data)
   } catch (error) {
-    logger.error("Error en el proxy REST de Shopify", {
-      error: error instanceof Error ? error.message : "Error desconocido",
-    })
-
-    return NextResponse.json(
-      {
-        error: "Error interno del servidor",
-        details: error instanceof Error ? error.message : "Error desconocido",
-      },
-      { status: 500 },
-    )
+    console.error("Error en la petición REST a Shopify:", error)
+    return NextResponse.json({ error: "Error al procesar la petición", message: error.message }, { status: 500 })
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    // Verificar autenticación
     const session = await getServerSession(authOptions)
     if (!session) {
-      logger.warn("Intento de acceso no autorizado a la API REST de Shopify")
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    // Verificar variables de entorno
-    const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
-    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
+    const { searchParams } = new URL(request.url)
+    const endpoint = searchParams.get("endpoint")
 
-    if (!shopDomain || !accessToken) {
-      logger.error("Configuración de Shopify incompleta", {
-        hasDomain: !!shopDomain,
-        hasToken: !!accessToken,
-      })
-
-      return NextResponse.json({ error: "Configuración de Shopify incompleta" }, { status: 500 })
+    if (!endpoint) {
+      return NextResponse.json({ error: "Endpoint no especificado" }, { status: 400 })
     }
 
-    // Obtener el cuerpo de la solicitud
+    const shopifyDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
+    const shopifyToken = process.env.SHOPIFY_ACCESS_TOKEN
+
+    if (!shopifyDomain || !shopifyToken) {
+      return NextResponse.json({ error: "Faltan credenciales de Shopify en las variables de entorno" }, { status: 500 })
+    }
+
     const body = await request.json()
-    const { path, data } = body
+    const url = `https://${shopifyDomain}${endpoint}`
 
-    if (!path) {
-      return NextResponse.json({ error: "Falta el parámetro 'path'" }, { status: 400 })
-    }
-
-    logger.debug("Enviando solicitud REST POST a Shopify", { path })
-
-    // Hacer la solicitud a la API REST de Shopify
-    const response = await fetch(`https://${shopDomain}/admin/api/2023-10/${path}`, {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
-        "X-Shopify-Access-Token": accessToken,
+        "X-Shopify-Access-Token": shopifyToken,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify(body),
     })
 
-    // Verificar si la respuesta es exitosa
+    const data = await response.json()
+
     if (!response.ok) {
-      const errorText = await response.text()
-      logger.error(`Error en la respuesta REST de Shopify (${response.status})`, { errorText })
-
-      return NextResponse.json(
-        {
-          error: `Error en la respuesta de Shopify: ${response.status} ${response.statusText}`,
-          details: errorText,
-        },
-        { status: response.status },
-      )
+      console.error("Error en la respuesta de Shopify REST:", data)
+      return NextResponse.json({ error: "Error en la petición a Shopify", details: data }, { status: response.status })
     }
 
-    // Devolver la respuesta
-    const responseData = await response.json()
-    return NextResponse.json(responseData)
+    return NextResponse.json(data)
   } catch (error) {
-    logger.error("Error en el proxy REST de Shopify", {
-      error: error instanceof Error ? error.message : "Error desconocido",
-    })
-
-    return NextResponse.json(
-      {
-        error: "Error interno del servidor",
-        details: error instanceof Error ? error.message : "Error desconocido",
-      },
-      { status: 500 },
-    )
-  }
-}
-
-export async function PUT(request: Request) {
-  try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      logger.warn("Intento de acceso no autorizado a la API REST de Shopify")
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
-
-    // Verificar variables de entorno
-    const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
-    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
-
-    if (!shopDomain || !accessToken) {
-      logger.error("Configuración de Shopify incompleta", {
-        hasDomain: !!shopDomain,
-        hasToken: !!accessToken,
-      })
-
-      return NextResponse.json({ error: "Configuración de Shopify incompleta" }, { status: 500 })
-    }
-
-    // Obtener el cuerpo de la solicitud
-    const body = await request.json()
-    const { path, data } = body
-
-    if (!path) {
-      return NextResponse.json({ error: "Falta el parámetro 'path'" }, { status: 400 })
-    }
-
-    logger.debug("Enviando solicitud REST PUT a Shopify", { path })
-
-    // Hacer la solicitud a la API REST de Shopify
-    const response = await fetch(`https://${shopDomain}/admin/api/2023-10/${path}`, {
-      method: "PUT",
-      headers: {
-        "X-Shopify-Access-Token": accessToken,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    })
-
-    // Verificar si la respuesta es exitosa
-    if (!response.ok) {
-      const errorText = await response.text()
-      logger.error(`Error en la respuesta REST de Shopify (${response.status})`, { errorText })
-
-      return NextResponse.json(
-        {
-          error: `Error en la respuesta de Shopify: ${response.status} ${response.statusText}`,
-          details: errorText,
-        },
-        { status: response.status },
-      )
-    }
-
-    // Devolver la respuesta
-    const responseData = await response.json()
-    return NextResponse.json(responseData)
-  } catch (error) {
-    logger.error("Error en el proxy REST de Shopify", {
-      error: error instanceof Error ? error.message : "Error desconocido",
-    })
-
-    return NextResponse.json(
-      {
-        error: "Error interno del servidor",
-        details: error instanceof Error ? error.message : "Error desconocido",
-      },
-      { status: 500 },
-    )
-  }
-}
-
-export async function DELETE(request: Request) {
-  try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      logger.warn("Intento de acceso no autorizado a la API REST de Shopify")
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
-
-    // Verificar variables de entorno
-    const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
-    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
-
-    if (!shopDomain || !accessToken) {
-      logger.error("Configuración de Shopify incompleta", {
-        hasDomain: !!shopDomain,
-        hasToken: !!accessToken,
-      })
-
-      return NextResponse.json({ error: "Configuración de Shopify incompleta" }, { status: 500 })
-    }
-
-    // Obtener la ruta de la solicitud
-    const { searchParams } = new URL(request.url)
-    const path = searchParams.get("path")
-
-    if (!path) {
-      return NextResponse.json({ error: "Falta el parámetro 'path'" }, { status: 400 })
-    }
-
-    logger.debug("Enviando solicitud REST DELETE a Shopify", { path })
-
-    // Hacer la solicitud a la API REST de Shopify
-    const response = await fetch(`https://${shopDomain}/admin/api/2023-10/${path}`, {
-      method: "DELETE",
-      headers: {
-        "X-Shopify-Access-Token": accessToken,
-        "Content-Type": "application/json",
-      },
-    })
-
-    // Verificar si la respuesta es exitosa
-    if (!response.ok) {
-      const errorText = await response.text()
-      logger.error(`Error en la respuesta REST de Shopify (${response.status})`, { errorText })
-
-      return NextResponse.json(
-        {
-          error: `Error en la respuesta de Shopify: ${response.status} ${response.statusText}`,
-          details: errorText,
-        },
-        { status: response.status },
-      )
-    }
-
-    // Devolver la respuesta
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    logger.error("Error en el proxy REST de Shopify", {
-      error: error instanceof Error ? error.message : "Error desconocido",
-    })
-
-    return NextResponse.json(
-      {
-        error: "Error interno del servidor",
-        details: error instanceof Error ? error.message : "Error desconocido",
-      },
-      { status: 500 },
-    )
+    console.error("Error en la petición REST a Shopify:", error)
+    return NextResponse.json({ error: "Error al procesar la petición", message: error.message }, { status: 500 })
   }
 }

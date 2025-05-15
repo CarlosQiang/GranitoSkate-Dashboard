@@ -1,4 +1,5 @@
 import shopifyClient from "@/lib/shopify"
+import { shopifyFetch } from "@/lib/shopify"
 import { gql } from "graphql-request"
 
 // Función para obtener todas las colecciones
@@ -276,12 +277,12 @@ export async function deleteCollection(id) {
 // Función para añadir productos a una colección
 export async function addProductsToCollection(collectionId, productIds) {
   try {
-    // Ensure the collection ID has the correct format
+    // Aseguramos que el ID de la colección tenga el formato correcto
     const formattedCollectionId = collectionId.includes("gid://shopify/Collection/")
       ? collectionId
       : `gid://shopify/Collection/${collectionId}`
 
-    // Format product IDs correctly
+    // Formateamos los IDs de los productos correctamente
     const formattedProductIds = productIds.map((id) => {
       if (typeof id === "string" && id.includes("gid://shopify/Product/")) {
         return id
@@ -294,9 +295,10 @@ export async function addProductsToCollection(collectionId, productIds) {
       productIds: formattedProductIds,
     })
 
-    const mutation = gql`
+    // Corregimos la mutación para usar el argumento id en lugar de collectionId
+    const mutation = `
       mutation collectionAddProducts($id: ID!, $productIds: [ID!]!) {
-        collectionAddProducts(collectionId: $id, productIds: $productIds) {
+        collectionAddProducts(id: $id, productIds: $productIds) {
           collection {
             id
             title
@@ -317,16 +319,20 @@ export async function addProductsToCollection(collectionId, productIds) {
       productIds: formattedProductIds,
     }
 
-    const data = await shopifyClient.request(mutation, variables)
+    const data = await shopifyFetch({
+      query: mutation,
+      variables,
+    })
 
-    if (data.collectionAddProducts.userErrors.length > 0) {
-      throw new Error(data.collectionAddProducts.userErrors[0].message)
+    if (data.errors || data.data?.collectionAddProducts?.userErrors?.length > 0) {
+      const errorMessage = data.errors?.[0]?.message || data.data?.collectionAddProducts?.userErrors[0]?.message
+      throw new Error(`Error al añadir productos: ${errorMessage}`)
     }
 
-    // Transform the data to maintain compatibility with existing code
+    // Transformamos los datos para mantener compatibilidad con el código existente
     return {
-      ...data.collectionAddProducts.collection,
-      productsCount: data.collectionAddProducts.collection.productsCount.count,
+      ...data.data.collectionAddProducts.collection,
+      productsCount: data.data.collectionAddProducts.collection.productsCount.count,
     }
   } catch (error) {
     console.error(`Error adding products to collection ${collectionId}:`, error)
@@ -337,12 +343,12 @@ export async function addProductsToCollection(collectionId, productIds) {
 // Función para eliminar productos de una colección
 export async function removeProductsFromCollection(collectionId, productIds) {
   try {
-    // Ensure the collection ID has the correct format
+    // Aseguramos que el ID de la colección tenga el formato correcto
     const formattedCollectionId = collectionId.includes("gid://shopify/Collection/")
       ? collectionId
       : `gid://shopify/Collection/${collectionId}`
 
-    // Format product IDs correctly
+    // Formateamos los IDs de los productos correctamente
     const formattedProductIds = productIds.map((id) => {
       if (typeof id === "string" && id.includes("gid://shopify/Product/")) {
         return id
@@ -355,9 +361,10 @@ export async function removeProductsFromCollection(collectionId, productIds) {
       productIds: formattedProductIds,
     })
 
-    const mutation = gql`
+    // Corregimos la mutación para usar el argumento id en lugar de collectionId
+    const mutation = `
       mutation collectionRemoveProducts($id: ID!, $productIds: [ID!]!) {
-        collectionRemoveProducts(collectionId: $id, productIds: $productIds) {
+        collectionRemoveProducts(id: $id, productIds: $productIds) {
           collection {
             id
             title
@@ -378,16 +385,20 @@ export async function removeProductsFromCollection(collectionId, productIds) {
       productIds: formattedProductIds,
     }
 
-    const data = await shopifyClient.request(mutation, variables)
+    const data = await shopifyFetch({
+      query: mutation,
+      variables,
+    })
 
-    if (data.collectionRemoveProducts.userErrors.length > 0) {
-      throw new Error(data.collectionRemoveProducts.userErrors[0].message)
+    if (data.errors || data.data?.collectionRemoveProducts?.userErrors?.length > 0) {
+      const errorMessage = data.errors?.[0]?.message || data.data?.collectionRemoveProducts?.userErrors[0]?.message
+      throw new Error(`Error al eliminar productos: ${errorMessage}`)
     }
 
-    // Transform the data to maintain compatibility with existing code
+    // Transformamos los datos para mantener compatibilidad con el código existente
     return {
-      ...data.collectionRemoveProducts.collection,
-      productsCount: data.collectionRemoveProducts.collection.productsCount.count,
+      ...data.data.collectionRemoveProducts.collection,
+      productsCount: data.data.collectionRemoveProducts.collection.productsCount.count,
     }
   } catch (error) {
     console.error(`Error removing products from collection ${collectionId}:`, error)
