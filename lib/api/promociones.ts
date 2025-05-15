@@ -4,7 +4,7 @@ import { gql } from "graphql-request"
 // Función para obtener todas las promociones
 export async function obtenerPromociones() {
   try {
-    // Consulta para obtener los IDs y tipos de descuentos
+    // Consulta actualizada según la estructura actual de la API de Shopify
     const query = gql`
       query {
         discountNodes(first: 50) {
@@ -13,73 +13,25 @@ export async function obtenerPromociones() {
               id
               __typename
               ... on DiscountAutomaticNode {
-                discount {
-                  __typename
-                  ... on DiscountAutomaticBasic {
-                    title
-                    startsAt
-                    endsAt
-                    status
-                    summary
-                  }
-                  ... on DiscountAutomaticBxgy {
-                    title
-                    startsAt
-                    endsAt
-                    status
-                    summary
-                  }
-                  ... on DiscountAutomaticFreeShipping {
-                    title
-                    startsAt
-                    endsAt
-                    status
-                    summary
-                  }
+                automaticDiscount {
+                  title
+                  startsAt
+                  endsAt
+                  status
+                  summary
                 }
               }
               ... on DiscountCodeNode {
-                discount {
-                  __typename
-                  ... on DiscountCodeBasic {
-                    title
-                    startsAt
-                    endsAt
-                    status
-                    summary
-                    codes(first: 1) {
-                      edges {
-                        node {
-                          code
-                        }
-                      }
-                    }
-                  }
-                  ... on DiscountCodeBxgy {
-                    title
-                    startsAt
-                    endsAt
-                    status
-                    summary
-                    codes(first: 1) {
-                      edges {
-                        node {
-                          code
-                        }
-                      }
-                    }
-                  }
-                  ... on DiscountCodeFreeShipping {
-                    title
-                    startsAt
-                    endsAt
-                    status
-                    summary
-                    codes(first: 1) {
-                      edges {
-                        node {
-                          code
-                        }
+                codeDiscount {
+                  title
+                  startsAt
+                  endsAt
+                  status
+                  summary
+                  codes(first: 1) {
+                    edges {
+                      node {
+                        code
                       }
                     }
                   }
@@ -96,32 +48,45 @@ export async function obtenerPromociones() {
 
     // Transformar los datos a un formato más amigable
     const promociones = discountNodes.map((node) => {
-      let discount = null
-
-      if (node.__typename === "DiscountAutomaticNode" && node.discount) {
-        discount = node.discount
-      } else if (node.__typename === "DiscountCodeNode" && node.discount) {
-        discount = node.discount
-      }
-
-      let code = null
-      if (discount && discount.codes && discount.codes.edges && discount.codes.edges.length > 0) {
-        code = discount.codes.edges[0].node.code
-      }
-
-      return {
+      let promocion = {
         id: node.id,
-        titulo: discount
-          ? discount.title || `Promoción ${node.id.split("/").pop()}`
-          : `Promoción ${node.id.split("/").pop()}`,
-        codigo: code,
-        estado: discount ? (discount.status === "ACTIVE" ? "activa" : "inactiva") : "activa",
+        titulo: `Promoción ${node.id.split("/").pop()}`,
+        codigo: null,
+        estado: "activa", // Por defecto
         tipo: "PORCENTAJE_DESCUENTO", // Por defecto
         valor: 10, // Por defecto
-        fechaInicio: discount ? discount.startsAt || new Date().toISOString() : new Date().toISOString(),
-        fechaFin: discount ? discount.endsAt : null,
-        activa: discount ? discount.status === "ACTIVE" : true,
+        fechaInicio: new Date().toISOString(),
+        fechaFin: null,
+        activa: true,
       }
+
+      if (node.__typename === "DiscountAutomaticNode" && node.automaticDiscount) {
+        promocion = {
+          ...promocion,
+          titulo: node.automaticDiscount.title || `Promoción ${node.id.split("/").pop()}`,
+          estado: node.automaticDiscount.status === "ACTIVE" ? "activa" : "inactiva",
+          fechaInicio: node.automaticDiscount.startsAt || new Date().toISOString(),
+          fechaFin: node.automaticDiscount.endsAt,
+          activa: node.automaticDiscount.status === "ACTIVE",
+        }
+      } else if (node.__typename === "DiscountCodeNode" && node.codeDiscount) {
+        let code = null
+        if (node.codeDiscount.codes && node.codeDiscount.codes.edges && node.codeDiscount.codes.edges.length > 0) {
+          code = node.codeDiscount.codes.edges[0].node.code
+        }
+
+        promocion = {
+          ...promocion,
+          titulo: node.codeDiscount.title || `Promoción ${node.id.split("/").pop()}`,
+          codigo: code,
+          estado: node.codeDiscount.status === "ACTIVE" ? "activa" : "inactiva",
+          fechaInicio: node.codeDiscount.startsAt || new Date().toISOString(),
+          fechaFin: node.codeDiscount.endsAt,
+          activa: node.codeDiscount.status === "ACTIVE",
+        }
+      }
+
+      return promocion
     })
 
     return promociones
@@ -152,80 +117,32 @@ export async function obtenerPromocionPorId(id: string): Promise<any> {
     console.log("Fetching promotion with ID:", promotionId)
 
     try {
-      // Consulta actualizada que usa fragmentos correctamente
+      // Consulta actualizada según la estructura actual de la API de Shopify
       const query = gql`
         query GetDiscountNode($id: ID!) {
           node(id: $id) {
             id
             __typename
             ... on DiscountAutomaticNode {
-              discount {
-                __typename
-                ... on DiscountAutomaticBasic {
-                  title
-                  startsAt
-                  endsAt
-                  status
-                  summary
-                }
-                ... on DiscountAutomaticBxgy {
-                  title
-                  startsAt
-                  endsAt
-                  status
-                  summary
-                }
-                ... on DiscountAutomaticFreeShipping {
-                  title
-                  startsAt
-                  endsAt
-                  status
-                  summary
-                }
+              automaticDiscount {
+                title
+                startsAt
+                endsAt
+                status
+                summary
               }
             }
             ... on DiscountCodeNode {
-              discount {
-                __typename
-                ... on DiscountCodeBasic {
-                  title
-                  startsAt
-                  endsAt
-                  status
-                  summary
-                  codes(first: 1) {
-                    edges {
-                      node {
-                        code
-                      }
-                    }
-                  }
-                }
-                ... on DiscountCodeBxgy {
-                  title
-                  startsAt
-                  endsAt
-                  status
-                  summary
-                  codes(first: 1) {
-                    edges {
-                      node {
-                        code
-                      }
-                    }
-                  }
-                }
-                ... on DiscountCodeFreeShipping {
-                  title
-                  startsAt
-                  endsAt
-                  status
-                  summary
-                  codes(first: 1) {
-                    edges {
-                      node {
-                        code
-                      }
+              codeDiscount {
+                title
+                startsAt
+                endsAt
+                status
+                summary
+                codes(first: 1) {
+                  edges {
+                    node {
+                      code
                     }
                   }
                 }
@@ -242,33 +159,45 @@ export async function obtenerPromocionPorId(id: string): Promise<any> {
       }
 
       const node = data.node
-      let discount = null
-
-      if (node.__typename === "DiscountAutomaticNode" && node.discount) {
-        discount = node.discount
-      } else if (node.__typename === "DiscountCodeNode" && node.discount) {
-        discount = node.discount
-      }
-
-      let code = null
-      if (discount && discount.codes && discount.codes.edges && discount.codes.edges.length > 0) {
-        code = discount.codes.edges[0].node.code
-      }
-
-      // Crear un objeto de promoción con los datos obtenidos
-      return {
+      let promocion = {
         id: node.id,
-        titulo: discount
-          ? discount.title || `Promoción ${node.id.split("/").pop()}`
-          : `Promoción ${node.id.split("/").pop()}`,
-        codigo: code,
-        estado: discount ? (discount.status === "ACTIVE" ? "activa" : "inactiva") : "activa",
+        titulo: `Promoción ${node.id.split("/").pop()}`,
+        codigo: null,
+        estado: "activa", // Por defecto
         tipo: "PORCENTAJE_DESCUENTO", // Por defecto
         valor: 10, // Por defecto
-        fechaInicio: discount && discount.startsAt ? new Date(discount.startsAt) : new Date(),
-        fechaFin: discount && discount.endsAt ? new Date(discount.endsAt) : null,
-        activa: discount ? discount.status === "ACTIVE" : true,
+        fechaInicio: new Date(),
+        fechaFin: null,
+        activa: true,
       }
+
+      if (node.__typename === "DiscountAutomaticNode" && node.automaticDiscount) {
+        promocion = {
+          ...promocion,
+          titulo: node.automaticDiscount.title || `Promoción ${node.id.split("/").pop()}`,
+          estado: node.automaticDiscount.status === "ACTIVE" ? "activa" : "inactiva",
+          fechaInicio: node.automaticDiscount.startsAt ? new Date(node.automaticDiscount.startsAt) : new Date(),
+          fechaFin: node.automaticDiscount.endsAt ? new Date(node.automaticDiscount.endsAt) : null,
+          activa: node.automaticDiscount.status === "ACTIVE",
+        }
+      } else if (node.__typename === "DiscountCodeNode" && node.codeDiscount) {
+        let code = null
+        if (node.codeDiscount.codes && node.codeDiscount.codes.edges && node.codeDiscount.codes.edges.length > 0) {
+          code = node.codeDiscount.codes.edges[0].node.code
+        }
+
+        promocion = {
+          ...promocion,
+          titulo: node.codeDiscount.title || `Promoción ${node.id.split("/").pop()}`,
+          codigo: code,
+          estado: node.codeDiscount.status === "ACTIVE" ? "activa" : "inactiva",
+          fechaInicio: node.codeDiscount.startsAt ? new Date(node.codeDiscount.startsAt) : new Date(),
+          fechaFin: node.codeDiscount.endsAt ? new Date(node.codeDiscount.endsAt) : null,
+          activa: node.codeDiscount.status === "ACTIVE",
+        }
+      }
+
+      return promocion
     } catch (error) {
       console.error("Error fetching discount details:", error)
 

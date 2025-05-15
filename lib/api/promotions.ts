@@ -5,7 +5,7 @@ import type { Promotion } from "@/types/promotions"
 // Función para obtener todas las promociones
 export async function fetchPromotions() {
   try {
-    // Consulta actualizada que usa fragmentos correctamente
+    // Consulta actualizada según la estructura actual de la API de Shopify
     const query = gql`
       query {
         discountNodes(first: 50) {
@@ -14,71 +14,25 @@ export async function fetchPromotions() {
               id
               __typename
               ... on DiscountAutomaticNode {
-                discount {
-                  ... on DiscountAutomaticBasic {
-                    title
-                    startsAt
-                    endsAt
-                    status
-                    summary
-                  }
-                  ... on DiscountAutomaticBxgy {
-                    title
-                    startsAt
-                    endsAt
-                    status
-                    summary
-                  }
-                  ... on DiscountAutomaticFreeShipping {
-                    title
-                    startsAt
-                    endsAt
-                    status
-                    summary
-                  }
+                automaticDiscount {
+                  title
+                  startsAt
+                  endsAt
+                  status
+                  summary
                 }
               }
               ... on DiscountCodeNode {
-                discount {
-                  ... on DiscountCodeBasic {
-                    title
-                    startsAt
-                    endsAt
-                    status
-                    summary
-                    codes(first: 1) {
-                      edges {
-                        node {
-                          code
-                        }
-                      }
-                    }
-                  }
-                  ... on DiscountCodeBxgy {
-                    title
-                    startsAt
-                    endsAt
-                    status
-                    summary
-                    codes(first: 1) {
-                      edges {
-                        node {
-                          code
-                        }
-                      }
-                    }
-                  }
-                  ... on DiscountCodeFreeShipping {
-                    title
-                    startsAt
-                    endsAt
-                    status
-                    summary
-                    codes(first: 1) {
-                      edges {
-                        node {
-                          code
-                        }
+                codeDiscount {
+                  title
+                  startsAt
+                  endsAt
+                  status
+                  summary
+                  codes(first: 1) {
+                    edges {
+                      node {
+                        code
                       }
                     }
                   }
@@ -116,24 +70,24 @@ export async function fetchPromotions() {
         isAutomatic: node.__typename === "DiscountAutomaticNode",
       }
 
-      if (node.__typename === "DiscountAutomaticNode" && node.discount) {
+      if (node.__typename === "DiscountAutomaticNode" && node.automaticDiscount) {
         promotion = {
           ...promotion,
-          title: node.discount.title || "Promoción automática",
-          description: node.discount.summary || "",
-          active: node.discount.status === "ACTIVE",
-          startDate: node.discount.startsAt || new Date().toISOString(),
-          endDate: node.discount.endsAt || null,
+          title: node.automaticDiscount.title || "Promoción automática",
+          description: node.automaticDiscount.summary || "",
+          active: node.automaticDiscount.status === "ACTIVE",
+          startDate: node.automaticDiscount.startsAt || new Date().toISOString(),
+          endDate: node.automaticDiscount.endsAt || null,
         }
-      } else if (node.__typename === "DiscountCodeNode" && node.discount) {
-        const code = node.discount.codes?.edges?.[0]?.node?.code || ""
+      } else if (node.__typename === "DiscountCodeNode" && node.codeDiscount) {
+        const code = node.codeDiscount.codes?.edges?.[0]?.node?.code || ""
         promotion = {
           ...promotion,
-          title: node.discount.title || "Promoción con código",
-          description: node.discount.summary || "",
-          active: node.discount.status === "ACTIVE",
-          startDate: node.discount.startsAt || new Date().toISOString(),
-          endDate: node.discount.endsAt || null,
+          title: node.codeDiscount.title || "Promoción con código",
+          description: node.codeDiscount.summary || "",
+          active: node.codeDiscount.status === "ACTIVE",
+          startDate: node.codeDiscount.startsAt || new Date().toISOString(),
+          endDate: node.codeDiscount.endsAt || null,
           code,
         }
       }
@@ -159,80 +113,32 @@ export async function fetchPromotionById(id) {
 
     console.log(`Fetching promotion with ID: ${formattedId}`)
 
-    // Consulta actualizada que usa fragmentos correctamente
+    // Consulta actualizada según la estructura actual de la API de Shopify
     const query = gql`
       query GetDiscountNode($id: ID!) {
         node(id: $id) {
           id
           __typename
           ... on DiscountAutomaticNode {
-            discount {
-              __typename
-              ... on DiscountAutomaticBasic {
-                title
-                startsAt
-                endsAt
-                status
-                summary
-              }
-              ... on DiscountAutomaticBxgy {
-                title
-                startsAt
-                endsAt
-                status
-                summary
-              }
-              ... on DiscountAutomaticFreeShipping {
-                title
-                startsAt
-                endsAt
-                status
-                summary
-              }
+            automaticDiscount {
+              title
+              startsAt
+              endsAt
+              status
+              summary
             }
           }
           ... on DiscountCodeNode {
-            discount {
-              __typename
-              ... on DiscountCodeBasic {
-                title
-                startsAt
-                endsAt
-                status
-                summary
-                codes(first: 1) {
-                  edges {
-                    node {
-                      code
-                    }
-                  }
-                }
-              }
-              ... on DiscountCodeBxgy {
-                title
-                startsAt
-                endsAt
-                status
-                summary
-                codes(first: 1) {
-                  edges {
-                    node {
-                      code
-                    }
-                  }
-                }
-              }
-              ... on DiscountCodeFreeShipping {
-                title
-                startsAt
-                endsAt
-                status
-                summary
-                codes(first: 1) {
-                  edges {
-                    node {
-                      code
-                    }
+            codeDiscount {
+              title
+              startsAt
+              endsAt
+              status
+              summary
+              codes(first: 1) {
+                edges {
+                  node {
+                    code
                   }
                 }
               }
@@ -310,24 +216,24 @@ function transformPromotionData(id, node) {
   }
 
   try {
-    if (node.__typename === "DiscountAutomaticNode" && node.discount) {
+    if (node.__typename === "DiscountAutomaticNode" && node.automaticDiscount) {
       promotion = {
         ...promotion,
-        title: node.discount.title || "Promoción automática",
-        description: node.discount.summary || "",
-        active: node.discount.status === "ACTIVE",
-        startDate: node.discount.startsAt || new Date().toISOString(),
-        endDate: node.discount.endsAt || null,
+        title: node.automaticDiscount.title || "Promoción automática",
+        description: node.automaticDiscount.summary || "",
+        active: node.automaticDiscount.status === "ACTIVE",
+        startDate: node.automaticDiscount.startsAt || new Date().toISOString(),
+        endDate: node.automaticDiscount.endsAt || null,
       }
-    } else if (node.__typename === "DiscountCodeNode" && node.discount) {
-      const code = node.discount.codes?.edges?.[0]?.node?.code || ""
+    } else if (node.__typename === "DiscountCodeNode" && node.codeDiscount) {
+      const code = node.codeDiscount.codes?.edges?.[0]?.node?.code || ""
       promotion = {
         ...promotion,
-        title: node.discount.title || "Promoción con código",
-        description: node.discount.summary || "",
-        active: node.discount.status === "ACTIVE",
-        startDate: node.discount.startsAt || new Date().toISOString(),
-        endDate: node.discount.endsAt || null,
+        title: node.codeDiscount.title || "Promoción con código",
+        description: node.codeDiscount.summary || "",
+        active: node.codeDiscount.status === "ACTIVE",
+        startDate: node.codeDiscount.startsAt || new Date().toISOString(),
+        endDate: node.codeDiscount.endsAt || null,
         code,
       }
     }
@@ -390,13 +296,20 @@ export async function updatePriceList(id: string, updateData: any): Promise<Prom
     // Obtener la promoción actual
     const currentPromotion = await fetchPromotionById(id)
 
+    // Asegurarse de que las fechas sean objetos Date o null
+    const processedUpdateData = {
+      ...updateData,
+      startDate: updateData.startDate ? new Date(updateData.startDate).toISOString() : currentPromotion.startDate,
+      endDate: updateData.endDate ? new Date(updateData.endDate).toISOString() : currentPromotion.endDate,
+    }
+
     // Simular un retraso para dar sensación de procesamiento
     await new Promise((resolve) => setTimeout(resolve, 500))
 
     // Devolver la promoción actualizada
     return {
       ...currentPromotion,
-      ...updateData,
+      ...processedUpdateData,
       updatedAt: new Date().toISOString(),
     }
   } catch (error) {
@@ -407,21 +320,28 @@ export async function updatePriceList(id: string, updateData: any): Promise<Prom
 
 export async function createPriceList(promotionData: any): Promise<Promotion> {
   try {
+    // Asegurarse de que las fechas sean objetos Date o null
+    const processedData = {
+      ...promotionData,
+      startDate: promotionData.startDate ? new Date(promotionData.startDate).toISOString() : new Date().toISOString(),
+      endDate: promotionData.endDate ? new Date(promotionData.endDate).toISOString() : null,
+    }
+
     // Simulación para pruebas
     return {
       id: `gid://shopify/DiscountAutomaticNode/${Date.now()}`,
-      title: promotionData.title || "Nueva promoción",
-      description: promotionData.description || "",
-      type: promotionData.type || "PERCENTAGE_DISCOUNT",
-      target: promotionData.target || "CART",
-      targetId: promotionData.targetId || "",
-      value: promotionData.value || 0,
-      conditions: promotionData.conditions || [],
+      title: processedData.title || "Nueva promoción",
+      description: processedData.description || "",
+      type: processedData.type || "PERCENTAGE_DISCOUNT",
+      target: processedData.target || "CART",
+      targetId: processedData.targetId || "",
+      value: processedData.value || 0,
+      conditions: processedData.conditions || [],
       active: true,
-      startDate: promotionData.startDate || new Date().toISOString(),
-      endDate: promotionData.endDate || null,
-      code: promotionData.code || "",
-      usageLimit: promotionData.usageLimit || 0,
+      startDate: processedData.startDate,
+      endDate: processedData.endDate,
+      code: processedData.code || "",
+      usageLimit: processedData.usageLimit || 0,
       usageCount: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
