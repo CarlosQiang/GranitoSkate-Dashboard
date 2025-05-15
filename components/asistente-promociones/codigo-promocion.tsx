@@ -33,7 +33,7 @@ export function FormularioCodigoPromocion({ requiereCodigo, codigo, onChange }: 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Code className="h-5 w-5 text-granito" />
+              <Code className="h-5 w-5 text-primary" />
               <Label htmlFor="requiere-codigo" className="font-medium">
                 Requiere código promocional
               </Label>
@@ -42,7 +42,6 @@ export function FormularioCodigoPromocion({ requiereCodigo, codigo, onChange }: 
               id="requiere-codigo"
               checked={requiereCodigo}
               onCheckedChange={(checked) => onChange({ requiereCodigo: checked, codigo })}
-              className="data-[state=checked]:bg-granito"
             />
           </div>
 
@@ -69,9 +68,9 @@ export function FormularioCodigoPromocion({ requiereCodigo, codigo, onChange }: 
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-4 bg-granito-light/10 border border-granito-light/20 rounded-md">
-            <h3 className="text-sm font-medium text-granito-dark">Con código:</h3>
-            <ul className="text-sm text-granito-dark/80 list-disc list-inside mt-2 space-y-1">
+          <div className="p-4 bg-muted/50 border rounded-md">
+            <h3 className="text-sm font-medium">Con código:</h3>
+            <ul className="text-sm text-muted-foreground list-disc list-inside mt-2 space-y-1">
               <li>Puedes compartir el código en redes sociales</li>
               <li>Ideal para campañas de marketing específicas</li>
               <li>Permite medir la efectividad de diferentes canales</li>
@@ -79,9 +78,9 @@ export function FormularioCodigoPromocion({ requiereCodigo, codigo, onChange }: 
             </ul>
           </div>
 
-          <div className="p-4 bg-granito-light/10 border border-granito-light/20 rounded-md">
-            <h3 className="text-sm font-medium text-granito-dark">Sin código:</h3>
-            <ul className="text-sm text-granito-dark/80 list-disc list-inside mt-2 space-y-1">
+          <div className="p-4 bg-muted/50 border rounded-md">
+            <h3 className="text-sm font-medium">Sin código:</h3>
+            <ul className="text-sm text-muted-foreground list-disc list-inside mt-2 space-y-1">
               <li>Se aplica automáticamente en el carrito</li>
               <li>Mejor experiencia de usuario</li>
               <li>Ideal para promociones generales</li>
@@ -90,9 +89,9 @@ export function FormularioCodigoPromocion({ requiereCodigo, codigo, onChange }: 
           </div>
         </div>
 
-        <div className="p-4 bg-granito-light/10 border border-granito-light/20 rounded-md">
-          <h3 className="text-sm font-medium text-granito-dark">Consejo:</h3>
-          <p className="text-sm text-granito-dark/80">
+        <div className="p-4 bg-muted/50 border rounded-md">
+          <h3 className="text-sm font-medium">Consejo:</h3>
+          <p className="text-sm text-muted-foreground">
             Usa códigos cortos y fáciles de recordar. Evita caracteres ambiguos como "0" y "O" o "1" e "I".
           </p>
         </div>
