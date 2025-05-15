@@ -459,3 +459,30 @@ export async function fetchProductsNotInCollection(collectionId) {
     throw new Error(`Error al cargar productos no incluidos en la colección: ${error.message}`)
   }
 }
+
+// Este archivo es un puente para mantener compatibilidad con código existente
+// Importa y reexporta las funciones de collections.ts con nombres en español
+
+import {
+  fetchCollections as fetchCollectionsFromCollections,
+  fetchCollectionById as fetchCollectionByIdFromCollections,
+  addProductsToCollection as addProductToCollectionFromCollections,
+  removeProductsFromCollection as removeProductFromCollectionFromCollections,
+  createCollection as createCollectionFromCollections,
+  updateCollection as updateCollectionFromCollections,
+  deleteCollection as deleteCollectionFromCollections,
+  addProductToCollection,
+  removeProductFromCollection,
+} from "./collections"
+
+// Exportar las funciones con nombres en español para mantener compatibilidad
+export const obtenerColecciones = fetchCollectionsFromCollections
+export const obtenerColeccionPorId = fetchCollectionByIdFromCollections
+export const agregarProductoAColeccion = addProductToCollectionFromCollections
+export const eliminarProductoDeColeccion = removeProductFromCollectionFromCollections
+export const crearColeccion = createCollectionFromCollections
+export const actualizarColeccion = updateCollectionFromCollections
+export const eliminarColeccion = deleteCollectionFromCollections
+
+// También exportamos las funciones con nombres en inglés
+export { addProductToCollection, removeProductFromCollection }
