@@ -6,6 +6,13 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
+import { fetchProducts } from "@/lib/api/products"
+import {
+  fetchCollectionProducts,
+  addProductsToCollection,
+  removeProductsFromCollection,
+  fetchProductsNotInCollection,
+} from "@/lib/api/colecciones"
 import { Loader2, Package } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import Image from "next/image"
@@ -20,6 +27,7 @@ interface CollectionProductManagerProps {
 export function CollectionProductManager({ productId, collectionId, onComplete, mode }: CollectionProductManagerProps) {
   const { toast } = useToast()
   const [products, setProducts] = useState<any[]>([])
+  const [collectionProducts, setCollectionProducts] = useState<any[]>([])
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -35,53 +43,36 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
         // Ensure we have a clean ID (remove any Shopify prefixes)
         const cleanCollectionId = collectionId
           ? collectionId.includes("/")
-            ? collectionId.split("/").pop()
-            : collectionId
+            ? collectionId
+            : `gid://shopify/Collection/${collectionId}`
           : undefined
 
-        if (!cleanCollectionId) {
-          throw new Error("ID de colección no válido")
-        }
-
-        let productsToShow = []
+        const cleanProductId = productId
+          ? productId.includes("/")
+            ? productId
+            : `gid://shopify/Product/${productId}`
+          : undefined
 
         // If we're in "add" mode, we need products not in the collection
-        if (mode === "add") {
-          // Fetch all products
-          const allProductsResponse = await fetch("/api/shopify/products")
-          if (!allProductsResponse.ok) {
-            throw new Error(`Error al obtener productos: ${allProductsResponse.status}`)
-          }
-          const allProducts = await allProductsResponse.json()
-
-          // Fetch collection products
-          const collectionProductsResponse = await fetch(`/api/shopify/collections/${cleanCollectionId}/products`)
-          if (!collectionProductsResponse.ok) {
-            throw new Error(`Error al obtener productos de la colección: ${collectionProductsResponse.status}`)
-          }
-          const collectionProducts = await collectionProductsResponse.json()
-
-          // Get collection product IDs
-          const collectionProductIds = collectionProducts.edges.map((edge) => edge.node.id)
-
-          // Filter products not in collection
-          productsToShow = allProducts.filter((product) => !collectionProductIds.includes(product.id))
+        if (mode === "add" && cleanCollectionId) {
+          const productsNotInCollection = await fetchProductsNotInCollection(cleanCollectionId)
+          setProducts(productsNotInCollection.edges.map((edge) => edge.node))
         }
         // If we're in "remove" mode, we need products in the collection
-        else if (mode === "remove") {
-          const response = await fetch(`/api/shopify/collections/${cleanCollectionId}/products`)
-          if (!response.ok) {
-            throw new Error(`Error al obtener productos de la colección: ${response.status}`)
-          }
-          const data = await response.json()
-          productsToShow = data.edges.map((edge) => edge.node)
+        else if (mode === "remove" && cleanCollectionId) {
+          const productsInCollection = await fetchCollectionProducts(cleanCollectionId)
+          // Extract the actual product nodes from the edges
+          const collectionProductNodes = productsInCollection?.edges?.map((edge) => edge.node) || []
+          setProducts(collectionProductNodes)
+        }
+        // Fallback to all products if we can't determine which to show
+        else {
+          const allProducts = await fetchProducts()
+          setProducts(allProducts)
         }
 
-        setProducts(productsToShow)
-
         // If we have a product ID, pre-select it
-        if (productId) {
-          const cleanProductId = productId.includes("/") ? productId : `gid://shopify/Product/${productId}`
+        if (cleanProductId) {
           setSelectedProducts([cleanProductId])
         }
       } catch (err) {
@@ -97,9 +88,7 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
       }
     }
 
-    if (collectionId) {
-      loadData()
-    }
+    loadData()
   }, [collectionId, productId, mode, toast])
 
   const handleProductSelection = (productId: string) => {
@@ -129,8 +118,8 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
       // Ensure we have a clean collection ID
       const cleanCollectionId = collectionId
         ? collectionId.includes("/")
-          ? collectionId.split("/").pop()
-          : collectionId
+          ? collectionId
+          : `gid://shopify/Collection/${collectionId}`
         : undefined
 
       if (!cleanCollectionId) {
@@ -138,41 +127,13 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
       }
 
       if (mode === "add") {
-        const response = await fetch(`/api/shopify/collections/${cleanCollectionId}/products`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            productIds: selectedProducts,
-          }),
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || `Error HTTP: ${response.status}`)
-        }
-
+        await addProductsToCollection(cleanCollectionId, selectedProducts)
         toast({
           title: "Productos añadidos",
           description: `${selectedProducts.length} productos añadidos a la colección`,
         })
       } else {
-        const response = await fetch(`/api/shopify/collections/${cleanCollectionId}/products`, {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            productIds: selectedProducts,
-          }),
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || `Error HTTP: ${response.status}`)
-        }
-
+        await removeProductsFromCollection(cleanCollectionId, selectedProducts)
         toast({
           title: "Productos eliminados",
           description: `${selectedProducts.length} productos eliminados de la colección`,

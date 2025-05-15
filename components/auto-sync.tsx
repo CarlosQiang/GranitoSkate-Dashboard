@@ -71,46 +71,6 @@ export function AutoSync() {
     }
   }
 
-  // Modificar la función syncProducts para usar POST
-  const syncProducts = async () => {
-    try {
-      setIsSyncing(true)
-
-      // Usar POST en lugar de GET
-      const response = await fetch("/api/sync/products", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ limit: 50 }), // Limitar a 50 productos para evitar sobrecarga
-      })
-
-      if (!response.ok) {
-        throw new Error(`Error en la respuesta: ${response.status} ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      console.log("Sincronización completada:", data)
-
-      // Mostrar notificación de éxito
-      toast({
-        title: "Sincronización completada",
-        description: `Se han sincronizado ${data.created + data.updated} productos.`,
-      })
-    } catch (error) {
-      console.error("Error en sincronización automática:", error)
-
-      // Mostrar notificación de error
-      toast({
-        title: "Error de sincronización",
-        description: `No se pudieron sincronizar los productos: ${error.message}`,
-        variant: "destructive",
-      })
-    } finally {
-      setIsSyncing(false)
-    }
-  }
-
   const syncData = async () => {
     try {
       setSyncStatus((prev) => ({ ...prev, isLoading: true }))
@@ -148,6 +108,45 @@ export function AutoSync() {
         error: error instanceof Error ? error.message : "Error desconocido durante la sincronización",
         showAlert: true,
       }))
+    }
+  }
+
+  const syncProducts = async () => {
+    try {
+      setIsSyncing(true)
+
+      // Usar POST en lugar de GET
+      const response = await fetch("/api/sync/products", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ limit: 50 }), // Limitar a 50 productos para evitar sobrecarga
+      })
+
+      if (!response.ok) {
+        throw new Error(`Error en la respuesta: ${response.status} ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      console.log("Sincronización completada:", data)
+
+      // Mostrar notificación de éxito
+      toast({
+        title: "Sincronización completada",
+        description: `Se han sincronizado ${data.created + data.updated} productos.`,
+      })
+    } catch (error) {
+      console.error("Error en sincronización automática:", error)
+
+      // Mostrar notificación de error
+      toast({
+        title: "Error de sincronización",
+        description: `No se pudieron sincronizar los productos: ${error.message}`,
+        variant: "destructive",
+      })
+    } finally {
+      setIsSyncing(false)
     }
   }
 
