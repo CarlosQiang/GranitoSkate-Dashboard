@@ -272,7 +272,7 @@ export async function fetchCustomerOrders(customerId, limit = 50) {
   }
 }
 
-// Añadir la función para eliminar un pedido
+// Función actualizada para eliminar un pedido
 export async function deleteOrder(orderId) {
   try {
     // Asegurarse de que el ID tenga el formato correcto
@@ -284,32 +284,53 @@ export async function deleteOrder(orderId) {
     // En Shopify, no se pueden eliminar pedidos directamente a través de la API GraphQL
     // En su lugar, podemos cancelar el pedido y luego archivarlo
 
-    // 1. Primero, cancelamos el pedido
+    // 1. Primero, cancelamos el pedido con los argumentos requeridos
     const cancelMutation = `
-      mutation orderCancel($id: ID!) {
-        orderCancel(input: {id: $id}) {
-          order {
-            id
-            displayFulfillmentStatus
-          }
+      mutation orderCancel(
+        $orderId: ID!,
+        $reason: OrderCancelReason!,
+        $refund: OrderRefundInput,
+        $restock: Boolean!
+      ) {
+        orderCancel(
+          orderId: $orderId,
+          reason: $reason,
+          refund: $refund,
+          restock: $restock
+        ) {
           userErrors {
             field
             message
+          }
+          order {
+            id
+            cancelledAt
+            displayFulfillmentStatus
           }
         }
       }
     `
 
+    const cancelVariables = {
+      orderId: formattedId,
+      reason: "CUSTOMER", // Razones válidas: CUSTOMER, INVENTORY, FRAUD, DECLINED, OTHER
+      restock: true, // Devolver los productos al inventario
+      refund: null, // No emitir reembolso automáticamente
+    }
+
     const cancelResponse = await shopifyFetch({
       query: cancelMutation,
-      variables: { id: formattedId },
+      variables: cancelVariables,
     })
 
     if (
       cancelResponse.errors ||
       (cancelResponse.data?.orderCancel?.userErrors && cancelResponse.data.orderCancel.userErrors.length > 0)
     ) {
-      console.error("Error al cancelar el pedido:", cancelResponse.errors || cancelResponse.data.orderCancel.userErrors)
+      console.error(
+        "Error al cancelar el pedido:",
+        cancelResponse.errors || cancelResponse.data?.orderCancel?.userErrors,
+      )
 
       // Si el error es porque el pedido ya está cancelado, continuamos con el archivado
       if (!cancelResponse.data?.orderCancel) {
@@ -320,13 +341,14 @@ export async function deleteOrder(orderId) {
     // 2. Luego, archivamos el pedido
     const archiveMutation = `
       mutation orderArchive($id: ID!) {
-        orderArchive(input: {id: $id}) {
-          order {
-            id
-          }
+        orderClose(input: {id: $id}) {
           userErrors {
             field
             message
+          }
+          order {
+            id
+            closedAt
           }
         }
       }
@@ -339,13 +361,14 @@ export async function deleteOrder(orderId) {
 
     if (
       archiveResponse.errors ||
-      (archiveResponse.data?.orderArchive?.userErrors && archiveResponse.data.orderArchive.userErrors.length > 0)
+      (archiveResponse.data?.orderClose?.userErrors && archiveResponse.data.orderClose.userErrors.length > 0)
     ) {
       console.error(
         "Error al archivar el pedido:",
-        archiveResponse.errors || archiveResponse.data.orderArchive.userErrors,
+        archiveResponse.errors || archiveResponse.data?.orderClose?.userErrors,
       )
-      throw new Error("No se pudo archivar el pedido")
+      // No lanzamos error aquí, ya que el pedido ya está cancelado
+      console.warn("El pedido fue cancelado pero no pudo ser archivado")
     }
 
     return {
