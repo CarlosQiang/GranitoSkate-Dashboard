@@ -16,9 +16,7 @@ export async function fetchCollections() {
               handle
               description
               descriptionHtml
-              productsCount {
-                count
-              }
+              productsCount
               image {
                 url
                 altText
@@ -51,7 +49,7 @@ export async function fetchCollections() {
     // Transformar los datos para mantener compatibilidad con el código existente
     return data.collections.edges.map((edge) => ({
       ...edge.node,
-      productsCount: edge.node.productsCount.count,
+      productsCount: edge.node.productsCount || 0,
     }))
   } catch (error) {
     console.error("Error fetching collections:", error)
@@ -73,9 +71,7 @@ export async function fetchCollectionById(id) {
           handle
           description
           descriptionHtml
-          productsCount {
-            count
-          }
+          productsCount
           image {
             url
             altText
@@ -103,7 +99,7 @@ export async function fetchCollectionById(id) {
     // Transform the data to maintain compatibility with existing code
     return {
       ...data.collection,
-      productsCount: data.collection.productsCount.count,
+      productsCount: data.collection.productsCount || 0,
     }
   } catch (error) {
     console.error(`Error fetching collection with ID ${id}:`, error)
@@ -303,9 +299,7 @@ export async function addProductsToCollection(collectionId, productIds) {
           collection {
             id
             title
-            productsCount {
-              count
-            }
+            productsCount
           }
           userErrors {
             field
@@ -329,7 +323,7 @@ export async function addProductsToCollection(collectionId, productIds) {
     // Transformamos los datos para mantener compatibilidad con el código existente
     return {
       ...data.collectionAddProducts.collection,
-      productsCount: data.collectionAddProducts.collection.productsCount.count,
+      productsCount: data.collectionAddProducts.collection.productsCount || 0,
     }
   } catch (error) {
     console.error(`Error adding products to collection ${collectionId}:`, error)
