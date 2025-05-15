@@ -320,10 +320,7 @@ export async function createCustomer(customerData: any) {
       throw new Error(result.customerCreate.userErrors[0].message)
     }
 
-    // Extraer el ID numérico del ID global de Shopify
-    const fullId = result.customerCreate.customer.id
-    const idParts = fullId.split("/")
-    const newCustomerId = idParts[idParts.length - 1]
+    const newCustomerId = result.customerCreate.customer.id.split("/").pop()
 
     // Si hay metafields, añadirlos en una segunda operación
     if (customerData.metafields && customerData.metafields.length > 0 && customerData.metafields[0].value) {

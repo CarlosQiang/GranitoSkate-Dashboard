@@ -63,8 +63,7 @@ export function ProductCard({ product }) {
             </Badge>
           </div>
         </CardContent>
-        {/* Eliminada la clase border-t para quitar la línea separadora */}
-        <CardFooter className="p-4 pt-0 text-xs text-muted-foreground mt-auto">
+        <CardFooter className="p-4 pt-0 text-xs text-muted-foreground border-t mt-auto">
           <span className="truncate">ID: {cleanId(id)}</span>
         </CardFooter>
       </Card>

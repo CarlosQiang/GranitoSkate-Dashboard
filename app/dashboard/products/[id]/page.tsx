@@ -17,7 +17,6 @@ import { SeoPreview } from "@/components/seo-preview"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ImageUpload } from "@/components/image-upload"
 import { LoadingState } from "@/components/loading-state"
-import { InventoryEditor } from "@/components/inventory-editor"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,8 +38,6 @@ export default function ProductPage({ params }) {
   const [error, setError] = useState(null)
   const [productImage, setProductImage] = useState(null)
   const [product, setProduct] = useState(null)
-  const [inventoryQuantity, setInventoryQuantity] = useState(0)
-  const [variantId, setVariantId] = useState(null)
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -67,13 +64,7 @@ export default function ProductPage({ params }) {
         setProduct(productData)
 
         // Extraer la primera variante
-        const firstVariant = productData.variants?.[0] || {}
-
-        // Guardar el ID de la variante para usarlo en la gestión de inventario
-        if (firstVariant.id) {
-          setVariantId(firstVariant.id)
-          setInventoryQuantity(firstVariant.inventoryQuantity || 0)
-        }
+        const firstVariant = productData.variants?.edges?.[0]?.node || {}
 
         setFormData({
           title: productData.title || "",
@@ -83,8 +74,8 @@ export default function ProductPage({ params }) {
           productType: productData.productType || "",
           variants: [
             {
-              price: firstVariant.price || "",
-              compareAtPrice: firstVariant.compareAtPrice || "",
+              price: firstVariant.price?.amount || "",
+              compareAtPrice: firstVariant.compareAtPrice?.amount || "",
               sku: firstVariant.sku || "",
               title: firstVariant.title || "Default",
             },
@@ -139,10 +130,6 @@ export default function ProductPage({ params }) {
     setProductImage(imageData)
   }
 
-  const handleInventoryUpdate = (newQuantity) => {
-    setInventoryQuantity(newQuantity)
-  }
-
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsSaving(true)
@@ -151,7 +138,7 @@ export default function ProductPage({ params }) {
       // Preparar los datos para la API de Shopify
       const productData = {
         title: formData.title,
-        description: formData.description,
+        descriptionHtml: formData.description,
         status: formData.status,
         vendor: formData.vendor,
         productType: formData.productType,
@@ -412,16 +399,13 @@ export default function ProductPage({ params }) {
                   />
                 </div>
               </div>
+              <div className="bg-yellow-50 p-4 rounded-md border border-yellow-200">
+                <p className="text-sm text-yellow-800">
+                  El inventario se configurará automáticamente después de guardar el producto.
+                </p>
+              </div>
             </CardContent>
           </Card>
-
-          {/* Añadimos el editor de inventario */}
-          <InventoryEditor
-            productId={params.id}
-            variantId={variantId}
-            initialQuantity={inventoryQuantity}
-            onUpdate={handleInventoryUpdate}
-          />
         </TabsContent>
 
         <TabsContent value="images" className="space-y-6">

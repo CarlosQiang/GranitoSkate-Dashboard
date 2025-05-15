@@ -7,12 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { fetchProducts } from "@/lib/api/products"
-import {
-  fetchCollectionProducts,
-  addProductsToCollection,
-  removeProductsFromCollection,
-  fetchProductsNotInCollection,
-} from "@/lib/api/colecciones"
+import { fetchCollectionProducts, addProductsToCollection, removeProductsFromCollection } from "@/lib/api/colecciones"
 import { Loader2, Package } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import Image from "next/image"
@@ -53,22 +48,24 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
             : `gid://shopify/Product/${productId}`
           : undefined
 
-        // If we're in "add" mode, we need products not in the collection
-        if (mode === "add" && cleanCollectionId) {
-          const productsNotInCollection = await fetchProductsNotInCollection(cleanCollectionId)
-          setProducts(productsNotInCollection.edges.map((edge) => edge.node))
-        }
-        // If we're in "remove" mode, we need products in the collection
-        else if (mode === "remove" && cleanCollectionId) {
-          const productsInCollection = await fetchCollectionProducts(cleanCollectionId)
-          // Extract the actual product nodes from the edges
-          const collectionProductNodes = productsInCollection?.edges?.map((edge) => edge.node) || []
-          setProducts(collectionProductNodes)
-        }
-        // Fallback to all products if we can't determine which to show
-        else {
+        // If we're in "add" mode, we need all products
+        if (mode === "add") {
           const allProducts = await fetchProducts()
           setProducts(allProducts)
+        }
+
+        // If we have a collection ID, fetch its products
+        if (cleanCollectionId) {
+          const productsInCollection = await fetchCollectionProducts(cleanCollectionId)
+
+          // Extract the actual product nodes from the edges
+          const collectionProductNodes = productsInCollection?.edges?.map((edge) => edge.node) || []
+          setCollectionProducts(collectionProductNodes)
+
+          // If we're in "remove" mode, we only need the products in the collection
+          if (mode === "remove") {
+            setProducts(collectionProductNodes)
+          }
         }
 
         // If we have a product ID, pre-select it
@@ -165,8 +162,6 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
     if (!product) return null
 
     if (product.featuredImage) return product.featuredImage.url
-    if (product.images && product.images.edges && product.images.edges.length > 0)
-      return product.images.edges[0].node.url
     if (product.image) return typeof product.image === "string" ? product.image : product.image?.url
 
     return null
@@ -174,6 +169,12 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
 
   // Filter products based on search term
   const filteredProducts = products.filter((product) => {
+    // If we're in "add" mode, exclude products that are already in the collection
+    if (mode === "add") {
+      const isInCollection = collectionProducts.some((cp) => cp.id === product.id)
+      if (isInCollection) return false
+    }
+
     // Filter by search term
     if (searchTerm) {
       return product.title.toLowerCase().includes(searchTerm.toLowerCase())

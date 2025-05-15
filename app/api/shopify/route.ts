@@ -1,18 +1,12 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { Logger } from "next-axiom"
-
-const logger = new Logger({
-  source: "api-shopify",
-})
 
 export async function POST(request: Request) {
   try {
     // Verificar autenticación
     const session = await getServerSession(authOptions)
     if (!session) {
-      logger.warn("Intento de acceso no autorizado a la API de Shopify")
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
@@ -21,7 +15,7 @@ export async function POST(request: Request) {
     const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
 
     if (!shopDomain) {
-      logger.error("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está configurado")
+      console.error("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está configurado")
       return NextResponse.json(
         { error: "Configuración de Shopify incompleta: falta el dominio de la tienda" },
         { status: 500 },
@@ -29,7 +23,7 @@ export async function POST(request: Request) {
     }
 
     if (!accessToken) {
-      logger.error("SHOPIFY_ACCESS_TOKEN no está configurado")
+      console.error("SHOPIFY_ACCESS_TOKEN no está configurado")
       return NextResponse.json(
         { error: "Configuración de Shopify incompleta: falta el token de acceso" },
         { status: 500 },
@@ -40,10 +34,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { query, variables } = body
 
-    logger.debug("Enviando consulta a Shopify", {
-      query: query.substring(0, 100) + "...",
-      variables,
-    })
+    console.log("Enviando consulta a Shopify:", query.substring(0, 100) + "...")
 
     // Hacer la solicitud a la API de Shopify
     const response = await fetch(`https://${shopDomain}/admin/api/2023-10/graphql.json`, {
@@ -61,8 +52,7 @@ export async function POST(request: Request) {
     // Verificar si la respuesta es exitosa
     if (!response.ok) {
       const errorText = await response.text()
-      logger.error(`Error en la respuesta de Shopify (${response.status})`, { errorText })
-
+      console.error(`Error en la respuesta de Shopify (${response.status}): ${errorText}`)
       return NextResponse.json(
         {
           error: `Error en la respuesta de Shopify: ${response.status} ${response.statusText}`,
@@ -77,14 +67,11 @@ export async function POST(request: Request) {
     try {
       data = await response.json()
     } catch (error) {
-      logger.error("Error al parsear la respuesta JSON", {
-        error: error instanceof Error ? error.message : "Error desconocido",
-      })
-
+      console.error("Error al parsear la respuesta JSON:", error)
       return NextResponse.json(
         {
           error: "Error al parsear la respuesta JSON de Shopify",
-          details: error instanceof Error ? error.message : "Error desconocido",
+          details: (error as Error).message,
         },
         { status: 500 },
       )
@@ -92,8 +79,7 @@ export async function POST(request: Request) {
 
     // Verificar si hay errores en la respuesta GraphQL
     if (data.errors) {
-      logger.error("Errores GraphQL", { errors: data.errors })
-
+      console.error("Errores GraphQL:", JSON.stringify(data.errors, null, 2))
       return NextResponse.json(
         {
           error: "Error en la consulta GraphQL",
@@ -105,14 +91,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json(data)
   } catch (error) {
-    logger.error("Error en el proxy de Shopify", {
-      error: error instanceof Error ? error.message : "Error desconocido",
-    })
-
+    console.error("Error en el proxy de Shopify:", error)
     return NextResponse.json(
       {
         error: "Error interno del servidor",
-        details: error instanceof Error ? error.message : "Error desconocido",
+        details: (error as Error).message,
       },
       { status: 500 },
     )

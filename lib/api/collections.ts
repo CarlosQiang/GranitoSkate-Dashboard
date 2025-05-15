@@ -1,5 +1,3 @@
-"use server"
-
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 
@@ -278,12 +276,12 @@ export async function deleteCollection(id) {
 // Función para añadir productos a una colección
 export async function addProductsToCollection(collectionId, productIds) {
   try {
-    // Aseguramos que el ID de la colección tenga el formato correcto
+    // Ensure the collection ID has the correct format
     const formattedCollectionId = collectionId.includes("gid://shopify/Collection/")
       ? collectionId
       : `gid://shopify/Collection/${collectionId}`
 
-    // Formateamos los IDs de los productos correctamente
+    // Format product IDs correctly
     const formattedProductIds = productIds.map((id) => {
       if (typeof id === "string" && id.includes("gid://shopify/Product/")) {
         return id
@@ -296,10 +294,9 @@ export async function addProductsToCollection(collectionId, productIds) {
       productIds: formattedProductIds,
     })
 
-    // Corregimos la mutación para usar el argumento id en lugar de collectionId
     const mutation = gql`
       mutation collectionAddProducts($id: ID!, $productIds: [ID!]!) {
-        collectionAddProducts(id: $id, productIds: $productIds) {
+        collectionAddProducts(collectionId: $id, productIds: $productIds) {
           collection {
             id
             title
@@ -322,11 +319,11 @@ export async function addProductsToCollection(collectionId, productIds) {
 
     const data = await shopifyClient.request(mutation, variables)
 
-    if (data.collectionAddProducts.userErrors && data.collectionAddProducts.userErrors.length > 0) {
+    if (data.collectionAddProducts.userErrors.length > 0) {
       throw new Error(data.collectionAddProducts.userErrors[0].message)
     }
 
-    // Transformamos los datos para mantener compatibilidad con el código existente
+    // Transform the data to maintain compatibility with existing code
     return {
       ...data.collectionAddProducts.collection,
       productsCount: data.collectionAddProducts.collection.productsCount.count,
@@ -340,12 +337,12 @@ export async function addProductsToCollection(collectionId, productIds) {
 // Función para eliminar productos de una colección
 export async function removeProductsFromCollection(collectionId, productIds) {
   try {
-    // Aseguramos que el ID de la colección tenga el formato correcto
+    // Ensure the collection ID has the correct format
     const formattedCollectionId = collectionId.includes("gid://shopify/Collection/")
       ? collectionId
       : `gid://shopify/Collection/${collectionId}`
 
-    // Formateamos los IDs de los productos correctamente
+    // Format product IDs correctly
     const formattedProductIds = productIds.map((id) => {
       if (typeof id === "string" && id.includes("gid://shopify/Product/")) {
         return id
@@ -358,13 +355,15 @@ export async function removeProductsFromCollection(collectionId, productIds) {
       productIds: formattedProductIds,
     })
 
-    // Corregimos la mutación para usar el argumento id en lugar de collectionId
-    // y corregimos la estructura de la respuesta
     const mutation = gql`
       mutation collectionRemoveProducts($id: ID!, $productIds: [ID!]!) {
-        collectionRemoveProducts(id: $id, productIds: $productIds) {
-          job {
+        collectionRemoveProducts(collectionId: $id, productIds: $productIds) {
+          collection {
             id
+            title
+            productsCount {
+              count
+            }
           }
           userErrors {
             field
@@ -381,87 +380,17 @@ export async function removeProductsFromCollection(collectionId, productIds) {
 
     const data = await shopifyClient.request(mutation, variables)
 
-    if (data.collectionRemoveProducts.userErrors && data.collectionRemoveProducts.userErrors.length > 0) {
+    if (data.collectionRemoveProducts.userErrors.length > 0) {
       throw new Error(data.collectionRemoveProducts.userErrors[0].message)
     }
 
-    // Devolvemos el ID de la colección para mantener compatibilidad
+    // Transform the data to maintain compatibility with existing code
     return {
-      id: formattedCollectionId,
+      ...data.collectionRemoveProducts.collection,
+      productsCount: data.collectionRemoveProducts.collection.productsCount.count,
     }
   } catch (error) {
     console.error(`Error removing products from collection ${collectionId}:`, error)
     throw new Error(`Error al eliminar productos de la colección: ${error.message}`)
   }
 }
-
-// Función para obtener productos que no están en una colección
-export async function fetchProductsNotInCollection(collectionId) {
-  try {
-    // Primero obtenemos todos los productos
-    const allProductsQuery = gql`
-      query {
-        products(first: 50) {
-          edges {
-            node {
-              id
-              title
-              handle
-              images(first: 1) {
-                edges {
-                  node {
-                    url
-                    altText
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    `
-
-    // Luego obtenemos los productos de la colección
-    const collectionProductsQuery = gql`
-      query GetCollectionProducts($collectionId: ID!) {
-        collection(id: $collectionId) {
-          products(first: 50) {
-            edges {
-              node {
-                id
-              }
-            }
-          }
-        }
-      }
-    `
-
-    const [allProductsData, collectionProductsData] = await Promise.all([
-      shopifyClient.request(allProductsQuery),
-      shopifyClient.request(collectionProductsQuery, {
-        collectionId: collectionId.includes("gid://shopify/Collection/")
-          ? collectionId
-          : `gid://shopify/Collection/${collectionId}`,
-      }),
-    ])
-
-    // Extraemos los IDs de los productos en la colección
-    const collectionProductIds = collectionProductsData.collection.products.edges.map((edge) => edge.node.id)
-
-    // Filtramos los productos que no están en la colección
-    const productsNotInCollection = allProductsData.products.edges.filter(
-      (edge) => !collectionProductIds.includes(edge.node.id),
-    )
-
-    return {
-      edges: productsNotInCollection,
-    }
-  } catch (error) {
-    console.error(`Error fetching products not in collection ${collectionId}:`, error)
-    throw new Error(`Error al cargar productos no incluidos en la colección: ${error.message}`)
-  }
-}
-
-// Alias para mantener compatibilidad
-export const addProductToCollection = addProductsToCollection
-export const removeProductFromCollection = removeProductsFromCollection

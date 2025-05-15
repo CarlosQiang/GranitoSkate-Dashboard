@@ -269,20 +269,12 @@ export async function fetchProductById(id) {
 // Función para crear un nuevo producto
 export async function createProduct(productData) {
   try {
-    // Primero creamos el producto básico
     const mutation = `
       mutation createProduct($input: ProductInput!) {
         productCreate(input: $input) {
           product {
             id
             title
-            variants(first: 1) {
-              edges {
-                node {
-                  id
-                }
-              }
-            }
           }
           userErrors {
             field
@@ -292,57 +284,34 @@ export async function createProduct(productData) {
       }
     `
 
-    // Preparamos el input sin incluir inventoryQuantity
-    const input = {
-      title: productData.title,
-      descriptionHtml: productData.description,
-      vendor: productData.vendor,
-      productType: productData.productType,
-      tags: productData.tags || [],
-      variants: [
-        {
-          price: productData.variants?.[0]?.price || productData.price || "0",
-          compareAtPrice: productData.variants?.[0]?.compareAtPrice || productData.compareAtPrice,
-          sku: productData.variants?.[0]?.sku || productData.sku || "",
-          barcode: productData.variants?.[0]?.barcode || productData.barcode,
-        },
-      ],
-    }
-
-    // Si hay un handle, lo incluimos
-    if (productData.handle) {
-      input.handle = productData.handle
-    }
-
-    // Si hay una imagen, la incluimos
-    if (productData.image) {
-      input.images = [{ src: productData.image }]
-    }
-
-    console.log("Input para crear producto:", input)
-
     const response = await shopifyFetch({
       query: mutation,
-      variables: { input },
+      variables: {
+        input: {
+          title: productData.title,
+          descriptionHtml: productData.description,
+          vendor: productData.vendor,
+          productType: productData.productType,
+          tags: productData.tags,
+          variants: [
+            {
+              price: productData.price,
+              compareAtPrice: productData.compareAtPrice,
+              inventoryQuantity: Number.parseInt(productData.inventoryQuantity),
+              inventoryPolicy: productData.inventoryPolicy,
+              sku: productData.sku,
+              barcode: productData.barcode,
+            },
+          ],
+        },
+      },
     })
 
     if (response.errors || response.data?.productCreate?.userErrors?.length > 0) {
-      const errorMessage = response.errors?.[0]?.message || response.data?.productCreate?.userErrors[0]?.message
-      console.error("Error en la respuesta de creación de producto:", errorMessage)
-      throw new Error(errorMessage)
+      throw new Error(response.errors?.[0]?.message || response.data?.productCreate?.userErrors[0]?.message)
     }
 
-    const createdProduct = response.data?.productCreate?.product
-
-    // Si se especificó una cantidad de inventario, actualizamos el inventario
-    if (productData.inventoryQuantity !== undefined && createdProduct) {
-      const variantId = createdProduct.variants.edges[0]?.node?.id
-      if (variantId) {
-        await updateInventoryLevel(variantId.split("/").pop(), Number.parseInt(productData.inventoryQuantity, 10))
-      }
-    }
-
-    return createdProduct
+    return response.data?.productCreate?.product
   } catch (error) {
     console.error("Error al crear el producto:", error)
     throw error
@@ -358,13 +327,6 @@ export async function updateProduct(id, productData) {
           product {
             id
             title
-            variants(first: 1) {
-              edges {
-                node {
-                  id
-                }
-              }
-            }
           }
           userErrors {
             field
@@ -374,156 +336,28 @@ export async function updateProduct(id, productData) {
       }
     `
 
-    const input = {
-      id: `gid://shopify/Product/${id}`,
-      title: productData.title,
-      descriptionHtml: productData.description,
-      vendor: productData.vendor,
-      productType: productData.productType,
-      tags: productData.tags,
-    }
-
     const response = await shopifyFetch({
       query: mutation,
-      variables: { input },
+      variables: {
+        input: {
+          id: `gid://shopify/Product/${id}`,
+          title: productData.title,
+          descriptionHtml: productData.description,
+          vendor: productData.vendor,
+          productType: productData.productType,
+          tags: productData.tags,
+        },
+      },
     })
 
     if (response.errors || response.data?.productUpdate?.userErrors?.length > 0) {
       throw new Error(response.errors?.[0]?.message || response.data?.productUpdate?.userErrors[0]?.message)
     }
 
-    const updatedProduct = response.data?.productUpdate?.product
-
-    // Si se especificó una cantidad de inventario, actualizamos el inventario
-    if (productData.inventoryQuantity !== undefined && updatedProduct) {
-      const variantId = updatedProduct.variants.edges[0]?.node?.id
-      if (variantId) {
-        await updateInventoryLevel(variantId.split("/").pop(), Number.parseInt(productData.inventoryQuantity, 10))
-      }
-    }
-
-    return updatedProduct
+    return response.data?.productUpdate?.product
   } catch (error) {
     console.error(`Error al actualizar el producto con ID ${id}:`, error)
     throw error
-  }
-}
-
-// Nueva función para actualizar el nivel de inventario
-export async function updateInventoryLevel(variantId, quantity) {
-  try {
-    // Primero obtenemos el inventoryItemId asociado a la variante
-    const queryInventoryItem = `
-      query getInventoryItemId($variantId: ID!) {
-        productVariant(id: $variantId) {
-          inventoryItem {
-            id
-          }
-        }
-      }
-    `
-
-    const inventoryResponse = await shopifyFetch({
-      query: queryInventoryItem,
-      variables: { variantId: `gid://shopify/ProductVariant/${variantId}` },
-    })
-
-    if (inventoryResponse.errors || !inventoryResponse.data?.productVariant?.inventoryItem?.id) {
-      throw new Error("No se pudo obtener el ID del inventario")
-    }
-
-    const inventoryItemId = inventoryResponse.data.productVariant.inventoryItem.id
-
-    // Obtenemos la ubicación del inventario
-    const queryLocation = `
-      query {
-        locations(first: 1) {
-          edges {
-            node {
-              id
-            }
-          }
-        }
-      }
-    `
-
-    const locationResponse = await shopifyFetch({ query: queryLocation })
-
-    if (locationResponse.errors || !locationResponse.data?.locations?.edges?.[0]?.node?.id) {
-      throw new Error("No se pudo obtener la ubicación del inventario")
-    }
-
-    const locationId = locationResponse.data.locations.edges[0].node.id
-
-    // Ahora actualizamos el inventario usando la API REST
-    const restEndpoint = `/admin/api/2023-07/inventory_levels/set.json`
-
-    const inventoryData = {
-      location_id: locationId.split("/").pop(),
-      inventory_item_id: inventoryItemId.split("/").pop(),
-      available: quantity,
-    }
-
-    // Realizamos la petición REST a Shopify
-    const response = await fetch(`/api/shopify/rest?endpoint=${encodeURIComponent(restEndpoint)}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(inventoryData),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(`Error al actualizar el inventario: ${JSON.stringify(errorData)}`)
-    }
-
-    const data = await response.json()
-    return data
-  } catch (error) {
-    console.error("Error al actualizar el nivel de inventario:", error)
-    throw error
-  }
-}
-
-// Función para obtener el nivel de inventario actual
-export async function getInventoryLevel(variantId) {
-  try {
-    const query = `
-      query getVariantInventory($id: ID!) {
-        productVariant(id: $id) {
-          inventoryQuantity
-          inventoryItem {
-            id
-            inventoryLevels(first: 1) {
-              edges {
-                node {
-                  available
-                  location {
-                    id
-                    name
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    `
-
-    const response = await shopifyFetch({
-      query,
-      variables: { id: `gid://shopify/ProductVariant/${variantId}` },
-    })
-
-    if (response.errors) {
-      throw new Error(response.errors[0].message)
-    }
-
-    return response.data?.productVariant?.inventoryQuantity || 0
-  } catch (error) {
-    console.error("Error al obtener el nivel de inventario:", error)
-    return 0
   }
 }
 

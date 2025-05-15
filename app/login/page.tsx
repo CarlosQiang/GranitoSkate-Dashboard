@@ -5,6 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -93,7 +94,9 @@ export default function LoginPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Contraseña</Label>
-                  {/* Eliminado el enlace de recuperación de contraseña */}
+                  <Link href="#" className="text-sm text-primary hover:underline">
+                    ¿Olvidaste tu contraseña?
+                  </Link>
                 </div>
                 <div className="relative">
                   <Input

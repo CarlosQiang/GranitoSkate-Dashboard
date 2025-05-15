@@ -7,22 +7,19 @@ import { Button } from "@/components/ui/button"
 import { Code, RefreshCw } from "lucide-react"
 
 interface FormularioCodigoPromocionProps {
-  codigo: {
-    usarCodigo: boolean
-    codigo: string
-    generarAutomaticamente?: boolean
-  }
-  onChange: (datos: any) => void
+  requiereCodigo: boolean
+  codigo: string
+  onChange: (datos: { requiereCodigo: boolean; codigo: string }) => void
 }
 
-export function FormularioCodigoPromocion({ codigo, onChange }: FormularioCodigoPromocionProps) {
+export function FormularioCodigoPromocion({ requiereCodigo, codigo, onChange }: FormularioCodigoPromocionProps) {
   const generarCodigoAleatorio = () => {
     const caracteres = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
     let resultado = ""
     for (let i = 0; i < 8; i++) {
       resultado += caracteres.charAt(Math.floor(Math.random() * caracteres.length))
     }
-    onChange({ ...codigo, codigo: resultado })
+    onChange({ requiereCodigo, codigo: resultado })
   }
 
   return (
@@ -36,26 +33,27 @@ export function FormularioCodigoPromocion({ codigo, onChange }: FormularioCodigo
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Code className="h-5 w-5 text-primary" />
+              <Code className="h-5 w-5 text-granito" />
               <Label htmlFor="requiere-codigo" className="font-medium">
                 Requiere código promocional
               </Label>
             </div>
             <Switch
               id="requiere-codigo"
-              checked={codigo.usarCodigo}
-              onCheckedChange={(checked) => onChange({ ...codigo, usarCodigo: checked })}
+              checked={requiereCodigo}
+              onCheckedChange={(checked) => onChange({ requiereCodigo: checked, codigo })}
+              className="data-[state=checked]:bg-granito"
             />
           </div>
 
-          {codigo.usarCodigo && (
+          {requiereCodigo && (
             <div className="ml-7 space-y-2">
               <div className="flex space-x-2">
                 <Input
                   id="codigo"
                   placeholder="Ej: VERANO2023"
-                  value={codigo.codigo}
-                  onChange={(e) => onChange({ ...codigo, codigo: e.target.value.toUpperCase() })}
+                  value={codigo}
+                  onChange={(e) => onChange({ requiereCodigo, codigo: e.target.value.toUpperCase() })}
                   className="uppercase"
                 />
                 <Button type="button" variant="outline" onClick={generarCodigoAleatorio}>
@@ -71,9 +69,9 @@ export function FormularioCodigoPromocion({ codigo, onChange }: FormularioCodigo
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-4 bg-muted/50 border rounded-md">
-            <h3 className="text-sm font-medium">Con código:</h3>
-            <ul className="text-sm text-muted-foreground list-disc list-inside mt-2 space-y-1">
+          <div className="p-4 bg-granito-light/10 border border-granito-light/20 rounded-md">
+            <h3 className="text-sm font-medium text-granito-dark">Con código:</h3>
+            <ul className="text-sm text-granito-dark/80 list-disc list-inside mt-2 space-y-1">
               <li>Puedes compartir el código en redes sociales</li>
               <li>Ideal para campañas de marketing específicas</li>
               <li>Permite medir la efectividad de diferentes canales</li>
@@ -81,9 +79,9 @@ export function FormularioCodigoPromocion({ codigo, onChange }: FormularioCodigo
             </ul>
           </div>
 
-          <div className="p-4 bg-muted/50 border rounded-md">
-            <h3 className="text-sm font-medium">Sin código:</h3>
-            <ul className="text-sm text-muted-foreground list-disc list-inside mt-2 space-y-1">
+          <div className="p-4 bg-granito-light/10 border border-granito-light/20 rounded-md">
+            <h3 className="text-sm font-medium text-granito-dark">Sin código:</h3>
+            <ul className="text-sm text-granito-dark/80 list-disc list-inside mt-2 space-y-1">
               <li>Se aplica automáticamente en el carrito</li>
               <li>Mejor experiencia de usuario</li>
               <li>Ideal para promociones generales</li>
@@ -92,9 +90,9 @@ export function FormularioCodigoPromocion({ codigo, onChange }: FormularioCodigo
           </div>
         </div>
 
-        <div className="p-4 bg-muted/50 border rounded-md">
-          <h3 className="text-sm font-medium">Consejo:</h3>
-          <p className="text-sm text-muted-foreground">
+        <div className="p-4 bg-granito-light/10 border border-granito-light/20 rounded-md">
+          <h3 className="text-sm font-medium text-granito-dark">Consejo:</h3>
+          <p className="text-sm text-granito-dark/80">
             Usa códigos cortos y fáciles de recordar. Evita caracteres ambiguos como "0" y "O" o "1" e "I".
           </p>
         </div>
