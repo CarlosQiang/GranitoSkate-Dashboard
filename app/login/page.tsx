@@ -2,25 +2,35 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { RefreshCw, User, Eye, EyeOff } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { RefreshCw, User, Eye, EyeOff, AlertCircle, Info } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams?.get("callbackUrl") || "/dashboard"
+  const errorType = searchParams?.get("error") || ""
 
   const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [isChecking, setIsChecking] = useState(false)
+  const [adminInfo, setAdminInfo] = useState<{ count: number; admins: any[] } | null>(null)
+  const [showAdminInfo, setShowAdminInfo] = useState(false)
+
+  useEffect(() => {
+    if (errorType) {
+      setError("Credenciales inválidas. Por favor, inténtalo de nuevo.")
+    }
+  }, [errorType])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -50,6 +60,38 @@ export default function LoginPage() {
     } catch (error) {
       setError("Ocurrió un error al iniciar sesión. Por favor, inténtalo de nuevo.")
       setIsLoading(false)
+    }
+  }
+
+  const useAdmin = useCallback(
+    (admin: any) => {
+      setIdentifier(admin.nombre_usuario)
+      setShowAdminInfo(false)
+    },
+    [setIdentifier, setShowAdminInfo],
+  )
+
+  const checkAdmins = async () => {
+    setIsChecking(true)
+    setAdminInfo(null)
+
+    try {
+      const response = await fetch("/api/init-admin")
+      const data = await response.json()
+
+      if (data.success) {
+        setAdminInfo({
+          count: data.admins.length,
+          admins: data.admins,
+        })
+        setShowAdminInfo(true)
+      } else {
+        setError("No se encontraron administradores: " + data.message)
+      }
+    } catch (error) {
+      setError("Error al conectar con el servidor")
+    } finally {
+      setIsChecking(false)
     }
   }
 
@@ -93,7 +135,6 @@ export default function LoginPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Contraseña</Label>
-                  {/* Eliminado el enlace de recuperación de contraseña */}
                 </div>
                 <div className="relative">
                   <Input
@@ -109,6 +150,7 @@ export default function LoginPage() {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
                     tabIndex={-1}
+                    aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -126,10 +168,50 @@ export default function LoginPage() {
               </Button>
             </form>
           </CardContent>
+          <CardFooter className="flex flex-col">
+            <div className="w-full border-t my-2"></div>
+            <div className="text-sm text-muted-foreground mb-2">
+              ¿Problemas para iniciar sesión? Verifica los administradores disponibles:
+            </div>
+            <Button variant="outline" className="w-full" onClick={checkAdmins} disabled={isChecking}>
+              {isChecking ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Verificando...
+                </>
+              ) : (
+                "Verificar Administradores"
+              )}
+            </Button>
+            {showAdminInfo && adminInfo && adminInfo.count > 0 && (
+              <div className="mt-4 p-3 bg-primary/10 border border-primary/30 text-primary rounded-md text-sm">
+                <div className="flex items-start mb-2">
+                  <Info className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
+                  <p>Se encontraron {adminInfo.count} administradores en la base de datos:</p>
+                </div>
+                <ul className="space-y-2 mt-2">
+                  {adminInfo.admins.map((admin) => (
+                    <li key={admin.id} className="flex justify-between items-center p-2 bg-white/50 rounded">
+                      <div>
+                        <div className="font-medium">{admin.nombre_completo}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Usuario: {admin.nombre_usuario} | Rol: {admin.rol}
+                        </div>
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={() => useAdmin(admin)}>
+                        Usar
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </CardFooter>
         </Card>
 
         {error && (
-          <div className="mt-4 p-3 bg-destructive/10 border border-destructive/30 text-destructive rounded-md text-sm">
+          <div className="mt-4 p-3 bg-destructive/10 border border-destructive/30 text-destructive rounded-md text-sm flex items-start">
+            <AlertCircle className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
             <p>{error}</p>
           </div>
         )}

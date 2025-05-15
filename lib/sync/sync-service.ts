@@ -7,11 +7,11 @@ import * as customersAPI from "@/lib/api/customers"
 import * as ordersAPI from "@/lib/api/orders"
 import * as promotionsAPI from "@/lib/api/promociones"
 
-// Función para sincronizar productos
-export async function syncProducts() {
+// Modificar la función syncProducts para aceptar un parámetro de límite
+export async function syncProducts(limit = 250) {
   try {
     // Obtener productos de Shopify
-    const shopifyProducts = await shopifyAPI.fetchProducts(250)
+    const shopifyProducts = await shopifyAPI.fetchProducts(limit)
 
     // Contador para estadísticas
     let created = 0

@@ -3,33 +3,47 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Edit, Package } from "lucide-react"
+import { Edit, Package, RefreshCw } from "lucide-react"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { fetchCollections } from "@/lib/api/collections"
 import { LoadingState } from "@/components/loading-state"
+import { useToast } from "@/components/ui/use-toast"
 
 export function CollectionsList() {
+  const { toast } = useToast()
   const [collections, setCollections] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  useEffect(() => {
-    const loadCollections = async () => {
-      try {
-        setLoading(true)
-        const data = await fetchCollections()
-        console.log("Collections loaded:", data)
-        setCollections(data)
-        setError(null)
-      } catch (err) {
-        console.error("Error loading collections:", err)
-        setError(err.message || "Error al cargar las colecciones")
-      } finally {
-        setLoading(false)
-      }
-    }
+  const loadCollections = async () => {
+    try {
+      setLoading(true)
+      setError(null)
 
+      console.log("Iniciando carga de colecciones...")
+      const data = await fetchCollections()
+      console.log("Colecciones cargadas:", data)
+
+      if (!data || !Array.isArray(data)) {
+        throw new Error("Formato de datos inválido")
+      }
+
+      setCollections(data)
+    } catch (err) {
+      console.error("Error loading collections:", err)
+      setError(err.message || "Error al cargar las colecciones")
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las colecciones. Por favor, inténtalo de nuevo.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
     loadCollections()
   }, [])
 
@@ -42,14 +56,15 @@ export function CollectionsList() {
       <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4 mb-4">
         <h3 className="text-lg font-semibold mb-2">Error al cargar las colecciones</h3>
         <p>{error}</p>
-        <Button variant="outline" className="mt-2" onClick={() => window.location.reload()}>
+        <Button variant="outline" className="mt-2" onClick={loadCollections}>
+          <RefreshCw className="mr-2 h-4 w-4" />
           Reintentar
         </Button>
       </div>
     )
   }
 
-  if (collections.length === 0) {
+  if (!collections || collections.length === 0) {
     return (
       <div className="text-center p-8 border border-dashed rounded-lg">
         <Package className="mx-auto h-12 w-12 text-gray-400" />

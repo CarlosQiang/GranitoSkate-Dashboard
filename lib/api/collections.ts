@@ -7,6 +7,8 @@ import { formatShopifyId } from "@/lib/shopify"
 // Función para obtener todas las colecciones
 export async function fetchCollections() {
   try {
+    console.log("Iniciando fetchCollections...")
+
     const query = gql`
       query {
         collections(first: 50) {
@@ -45,16 +47,42 @@ export async function fetchCollections() {
       }
     `
 
-    const data = await shopifyClient.request(query)
+    // Usar try/catch para capturar errores específicos de la consulta
+    try {
+      const data = await shopifyClient.request(query)
+      console.log("Respuesta de Shopify:", JSON.stringify(data, null, 2).substring(0, 200) + "...")
 
-    // Transformar los datos para mantener compatibilidad con el código existente
-    return data.collections.edges.map((edge) => ({
-      ...edge.node,
-      products: edge.node.products.edges.map((productEdge) => productEdge.node),
-    }))
+      if (!data || !data.collections || !data.collections.edges) {
+        console.error("Formato de respuesta inválido:", data)
+        throw new Error("Formato de respuesta inválido de Shopify")
+      }
+
+      // Transformar los datos para mantener compatibilidad con el código existente
+      const transformedData = data.collections.edges.map((edge) => {
+        const node = edge.node
+        return {
+          ...node,
+          // Manejar diferentes formatos de productsCount
+          productsCount:
+            typeof node.productsCount === "number"
+              ? node.productsCount
+              : node.productsCount?.count || node.products?.edges?.length || 0,
+          // Transformar productos si existen
+          products: node.products?.edges ? node.products.edges.map((productEdge) => productEdge.node) : [],
+        }
+      })
+
+      console.log(`Colecciones transformadas: ${transformedData.length}`)
+      return transformedData
+    } catch (graphqlError) {
+      console.error("Error en la consulta GraphQL:", graphqlError)
+      throw new Error(`Error en la consulta GraphQL: ${graphqlError.message}`)
+    }
   } catch (error) {
     console.error("Error fetching collections:", error)
-    throw new Error(`Error al obtener colecciones: ${error.message}`)
+    // Devolver un array vacío en lugar de lanzar un error
+    // para evitar que la interfaz se rompa
+    return []
   }
 }
 
