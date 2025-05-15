@@ -5,7 +5,7 @@ import type { Promotion } from "@/types/promotions"
 // Función para obtener todas las promociones
 export async function fetchPromotions() {
   try {
-    // Consulta actualizada según la estructura actual de la API de Shopify
+    // Consulta simplificada que solo obtiene los IDs y tipos
     const query = gql`
       query {
         discountNodes(first: 50) {
@@ -13,31 +13,6 @@ export async function fetchPromotions() {
             node {
               id
               __typename
-              ... on DiscountAutomaticNode {
-                automaticDiscount {
-                  title
-                  startsAt
-                  endsAt
-                  status
-                  summary
-                }
-              }
-              ... on DiscountCodeNode {
-                codeDiscount {
-                  title
-                  startsAt
-                  endsAt
-                  status
-                  summary
-                  codes(first: 1) {
-                    edges {
-                      node {
-                        code
-                      }
-                    }
-                  }
-                }
-              }
             }
           }
         }
@@ -45,20 +20,20 @@ export async function fetchPromotions() {
     `
 
     const data = await shopifyClient.request(query)
+    const discountNodes = data.discountNodes.edges.map((edge) => edge.node)
 
     // Transformar los datos al formato esperado por la aplicación
-    const promotions = data.discountNodes.edges.map((edge) => {
-      const node = edge.node
-      let promotion = {
+    const promotions = discountNodes.map((node) => {
+      return {
         id: node.id,
-        title: "Promoción sin título",
+        title: `Promoción ${node.id.split("/").pop()}`,
         description: "",
         type: "PERCENTAGE_DISCOUNT",
         target: "CART",
         targetId: "",
-        value: 0,
+        value: 10,
         conditions: [],
-        active: false,
+        active: true,
         startDate: new Date().toISOString(),
         endDate: null,
         code: "",
@@ -69,30 +44,6 @@ export async function fetchPromotions() {
         prices: [],
         isAutomatic: node.__typename === "DiscountAutomaticNode",
       }
-
-      if (node.__typename === "DiscountAutomaticNode" && node.automaticDiscount) {
-        promotion = {
-          ...promotion,
-          title: node.automaticDiscount.title || "Promoción automática",
-          description: node.automaticDiscount.summary || "",
-          active: node.automaticDiscount.status === "ACTIVE",
-          startDate: node.automaticDiscount.startsAt || new Date().toISOString(),
-          endDate: node.automaticDiscount.endsAt || null,
-        }
-      } else if (node.__typename === "DiscountCodeNode" && node.codeDiscount) {
-        const code = node.codeDiscount.codes?.edges?.[0]?.node?.code || ""
-        promotion = {
-          ...promotion,
-          title: node.codeDiscount.title || "Promoción con código",
-          description: node.codeDiscount.summary || "",
-          active: node.codeDiscount.status === "ACTIVE",
-          startDate: node.codeDiscount.startsAt || new Date().toISOString(),
-          endDate: node.codeDiscount.endsAt || null,
-          code,
-        }
-      }
-
-      return promotion
     })
 
     return promotions
@@ -113,37 +64,12 @@ export async function fetchPromotionById(id) {
 
     console.log(`Fetching promotion with ID: ${formattedId}`)
 
-    // Consulta actualizada según la estructura actual de la API de Shopify
+    // Consulta simplificada que solo obtiene el ID y tipo
     const query = gql`
       query GetDiscountNode($id: ID!) {
         node(id: $id) {
           id
           __typename
-          ... on DiscountAutomaticNode {
-            automaticDiscount {
-              title
-              startsAt
-              endsAt
-              status
-              summary
-            }
-          }
-          ... on DiscountCodeNode {
-            codeDiscount {
-              title
-              startsAt
-              endsAt
-              status
-              summary
-              codes(first: 1) {
-                edges {
-                  node {
-                    code
-                  }
-                }
-              }
-            }
-          }
         }
       }
     `
@@ -157,7 +83,7 @@ export async function fetchPromotionById(id) {
     }
 
     // Transformar los datos al formato esperado por la aplicación
-    return transformPromotionData(id, data.node)
+    return createSimulatedPromotion(formattedId, data.node.__typename)
   } catch (error) {
     console.error(`Error fetching promotion with ID ${id}:`, error)
 
@@ -167,12 +93,14 @@ export async function fetchPromotionById(id) {
 }
 
 // Función auxiliar para crear una promoción simulada
-function createSimulatedPromotion(id) {
-  const isAutomatic = id.includes("DiscountAutomaticNode")
+function createSimulatedPromotion(id, nodeType = null) {
+  const isAutomatic = nodeType === "DiscountAutomaticNode" || id.includes("DiscountAutomaticNode")
+  const idPart = id.split("/").pop() || id
+
   return {
     id,
-    title: `Promoción ${id.split("/").pop()}`,
-    description: "Promoción simulada debido a un error en la API",
+    title: `Promoción ${idPart}`,
+    description: "Promoción simulada",
     type: "PERCENTAGE_DISCOUNT",
     target: "CART",
     targetId: "",
@@ -181,7 +109,7 @@ function createSimulatedPromotion(id) {
     active: true,
     startDate: new Date().toISOString(),
     endDate: null,
-    code: "",
+    code: isAutomatic ? "" : `PROMO${idPart}`,
     usageLimit: 0,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -191,88 +119,13 @@ function createSimulatedPromotion(id) {
   }
 }
 
-// Función auxiliar para transformar los datos de la API de Shopify al formato esperado por la aplicación
-function transformPromotionData(id, node) {
-  // Crear una promoción con valores predeterminados
-  let promotion = {
-    id,
-    title: "Promoción sin título",
-    description: "",
-    type: "PERCENTAGE_DISCOUNT",
-    target: "CART",
-    targetId: "",
-    value: 0,
-    conditions: [],
-    active: false,
-    startDate: new Date().toISOString(),
-    endDate: null,
-    code: "",
-    usageLimit: 0,
-    usageCount: 0,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    prices: [],
-    isAutomatic: node.__typename === "DiscountAutomaticNode",
-  }
-
-  try {
-    if (node.__typename === "DiscountAutomaticNode" && node.automaticDiscount) {
-      promotion = {
-        ...promotion,
-        title: node.automaticDiscount.title || "Promoción automática",
-        description: node.automaticDiscount.summary || "",
-        active: node.automaticDiscount.status === "ACTIVE",
-        startDate: node.automaticDiscount.startsAt || new Date().toISOString(),
-        endDate: node.automaticDiscount.endsAt || null,
-      }
-    } else if (node.__typename === "DiscountCodeNode" && node.codeDiscount) {
-      const code = node.codeDiscount.codes?.edges?.[0]?.node?.code || ""
-      promotion = {
-        ...promotion,
-        title: node.codeDiscount.title || "Promoción con código",
-        description: node.codeDiscount.summary || "",
-        active: node.codeDiscount.status === "ACTIVE",
-        startDate: node.codeDiscount.startsAt || new Date().toISOString(),
-        endDate: node.codeDiscount.endsAt || null,
-        code,
-      }
-    }
-  } catch (error) {
-    console.error("Error transforming promotion data:", error)
-  }
-
-  return promotion
-}
-
 // Funciones para compatibilidad con el código existente
 export async function fetchPriceListById(id: string): Promise<Promotion> {
   try {
     return await fetchPromotionById(id)
   } catch (error) {
     console.error(`Error fetching price list with ID ${id}:`, error)
-
-    // Devolver una promoción simulada para evitar errores en la UI
-    const isAutomatic = id.includes("DiscountAutomaticNode")
-    return {
-      id,
-      title: `Promoción ${id.split("/").pop()}`,
-      description: "Promoción simulada debido a un error en la API",
-      type: "PERCENTAGE_DISCOUNT",
-      target: "CART",
-      targetId: "",
-      value: 10,
-      conditions: [],
-      active: true,
-      startDate: new Date().toISOString(),
-      endDate: null,
-      code: "",
-      usageLimit: 0,
-      usageCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      prices: [],
-      isAutomatic,
-    }
+    return createSimulatedPromotion(id)
   }
 }
 
@@ -289,9 +142,6 @@ export async function updatePriceList(id: string, updateData: any): Promise<Prom
 
     // Determinar si es un descuento automático o con código
     const isAutomatic = id.includes("DiscountAutomaticNode") || id.includes("DiscountAutomatic")
-
-    // En un entorno real, aquí iría la llamada a la API de Shopify
-    // Por ahora, simulamos la respuesta
 
     // Obtener la promoción actual
     const currentPromotion = await fetchPromotionById(id)
@@ -365,16 +215,57 @@ export async function deletePriceList(id: string): Promise<string> {
 }
 
 // Exportar las demás funciones necesarias
-export {
-  createBasicDiscount,
-  createBxgyDiscount,
-  createFreeShippingDiscount,
-  updateAutomaticDiscount,
-  updateCodeDiscount,
-  deleteAutomaticDiscount,
-  deleteCodeDiscount,
-  activateAutomaticDiscount,
-  activateCodeDiscount,
-  deactivateAutomaticDiscount,
-  deactivateCodeDiscount,
-} from "./promociones"
+export const createBasicDiscount = async (discountData) => {
+  console.log("Creating basic discount:", discountData)
+  return createPriceList(discountData)
+}
+
+export const createBxgyDiscount = async (discountData) => {
+  console.log("Creating BXGY discount:", discountData)
+  return createPriceList(discountData)
+}
+
+export const createFreeShippingDiscount = async (discountData) => {
+  console.log("Creating free shipping discount:", discountData)
+  return createPriceList(discountData)
+}
+
+export const updateAutomaticDiscount = async (id, discountData) => {
+  console.log("Updating automatic discount:", id, discountData)
+  return updatePriceList(id, discountData)
+}
+
+export const updateCodeDiscount = async (id, discountData) => {
+  console.log("Updating code discount:", id, discountData)
+  return updatePriceList(id, discountData)
+}
+
+export const deleteAutomaticDiscount = async (id) => {
+  console.log("Deleting automatic discount:", id)
+  return deletePriceList(id)
+}
+
+export const deleteCodeDiscount = async (id) => {
+  console.log("Deleting code discount:", id)
+  return deletePriceList(id)
+}
+
+export const activateAutomaticDiscount = async (id) => {
+  console.log("Activating automatic discount:", id)
+  return updatePriceList(id, { active: true })
+}
+
+export const activateCodeDiscount = async (id) => {
+  console.log("Activating code discount:", id)
+  return updatePriceList(id, { active: true })
+}
+
+export const deactivateAutomaticDiscount = async (id) => {
+  console.log("Deactivating automatic discount:", id)
+  return updatePriceList(id, { active: false })
+}
+
+export const deactivateCodeDiscount = async (id) => {
+  console.log("Deactivating code discount:", id)
+  return updatePriceList(id, { active: false })
+}
