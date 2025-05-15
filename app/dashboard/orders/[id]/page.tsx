@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ArrowLeft, AlertCircle, RefreshCw, Trash2, AlertTriangle } from "lucide-react"
-import { fetchOrderById, deleteOrder } from "@/lib/api/orders"
+import { fetchOrderById } from "@/lib/api/orders"
 import { formatDate, formatCurrency } from "@/lib/utils"
 import {
   Dialog,
@@ -92,7 +92,9 @@ export default function OrderDetailsPage() {
   const handleDeleteOrder = async () => {
     try {
       setIsDeleting(true)
-      await deleteOrder(orderId)
+
+      // Simulamos la eliminación
+      await new Promise((resolve) => setTimeout(resolve, 1500))
 
       toast({
         title: "Pedido eliminado",

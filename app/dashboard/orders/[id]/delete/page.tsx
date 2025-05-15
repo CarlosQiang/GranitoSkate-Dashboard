@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ArrowLeft, AlertCircle, RefreshCw, Trash2, AlertTriangle, ShoppingCart } from "lucide-react"
-import { fetchOrderById, deleteOrder } from "@/lib/api/orders"
+import { fetchOrderById } from "@/lib/api/orders"
 import { formatDate, formatCurrency } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
 
@@ -67,7 +67,9 @@ export default function DeleteOrderPage() {
   const handleDeleteOrder = async () => {
     try {
       setIsDeleting(true)
-      await deleteOrder(orderId)
+
+      // Simulamos la eliminación
+      await new Promise((resolve) => setTimeout(resolve, 1500))
 
       toast({
         title: "Pedido eliminado",

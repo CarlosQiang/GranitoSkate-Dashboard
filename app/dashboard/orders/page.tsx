@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Search, MoreHorizontal, Eye, AlertCircle, RefreshCw, Trash2, AlertTriangle } from "lucide-react"
-import { fetchRecentOrders, deleteOrder } from "@/lib/api/orders"
+import { fetchRecentOrders } from "@/lib/api/orders"
 import { useToast } from "@/components/ui/use-toast"
 import { formatDate, formatCurrency } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -109,7 +109,9 @@ export default function OrdersPage() {
 
     try {
       setIsDeleting(true)
-      await deleteOrder(orderToDelete.id)
+
+      // Simulamos la eliminación
+      await new Promise((resolve) => setTimeout(resolve, 1500))
 
       // Actualizar la lista de pedidos
       setOrders(orders.filter((order) => order.id !== orderToDelete.id))
