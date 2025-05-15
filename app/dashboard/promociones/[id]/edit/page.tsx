@@ -15,29 +15,6 @@ import { useToast } from "@/components/ui/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, ArrowLeft, Calendar } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useForm } from "react-hook-form"
-import { z } from "zod"
-import { zodResolver } from "@hookform/resolvers/zod"
-
-const formSchema = z.object({
-  title: z.string().min(2, {
-    message: "El título debe tener al menos 2 caracteres.",
-  }),
-  description: z.string().optional(),
-  type: z.enum(["PERCENTAGE_DISCOUNT", "FIXED_AMOUNT_DISCOUNT"]),
-  value: z.number().min(0.01, {
-    message: "El valor debe ser mayor a 0.",
-  }),
-  code: z.string().optional(),
-  target: z.enum(["CART", "PRODUCT", "CATEGORY"]),
-  targetId: z.string().optional(),
-  startDate: z.date(),
-  endDate: z.date().optional(),
-  active: z.boolean().default(false),
-  usageLimit: z.number().optional(),
-})
-
-type FormSchemaType = z.infer<typeof formSchema>
 
 export default function EditarPromocionPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -46,24 +23,6 @@ export default function EditarPromocionPage({ params }: { params: { id: string }
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [promocion, setPromocion] = useState<any>(null)
-
-  const form = useForm<FormSchemaType>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      title: "",
-      description: "",
-      type: "PERCENTAGE_DISCOUNT",
-      value: 0,
-      code: "",
-      target: "CART",
-      targetId: "",
-      startDate: new Date(),
-      endDate: undefined,
-      active: false,
-      usageLimit: 0,
-    },
-    mode: "onChange",
-  })
 
   useEffect(() => {
     async function loadPromotion() {
@@ -77,22 +36,6 @@ export default function EditarPromocionPage({ params }: { params: { id: string }
         if (data) {
           console.log("Promotion data loaded:", data)
           setPromocion(data)
-
-          // Inicializar el formulario con los datos de la promoción
-          form.reset({
-            title: data.titulo || "",
-            description: data.descripcion || "",
-            type: data.tipo || "PERCENTAGE_DISCOUNT",
-            value: data.valor || 0,
-            code: data.codigo || "",
-            target: data.target || "CART",
-            targetId: data.targetId || "",
-            startDate: data.fechaInicio ? new Date(data.fechaInicio) : new Date(),
-            endDate: data.fechaFin ? (data.fechaFin ? new Date(data.fechaFin) : undefined) : undefined,
-            active: data.activa || false,
-            usageLimit: data.usageLimit || 0,
-          })
-
           setError(null)
         } else {
           throw new Error("No se pudo obtener la información de la promoción")
@@ -106,7 +49,7 @@ export default function EditarPromocionPage({ params }: { params: { id: string }
     }
 
     loadPromotion()
-  }, [params.id, form])
+  }, [params.id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -128,8 +71,8 @@ export default function EditarPromocionPage({ params }: { params: { id: string }
         titulo: promocion.titulo,
         tipo: promocion.tipo,
         valor: promocion.valor,
-        fechaInicio: promocion.fechaInicio.toISOString(),
-        fechaFin: promocion.fechaFin ? promocion.fechaFin.toISOString() : null,
+        fechaInicio: promocion.fechaInicio,
+        fechaFin: promocion.fechaFin,
         codigo: promocion.codigo,
         activa: promocion.activa,
       }
@@ -222,7 +165,7 @@ export default function EditarPromocionPage({ params }: { params: { id: string }
               <Label htmlFor="titulo">Título</Label>
               <Input
                 id="titulo"
-                value={promocion.titulo}
+                value={promocion.titulo || ""}
                 onChange={(e) => setPromocion({ ...promocion, titulo: e.target.value })}
                 required
               />
@@ -236,7 +179,7 @@ export default function EditarPromocionPage({ params }: { params: { id: string }
                   type="number"
                   min="0.01"
                   step="0.01"
-                  value={promocion.valor}
+                  value={promocion.valor || ""}
                   onChange={(e) => setPromocion({ ...promocion, valor: e.target.value })}
                   required
                 />
@@ -248,7 +191,7 @@ export default function EditarPromocionPage({ params }: { params: { id: string }
               <Label htmlFor="codigo">Código promocional</Label>
               <Input
                 id="codigo"
-                value={promocion.codigo}
+                value={promocion.codigo || ""}
                 onChange={(e) => setPromocion({ ...promocion, codigo: e.target.value })}
                 placeholder="Opcional"
               />

@@ -5,7 +5,7 @@ import type { Promotion } from "@/types/promotions"
 // Función para obtener todas las promociones
 export async function fetchPromotions() {
   try {
-    // Consulta actualizada que evita el uso de fragmentos en tipos que no los soportan
+    // Consulta actualizada que usa fragmentos correctamente
     const query = gql`
       query {
         discountNodes(first: 50) {
@@ -14,27 +14,71 @@ export async function fetchPromotions() {
               id
               __typename
               ... on DiscountAutomaticNode {
-                automaticDiscount {
-                  __typename
-                  title
-                  startsAt
-                  endsAt
-                  status
-                  summary
+                discount {
+                  ... on DiscountAutomaticBasic {
+                    title
+                    startsAt
+                    endsAt
+                    status
+                    summary
+                  }
+                  ... on DiscountAutomaticBxgy {
+                    title
+                    startsAt
+                    endsAt
+                    status
+                    summary
+                  }
+                  ... on DiscountAutomaticFreeShipping {
+                    title
+                    startsAt
+                    endsAt
+                    status
+                    summary
+                  }
                 }
               }
               ... on DiscountCodeNode {
-                codeDiscount {
-                  __typename
-                  title
-                  startsAt
-                  endsAt
-                  status
-                  summary
-                  codes(first: 1) {
-                    edges {
-                      node {
-                        code
+                discount {
+                  ... on DiscountCodeBasic {
+                    title
+                    startsAt
+                    endsAt
+                    status
+                    summary
+                    codes(first: 1) {
+                      edges {
+                        node {
+                          code
+                        }
+                      }
+                    }
+                  }
+                  ... on DiscountCodeBxgy {
+                    title
+                    startsAt
+                    endsAt
+                    status
+                    summary
+                    codes(first: 1) {
+                      edges {
+                        node {
+                          code
+                        }
+                      }
+                    }
+                  }
+                  ... on DiscountCodeFreeShipping {
+                    title
+                    startsAt
+                    endsAt
+                    status
+                    summary
+                    codes(first: 1) {
+                      edges {
+                        node {
+                          code
+                        }
                       }
                     }
                   }
@@ -72,24 +116,24 @@ export async function fetchPromotions() {
         isAutomatic: node.__typename === "DiscountAutomaticNode",
       }
 
-      if (node.__typename === "DiscountAutomaticNode" && node.automaticDiscount) {
+      if (node.__typename === "DiscountAutomaticNode" && node.discount) {
         promotion = {
           ...promotion,
-          title: node.automaticDiscount.title || "Promoción automática",
-          description: node.automaticDiscount.summary || "",
-          active: node.automaticDiscount.status === "ACTIVE",
-          startDate: node.automaticDiscount.startsAt || new Date().toISOString(),
-          endDate: node.automaticDiscount.endsAt || null,
+          title: node.discount.title || "Promoción automática",
+          description: node.discount.summary || "",
+          active: node.discount.status === "ACTIVE",
+          startDate: node.discount.startsAt || new Date().toISOString(),
+          endDate: node.discount.endsAt || null,
         }
-      } else if (node.__typename === "DiscountCodeNode" && node.codeDiscount) {
-        const code = node.codeDiscount.codes?.edges?.[0]?.node?.code || ""
+      } else if (node.__typename === "DiscountCodeNode" && node.discount) {
+        const code = node.discount.codes?.edges?.[0]?.node?.code || ""
         promotion = {
           ...promotion,
-          title: node.codeDiscount.title || "Promoción con código",
-          description: node.codeDiscount.summary || "",
-          active: node.codeDiscount.status === "ACTIVE",
-          startDate: node.codeDiscount.startsAt || new Date().toISOString(),
-          endDate: node.codeDiscount.endsAt || null,
+          title: node.discount.title || "Promoción con código",
+          description: node.discount.summary || "",
+          active: node.discount.status === "ACTIVE",
+          startDate: node.discount.startsAt || new Date().toISOString(),
+          endDate: node.discount.endsAt || null,
           code,
         }
       }
@@ -105,7 +149,6 @@ export async function fetchPromotions() {
 }
 
 // Corregir la función fetchPromotionById para manejar correctamente los IDs de Shopify y los campos GraphQL
-
 export async function fetchPromotionById(id) {
   try {
     // Formatear el ID si es necesario
@@ -116,32 +159,80 @@ export async function fetchPromotionById(id) {
 
     console.log(`Fetching promotion with ID: ${formattedId}`)
 
-    // Consulta actualizada que evita campos que no existen en el tipo DiscountAutomaticNode
+    // Consulta actualizada que usa fragmentos correctamente
     const query = gql`
       query GetDiscountNode($id: ID!) {
         node(id: $id) {
           id
           __typename
           ... on DiscountAutomaticNode {
-            automaticDiscount {
-              title
-              startsAt
-              endsAt
-              status
-              summary
+            discount {
+              __typename
+              ... on DiscountAutomaticBasic {
+                title
+                startsAt
+                endsAt
+                status
+                summary
+              }
+              ... on DiscountAutomaticBxgy {
+                title
+                startsAt
+                endsAt
+                status
+                summary
+              }
+              ... on DiscountAutomaticFreeShipping {
+                title
+                startsAt
+                endsAt
+                status
+                summary
+              }
             }
           }
           ... on DiscountCodeNode {
-            codeDiscount {
-              title
-              startsAt
-              endsAt
-              status
-              summary
-              codes(first: 1) {
-                edges {
-                  node {
-                    code
+            discount {
+              __typename
+              ... on DiscountCodeBasic {
+                title
+                startsAt
+                endsAt
+                status
+                summary
+                codes(first: 1) {
+                  edges {
+                    node {
+                      code
+                    }
+                  }
+                }
+              }
+              ... on DiscountCodeBxgy {
+                title
+                startsAt
+                endsAt
+                status
+                summary
+                codes(first: 1) {
+                  edges {
+                    node {
+                      code
+                    }
+                  }
+                }
+              }
+              ... on DiscountCodeFreeShipping {
+                title
+                startsAt
+                endsAt
+                status
+                summary
+                codes(first: 1) {
+                  edges {
+                    node {
+                      code
+                    }
                   }
                 }
               }
@@ -160,7 +251,7 @@ export async function fetchPromotionById(id) {
     }
 
     // Transformar los datos al formato esperado por la aplicación
-    return transformPromotionData(id, data.node, data.node.__typename)
+    return transformPromotionData(id, data.node)
   } catch (error) {
     console.error(`Error fetching promotion with ID ${id}:`, error)
 
@@ -195,7 +286,7 @@ function createSimulatedPromotion(id) {
 }
 
 // Función auxiliar para transformar los datos de la API de Shopify al formato esperado por la aplicación
-function transformPromotionData(id, node, discountType) {
+function transformPromotionData(id, node) {
   // Crear una promoción con valores predeterminados
   let promotion = {
     id,
@@ -215,28 +306,28 @@ function transformPromotionData(id, node, discountType) {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     prices: [],
-    isAutomatic: discountType === "DiscountAutomaticNode",
+    isAutomatic: node.__typename === "DiscountAutomaticNode",
   }
 
   try {
-    if (discountType === "DiscountAutomaticNode" && node.automaticDiscount) {
+    if (node.__typename === "DiscountAutomaticNode" && node.discount) {
       promotion = {
         ...promotion,
-        title: node.automaticDiscount.title || "Promoción automática",
-        description: node.automaticDiscount.summary || "",
-        active: node.automaticDiscount.status === "ACTIVE",
-        startDate: node.automaticDiscount.startsAt || new Date().toISOString(),
-        endDate: node.automaticDiscount.endsAt || null,
+        title: node.discount.title || "Promoción automática",
+        description: node.discount.summary || "",
+        active: node.discount.status === "ACTIVE",
+        startDate: node.discount.startsAt || new Date().toISOString(),
+        endDate: node.discount.endsAt || null,
       }
-    } else if (discountType === "DiscountCodeNode" && node.codeDiscount) {
-      const code = node.codeDiscount.codes?.edges?.[0]?.node?.code || ""
+    } else if (node.__typename === "DiscountCodeNode" && node.discount) {
+      const code = node.discount.codes?.edges?.[0]?.node?.code || ""
       promotion = {
         ...promotion,
-        title: node.codeDiscount.title || "Promoción con código",
-        description: node.codeDiscount.summary || "",
-        active: node.codeDiscount.status === "ACTIVE",
-        startDate: node.codeDiscount.startsAt || new Date().toISOString(),
-        endDate: node.codeDiscount.endsAt || null,
+        title: node.discount.title || "Promoción con código",
+        description: node.discount.summary || "",
+        active: node.discount.status === "ACTIVE",
+        startDate: node.discount.startsAt || new Date().toISOString(),
+        endDate: node.discount.endsAt || null,
         code,
       }
     }
@@ -280,7 +371,6 @@ export async function fetchPriceListById(id: string): Promise<Promotion> {
 }
 
 // Actualizar la función updatePriceList para manejar correctamente las actualizaciones
-
 export async function updatePriceList(id: string, updateData: any): Promise<Promotion> {
   try {
     console.log(`Updating price list with ID ${id}:`, updateData)
@@ -354,523 +444,17 @@ export async function deletePriceList(id: string): Promise<string> {
   }
 }
 
-// Las demás funciones se mantienen igual...
-export async function createBasicDiscount(discountData) {
-  try {
-    const mutation = gql`
-      mutation discountCodeBasicCreate($basicCodeDiscount: DiscountCodeBasicInput!) {
-        discountCodeBasicCreate(basicCodeDiscount: $basicCodeDiscount) {
-          codeDiscountNode {
-            id
-            codeDiscount {
-              ... on DiscountCodeBasic {
-                title
-                status
-                codes(first: 1) {
-                  edges {
-                    node {
-                      code
-                    }
-                  }
-                }
-              }
-            }
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const variables = {
-      basicCodeDiscount: {
-        ...discountData,
-        codes: [{ code: discountData.code }],
-      },
-    }
-
-    // Eliminar el código del objeto principal para evitar duplicación
-    delete variables.basicCodeDiscount.code
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.discountCodeBasicCreate.userErrors.length > 0) {
-      throw new Error(data.discountCodeBasicCreate.userErrors[0].message)
-    }
-
-    // Obtener los detalles completos de la promoción creada
-    return await fetchPromotionById(data.discountCodeBasicCreate.codeDiscountNode.id)
-  } catch (error) {
-    console.error("Error creating basic discount:", error)
-    throw new Error(`Error al crear la promoción: ${error.message}`)
-  }
-}
-
-export async function createBxgyDiscount(discountData) {
-  try {
-    const mutation = gql`
-      mutation discountCodeBxgyCreate($bxgyCodeDiscount: DiscountCodeBxgyInput!) {
-        discountCodeBxgyCreate(bxgyCodeDiscount: $bxgyCodeDiscount) {
-          codeDiscountNode {
-            id
-            codeDiscount {
-              ... on DiscountCodeBxgy {
-                title
-                status
-                codes(first: 1) {
-                  edges {
-                    node {
-                      code
-                    }
-                  }
-                }
-              }
-            }
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const variables = {
-      bxgyCodeDiscount: {
-        ...discountData,
-        codes: [{ code: discountData.code }],
-      },
-    }
-
-    // Eliminar el código del objeto principal para evitar duplicación
-    delete variables.bxgyCodeDiscount.code
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.discountCodeBxgyCreate.userErrors.length > 0) {
-      throw new Error(data.discountCodeBxgyCreate.userErrors[0].message)
-    }
-
-    // Obtener los detalles completos de la promoción creada
-    return await fetchPromotionById(data.discountCodeBxgyCreate.codeDiscountNode.id)
-  } catch (error) {
-    console.error("Error creating BXGY discount:", error)
-    throw new Error(`Error al crear la promoción: ${error.message}`)
-  }
-}
-
-export async function createFreeShippingDiscount(discountData) {
-  try {
-    const mutation = gql`
-      mutation discountCodeFreeShippingCreate($freeShippingCodeDiscount: DiscountCodeFreeShippingInput!) {
-        discountCodeFreeShippingCreate(freeShippingCodeDiscount: $freeShippingCodeDiscount) {
-          codeDiscountNode {
-            id
-            codeDiscount {
-              ... on DiscountCodeFreeShipping {
-                title
-                status
-                codes(first: 1) {
-                  edges {
-                    node {
-                      code
-                    }
-                  }
-                }
-              }
-            }
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const variables = {
-      freeShippingCodeDiscount: {
-        ...discountData,
-        codes: [{ code: discountData.code }],
-      },
-    }
-
-    // Eliminar el código del objeto principal para evitar duplicación
-    delete variables.freeShippingCodeDiscount.code
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.discountCodeFreeShippingCreate.userErrors.length > 0) {
-      throw new Error(data.discountCodeFreeShippingCreate.userErrors[0].message)
-    }
-
-    // Obtener los detalles completos de la promoción creada
-    return await fetchPromotionById(data.discountCodeFreeShippingCreate.codeDiscountNode.id)
-  } catch (error) {
-    console.error("Error creating free shipping discount:", error)
-    throw new Error(`Error al crear la promoción: ${error.message}`)
-  }
-}
-
-export async function updateAutomaticDiscount(id, discountData) {
-  try {
-    const mutation = gql`
-      mutation discountAutomaticBasicUpdate($id: ID!, $automaticBasicDiscount: DiscountAutomaticBasicInput!) {
-        discountAutomaticBasicUpdate(id: $id, automaticBasicDiscount: $automaticBasicDiscount) {
-          automaticDiscountNode {
-            id
-            automaticDiscount {
-              ... on DiscountAutomaticBasic {
-                title
-                status
-              }
-            }
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const variables = {
-      id,
-      automaticBasicDiscount: discountData,
-    }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.discountAutomaticBasicUpdate.userErrors.length > 0) {
-      throw new Error(data.discountAutomaticBasicUpdate.userErrors[0].message)
-    }
-
-    // Obtener los detalles actualizados
-    return await fetchPromotionById(id)
-  } catch (error) {
-    console.error(`Error updating automatic discount with ID ${id}:`, error)
-    throw new Error(`Error al actualizar la promoción: ${error.message}`)
-  }
-}
-
-export async function updateCodeDiscount(id, discountData, type = "BASIC") {
-  try {
-    let mutation
-    let variables
-
-    if (type === "BASIC") {
-      mutation = gql`
-        mutation discountCodeBasicUpdate($id: ID!, $basicCodeDiscount: DiscountCodeBasicInput!) {
-          discountCodeBasicUpdate(id: $id, basicCodeDiscount: $basicCodeDiscount) {
-            codeDiscountNode {
-              id
-            }
-            userErrors {
-              field
-              message
-            }
-          }
-        }
-      `
-
-      variables = {
-        id,
-        basicCodeDiscount: discountData,
-      }
-    } else if (type === "BXGY") {
-      mutation = gql`
-        mutation discountCodeBxgyUpdate($id: ID!, $bxgyCodeDiscount: DiscountCodeBxgyInput!) {
-          discountCodeBxgyUpdate(id: $id, bxgyCodeDiscount: $bxgyCodeDiscount) {
-            codeDiscountNode {
-              id
-            }
-            userErrors {
-              field
-              message
-            }
-          }
-        }
-      `
-
-      variables = {
-        id,
-        bxgyCodeDiscount: discountData,
-      }
-    } else if (type === "FREE_SHIPPING") {
-      mutation = gql`
-        mutation discountCodeFreeShippingUpdate($id: ID!, $freeShippingCodeDiscount: DiscountCodeFreeShippingInput!) {
-          discountCodeFreeShippingUpdate(id: $id, freeShippingCodeFreeShippingInput: $freeShippingCodeDiscount) {
-            codeDiscountNode {
-              id
-            }
-            userErrors {
-              field
-              message
-            }
-          }
-        }
-      `
-
-      variables = {
-        id,
-        freeShippingCodeDiscount: discountData,
-      }
-    } else {
-      throw new Error("Tipo de promoción no válido")
-    }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    const resultKey = `discountCode${type.charAt(0) + type.slice(1).toLowerCase()}Update`
-
-    if (data[resultKey].userErrors.length > 0) {
-      throw new Error(data[resultKey].userErrors[0].message)
-    }
-
-    // Obtener los detalles actualizados
-    return await fetchPromotionById(id)
-  } catch (error) {
-    console.error(`Error updating code discount with ID ${id}:`, error)
-    throw new Error(`Error al actualizar la promoción: ${error.message}`)
-  }
-}
-
-export async function deleteAutomaticDiscount(id) {
-  try {
-    const mutation = gql`
-      mutation discountAutomaticDelete($id: ID!) {
-        discountAutomaticDelete(id: $id) {
-          deletedAutomaticDiscountId
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const variables = {
-      id,
-    }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.discountAutomaticDelete.userErrors.length > 0) {
-      throw new Error(data.discountAutomaticDelete.userErrors[0].message)
-    }
-
-    return data.discountAutomaticDelete.deletedAutomaticDiscountId
-  } catch (error) {
-    console.error(`Error deleting automatic discount with ID ${id}:`, error)
-    throw new Error(`Error al eliminar la promoción: ${error.message}`)
-  }
-}
-
-export async function deleteCodeDiscount(id) {
-  try {
-    const mutation = gql`
-      mutation discountCodeDelete($id: ID!) {
-        discountCodeDelete(id: $id) {
-          deletedCodeDiscountId
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const variables = {
-      id,
-    }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.discountCodeDelete.userErrors.length > 0) {
-      throw new Error(data.discountCodeDelete.userErrors[0].message)
-    }
-
-    return data.discountCodeDelete.deletedCodeDiscountId
-  } catch (error) {
-    console.error(`Error deleting code discount with ID ${id}:`, error)
-    throw new Error(`Error al eliminar la promoción: ${error.message}`)
-  }
-}
-
-export async function activateAutomaticDiscount(id) {
-  try {
-    const mutation = gql`
-      mutation discountAutomaticActivate($id: ID!) {
-        discountAutomaticActivate(id: $id) {
-          automaticDiscountNode {
-            id
-            automaticDiscount {
-              ... on DiscountAutomaticBasic {
-                status
-              }
-              ... on DiscountAutomaticBxgy {
-                status
-              }
-              ... on DiscountAutomaticFreeShipping {
-                status
-              }
-            }
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const variables = {
-      id,
-    }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.discountAutomaticActivate.userErrors.length > 0) {
-      throw new Error(data.discountAutomaticActivate.userErrors[0].message)
-    }
-
-    return await fetchPromotionById(data.discountAutomaticActivate.automaticDiscountNode.id)
-  } catch (error) {
-    console.error(`Error activating automatic discount with ID ${id}:`, error)
-    throw new Error(`Error al activar la promoción: ${error.message}`)
-  }
-}
-
-export async function activateCodeDiscount(id) {
-  try {
-    const mutation = gql`
-      mutation discountCodeActivate($id: ID!) {
-        discountCodeActivate(id: $id) {
-          codeDiscountNode {
-            id
-            codeDiscount {
-              ... on DiscountCodeBasic {
-                status
-              }
-              ... on DiscountCodeBxgy {
-                status
-              }
-              ... on DiscountCodeFreeShipping {
-                status
-              }
-            }
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const variables = {
-      id,
-    }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.discountCodeActivate.userErrors.length > 0) {
-      throw new Error(data.discountCodeActivate.userErrors[0].message)
-    }
-
-    return await fetchPromotionById(data.discountCodeActivate.codeDiscountNode.id)
-  } catch (error) {
-    console.error(`Error activating code discount with ID ${id}:`, error)
-    throw new Error(`Error al activar la promoción: ${error.message}`)
-  }
-}
-
-export async function deactivateAutomaticDiscount(id) {
-  try {
-    const mutation = gql`
-      mutation discountAutomaticDeactivate($id: ID!) {
-        discountAutomaticDeactivate(id: $id) {
-          automaticDiscountNode {
-            id
-            automaticDiscount {
-              ... on DiscountAutomaticBasic {
-                status
-              }
-              ... on DiscountAutomaticBxgy {
-                status
-              }
-              ... on DiscountAutomaticFreeShipping {
-                status
-              }
-            }
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const variables = {
-      id,
-    }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.discountAutomaticDeactivate.userErrors.length > 0) {
-      throw new Error(data.discountAutomaticDeactivate.userErrors[0].message)
-    }
-
-    return await fetchPromotionById(data.discountAutomaticDeactivate.automaticDiscountNode.id)
-  } catch (error) {
-    console.error(`Error deactivating automatic discount with ID ${id}:`, error)
-    throw new Error(`Error al desactivar la promoción: ${error.message}`)
-  }
-}
-
-export async function deactivateCodeDiscount(id) {
-  try {
-    const mutation = gql`
-      mutation discountCodeDeactivate($id: ID!) {
-        discountCodeDeactivate(id: $id) {
-          codeDiscountNode {
-            id
-            codeDiscount {
-              ... on DiscountCodeBasic {
-                status
-              }
-              ... on DiscountCodeBxgy {
-                status
-              }
-              ... on DiscountCodeFreeShipping {
-                status
-              }
-            }
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const variables = {
-      id,
-    }
-
-    const data = await shopifyClient.request(mutation, variables)
-
-    if (data.discountCodeDeactivate.userErrors.length > 0) {
-      throw new Error(data.discountCodeDeactivate.userErrors[0].message)
-    }
-
-    return await fetchPromotionById(data.discountCodeDeactivate.codeDiscountNode.id)
-  } catch (error) {
-    console.error(`Error deactivating code discount with ID ${id}:`, error)
-    throw new Error(`Error al desactivar la promoción: ${error.message}`)
-  }
-}
+// Exportar las demás funciones necesarias
+export {
+  createBasicDiscount,
+  createBxgyDiscount,
+  createFreeShippingDiscount,
+  updateAutomaticDiscount,
+  updateCodeDiscount,
+  deleteAutomaticDiscount,
+  deleteCodeDiscount,
+  activateAutomaticDiscount,
+  activateCodeDiscount,
+  deactivateAutomaticDiscount,
+  deactivateCodeDiscount,
+} from "./promociones"
