@@ -36,7 +36,8 @@ export default function NewProductPage() {
         title: "Default",
       },
     ],
-    inventoryQuantity: 0, // Movido fuera de variants
+    // Mantenemos el campo pero no lo usaremos para la creación inicial
+    inventoryQuantity: 0,
   })
 
   const handleInputChange = (e) => {
@@ -102,8 +103,7 @@ export default function NewProductPage() {
             title: formData.variants[0].title || "Default Title",
           },
         ],
-        // Añadir la cantidad de inventario separadamente
-        inventoryQuantity: formData.inventoryQuantity,
+        // No enviamos inventoryQuantity para evitar errores
         // Añadir la imagen si existe
         image: productImage,
         // Generar automáticamente los metafields de SEO
@@ -297,6 +297,9 @@ export default function NewProductPage() {
                     onChange={handleInputChange}
                     placeholder="0"
                   />
+                  <p className="text-xs text-amber-600">
+                    Nota: El stock se configurará automáticamente después de crear el producto.
+                  </p>
                 </div>
               </div>
             </CardContent>

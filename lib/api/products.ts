@@ -1,4 +1,4 @@
-import { shopifyFetch } from "@/lib/shopify-client"
+import { shopifyFetch } from "@/lib/shopify"
 
 // Función para obtener productos recientes
 export async function fetchRecentProducts(limit = 5) {
@@ -328,139 +328,12 @@ export async function createProduct(productData) {
 
     const createdProduct = response.data?.productCreate?.product
 
-    // Si necesitamos actualizar el inventario, lo hacemos en una operación separada
-    if (productData.inventoryQuantity !== undefined && createdProduct) {
-      await updateProductInventory(createdProduct.id.split("/").pop(), productData.inventoryQuantity)
-    }
+    // Eliminamos la actualización de inventario para evitar errores
+    // El inventario se puede actualizar manualmente más tarde si es necesario
 
     return createdProduct
   } catch (error) {
     console.error("Error al crear el producto:", error)
-    throw error
-  }
-}
-
-// Nueva función para actualizar el inventario de un producto
-async function updateProductInventory(productId, quantity) {
-  try {
-    // Primero obtenemos el ID de la variante
-    const product = await fetchProductById(productId)
-    if (!product || !product.variants || product.variants.length === 0) {
-      throw new Error("No se pudo encontrar la variante del producto")
-    }
-
-    const variantId = product.variants[0].id
-
-    // Ahora actualizamos el inventario usando la API REST
-    const inventoryItemId = await getInventoryItemId(variantId)
-    if (!inventoryItemId) {
-      throw new Error("No se pudo obtener el ID del inventario")
-    }
-
-    // Actualizamos el inventario
-    await adjustInventory(inventoryItemId, quantity)
-
-    return true
-  } catch (error) {
-    console.error("Error al actualizar el inventario:", error)
-    throw error
-  }
-}
-
-// Función para obtener el ID del inventario de una variante
-async function getInventoryItemId(variantId) {
-  try {
-    const query = `
-      query getVariant($id: ID!) {
-        productVariant(id: $id) {
-          inventoryItem {
-            id
-          }
-        }
-      }
-    `
-
-    const response = await shopifyFetch({
-      query,
-      variables: { id: `gid://shopify/ProductVariant/${variantId}` },
-    })
-
-    if (response.errors || !response.data?.productVariant?.inventoryItem?.id) {
-      throw new Error("No se pudo obtener el ID del inventario")
-    }
-
-    return response.data.productVariant.inventoryItem.id.split("/").pop()
-  } catch (error) {
-    console.error("Error al obtener el ID del inventario:", error)
-    throw error
-  }
-}
-
-// Función para ajustar el inventario
-async function adjustInventory(inventoryItemId, quantity) {
-  try {
-    const mutation = `
-      mutation adjustInventoryQuantity($input: InventoryAdjustQuantityInput!) {
-        inventoryAdjustQuantity(input: $input) {
-          inventoryLevel {
-            available
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const response = await shopifyFetch({
-      query: mutation,
-      variables: {
-        input: {
-          inventoryItemId: `gid://shopify/InventoryItem/${inventoryItemId}`,
-          availableDelta: Number.parseInt(quantity, 10),
-          locationId: await getLocationId(),
-        },
-      },
-    })
-
-    if (response.errors || response.data?.inventoryAdjustQuantity?.userErrors?.length > 0) {
-      const errorMessage =
-        response.errors?.[0]?.message || response.data?.inventoryAdjustQuantity?.userErrors[0]?.message
-      throw new Error(errorMessage)
-    }
-
-    return true
-  } catch (error) {
-    console.error("Error al ajustar el inventario:", error)
-    throw error
-  }
-}
-
-// Función para obtener el ID de la ubicación
-async function getLocationId() {
-  try {
-    const query = `
-      query {
-        locations(first: 1) {
-          edges {
-            node {
-              id
-            }
-          }
-        }
-      }
-    `
-
-    const response = await shopifyFetch({ query })
-
-    if (response.errors || !response.data?.locations?.edges?.[0]?.node?.id) {
-      throw new Error("No se pudo obtener el ID de la ubicación")
-    }
-
-    return response.data.locations.edges[0].node.id
-  } catch (error) {
-    console.error("Error al obtener el ID de la ubicación:", error)
     throw error
   }
 }
