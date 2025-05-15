@@ -9,6 +9,7 @@ export async function fetchCollections() {
   try {
     console.log("Iniciando fetchCollections...")
 
+    // Consulta GraphQL para obtener colecciones
     const query = gql`
       query {
         collections(first: 50) {
@@ -49,8 +50,9 @@ export async function fetchCollections() {
 
     // Usar try/catch para capturar errores específicos de la consulta
     try {
+      console.log("Enviando consulta GraphQL a Shopify...")
       const data = await shopifyClient.request(query)
-      console.log("Respuesta de Shopify:", JSON.stringify(data, null, 2).substring(0, 200) + "...")
+      console.log("Respuesta de Shopify recibida")
 
       if (!data || !data.collections || !data.collections.edges) {
         console.error("Formato de respuesta inválido:", data)
@@ -76,7 +78,47 @@ export async function fetchCollections() {
       return transformedData
     } catch (graphqlError) {
       console.error("Error en la consulta GraphQL:", graphqlError)
-      throw new Error(`Error en la consulta GraphQL: ${graphqlError.message}`)
+
+      // Intentar con REST API como fallback
+      console.log("Intentando con REST API como fallback...")
+      try {
+        const response = await fetch(
+          `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-10/collections.json`,
+          {
+            headers: {
+              "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
+              "Content-Type": "application/json",
+            },
+          },
+        )
+
+        if (!response.ok) {
+          throw new Error(`Error en REST API: ${response.status} ${response.statusText}`)
+        }
+
+        const restData = await response.json()
+        console.log(`REST API devolvió ${restData.collections.length} colecciones`)
+
+        // Transformar datos de REST API al formato esperado
+        return restData.collections.map((collection) => ({
+          id: `gid://shopify/Collection/${collection.id}`,
+          title: collection.title,
+          handle: collection.handle,
+          description: collection.body_html,
+          descriptionHtml: collection.body_html,
+          productsCount: collection.products_count,
+          image: collection.image
+            ? {
+                url: collection.image.src,
+                altText: collection.title,
+              }
+            : null,
+          products: [],
+        }))
+      } catch (restError) {
+        console.error("Error en REST API fallback:", restError)
+        throw new Error(`Error al obtener colecciones: ${graphqlError.message}. REST fallback también falló.`)
+      }
     }
   } catch (error) {
     console.error("Error fetching collections:", error)
