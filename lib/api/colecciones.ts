@@ -1,3 +1,6 @@
+// Este archivo es un puente para mantener compatibilidad con código existente
+// Importa y reexporta las funciones de collections.ts con nombres en español
+
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 
@@ -464,25 +467,23 @@ export async function fetchProductsNotInCollection(collectionId) {
 // Importa y reexporta las funciones de collections.ts con nombres en español
 
 import {
-  fetchCollections as fetchCollectionsFromCollections,
-  fetchCollectionById as fetchCollectionByIdFromCollections,
-  addProductsToCollection as addProductToCollectionFromCollections,
-  removeProductsFromCollection as removeProductFromCollectionFromCollections,
-  createCollection as createCollectionFromCollections,
-  updateCollection as updateCollectionFromCollections,
-  deleteCollection as deleteCollectionFromCollections,
-  addProductToCollection,
-  removeProductFromCollection,
+  addProductsToCollection as addProductToCollection,
+  removeProductsFromCollection as removeProductFromCollection,
+  fetchCollections,
+  fetchCollectionById,
+  createCollection,
+  updateCollection,
+  deleteCollection,
 } from "./collections"
 
 // Exportar las funciones con nombres en español para mantener compatibilidad
-export const obtenerColecciones = fetchCollectionsFromCollections
-export const obtenerColeccionPorId = fetchCollectionByIdFromCollections
-export const agregarProductoAColeccion = addProductToCollectionFromCollections
-export const eliminarProductoDeColeccion = removeProductFromCollectionFromCollections
-export const crearColeccion = createCollectionFromCollections
-export const actualizarColeccion = updateCollectionFromCollections
-export const eliminarColeccion = deleteCollectionFromCollections
+export const obtenerColecciones = fetchCollections
+export const obtenerColeccionPorId = fetchCollectionById
+export const agregarProductoAColeccion = addProductToCollection
+export const eliminarProductoDeColeccion = removeProductFromCollection
+export const crearColeccion = createCollection
+export const actualizarColeccion = updateCollection
+export const eliminarColeccion = deleteCollection
 
-// También exportamos las funciones con nombres en inglés
+// También exportamos las funciones con nombres en inglés para compatibilidad
 export { addProductToCollection, removeProductFromCollection }
