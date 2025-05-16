@@ -1,16 +1,16 @@
 import { createHash, randomBytes } from "crypto"
 import { prisma } from "./prisma"
 
-// Función para hashear contraseñas usando crypto nativo
+// Corregir la función de hashPassword para asegurar consistencia
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString("hex")
   const hash = createHash("sha256")
-    .update(salt + password)
+    .update(password + salt) // Aseguramos que el orden sea password + salt
     .digest("hex")
   return `${salt}:${hash}`
 }
 
-// Función para verificar contraseñas
+// Corregir la función de verificación para que coincida con el método de hash
 export async function verifyPassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
   console.log("Verificando contraseña...")
 
@@ -37,8 +37,9 @@ export async function verifyPassword(plainPassword: string, hashedPassword: stri
   }
 
   // Calcular el hash de la contraseña proporcionada con el mismo salt
+  // IMPORTANTE: Aseguramos que el orden sea el mismo que en hashPassword
   const suppliedHash = createHash("sha256")
-    .update(salt + plainPassword)
+    .update(plainPassword + salt)
     .digest("hex")
 
   // Comparar los hashes

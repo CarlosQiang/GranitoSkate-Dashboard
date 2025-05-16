@@ -4,11 +4,11 @@ import { authOptions } from "@/lib/auth"
 import { sql } from "@vercel/postgres"
 import { createHash, randomBytes } from "crypto"
 
-// Función para hashear contraseñas
+// Corregir la función de hashPassword para que coincida con lib/auth-service.ts
 function hashPassword(password: string): string {
   const salt = randomBytes(16).toString("hex")
   const hash = createHash("sha256")
-    .update(password + salt)
+    .update(password + salt) // Aseguramos que el orden sea password + salt
     .digest("hex")
   return `${salt}:${hash}`
 }
