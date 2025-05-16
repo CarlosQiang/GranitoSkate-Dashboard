@@ -1,7 +1,7 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { prisma } from "./prisma"
-import { verifyPassword, updateLastLogin } from "./auth-service"
+import { compare } from "bcryptjs"
+import { sql } from "@vercel/postgres"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -18,27 +18,39 @@ export const authOptions: NextAuthOptions = {
             return null
           }
 
-          // Buscar usuario por nombre de usuario o correo electrónico
-          const user = await prisma.administrador.findFirst({
-            where: {
-              OR: [{ nombre_usuario: credentials.identifier }, { correo_electronico: credentials.identifier }],
-              activo: true,
-            },
-          })
+          console.log("Buscando usuario:", credentials.identifier)
 
-          if (!user) {
+          // Buscar usuario por nombre de usuario o correo electrónico
+          const { rows } = await sql`
+            SELECT * FROM administradores 
+            WHERE (nombre_usuario = ${credentials.identifier} OR correo_electronico = ${credentials.identifier})
+            AND activo = true
+          `
+
+          if (rows.length === 0) {
             console.log("Usuario no encontrado:", credentials.identifier)
             return null
           }
 
-          const isValidPassword = await verifyPassword(credentials.password, user.contrasena)
+          const user = rows[0]
+          console.log("Usuario encontrado:", user.nombre_usuario)
+
+          // Verificar contraseña con bcrypt
+          const isValidPassword = await compare(credentials.password, user.contrasena)
+
           if (!isValidPassword) {
             console.log("Contraseña inválida para usuario:", credentials.identifier)
             return null
           }
 
+          console.log("Autenticación exitosa para:", user.nombre_usuario)
+
           // Actualizar último acceso
-          await updateLastLogin(user.id)
+          await sql`
+            UPDATE administradores 
+            SET ultimo_acceso = NOW() 
+            WHERE id = ${user.id}
+          `
 
           return {
             id: user.id.toString(),

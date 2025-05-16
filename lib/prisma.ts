@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client"
 
+// Evitar múltiples instancias de Prisma Client en desarrollo
 const globalForPrisma = global as unknown as { prisma: PrismaClient }
 
 export const prisma =
@@ -13,13 +14,22 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma
 // Función para verificar la conexión a la base de datos
 export async function checkDatabaseConnection() {
   try {
+    console.log("Verificando conexión a la base de datos...")
+
     // Intentar ejecutar una consulta simple
-    await prisma.$queryRaw`SELECT 1`
-    console.log("✅ Conexión a la base de datos establecida correctamente")
-    return true
+    const result = await prisma.$queryRaw`SELECT 1 as connected`
+    console.log("✅ Conexión a la base de datos establecida correctamente:", result)
+
+    return {
+      connected: true,
+      result,
+    }
   } catch (error) {
     console.error("❌ Error al conectar con la base de datos:", error)
-    return false
+    return {
+      connected: false,
+      error: error instanceof Error ? error.message : "Error desconocido",
+    }
   }
 }
 
