@@ -2,6 +2,7 @@ import { Logger } from "next-axiom"
 import { shopifyFetch } from "@/lib/shopify-client"
 import { syncProductWithDb, type ShopifyProduct } from "@/lib/repositories/product-repository"
 import { logSyncEvent } from "@/lib/db/repositories/registro-repository"
+import { prisma } from "@/lib/prisma"
 
 const logger = new Logger({
   source: "product-sync-service",
@@ -16,6 +17,19 @@ export async function syncAllProducts(limit = 250): Promise<{
 }> {
   try {
     logger.info("Iniciando sincronización de productos", { limit })
+
+    // Verificar conexión a la base de datos antes de continuar
+    try {
+      await prisma.$queryRaw`SELECT 1`
+      logger.info("Conexión a la base de datos verificada")
+    } catch (dbError) {
+      logger.error("Error al conectar con la base de datos", {
+        error: dbError instanceof Error ? dbError.message : "Error desconocido",
+      })
+      throw new Error(
+        `Error de conexión a la base de datos: ${dbError instanceof Error ? dbError.message : "Error desconocido"}`,
+      )
+    }
 
     // Obtener productos de Shopify
     const shopifyProducts = await fetchProductsFromShopify(limit)
@@ -49,8 +63,10 @@ export async function syncAllProducts(limit = 250): Promise<{
 
         if (existingProduct) {
           updated++
+          logger.info(`Producto actualizado: ${product.title}`, { productId: product.id })
         } else {
           created++
+          logger.info(`Producto creado: ${product.title}`, { productId: product.id })
         }
       } catch (error) {
         logger.error("Error al sincronizar producto", {

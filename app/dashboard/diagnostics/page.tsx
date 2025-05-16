@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation"
 import { SystemDiagnostics } from "@/components/system-diagnostics"
 import { DbConnectionStatus } from "@/components/db-connection-status"
 import { DbInitializer } from "@/components/db-initializer"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import Link from "next/link"
 
 export default function DiagnosticsPage() {
   const router = useRouter()
@@ -30,6 +32,17 @@ export default function DiagnosticsPage() {
       <div className="grid gap-6 md:grid-cols-2">
         <DbConnectionStatus />
         <DbInitializer />
+        <Card>
+          <CardHeader>
+            <CardTitle>Diagnóstico de Base de Datos</CardTitle>
+            <CardDescription>Verifica la conexión con la base de datos y el estado de las tablas</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild>
+              <Link href="/dashboard/diagnostics/db-check">Verificar Base de Datos</Link>
+            </Button>
+          </CardContent>
+        </Card>
         <div className="md:col-span-2">
           <SystemDiagnostics />
         </div>

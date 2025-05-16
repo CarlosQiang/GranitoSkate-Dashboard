@@ -8,8 +8,40 @@ const logger = new Logger({
   source: "api-sync-products",
 })
 
-// Asegurarnos de que la ruta de API acepte solicitudes POST
+// Permitir solicitudes GET para compatibilidad con el componente AutoSyncProducts
+export async function GET(request: Request) {
+  try {
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      logger.warn("Intento de acceso no autorizado a la API de sincronización de productos")
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
 
+    // Iniciar sincronización con límite predeterminado
+    logger.info("Iniciando sincronización de productos mediante GET")
+    const result = await syncAllProducts(250)
+
+    return NextResponse.json({
+      success: true,
+      result,
+    })
+  } catch (error) {
+    logger.error("Error en la sincronización de productos", {
+      error: error instanceof Error ? error.message : "Error desconocido",
+    })
+
+    return NextResponse.json(
+      {
+        error: "Error en la sincronización de productos",
+        details: error instanceof Error ? error.message : "Error desconocido",
+      },
+      { status: 500 },
+    )
+  }
+}
+
+// Mantener soporte para POST para futuras implementaciones
 export async function POST(request: Request) {
   try {
     // Verificar autenticación
@@ -27,7 +59,10 @@ export async function POST(request: Request) {
     logger.info("Iniciando sincronización de productos", { limit })
     const result = await syncAllProducts(limit)
 
-    return NextResponse.json(result)
+    return NextResponse.json({
+      success: true,
+      result,
+    })
   } catch (error) {
     logger.error("Error en la sincronización de productos", {
       error: error instanceof Error ? error.message : "Error desconocido",
@@ -41,9 +76,4 @@ export async function POST(request: Request) {
       { status: 500 },
     )
   }
-}
-
-// Añadir soporte para GET para compatibilidad con versiones anteriores
-export async function GET() {
-  return NextResponse.json({ error: "Método no permitido. Use POST en su lugar." }, { status: 405 })
 }
