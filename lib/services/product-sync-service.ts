@@ -32,71 +32,105 @@ export async function syncAllProducts(limit = 250): Promise<{
     }
 
     // Obtener productos de Shopify
-    const shopifyProducts = await fetchProductsFromShopify(limit)
+    try {
+      const shopifyProducts = await fetchProductsFromShopify(limit)
 
-    if (!shopifyProducts || shopifyProducts.length === 0) {
-      logger.warn("No se encontraron productos en Shopify")
+      if (!shopifyProducts || shopifyProducts.length === 0) {
+        logger.warn("No se encontraron productos en Shopify")
+
+        await logSyncEvent({
+          tipo_entidad: "PRODUCT",
+          accion: "SYNC_ALL",
+          resultado: "WARNING",
+          mensaje: "No se encontraron productos en Shopify",
+        })
+
+        return { created: 0, updated: 0, failed: 0, total: 0 }
+      }
+
+      // Contadores para estadísticas
+      let created = 0
+      let updated = 0
+      let failed = 0
+
+      // Procesar cada producto
+      for (const product of shopifyProducts) {
+        try {
+          // Verificar si el producto ya existe en la base de datos
+          const existingProduct = await checkProductExists(product.id)
+
+          // Sincronizar el producto con la base de datos
+          await syncProductWithDb(product)
+
+          if (existingProduct) {
+            updated++
+            logger.info(`Producto actualizado: ${product.title}`, { productId: product.id })
+          } else {
+            created++
+            logger.info(`Producto creado: ${product.title}`, { productId: product.id })
+          }
+        } catch (error) {
+          logger.error("Error al sincronizar producto", {
+            productId: product.id,
+            error: error instanceof Error ? error.message : "Error desconocido",
+          })
+          failed++
+
+          // Registrar error
+          await logSyncEvent({
+            tipo_entidad: "PRODUCT",
+            entidad_id: product.id,
+            accion: "SYNC",
+            resultado: "ERROR",
+            mensaje: `Error al sincronizar producto: ${error instanceof Error ? error.message : "Error desconocido"}`,
+          })
+        }
+      }
+
+      // Registrar evento de sincronización
+      await logSyncEvent({
+        tipo_entidad: "PRODUCT",
+        accion: "SYNC_ALL",
+        resultado: "SUCCESS",
+        mensaje: `Sincronización de productos completada: ${created} creados, ${updated} actualizados, ${failed} fallidos`,
+      })
+
+      logger.info("Sincronización de productos completada", { created, updated, failed, total: shopifyProducts.length })
+
+      return { created, updated, failed, total: shopifyProducts.length }
+    } catch (shopifyError) {
+      // Si es un error de autenticación de Shopify, registrarlo pero no detener la aplicación
+      if (shopifyError instanceof Error && shopifyError.message.includes("401")) {
+        logger.warn("Error de autenticación con Shopify", {
+          error: shopifyError.message,
+        })
+
+        await logSyncEvent({
+          tipo_entidad: "PRODUCT",
+          accion: "SYNC_ALL",
+          resultado: "WARNING",
+          mensaje: "Error de autenticación con Shopify: Token de acceso inválido o expirado",
+        })
+
+        throw new Error("Error de autenticación con Shopify: Token de acceso inválido o expirado")
+      }
+
+      // Para otros errores, registrarlos como errores graves
+      logger.error("Error al obtener productos de Shopify", {
+        error: shopifyError instanceof Error ? shopifyError.message : "Error desconocido",
+      })
 
       await logSyncEvent({
         tipo_entidad: "PRODUCT",
         accion: "SYNC_ALL",
-        resultado: "WARNING",
-        mensaje: "No se encontraron productos en Shopify",
+        resultado: "ERROR",
+        mensaje: `Error al obtener productos de Shopify: ${
+          shopifyError instanceof Error ? shopifyError.message : "Error desconocido"
+        }`,
       })
 
-      return { created: 0, updated: 0, failed: 0, total: 0 }
+      throw shopifyError
     }
-
-    // Contadores para estadísticas
-    let created = 0
-    let updated = 0
-    let failed = 0
-
-    // Procesar cada producto
-    for (const product of shopifyProducts) {
-      try {
-        // Verificar si el producto ya existe en la base de datos
-        const existingProduct = await checkProductExists(product.id)
-
-        // Sincronizar el producto con la base de datos
-        await syncProductWithDb(product)
-
-        if (existingProduct) {
-          updated++
-          logger.info(`Producto actualizado: ${product.title}`, { productId: product.id })
-        } else {
-          created++
-          logger.info(`Producto creado: ${product.title}`, { productId: product.id })
-        }
-      } catch (error) {
-        logger.error("Error al sincronizar producto", {
-          productId: product.id,
-          error: error instanceof Error ? error.message : "Error desconocido",
-        })
-        failed++
-
-        // Registrar error
-        await logSyncEvent({
-          tipo_entidad: "PRODUCT",
-          entidad_id: product.id,
-          accion: "SYNC",
-          resultado: "ERROR",
-          mensaje: `Error al sincronizar producto: ${error instanceof Error ? error.message : "Error desconocido"}`,
-        })
-      }
-    }
-
-    // Registrar evento de sincronización
-    await logSyncEvent({
-      tipo_entidad: "PRODUCT",
-      accion: "SYNC_ALL",
-      resultado: "SUCCESS",
-      mensaje: `Sincronización de productos completada: ${created} creados, ${updated} actualizados, ${failed} fallidos`,
-    })
-
-    logger.info("Sincronización de productos completada", { created, updated, failed, total: shopifyProducts.length })
-
-    return { created, updated, failed, total: shopifyProducts.length }
   } catch (error) {
     logger.error("Error al sincronizar productos", {
       error: error instanceof Error ? error.message : "Error desconocido",

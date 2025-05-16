@@ -1,110 +1,57 @@
-import { createHash, randomBytes } from "crypto"
-import { prisma } from "./prisma"
+"use server"
 
-// Función para hashear contraseñas
+import { hash, compare } from "bcryptjs"
+import { sql } from "@vercel/postgres"
+
 export async function hashPassword(password: string): Promise<string> {
-  const salt = randomBytes(16).toString("hex")
-  const hash = createHash("sha256")
-    .update(password + salt) // Aseguramos que el orden sea password + salt
-    .digest("hex")
-  return `${salt}:${hash}`
+  const saltRounds = 10
+  return await hash(password, saltRounds)
 }
 
-// Función para verificar contraseñas
-export async function verifyPassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
-  console.log("Verificando contraseña...")
-
-  // Verificar si es un hash de bcrypt (comienza con $2b$)
-  if (hashedPassword.startsWith("$2")) {
-    console.log("Detectada contraseña hasheada con bcrypt")
-
-    // Para compatibilidad con contraseñas existentes hasheadas con bcrypt
-    // Esto es solo para mantener compatibilidad y debería ser reemplazado
-    // con una solución más robusta en producción
-    return (
-      hashedPassword === "$2b$12$1X.GQIJJk8L9Fz3HZhQQo.6EsHgHKm7Brx0bKQA9fI.SSjN.ym3Uy" &&
-      plainPassword === "GranitoSkate"
-    )
-  }
-
-  // Para contraseñas hasheadas con nuestro método
-  const [salt, storedHash] = hashedPassword.split(":")
-
-  // Si no hay salt, algo está mal con el formato
-  if (!salt) {
-    console.log("Formato de hash inválido")
-    return false
-  }
-
-  // Calcular el hash de la contraseña proporcionada con el mismo salt
-  const suppliedHash = createHash("sha256")
-    .update(plainPassword + salt)
-    .digest("hex")
-
-  // Comparar los hashes
-  const result = storedHash === suppliedHash
-  console.log("Resultado de verificación:", result)
-  return result
+export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  return await compare(password, hash)
 }
 
-export async function getUserByIdentifier(identifier: string) {
+export async function listAdmins() {
   try {
-    // Buscar por correo electrónico o nombre de usuario
-    const user = await prisma.administrador.findFirst({
-      where: {
-        OR: [{ correo_electronico: identifier }, { nombre_usuario: identifier }],
-        activo: true,
-      },
-    })
-
-    return user || null
+    const result =
+      await sql`SELECT id, nombre_usuario, correo_electronico, nombre_completo, rol, activo FROM administradores`
+    return result.rows
   } catch (error) {
-    console.error("Error al buscar usuario:", error)
-    return null
-  }
-}
-
-export async function updateLastLogin(userId: number) {
-  try {
-    await prisma.administrador.update({
-      where: { id: userId },
-      data: { ultimo_acceso: new Date() },
-    })
-    return true
-  } catch (error) {
-    console.error("Error al actualizar último acceso:", error)
-    return false
+    console.error("Error al listar administradores:", error)
+    throw new Error("Error al listar administradores")
   }
 }
 
 export async function createAdmin(data: any) {
   try {
-    const hashedPassword = await hashPassword(data.contrasena)
+    const { nombre_usuario, correo_electronico, contrasena, nombre_completo, rol, activo } = data
 
-    const admin = await prisma.administrador.create({
-      data: {
-        nombre_usuario: data.nombre_usuario,
-        correo_electronico: data.correo_electronico,
-        contrasena: hashedPassword,
-        nombre_completo: data.nombre_completo,
-        rol: data.rol,
-        activo: data.activo,
-      },
-    })
+    // Hash de la contraseña
+    const hashedPassword = await hashPassword(contrasena)
 
-    return admin
+    const result = await sql`
+      INSERT INTO administradores (nombre_usuario, correo_electronico, contrasena, nombre_completo, rol, activo)
+      VALUES (${nombre_usuario}, ${correo_electronico}, ${hashedPassword}, ${nombre_completo || null}, ${rol}, ${activo})
+      RETURNING id, nombre_usuario, correo_electronico, nombre_completo, rol, activo
+    `
+
+    return result.rows[0]
   } catch (error) {
     console.error("Error al crear administrador:", error)
-    throw error
+    throw new Error("Error al crear administrador")
   }
 }
 
-export async function listAdmins() {
+export async function updateLastLogin(userId: number): Promise<void> {
   try {
-    const admins = await prisma.administrador.findMany()
-    return admins
+    await sql`
+      UPDATE administradores
+      SET ultimo_acceso = NOW()
+      WHERE id = ${userId}
+    `
   } catch (error) {
-    console.error("Error al listar administradores:", error)
-    throw error
+    console.error("Error al actualizar último acceso:", error)
+    throw new Error("Error al actualizar último acceso")
   }
 }
