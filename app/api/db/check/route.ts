@@ -1,59 +1,63 @@
 import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 import { sql } from "@vercel/postgres"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    // Verificar si hay datos en las tablas principales
-    const tables = ["productos", "colecciones", "clientes", "pedidos", "promociones"]
-    let isEmpty = true
-    let existingTables = []
-
-    // Primero verificamos qué tablas existen realmente
-    try {
-      const tablesResult = await sql`
-        SELECT table_name 
-        FROM information_schema.tables 
-        WHERE table_schema = 'public'
-      `
-      existingTables = tablesResult.rows.map((row) => row.table_name)
-    } catch (error) {
-      console.error("Error al verificar tablas existentes:", error)
-      // Si falla esta consulta, continuamos con el resto del código
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    // Solo verificamos las tablas que realmente existen
-    for (const table of tables) {
-      if (existingTables.includes(table)) {
-        try {
-          const result = await sql`SELECT COUNT(*) as count FROM ${sql.identifier(table)}`
-          const count = Number.parseInt(result.rows[0].count)
+    // Verificar conexión a la base de datos
+    const result = await sql`SELECT NOW() as time`
 
-          if (count > 0) {
-            isEmpty = false
-            break
-          }
-        } catch (error) {
-          console.error(`Error al verificar tabla ${table}:`, error)
-          // Continuamos con la siguiente tabla si hay error
-        }
-      }
-    }
+    // Verificar tablas existentes
+    const tables = await sql`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public'
+      ORDER BY table_name
+    `
+
+    const tableNames = tables.rows.map((row) => row.table_name)
+
+    // Verificar si existen las tablas principales
+    const requiredTables = [
+      "administradores",
+      "productos",
+      "variantes_producto",
+      "imagenes_producto",
+      "colecciones",
+      "productos_colecciones",
+      "promociones",
+      "mercados",
+      "clientes",
+      "direcciones_cliente",
+      "pedidos",
+      "lineas_pedido",
+      "transacciones",
+      "envios",
+      "metadatos",
+      "registro_sincronizacion",
+    ]
+
+    const missingTables = requiredTables.filter((table) => !tableNames.includes(table))
 
     return NextResponse.json({
       success: true,
-      isEmpty,
-      checkedTables: existingTables.filter((t) => tables.includes(t)),
+      time: result.rows[0].time,
+      tables: tableNames,
+      missingTables,
+      databaseReady: missingTables.length === 0,
     })
   } catch (error) {
     console.error("Error al verificar la base de datos:", error)
-    // Devolvemos una respuesta de éxito falso pero con código 200 para evitar errores en cascada
     return NextResponse.json(
-      {
-        success: false,
-        message: "Error al verificar la base de datos",
-        error: error instanceof Error ? error.message : "Error desconocido",
-      },
-      { status: 200 }, // Cambiamos a 200 para evitar errores en cascada
+      { error: "Error al verificar la base de datos", details: (error as Error).message },
+      { status: 500 },
     )
   }
 }

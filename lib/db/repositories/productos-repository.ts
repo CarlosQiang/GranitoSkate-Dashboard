@@ -1,14 +1,14 @@
 import { sql } from "@vercel/postgres"
-import type { Producto } from "../schema"
+import type { Producto, ImagenProducto, VarianteProducto } from "../schema"
 import { logSyncEvent } from "./registro-repository"
 
 // Obtener todos los productos
 export async function getAllProductos(): Promise<Producto[]> {
   try {
-    const result = await sql.query(`
+    const result = await sql`
       SELECT * FROM productos
       ORDER BY fecha_creacion DESC
-    `)
+    `
     return result.rows
   } catch (error) {
     console.error("Error al obtener productos:", error)
@@ -19,13 +19,10 @@ export async function getAllProductos(): Promise<Producto[]> {
 // Obtener un producto por ID
 export async function getProductoById(id: number): Promise<Producto | null> {
   try {
-    const result = await sql.query(
-      `
+    const result = await sql`
       SELECT * FROM productos
-      WHERE id = $1
-    `,
-      [id],
-    )
+      WHERE id = ${id}
+    `
 
     return result.rows.length > 0 ? result.rows[0] : null
   } catch (error) {
@@ -37,13 +34,10 @@ export async function getProductoById(id: number): Promise<Producto | null> {
 // Obtener un producto por Shopify ID
 export async function getProductoByShopifyId(shopifyId: string): Promise<Producto | null> {
   try {
-    const result = await sql.query(
-      `
+    const result = await sql`
       SELECT * FROM productos
-      WHERE shopify_id = $1
-    `,
-      [shopifyId],
-    )
+      WHERE shopify_id = ${shopifyId}
+    `
 
     return result.rows.length > 0 ? result.rows[0] : null
   } catch (error) {
@@ -81,8 +75,7 @@ export async function createProducto(data: Partial<Producto>): Promise<Producto>
       fecha_publicacion,
     } = data
 
-    const result = await sql.query(
-      `
+    const result = await sql`
       INSERT INTO productos (
         shopify_id, titulo, descripcion, tipo_producto, proveedor, estado,
         publicado, destacado, etiquetas, imagen_destacada_url, precio_base,
@@ -92,37 +85,17 @@ export async function createProducto(data: Partial<Producto>): Promise<Producto>
         fecha_publicacion
       )
       VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
-        $16, $17, $18, $19, $20, $21, $22, NOW(), NOW(), $23
+        ${shopify_id || null}, ${titulo}, ${descripcion || null}, ${tipo_producto || null},
+        ${proveedor || null}, ${estado || null}, ${publicado}, ${destacado},
+        ${etiquetas ? JSON.stringify(etiquetas) : null}, ${imagen_destacada_url || null},
+        ${precio_base || null}, ${precio_comparacion || null}, ${sku || null},
+        ${codigo_barras || null}, ${inventario_disponible || null},
+        ${politica_inventario || null}, ${requiere_envio}, ${peso || null},
+        ${unidad_peso}, ${seo_titulo || null}, ${seo_descripcion || null},
+        ${url_handle || null}, NOW(), NOW(), ${fecha_publicacion || null}
       )
       RETURNING *
-    `,
-      [
-        shopify_id || null,
-        titulo,
-        descripcion || null,
-        tipo_producto || null,
-        proveedor || null,
-        estado || null,
-        publicado,
-        destacado,
-        etiquetas ? JSON.stringify(etiquetas) : null,
-        imagen_destacada_url || null,
-        precio_base || null,
-        precio_comparacion || null,
-        sku || null,
-        codigo_barras || null,
-        inventario_disponible || null,
-        politica_inventario || null,
-        requiere_envio,
-        peso || null,
-        unidad_peso,
-        seo_titulo || null,
-        seo_descripcion || null,
-        url_handle || null,
-        fecha_publicacion || null,
-      ],
-    )
+    `
 
     return result.rows[0]
   } catch (error) {
@@ -174,66 +147,37 @@ export async function updateProducto(id: number, data: Partial<Producto>): Promi
       ultima_sincronizacion,
     } = updatedData
 
-    const result = await sql.query(
-      `
+    const result = await sql`
       UPDATE productos
       SET
-        shopify_id = $1,
-        titulo = $2,
-        descripcion = $3,
-        tipo_producto = $4,
-        proveedor = $5,
-        estado = $6,
-        publicado = $7,
-        destacado = $8,
-        etiquetas = $9,
-        imagen_destacada_url = $10,
-        precio_base = $11,
-        precio_comparacion = $12,
-        sku = $13,
-        codigo_barras = $14,
-        inventario_disponible = $15,
-        politica_inventario = $16,
-        requiere_envio = $17,
-        peso = $18,
-        unidad_peso = $19,
-        seo_titulo = $20,
-        seo_descripcion = $21,
-        url_handle = $22,
+        shopify_id = ${shopify_id || null},
+        titulo = ${titulo},
+        descripcion = ${descripcion || null},
+        tipo_producto = ${tipo_producto || null},
+        proveedor = ${proveedor || null},
+        estado = ${estado || null},
+        publicado = ${publicado},
+        destacado = ${destacado},
+        etiquetas = ${etiquetas ? JSON.stringify(etiquetas) : null},
+        imagen_destacada_url = ${imagen_destacada_url || null},
+        precio_base = ${precio_base || null},
+        precio_comparacion = ${precio_comparacion || null},
+        sku = ${sku || null},
+        codigo_barras = ${codigo_barras || null},
+        inventario_disponible = ${inventario_disponible || null},
+        politica_inventario = ${politica_inventario || null},
+        requiere_envio = ${requiere_envio},
+        peso = ${peso || null},
+        unidad_peso = ${unidad_peso},
+        seo_titulo = ${seo_titulo || null},
+        seo_descripcion = ${seo_descripcion || null},
+        url_handle = ${url_handle || null},
         fecha_actualizacion = NOW(),
-        fecha_publicacion = $23,
-        ultima_sincronizacion = $24
-      WHERE id = $25
+        fecha_publicacion = ${fecha_publicacion || null},
+        ultima_sincronizacion = ${ultima_sincronizacion || null}
+      WHERE id = ${id}
       RETURNING *
-    `,
-      [
-        shopify_id || null,
-        titulo,
-        descripcion || null,
-        tipo_producto || null,
-        proveedor || null,
-        estado || null,
-        publicado,
-        destacado,
-        etiquetas ? JSON.stringify(etiquetas) : null,
-        imagen_destacada_url || null,
-        precio_base || null,
-        precio_comparacion || null,
-        sku || null,
-        codigo_barras || null,
-        inventario_disponible || null,
-        politica_inventario || null,
-        requiere_envio,
-        peso || null,
-        unidad_peso,
-        seo_titulo || null,
-        seo_descripcion || null,
-        url_handle || null,
-        fecha_publicacion || null,
-        ultima_sincronizacion || null,
-        id,
-      ],
-    )
+    `
 
     return result.rows[0]
   } catch (error) {
@@ -245,14 +189,11 @@ export async function updateProducto(id: number, data: Partial<Producto>): Promi
 // Eliminar un producto
 export async function deleteProducto(id: number): Promise<boolean> {
   try {
-    const result = await sql.query(
-      `
+    const result = await sql`
       DELETE FROM productos
-      WHERE id = $1
+      WHERE id = ${id}
       RETURNING id
-    `,
-      [id],
-    )
+    `
 
     return result.rows.length > 0
   } catch (error) {
@@ -270,33 +211,27 @@ export async function searchProductos(
   try {
     const searchQuery = `%${query}%`
 
-    const productsResult = await sql.query(
-      `
+    const productsResult = await sql`
       SELECT * FROM productos
       WHERE 
-        titulo ILIKE $1 OR
-        descripcion ILIKE $1 OR
-        tipo_producto ILIKE $1 OR
-        proveedor ILIKE $1 OR
-        sku ILIKE $1
+        titulo ILIKE ${searchQuery} OR
+        descripcion ILIKE ${searchQuery} OR
+        tipo_producto ILIKE ${searchQuery} OR
+        proveedor ILIKE ${searchQuery} OR
+        sku ILIKE ${searchQuery}
       ORDER BY fecha_creacion DESC
-      LIMIT $2 OFFSET $3
-    `,
-      [searchQuery, limit, offset],
-    )
+      LIMIT ${limit} OFFSET ${offset}
+    `
 
-    const countResult = await sql.query(
-      `
+    const countResult = await sql`
       SELECT COUNT(*) as total FROM productos
       WHERE 
-        titulo ILIKE $1 OR
-        descripcion ILIKE $1 OR
-        tipo_producto ILIKE $1 OR
-        proveedor ILIKE $1 OR
-        sku ILIKE $1
-    `,
-      [searchQuery],
-    )
+        titulo ILIKE ${searchQuery} OR
+        descripcion ILIKE ${searchQuery} OR
+        tipo_producto ILIKE ${searchQuery} OR
+        proveedor ILIKE ${searchQuery} OR
+        sku ILIKE ${searchQuery}
+    `
 
     return {
       productos: productsResult.rows,
@@ -309,7 +244,7 @@ export async function searchProductos(
 }
 
 // Crear o actualizar una variante de producto
-export async function upsertVarianteProducto(data: any): Promise<any> {
+export async function upsertVarianteProducto(data: Partial<VarianteProducto>): Promise<VarianteProducto> {
   try {
     const {
       shopify_id,
@@ -334,71 +269,44 @@ export async function upsertVarianteProducto(data: any): Promise<any> {
     } = data
 
     // Verificar si la variante ya existe
-    const existingVariant = await sql.query(
-      `
+    const existingVariant = await sql`
       SELECT id FROM variantes_producto
-      WHERE shopify_id = $1
-    `,
-      [shopify_id],
-    )
+      WHERE shopify_id = ${shopify_id}
+    `
 
     if (existingVariant.rows.length > 0) {
       // Actualizar variante existente
-      const result = await sql.query(
-        `
+      const result = await sql`
         UPDATE variantes_producto
         SET
-          producto_id = $2,
-          titulo = $3,
-          precio = $4,
-          precio_comparacion = $5,
-          sku = $6,
-          codigo_barras = $7,
-          inventario_disponible = $8,
-          politica_inventario = $9,
-          requiere_envio = $10,
-          peso = $11,
-          unidad_peso = $12,
-          opcion1_nombre = $13,
-          opcion1_valor = $14,
-          opcion2_nombre = $15,
-          opcion2_valor = $16,
-          opcion3_nombre = $17,
-          opcion3_valor = $18,
-          posicion = $19,
+          producto_id = ${producto_id},
+          titulo = ${titulo},
+          precio = ${precio || null},
+          precio_comparacion = ${precio_comparacion || null},
+          sku = ${sku || null},
+          codigo_barras = ${codigo_barras || null},
+          inventario_disponible = ${inventario_disponible || null},
+          politica_inventario = ${politica_inventario || null},
+          requiere_envio = ${requiere_envio !== undefined ? requiere_envio : true},
+          peso = ${peso || null},
+          unidad_peso = ${unidad_peso || "kg"},
+          opcion1_nombre = ${opcion1_nombre || null},
+          opcion1_valor = ${opcion1_valor || null},
+          opcion2_nombre = ${opcion2_nombre || null},
+          opcion2_valor = ${opcion2_valor || null},
+          opcion3_nombre = ${opcion3_nombre || null},
+          opcion3_valor = ${opcion3_valor || null},
+          posicion = ${posicion || 1},
           fecha_actualizacion = NOW(),
           ultima_sincronizacion = NOW()
-        WHERE shopify_id = $1
+        WHERE shopify_id = ${shopify_id}
         RETURNING *
-      `,
-        [
-          shopify_id,
-          producto_id,
-          titulo,
-          precio || null,
-          precio_comparacion || null,
-          sku || null,
-          codigo_barras || null,
-          inventario_disponible || null,
-          politica_inventario || null,
-          requiere_envio !== undefined ? requiere_envio : true,
-          peso || null,
-          unidad_peso || "kg",
-          opcion1_nombre || null,
-          opcion1_valor || null,
-          opcion2_nombre || null,
-          opcion2_valor || null,
-          opcion3_nombre || null,
-          opcion3_valor || null,
-          posicion || 1,
-        ],
-      )
+      `
 
       return result.rows[0]
     } else {
       // Crear nueva variante
-      const result = await sql.query(
-        `
+      const result = await sql`
         INSERT INTO variantes_producto (
           shopify_id, producto_id, titulo, precio, precio_comparacion,
           sku, codigo_barras, inventario_disponible, politica_inventario,
@@ -407,33 +315,16 @@ export async function upsertVarianteProducto(data: any): Promise<any> {
           posicion, fecha_creacion, fecha_actualizacion, ultima_sincronizacion
         )
         VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-          $15, $16, $17, $18, $19, NOW(), NOW(), NOW()
+          ${shopify_id}, ${producto_id}, ${titulo}, ${precio || null},
+          ${precio_comparacion || null}, ${sku || null}, ${codigo_barras || null},
+          ${inventario_disponible || null}, ${politica_inventario || null},
+          ${requiere_envio !== undefined ? requiere_envio : true}, ${peso || null},
+          ${unidad_peso || "kg"}, ${opcion1_nombre || null}, ${opcion1_valor || null},
+          ${opcion2_nombre || null}, ${opcion2_valor || null}, ${opcion3_nombre || null},
+          ${opcion3_valor || null}, ${posicion || 1}, NOW(), NOW(), NOW()
         )
         RETURNING *
-      `,
-        [
-          shopify_id,
-          producto_id,
-          titulo,
-          precio || null,
-          precio_comparacion || null,
-          sku || null,
-          codigo_barras || null,
-          inventario_disponible || null,
-          politica_inventario || null,
-          requiere_envio !== undefined ? requiere_envio : true,
-          peso || null,
-          unidad_peso || "kg",
-          opcion1_nombre || null,
-          opcion1_valor || null,
-          opcion2_nombre || null,
-          opcion2_valor || null,
-          opcion3_nombre || null,
-          opcion3_valor || null,
-          posicion || 1,
-        ],
-      )
+      `
 
       return result.rows[0]
     }
@@ -444,71 +335,48 @@ export async function upsertVarianteProducto(data: any): Promise<any> {
 }
 
 // Crear o actualizar una imagen de producto
-export async function upsertImagenProducto(data: any): Promise<any> {
+export async function upsertImagenProducto(data: Partial<ImagenProducto>): Promise<ImagenProducto> {
   try {
     const { shopify_id, producto_id, variante_id, url, texto_alternativo, posicion, es_destacada } = data
 
     // Verificar si la imagen ya existe
-    const existingImage = await sql.query(
-      `
+    const existingImage = await sql`
       SELECT id FROM imagenes_producto
-      WHERE shopify_id = $1
-    `,
-      [shopify_id],
-    )
+      WHERE shopify_id = ${shopify_id}
+    `
 
     if (existingImage.rows.length > 0) {
       // Actualizar imagen existente
-      const result = await sql.query(
-        `
+      const result = await sql`
         UPDATE imagenes_producto
         SET
-          producto_id = $2,
-          variante_id = $3,
-          url = $4,
-          texto_alternativo = $5,
-          posicion = $6,
-          es_destacada = $7,
+          producto_id = ${producto_id},
+          variante_id = ${variante_id || null},
+          url = ${url},
+          texto_alternativo = ${texto_alternativo || null},
+          posicion = ${posicion || 1},
+          es_destacada = ${es_destacada || false},
           fecha_actualizacion = NOW(),
           ultima_sincronizacion = NOW()
-        WHERE shopify_id = $1
+        WHERE shopify_id = ${shopify_id}
         RETURNING *
-      `,
-        [
-          shopify_id,
-          producto_id,
-          variante_id || null,
-          url,
-          texto_alternativo || null,
-          posicion || 1,
-          es_destacada || false,
-        ],
-      )
+      `
 
       return result.rows[0]
     } else {
       // Crear nueva imagen
-      const result = await sql.query(
-        `
+      const result = await sql`
         INSERT INTO imagenes_producto (
           shopify_id, producto_id, variante_id, url, texto_alternativo,
           posicion, es_destacada, fecha_creacion, fecha_actualizacion, ultima_sincronizacion
         )
         VALUES (
-          $1, $2, $3, $4, $5, $6, $7, NOW(), NOW(), NOW()
+          ${shopify_id}, ${producto_id}, ${variante_id || null}, ${url},
+          ${texto_alternativo || null}, ${posicion || 1}, ${es_destacada || false},
+          NOW(), NOW(), NOW()
         )
         RETURNING *
-      `,
-        [
-          shopify_id,
-          producto_id,
-          variante_id || null,
-          url,
-          texto_alternativo || null,
-          posicion || 1,
-          es_destacada || false,
-        ],
-      )
+      `
 
       return result.rows[0]
     }
@@ -519,16 +387,13 @@ export async function upsertImagenProducto(data: any): Promise<any> {
 }
 
 // Obtener variantes de un producto
-export async function getVariantesByProductoId(productoId: number): Promise<any[]> {
+export async function getVariantesByProductoId(productoId: number): Promise<VarianteProducto[]> {
   try {
-    const result = await sql.query(
-      `
+    const result = await sql`
       SELECT * FROM variantes_producto
-      WHERE producto_id = $1
+      WHERE producto_id = ${productoId}
       ORDER BY posicion ASC
-    `,
-      [productoId],
-    )
+    `
 
     return result.rows
   } catch (error) {
@@ -538,16 +403,13 @@ export async function getVariantesByProductoId(productoId: number): Promise<any[
 }
 
 // Obtener imágenes de un producto
-export async function getImagenesByProductoId(productoId: number): Promise<any[]> {
+export async function getImagenesByProductoId(productoId: number): Promise<ImagenProducto[]> {
   try {
-    const result = await sql.query(
-      `
+    const result = await sql`
       SELECT * FROM imagenes_producto
-      WHERE producto_id = $1
+      WHERE producto_id = ${productoId}
       ORDER BY posicion ASC
-    `,
-      [productoId],
-    )
+    `
 
     return result.rows
   } catch (error) {
@@ -561,22 +423,18 @@ export async function deleteVariantesNotInList(productoId: number, variantIds: s
   try {
     if (!variantIds.length) {
       // Si no hay IDs, eliminar todas las variantes del producto
-      await sql.query(
-        `
+      await sql`
         DELETE FROM variantes_producto
-        WHERE producto_id = $1
-      `,
-        [productoId],
-      )
+        WHERE producto_id = ${productoId}
+      `
     } else {
       // Eliminar solo las variantes que no están en la lista
-      await sql.query(
-        `
+      const placeholders = variantIds.map((_, i) => `$${i + 2}`).join(", ")
+      const query = `
         DELETE FROM variantes_producto
-        WHERE producto_id = $1 AND shopify_id NOT IN (${variantIds.map((_, i) => `$${i + 2}`).join(", ")})
-      `,
-        [productoId, ...variantIds],
-      )
+        WHERE producto_id = $1 AND shopify_id NOT IN (${placeholders})
+      `
+      await sql.query(query, [productoId, ...variantIds])
     }
   } catch (error) {
     console.error(`Error al eliminar variantes del producto con ID ${productoId}:`, error)
@@ -589,22 +447,18 @@ export async function deleteImagenesNotInList(productoId: number, imageIds: stri
   try {
     if (!imageIds.length) {
       // Si no hay IDs, eliminar todas las imágenes del producto
-      await sql.query(
-        `
+      await sql`
         DELETE FROM imagenes_producto
-        WHERE producto_id = $1
-      `,
-        [productoId],
-      )
+        WHERE producto_id = ${productoId}
+      `
     } else {
       // Eliminar solo las imágenes que no están en la lista
-      await sql.query(
-        `
+      const placeholders = imageIds.map((_, i) => `$${i + 2}`).join(", ")
+      const query = `
         DELETE FROM imagenes_producto
-        WHERE producto_id = $1 AND shopify_id NOT IN (${imageIds.map((_, i) => `$${i + 2}`).join(", ")})
-      `,
-        [productoId, ...imageIds],
-      )
+        WHERE producto_id = $1 AND shopify_id NOT IN (${placeholders})
+      `
+      await sql.query(query, [productoId, ...imageIds])
     }
   } catch (error) {
     console.error(`Error al eliminar imágenes del producto con ID ${productoId}:`, error)
