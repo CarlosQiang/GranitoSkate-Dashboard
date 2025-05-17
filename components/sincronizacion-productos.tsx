@@ -17,19 +17,31 @@ export function SincronizacionProductos() {
       setLoading(true)
       setError(null)
 
-      const response = await fetch("/api/sync/products", {
+      // Intentar primero con la ruta en inglés
+      let response = await fetch("/api/sync/products", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || "Error al sincronizar productos")
+      // Si falla, intentar con la ruta en español
+      if (!response.ok && response.status === 404) {
+        console.log("Ruta /api/sync/products no encontrada, intentando con /api/sync/productos")
+        response = await fetch("/api/sync/productos", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
       }
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json()
       setResultado(data.resultados)
     } catch (err) {
       console.error("Error al sincronizar productos:", err)
