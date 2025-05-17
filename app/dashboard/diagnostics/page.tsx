@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { SystemDiagnostics } from "@/components/system-diagnostics"
 import { DbConnectionStatus } from "@/components/db-connection-status"
 import { DbInitializer } from "@/components/db-initializer"
+import { SystemConfigChecker } from "@/components/system-config-checker"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 
@@ -30,6 +31,7 @@ export default function DiagnosticsPage() {
       </p>
 
       <div className="grid gap-6 md:grid-cols-2">
+        <SystemConfigChecker />
         <DbConnectionStatus />
         <DbInitializer />
         <Card>

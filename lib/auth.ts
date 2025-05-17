@@ -2,6 +2,7 @@ import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { PrismaClient } from "@prisma/client"
 import { compare } from "bcryptjs"
+import { envConfig, devDefaults } from "./config/env"
 
 const prisma = new PrismaClient()
 
@@ -23,12 +24,31 @@ export const authOptions: NextAuthOptions = {
           console.log("Buscando usuario:", credentials.identifier)
 
           // Buscar usuario por nombre de usuario o correo electrónico
-          const user = await prisma.administradores.findFirst({
-            where: {
-              OR: [{ nombre_usuario: credentials.identifier }, { correo_electronico: credentials.identifier }],
-              activo: true,
-            },
-          })
+          const user = await prisma.administradores
+            .findFirst({
+              where: {
+                OR: [{ nombre_usuario: credentials.identifier }, { correo_electronico: credentials.identifier }],
+                activo: true,
+              },
+            })
+            .catch((err) => {
+              console.error("Error al buscar usuario en la base de datos:", err)
+              // En desarrollo, podemos usar un usuario predeterminado para pruebas
+              if (envConfig.isDevelopment) {
+                console.warn("Usando usuario predeterminado para desarrollo")
+                return {
+                  id: 1,
+                  nombre_usuario: "admin",
+                  correo_electronico: "admin@example.com",
+                  contrasena: "GranitoSkate", // Contraseña maestra para desarrollo
+                  nombre_completo: "Administrador",
+                  rol: "admin",
+                  activo: true,
+                  ultimo_acceso: new Date(),
+                }
+              }
+              return null
+            })
 
           if (!user) {
             console.log("Usuario no encontrado:", credentials.identifier)
@@ -62,10 +82,15 @@ export const authOptions: NextAuthOptions = {
           console.log("Autenticación exitosa para:", user.nombre_usuario)
 
           // Actualizar último acceso
-          await prisma.administradores.update({
-            where: { id: user.id },
-            data: { ultimo_acceso: new Date() },
-          })
+          await prisma.administradores
+            .update({
+              where: { id: user.id },
+              data: { ultimo_acceso: new Date() },
+            })
+            .catch((err) => {
+              console.error("Error al actualizar último acceso:", err)
+              // No bloqueamos la autenticación si esto falla
+            })
 
           return {
             id: user.id.toString(),
@@ -104,6 +129,6 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 días
   },
-  secret: process.env.NEXTAUTH_SECRET || "tu-secreto-seguro-aqui",
-  debug: process.env.NODE_ENV === "development",
+  secret: envConfig.nextAuthSecret || devDefaults.nextAuthSecret,
+  debug: envConfig.isDevelopment,
 }
