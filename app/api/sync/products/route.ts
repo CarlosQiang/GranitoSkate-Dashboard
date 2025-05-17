@@ -1,66 +1,56 @@
 import { NextResponse } from "next/server"
+import { sincronizarProductos } from "@/lib/services/sync-service"
 
-export async function GET() {
+export async function POST(request: Request) {
   try {
-    // Simulamos una sincronización exitosa
-    const mockProducts = [
-      {
-        id: "gid://shopify/Product/1",
-        title: "Producto de Prueba 1",
-        handle: "producto-de-prueba-1",
-        description: "Descripción del producto de prueba 1",
-        status: "ACTIVE",
-        images: {
-          edges: [
-            {
-              node: {
-                url: "https://via.placeholder.com/500",
-              },
-            },
-          ],
-        },
-        variants: {
-          edges: [
-            {
-              node: {
-                id: "gid://shopify/ProductVariant/1",
-                price: "0.00",
-                inventoryQuantity: 10,
-              },
-            },
-          ],
-        },
-        productType: "Skate",
-        vendor: "Granito",
-      },
-      {
-        id: "gid://shopify/Product/2",
-        title: "sad",
-        handle: "sad",
-        description: "",
-        status: "ACTIVE",
-        images: {
-          edges: [],
-        },
-        variants: {
-          edges: [
-            {
-              node: {
-                id: "gid://shopify/ProductVariant/2",
-                price: "0.00",
-                inventoryQuantity: 5,
-              },
-            },
-          ],
-        },
-        productType: "",
-        vendor: "",
-      },
-    ]
+    // Obtener parámetros de la solicitud
+    const { searchParams } = new URL(request.url)
+    const limit = Number.parseInt(searchParams.get("limit") || "50", 10)
 
-    return NextResponse.json({ success: true, products: mockProducts })
+    // Sincronizar productos reales de Shopify
+    const resultados = await sincronizarProductos(limit)
+
+    return NextResponse.json({
+      success: true,
+      message: `Sincronización completada: ${resultados.creados} creados, ${resultados.actualizados} actualizados, ${resultados.errores} errores`,
+      resultados,
+    })
   } catch (error) {
-    console.error("Error al sincronizar productos:", error)
-    return NextResponse.json({ success: false, error: "Error al sincronizar productos" }, { status: 500 })
+    console.error("Error en la sincronización de productos:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message || "Error desconocido",
+        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+      },
+      { status: 500 },
+    )
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    // Obtener parámetros de la solicitud
+    const { searchParams } = new URL(request.url)
+    const limit = Number.parseInt(searchParams.get("limit") || "50", 10)
+
+    // Sincronizar productos reales de Shopify
+    const resultados = await sincronizarProductos(limit)
+
+    return NextResponse.json({
+      success: true,
+      message: `Sincronización completada: ${resultados.creados} creados, ${resultados.actualizados} actualizados, ${resultados.errores} errores`,
+      resultados,
+    })
+  } catch (error) {
+    console.error("Error en la sincronización de productos:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message || "Error desconocido",
+        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+      },
+      { status: 500 },
+    )
   }
 }

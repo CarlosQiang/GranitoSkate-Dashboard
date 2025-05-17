@@ -17,7 +17,7 @@ export function SincronizacionProductos() {
       setLoading(true)
       setError(null)
 
-      const response = await fetch("/api/sync/productos", {
+      const response = await fetch("/api/sync/products", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",

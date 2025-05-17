@@ -88,8 +88,14 @@ export async function obtenerProductosDeShopify(limit = 50) {
     // Realizar la consulta a Shopify
     const response = await shopifyFetch({ query })
 
+    // Verificar si hay errores en la respuesta
+    if (response.errors) {
+      const errorMessage = response.errors.map((e) => e.message).join(", ")
+      throw new Error(`Error en la API de Shopify: ${errorMessage}`)
+    }
+
     if (!response.data || !response.data.products) {
-      throw new Error("No se pudieron obtener productos de Shopify")
+      throw new Error("No se pudieron obtener productos de Shopify: respuesta vacía o inválida")
     }
 
     // Registrar éxito de la obtención

@@ -25,59 +25,37 @@ const shopifyClient = new GraphQLClient(`${getBaseUrl()}/api/shopify`, {
 // Función para realizar consultas GraphQL a Shopify
 export async function shopifyFetch({ query, variables = {} }) {
   try {
-    logger.debug("Enviando consulta GraphQL a Shopify", {
-      query: query.substring(0, 100) + "...", // Solo para logging, truncamos la consulta
-      variables,
-    })
-
-    const result = await shopifyClient.request(query, variables)
-
-    // Verificar si la respuesta contiene datos
-    if (!result) {
-      logger.error("Respuesta vacía de Shopify")
-      return {
-        data: null,
-        errors: [{ message: "Respuesta vacía de la API de Shopify" }],
-      }
+    if (!process.env.SHOPIFY_API_URL || !process.env.SHOPIFY_ACCESS_TOKEN) {
+      throw new Error(
+        "Faltan credenciales de Shopify. Verifica las variables de entorno SHOPIFY_API_URL y SHOPIFY_ACCESS_TOKEN.",
+      )
     }
 
-    return { data: result, errors: null }
+    const endpoint = process.env.SHOPIFY_API_URL
+    const key = process.env.SHOPIFY_ACCESS_TOKEN
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": key,
+      },
+      body: JSON.stringify({
+        query,
+        variables,
+      }),
+    })
+
+    if (!response.ok) {
+      const text = await response.text()
+      throw new Error(`Error en la solicitud a Shopify (${response.status}): ${text}`)
+    }
+
+    const json = await response.json()
+    return json
   } catch (error) {
-    logger.error("Error en la consulta GraphQL", {
-      error: error instanceof Error ? error.message : "Error desconocido",
-      response: error.response,
-    })
-
-    // Verificar si el error es debido a una respuesta HTML en lugar de JSON
-    if (error.response?.text && error.response.text.includes("<!DOCTYPE")) {
-      logger.error("Recibida respuesta HTML en lugar de JSON. Posible error de servidor o redirección.")
-      return {
-        data: null,
-        errors: [
-          {
-            message:
-              "Recibida respuesta HTML en lugar de JSON. Verifica la configuración de Shopify y las credenciales.",
-          },
-        ],
-      }
-    }
-
-    // Intentar extraer errores específicos de GraphQL
-    const graphQLErrors = error.response?.errors || [{ message: error.message }]
-
-    // Registrar detalles adicionales para depuración
-    if (error.response) {
-      logger.error("Detalles de la respuesta de error", {
-        status: error.response.status,
-        statusText: error.response.statusText,
-        errors: graphQLErrors,
-      })
-    }
-
-    return {
-      data: null,
-      errors: graphQLErrors,
-    }
+    console.error("Error en shopifyFetch:", error)
+    throw error
   }
 }
 
