@@ -333,4 +333,3 @@ export async function getProductoCompleto(id: number) {
     throw error
   }
 }
-"\
