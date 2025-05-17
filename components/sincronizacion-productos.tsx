@@ -13,15 +13,15 @@ export function SincronizacionProductos() {
   const [error, setError] = useState<string | null>(null)
   const [debug, setDebug] = useState<any>(null)
 
-  const verificarShopify = async () => {
+  const verificarBaseDatos = async () => {
     try {
       setLoading(true)
       setError(null)
       setDebug(null)
 
-      console.log("Verificando conexión con Shopify...")
+      console.log("Verificando conexión con la base de datos...")
 
-      const response = await fetch("/api/debug/shopify", {
+      const response = await fetch("/api/db/check", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -29,20 +29,23 @@ export function SincronizacionProductos() {
       })
 
       const data = await response.json()
-      console.log("Resultado de la verificación:", data)
+      console.log("Resultado de la verificación de la base de datos:", data)
 
       setDebug(data)
 
-      if (data.shopify?.error) {
-        setError(`Error de conexión con Shopify: ${data.shopify.error.message}`)
-      } else if (!data.shopify?.response?.data?.shop) {
-        setError("No se pudo obtener información de la tienda Shopify")
+      if (!data.success) {
+        setError(`Error de conexión con la base de datos: ${data.error || "Error desconocido"}`)
       } else {
         setError(null)
+        setResultado({
+          success: true,
+          message: "Conexión a la base de datos establecida correctamente",
+          dbInfo: data,
+        })
       }
     } catch (err) {
-      console.error("Error al verificar Shopify:", err)
-      setError(err.message || "Error desconocido al verificar Shopify")
+      console.error("Error al verificar la base de datos:", err)
+      setError(err.message || "Error desconocido al verificar la base de datos")
     } finally {
       setLoading(false)
     }
@@ -56,7 +59,23 @@ export function SincronizacionProductos() {
 
       console.log("Iniciando sincronización de productos...")
 
-      const response = await fetch("/api/sync/products", {
+      // Primero verificamos la conexión a la base de datos
+      const dbCheckResponse = await fetch("/api/db/check", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      const dbCheckData = await dbCheckResponse.json()
+      console.log("Verificación de la base de datos:", dbCheckData)
+
+      if (!dbCheckData.success) {
+        throw new Error(`Error de conexión con la base de datos: ${dbCheckData.error || "Error desconocido"}`)
+      }
+
+      // Ahora sincronizamos los productos
+      const response = await fetch("/api/sync/products?limit=5", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -81,7 +100,7 @@ export function SincronizacionProductos() {
       }
 
       setResultado(data)
-      setDebug({ responseData: data })
+      setDebug({ responseData: data, dbCheck: dbCheckData })
     } catch (err) {
       console.error("Error al sincronizar productos:", err)
       setError(err.message || "Error desconocido al sincronizar productos")
@@ -117,27 +136,59 @@ export function SincronizacionProductos() {
                 <p>
                   <strong>Mensaje:</strong> {resultado.message}
                 </p>
-                {resultado.productos && (
+                {resultado.resultados && (
+                  <>
+                    <p>
+                      <strong>Total procesados:</strong> {resultado.resultados.total}
+                    </p>
+                    <p>
+                      <strong>Creados:</strong> {resultado.resultados.creados}
+                    </p>
+                    <p>
+                      <strong>Actualizados:</strong> {resultado.resultados.actualizados}
+                    </p>
+                    <p>
+                      <strong>Errores:</strong> {resultado.resultados.errores}
+                    </p>
+                  </>
+                )}
+                {resultado.dbInfo && (
                   <p>
-                    <strong>Productos obtenidos:</strong> {resultado.productos.length}
+                    <strong>Base de datos:</strong> Conectada correctamente
                   </p>
                 )}
               </div>
 
-              {resultado.productos && resultado.productos.length > 0 && (
+              {resultado.resultados?.detalles && resultado.resultados.detalles.length > 0 && (
                 <Accordion type="single" collapsible className="mt-4">
-                  <AccordionItem value="productos">
-                    <AccordionTrigger>Ver productos</AccordionTrigger>
+                  <AccordionItem value="detalles">
+                    <AccordionTrigger>Ver detalles</AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-2 text-sm">
-                        {resultado.productos.map((producto: any, index: number) => (
-                          <div key={index} className="p-2 rounded bg-green-50">
+                        {resultado.resultados.detalles.map((detalle: any, index: number) => (
+                          <div
+                            key={index}
+                            className={`p-2 rounded ${detalle.resultado === "exito" ? "bg-green-50" : "bg-red-50"}`}
+                          >
                             <p>
-                              <strong>ID:</strong> {producto.id}
+                              <strong>ID:</strong> {detalle.id}
                             </p>
                             <p>
-                              <strong>Título:</strong> {producto.title}
+                              <strong>Título:</strong> {detalle.titulo}
                             </p>
+                            <p>
+                              <strong>Resultado:</strong> {detalle.resultado}
+                            </p>
+                            {detalle.accion && (
+                              <p>
+                                <strong>Acción:</strong> {detalle.accion}
+                              </p>
+                            )}
+                            {detalle.mensaje && (
+                              <p>
+                                <strong>Mensaje:</strong> {detalle.mensaje}
+                              </p>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -186,9 +237,9 @@ export function SincronizacionProductos() {
             </>
           )}
         </Button>
-        <Button onClick={verificarShopify} variant="outline" size="sm" className="w-full">
+        <Button onClick={verificarBaseDatos} variant="outline" size="sm" className="w-full">
           <Bug className="mr-2 h-4 w-4" />
-          Verificar Conexión con Shopify
+          Verificar Conexión con Base de Datos
         </Button>
       </CardFooter>
     </Card>
