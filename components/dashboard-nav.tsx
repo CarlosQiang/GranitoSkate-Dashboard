@@ -26,12 +26,39 @@ export function DashboardNav() {
     setIsMenuOpen(false)
   }, [pathname])
 
+  // Cerrar el menú cuando se hace clic fuera de él
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const nav = document.getElementById("mobile-nav")
+      if (nav && !nav.contains(event.target as Node) && isMenuOpen) {
+        setIsMenuOpen(false)
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [isMenuOpen])
+
+  // Prevenir scroll cuando el menú está abierto en móvil
+  useEffect(() => {
+    if (isMenuOpen) {
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = "auto"
+    }
+    return () => {
+      document.body.style.overflow = "auto"
+    }
+  }, [isMenuOpen])
+
   return (
     <>
       {/* Botón de menú móvil con animación mejorada */}
       <Button
         variant="ghost"
-        className="md:hidden fixed top-4 right-4 z-50 transition-all duration-200"
+        className="md:hidden fixed top-4 right-4 z-50 transition-all duration-200 bg-background/80 backdrop-blur-sm"
         onClick={toggleMenu}
         aria-label={isMenuOpen ? "Cerrar menú" : "Abrir menú"}
       >
@@ -40,6 +67,7 @@ export function DashboardNav() {
 
       {/* Navegación para escritorio y móvil con animaciones mejoradas */}
       <nav
+        id="mobile-nav"
         className={cn(
           "w-full md:w-64 flex-col border-r bg-muted/40 backdrop-blur-sm",
           "fixed md:sticky top-0 left-0 h-full z-40",

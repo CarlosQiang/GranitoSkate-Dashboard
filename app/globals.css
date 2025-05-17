@@ -5,46 +5,46 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 20 14.3% 4.1%;
+    --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
-    --card-foreground: 20 14.3% 4.1%;
+    --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 20 14.3% 4.1%;
+    --popover-foreground: 240 10% 3.9%;
     --primary: 39 54% 53%; /* Color Granito #c7a04a */
-    --primary-foreground: 60 9.1% 97.8%;
-    --secondary: 60 4.8% 95.9%;
-    --secondary-foreground: 24 9.8% 10%;
-    --muted: 60 4.8% 95.9%;
-    --muted-foreground: 25 5.3% 44.7%;
-    --accent: 60 4.8% 95.9%;
-    --accent-foreground: 24 9.8% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 60 9.1% 97.8%;
-    --border: 20 5.9% 90%;
-    --input: 20 5.9% 90%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
     --ring: 39 54% 53%; /* Color Granito #c7a04a */
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 20 14.3% 4.1%;
-    --foreground: 60 9.1% 97.8%;
-    --card: 20 14.3% 4.1%;
-    --card-foreground: 60 9.1% 97.8%;
-    --popover: 20 14.3% 4.1%;
-    --popover-foreground: 60 9.1% 97.8%;
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
     --primary: 39 54% 53%; /* Color Granito #c7a04a */
-    --primary-foreground: 60 9.1% 97.8%;
-    --secondary: 12 6.5% 15.1%;
-    --secondary-foreground: 60 9.1% 97.8%;
-    --muted: 12 6.5% 15.1%;
-    --muted-foreground: 24 5.4% 63.9%;
-    --accent: 12 6.5% 15.1%;
-    --accent-foreground: 60 9.1% 97.8%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 60 9.1% 97.8%;
-    --border: 12 6.5% 15.1%;
-    --input: 12 6.5% 15.1%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
     --ring: 39 54% 53%; /* Color Granito #c7a04a */
   }
 }
@@ -58,31 +58,124 @@
   }
 }
 
-/* Clases personalizadas para el color de la marca */
-.bg-brand {
-  background-color: #c7a04a;
+.granito-gradient {
+  background: linear-gradient(to right, #c7a04a, #d5b66e);
 }
 
-.text-brand {
-  color: #c7a04a;
+/* Clases de utilidad para responsividad */
+.mobile-container {
+  @apply px-4 sm:px-6 md:px-8;
 }
 
-.border-brand {
-  border-color: #c7a04a;
+.responsive-grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4;
 }
 
-.ring-brand {
-  --tw-ring-color: #c7a04a;
+.responsive-grid-tight {
+  @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3;
 }
 
-.hover\:bg-brand-dark:hover {
-  background-color: #a58339;
+.responsive-flex {
+  @apply flex flex-col sm:flex-row gap-4;
 }
 
-.hover\:text-brand-dark:hover {
-  color: #a58339;
+/* Mejoras para dispositivos móviles */
+@media (max-width: 640px) {
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-full-height {
+    min-height: calc(100vh - 4rem);
+  }
+
+  .mobile-bottom-sheet {
+    @apply fixed bottom-0 left-0 right-0 bg-background border-t rounded-t-xl shadow-lg z-50 p-4;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  /* Ajustes para tablas en móvil */
+  .table-responsive {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Ajustes para tarjetas en móvil */
+  .card-responsive {
+    @apply p-3 md:p-6;
+  }
+
+  /* Ajustes para botones en móvil */
+  .btn-responsive {
+    @apply text-sm py-1.5 px-3 md:text-base md:py-2 md:px-4;
+  }
 }
 
-.focus\:ring-brand:focus {
-  --tw-ring-color: #c7a04a;
+/* Animaciones para mejorar la experiencia de usuario */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease-in-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Mejoras para la responsividad de formularios */
+.form-responsive {
+  @apply space-y-4 md:space-y-6;
+}
+
+.form-responsive .form-group {
+  @apply flex flex-col space-y-2;
+}
+
+.form-responsive .form-row {
+  @apply grid grid-cols-1 md:grid-cols-2 gap-4;
+}
+
+/* Mejoras para la responsividad de tablas */
+.table-container {
+  @apply w-full overflow-x-auto rounded-md border;
+}
+
+/* Mejoras para la responsividad de botones */
+.button-group {
+  @apply flex flex-wrap gap-2;
+}
+
+/* Mejoras para la responsividad de tarjetas */
+.card-grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4;
+}
+
+.card-grid-compact {
+  @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3;
 }

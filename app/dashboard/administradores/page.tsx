@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { UserPlus, Edit, Trash2, CheckCircle, XCircle } from "lucide-react"
+import { Suspense } from "react"
 
 export default async function AdministradoresPage() {
   const session = await getServerSession(authOptions)
@@ -19,53 +20,71 @@ export default async function AdministradoresPage() {
     redirect("/dashboard")
   }
 
-  // Obtener la lista de administradores
-  const { rows: administradores } = await sql`
-    SELECT 
-      id, 
-      nombre_usuario, 
-      correo_electronico, 
-      nombre_completo, 
-      rol, 
-      activo, 
-      ultimo_acceso,
-      fecha_creacion
-    FROM 
-      administradores
-    ORDER BY 
-      fecha_creacion DESC
-  `
-
   return (
-    <div className="container mx-auto py-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Gestión de Administradores</h1>
+    <div className="container mx-auto py-4 md:py-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <h1 className="text-xl md:text-2xl font-bold">Gestión de Administradores</h1>
         <Link href="/dashboard/administradores/nuevo">
-          <Button className="bg-granito hover:bg-granito-dark">
+          <Button className="bg-granito hover:bg-granito-dark w-full sm:w-auto">
             <UserPlus className="mr-2 h-4 w-4" />
             Nuevo Administrador
           </Button>
         </Link>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <Suspense fallback={<div className="text-center py-8">Cargando administradores...</div>}>
+        <AdministradoresList />
+      </Suspense>
+    </div>
+  )
+}
+
+async function AdministradoresList() {
+  try {
+    // Obtener la lista de administradores
+    const { rows: administradores } = await sql`
+      SELECT 
+        id, 
+        nombre_usuario, 
+        correo_electronico, 
+        nombre_completo, 
+        rol, 
+        activo, 
+        ultimo_acceso,
+        fecha_creacion
+      FROM 
+        administradores
+      ORDER BY 
+        fecha_creacion DESC
+    `
+
+    if (administradores.length === 0) {
+      return (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground">No hay administradores registrados.</p>
+        </div>
+      )
+    }
+
+    return (
+      <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {administradores.map((admin) => (
           <Card key={admin.id} className="overflow-hidden">
             <CardHeader className="pb-2 bg-gray-50">
-              <CardTitle className="flex justify-between items-center">
-                <span>{admin.nombre_completo || admin.nombre_usuario}</span>
+              <CardTitle className="flex justify-between items-center text-base md:text-lg">
+                <span className="truncate">{admin.nombre_completo || admin.nombre_usuario}</span>
                 {admin.activo ? (
-                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                 ) : (
-                  <XCircle className="h-5 w-5 text-red-500" />
+                  <XCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
                 )}
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4">
-              <p className="text-sm text-gray-500 mb-2">
+              <p className="text-sm text-gray-500 mb-2 truncate">
                 <span className="font-medium">Usuario:</span> {admin.nombre_usuario}
               </p>
-              <p className="text-sm text-gray-500 mb-2">
+              <p className="text-sm text-gray-500 mb-2 truncate">
                 <span className="font-medium">Email:</span> {admin.correo_electronico}
               </p>
               <p className="text-sm text-gray-500 mb-2">
@@ -79,7 +98,7 @@ export default async function AdministradoresPage() {
                 {admin.ultimo_acceso ? new Date(admin.ultimo_acceso).toLocaleString() : "Nunca"}
               </p>
 
-              <div className="mt-4 flex space-x-2">
+              <div className="mt-4 flex flex-wrap gap-2">
                 <Link href={`/dashboard/administradores/${admin.id}/editar`}>
                   <Button variant="outline" size="sm" className="flex items-center">
                     <Edit className="mr-1 h-4 w-4" />
@@ -101,6 +120,13 @@ export default async function AdministradoresPage() {
           </Card>
         ))}
       </div>
-    </div>
-  )
+    )
+  } catch (error) {
+    console.error("Error al obtener administradores:", error)
+    return (
+      <div className="text-center py-8">
+        <p className="text-red-500">Error al cargar los administradores. Intente nuevamente más tarde.</p>
+      </div>
+    )
+  }
 }
