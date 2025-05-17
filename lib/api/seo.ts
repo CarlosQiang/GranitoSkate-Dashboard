@@ -247,7 +247,7 @@ export async function getMetafields(ownerId: string, ownerType: string, namespac
   }
 }
 
-// Modificar la función setMetafield para manejar mejor los errores
+// Modificar la función setMetafield para usar la mutación correcta
 export async function setMetafield(
   ownerId: string,
   ownerType: string,
@@ -279,10 +279,10 @@ export async function setMetafield(
     // Asegurarse de que el ID tenga el formato correcto
     const formattedId = ownerId.includes("gid://shopify/") ? ownerId : `gid://shopify/${ownerType}/${ownerId}`
 
-    // Usar la mutación correcta según la versión actual de la API de Shopify
+    // Usar la mutación correcta para la API de Shopify
     const mutation = gql`
-      mutation MetafieldSet($metafield: MetafieldInput!) {
-        metafieldSet(metafield: $metafield) {
+      mutation MetafieldCreate($metafield: MetafieldInput!) {
+        metafieldCreate(metafield: $metafield) {
           metafield {
             id
             namespace
@@ -311,8 +311,8 @@ export async function setMetafield(
     try {
       const data = await shopifyClient.request(mutation, variables)
 
-      if (data.metafieldSet.userErrors && data.metafieldSet.userErrors.length > 0) {
-        console.error("Error setting metafield:", data.metafieldSet.userErrors)
+      if (data.metafieldCreate.userErrors && data.metafieldCreate.userErrors.length > 0) {
+        console.error("Error setting metafield:", data.metafieldCreate.userErrors)
         // Simulamos éxito para evitar bloquear la interfaz
         return {
           id: "mock-id",
@@ -327,7 +327,7 @@ export async function setMetafield(
         }
       }
 
-      const node = data.metafieldSet.metafield
+      const node = data.metafieldCreate.metafield
       return {
         id: node.id,
         namespace: node.namespace,

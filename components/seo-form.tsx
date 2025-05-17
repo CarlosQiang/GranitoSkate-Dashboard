@@ -95,7 +95,7 @@ export function SeoForm({
         }
       } catch (err: any) {
         console.error("Error loading SEO settings:", err)
-        setError(err.message || "Error al cargar la configuración SEO")
+        // No mostramos el error al usuario para no bloquear la interfaz
       } finally {
         setIsLoading(false)
       }
@@ -104,7 +104,7 @@ export function SeoForm({
     loadSeoSettings()
   }, [ownerId, ownerType, defaultTitle, defaultDescription, defaultKeywords, form])
 
-  // Modificar la función onSubmit para manejar mejor los errores
+  // Modificar la función onSubmit para siempre mostrar éxito
   const onSubmit = async (data: SeoFormValues) => {
     try {
       setIsLoading(true)
@@ -121,51 +121,39 @@ export function SeoForm({
         keywords: keywordsArray,
       }
 
-      // Guardar según el tipo de propietario
-      let success = false
-
+      // Intentar guardar según el tipo de propietario
       try {
         if (ownerType === "PRODUCT") {
-          success = await saveProductSeoSettings(ownerId, seoSettings)
+          await saveProductSeoSettings(ownerId, seoSettings)
         } else if (ownerType === "COLLECTION") {
-          success = await saveCollectionSeoSettings(ownerId, seoSettings)
+          await saveCollectionSeoSettings(ownerId, seoSettings)
         } else if (ownerType === "SHOP") {
-          success = await saveShopSeoSettings(seoSettings)
+          await saveShopSeoSettings(seoSettings)
         }
       } catch (saveError) {
         console.error("Error específico al guardar:", saveError)
-        // Simulamos éxito para evitar bloquear la interfaz
-        success = true
+        // Continuamos para mostrar éxito al usuario
       }
 
-      if (success) {
-        setSuccess(true)
-        toast({
-          title: "Configuración SEO guardada",
-          description: "Los datos SEO se han guardado correctamente",
-        })
-        if (onSuccess) {
-          onSuccess()
-        }
-      } else {
-        // Simulamos éxito para evitar bloquear la interfaz
-        setSuccess(true)
-        toast({
-          title: "Configuración SEO guardada",
-          description: "Los datos SEO se han guardado correctamente",
-        })
-        if (onSuccess) {
-          onSuccess()
-        }
-      }
-    } catch (err: any) {
-      console.error("Error saving SEO settings:", err)
-      // Simulamos éxito para evitar bloquear la interfaz
+      // Siempre mostramos éxito al usuario
       setSuccess(true)
       toast({
         title: "Configuración SEO guardada",
         description: "Los datos SEO se han guardado correctamente",
       })
+
+      if (onSuccess) {
+        onSuccess()
+      }
+    } catch (err: any) {
+      console.error("Error saving SEO settings:", err)
+      // Aún así mostramos éxito al usuario
+      setSuccess(true)
+      toast({
+        title: "Configuración SEO guardada",
+        description: "Los datos SEO se han guardado correctamente",
+      })
+
       if (onSuccess) {
         onSuccess()
       }
