@@ -1,80 +1,80 @@
 import { NextResponse } from "next/server"
-import { sincronizarProductos } from "@/lib/services/sync-service"
+import { shopifyFetch } from "@/lib/shopify"
 
 export async function GET(request: Request) {
   try {
-    // Obtener parámetros de la solicitud
-    const { searchParams } = new URL(request.url)
-    const limit = Number.parseInt(searchParams.get("limit") || "10", 10)
+    console.log("Iniciando sincronización de productos...")
 
-    console.log(`Iniciando sincronización de productos (límite: ${limit})...`)
-
-    // Verificar que las variables de entorno estén configuradas
-    if (!process.env.SHOPIFY_API_URL || !process.env.SHOPIFY_ACCESS_TOKEN) {
+    // Verificar variables de entorno
+    if (!process.env.SHOPIFY_API_URL) {
       return NextResponse.json(
         {
           success: false,
-          error: "Variables de entorno de Shopify no configuradas",
-          env: {
-            SHOPIFY_API_URL: process.env.SHOPIFY_API_URL ? "Configurado" : "No configurado",
-            SHOPIFY_ACCESS_TOKEN: process.env.SHOPIFY_ACCESS_TOKEN ? "Configurado" : "No configurado",
-          },
+          error: "SHOPIFY_API_URL no está configurado",
         },
         { status: 500 },
       )
     }
 
-    // Sincronizar productos reales de Shopify
-    const resultados = await sincronizarProductos(limit)
-
-    return NextResponse.json({
-      success: true,
-      message: `Sincronización completada: ${resultados.creados} creados, ${resultados.actualizados} actualizados, ${resultados.errores} errores`,
-      resultados,
-    })
-  } catch (error) {
-    console.error("Error en la sincronización de productos:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Error desconocido",
-        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
-      },
-      { status: 500 },
-    )
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    // Obtener parámetros de la solicitud
-    const { searchParams } = new URL(request.url)
-    const limit = Number.parseInt(searchParams.get("limit") || "10", 10)
-
-    console.log(`Iniciando sincronización de productos (límite: ${limit})...`)
-
-    // Verificar que las variables de entorno estén configuradas
-    if (!process.env.SHOPIFY_API_URL || !process.env.SHOPIFY_ACCESS_TOKEN) {
+    if (!process.env.SHOPIFY_ACCESS_TOKEN) {
       return NextResponse.json(
         {
           success: false,
-          error: "Variables de entorno de Shopify no configuradas",
-          env: {
-            SHOPIFY_API_URL: process.env.SHOPIFY_API_URL ? "Configurado" : "No configurado",
-            SHOPIFY_ACCESS_TOKEN: process.env.SHOPIFY_ACCESS_TOKEN ? "Configurado" : "No configurado",
-          },
+          error: "SHOPIFY_ACCESS_TOKEN no está configurado",
         },
         { status: 500 },
       )
     }
 
-    // Sincronizar productos reales de Shopify
-    const resultados = await sincronizarProductos(limit)
+    // Consulta GraphQL simple para obtener productos
+    const query = `
+      query {
+        products(first: 5) {
+          edges {
+            node {
+              id
+              title
+              description
+            }
+          }
+        }
+      }
+    `
+
+    // Realizar la consulta a Shopify
+    const response = await shopifyFetch({ query })
+
+    // Verificar si hay errores en la respuesta
+    if (response.errors) {
+      const errorMessage = response.errors.map((e) => e.message).join(", ")
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Error en la API de Shopify: ${errorMessage}`,
+          errors: response.errors,
+        },
+        { status: 500 },
+      )
+    }
+
+    if (!response.data || !response.data.products) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "No se pudieron obtener productos de Shopify: respuesta vacía o inválida",
+          response,
+        },
+        { status: 500 },
+      )
+    }
+
+    // Extraer productos de la respuesta
+    const productos = response.data.products.edges.map((edge) => edge.node)
 
     return NextResponse.json({
       success: true,
-      message: `Sincronización completada: ${resultados.creados} creados, ${resultados.actualizados} actualizados, ${resultados.errores} errores`,
-      resultados,
+      message: `Se obtuvieron ${productos.length} productos de Shopify`,
+      productos,
     })
   } catch (error) {
     console.error("Error en la sincronización de productos:", error)
