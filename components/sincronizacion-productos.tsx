@@ -4,20 +4,56 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { CheckCircle, AlertCircle, RefreshCw, Database } from "lucide-react"
+import { CheckCircle, AlertCircle, RefreshCw, Database, Bug } from "lucide-react"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
 export function SincronizacionProductos() {
   const [loading, setLoading] = useState(false)
   const [resultado, setResultado] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
+  const [debug, setDebug] = useState<any>(null)
+
+  const verificarAPI = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      setDebug(null)
+
+      const response = await fetch("/api/debug", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      setDebug(data)
+      return data
+    } catch (err) {
+      console.error("Error al verificar API:", err)
+      setError(`Error al verificar API: ${err.message}`)
+      return null
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const sincronizarProductos = async () => {
     try {
       setLoading(true)
       setError(null)
+      setDebug(null)
 
-      // Intentar primero con la ruta en inglés
+      // Verificar primero el estado de la API
+      const debugInfo = await verificarAPI()
+      console.log("Información de depuración:", debugInfo)
+
+      // Intentar con la ruta en inglés
+      console.log("Intentando sincronizar con /api/sync/products...")
       let response = await fetch("/api/sync/products", {
         method: "GET",
         headers: {
@@ -36,13 +72,24 @@ export function SincronizacionProductos() {
         })
       }
 
+      // Si ambas fallan, intentar con una ruta alternativa
+      if (!response.ok && response.status === 404) {
+        console.log("Rutas anteriores no encontradas, intentando con /api/shopify/products")
+        response = await fetch("/api/shopify/products", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+      }
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`)
       }
 
       const data = await response.json()
-      setResultado(data.resultados)
+      setResultado(data.resultados || data)
     } catch (err) {
       console.error("Error al sincronizar productos:", err)
       setError(err.message || "Error desconocido al sincronizar productos")
@@ -75,18 +122,26 @@ export function SincronizacionProductos() {
             <AlertTitle>Sincronización completada</AlertTitle>
             <AlertDescription>
               <div className="mt-2 space-y-1">
-                <p>
-                  Total procesados: <strong>{resultado.total}</strong>
-                </p>
-                <p>
-                  Productos creados: <strong>{resultado.creados}</strong>
-                </p>
-                <p>
-                  Productos actualizados: <strong>{resultado.actualizados}</strong>
-                </p>
-                <p>
-                  Errores: <strong>{resultado.errores}</strong>
-                </p>
+                {resultado.total !== undefined && (
+                  <p>
+                    Total procesados: <strong>{resultado.total}</strong>
+                  </p>
+                )}
+                {resultado.creados !== undefined && (
+                  <p>
+                    Productos creados: <strong>{resultado.creados}</strong>
+                  </p>
+                )}
+                {resultado.actualizados !== undefined && (
+                  <p>
+                    Productos actualizados: <strong>{resultado.actualizados}</strong>
+                  </p>
+                )}
+                {resultado.errores !== undefined && (
+                  <p>
+                    Errores: <strong>{resultado.errores}</strong>
+                  </p>
+                )}
               </div>
 
               {resultado.detalles && resultado.detalles.length > 0 && (
@@ -125,12 +180,30 @@ export function SincronizacionProductos() {
           </Alert>
         )}
 
+        {debug && (
+          <Accordion type="single" collapsible className="mb-4">
+            <AccordionItem value="debug">
+              <AccordionTrigger className="text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Bug className="h-4 w-4" />
+                  Información de depuración
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
+                <pre className="text-xs overflow-auto p-2 bg-slate-50 rounded max-h-60">
+                  {JSON.stringify(debug, null, 2)}
+                </pre>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        )}
+
         <p className="text-sm text-muted-foreground mb-4">
           Esta herramienta te permite sincronizar productos desde tu tienda Shopify a la base de datos local. Los
           productos sincronizados aparecerán en la tabla de productos de la base de datos.
         </p>
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex flex-col gap-2">
         <Button onClick={sincronizarProductos} disabled={loading} className="w-full">
           {loading ? (
             <>
@@ -143,6 +216,10 @@ export function SincronizacionProductos() {
               Sincronizar Productos desde Shopify
             </>
           )}
+        </Button>
+        <Button onClick={verificarAPI} variant="outline" size="sm" className="w-full">
+          <Bug className="mr-2 h-4 w-4" />
+          Verificar estado de la API
         </Button>
       </CardFooter>
     </Card>

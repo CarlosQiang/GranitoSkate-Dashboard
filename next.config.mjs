@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  swcMinify: true,
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -8,62 +9,21 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    domains: ['cdn.shopify.com'],
+    domains: ['cdn.shopify.com', 'via.placeholder.com'],
     unoptimized: true,
   },
-  async headers() {
+  async rewrites() {
     return [
       {
-        source: '/site.webmanifest',
-        headers: [
-          {
-            key: 'Content-Type',
-            value: 'application/manifest+json',
-          },
-        ],
+        source: '/api/sync/products',
+        destination: '/api/sync/productos',
       },
       {
-        source: '/android-chrome-192x192.png',
-        headers: [
-          {
-            key: 'Content-Type',
-            value: 'image/png',
-          },
-        ],
-      },
-      {
-        source: '/android-chrome-512x512.png',
-        headers: [
-          {
-            key: 'Content-Type',
-            value: 'image/png',
-          },
-        ],
+        source: '/api/products',
+        destination: '/api/shopify/products',
       },
     ]
   },
-  experimental: {
-    serverActions: {
-      allowedOrigins: ['localhost:3000', '*.vercel.app'],
-    },
-  },
-  // Ignorar archivos problemáticos
-  webpack: (config, { isServer }) => {
-    // Agregar reglas para ignorar archivos problemáticos
-    config.module.rules.push({
-      test: [
-        /lib\/db\/neon-client\.ts$/,
-        /lib\/db\/neon\.ts$/,
-        /lib\/services\/customer-sync-service\.ts$/,
-        /app\/api\/sync\/customers\/route\.ts$/,
-        /app\/api\/db-check\/route\.ts$/,
-        /app\/api\/sync\/route\.ts$/,
-      ],
-      loader: 'null-loader',
-    });
-    
-    return config;
-  },
-};
+}
 
-export default nextConfig;
+export default nextConfig
