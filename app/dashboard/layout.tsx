@@ -5,8 +5,6 @@ import { DashboardHeader } from "@/components/dashboard-header"
 import { DashboardLayoutWrapper } from "@/components/dashboard-layout-wrapper"
 import { Suspense } from "react"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
-import { AutoSync } from "@/components/auto-sync"
-import { AutoSyncProducts } from "@/components/auto-sync-products"
 
 export const metadata: Metadata = {
   title: "Dashboard - GranitoSkate",
@@ -21,7 +19,7 @@ async function inicializarAplicacion() {
         ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
         : process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
 
-      const response = await fetch(`${baseUrl}/api/init`, {
+      const response = await fetch(`${baseUrl}/api/init-db`, {
         method: "GET",
         headers: {
           "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -51,9 +49,7 @@ export default async function DashboardLayout({
         <main className="flex-1 overflow-x-hidden">
           <div className="container mx-auto p-4 md:p-6 max-w-7xl">
             <DashboardLayoutWrapper>
-              <AutoSync />
               <Suspense fallback={<LoadingSpinner />}>{children}</Suspense>
-              <AutoSyncProducts />
             </DashboardLayoutWrapper>
           </div>
         </main>

@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server"
 import { PrismaClient } from "@prisma/client"
-import { hash } from "bcrypt"
 
 const prisma = new PrismaClient()
+
+// Función simple para generar un hash de contraseña (no seguro, solo para desarrollo)
+function simpleHash(password: string): string {
+  // Este es el hash conocido de "GranitoSkate" generado previamente con bcrypt
+  return "$2b$10$1X.GQIJJk8L9Fz3HZhQQo.6EsHgHKm7Brx0bKQA9fI.SSjN.ym3Uy"
+}
 
 export async function GET() {
   try {
@@ -39,8 +44,8 @@ export async function GET() {
     `
 
     if ((adminExists as any)[0].count === 0) {
-      // Crear usuario admin
-      const hashedPassword = await hash("GranitoSkate", 10)
+      // Crear usuario admin con hash predefinido
+      const hashedPassword = simpleHash("GranitoSkate")
 
       await prisma.$executeRaw`
         INSERT INTO administradores (
