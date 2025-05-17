@@ -2,7 +2,7 @@ import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { PrismaClient } from "@prisma/client"
 import { compare } from "bcryptjs"
-import { envConfig, devDefaults } from "./config/env"
+import config from "./config"
 
 const prisma = new PrismaClient()
 
@@ -34,7 +34,7 @@ export const authOptions: NextAuthOptions = {
             .catch((err) => {
               console.error("Error al buscar usuario en la base de datos:", err)
               // En desarrollo, podemos usar un usuario predeterminado para pruebas
-              if (envConfig.isDevelopment) {
+              if (config.app.isDevelopment) {
                 console.warn("Usando usuario predeterminado para desarrollo")
                 return {
                   id: 1,
@@ -129,6 +129,6 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 días
   },
-  secret: envConfig.nextAuthSecret || devDefaults.nextAuthSecret,
-  debug: envConfig.isDevelopment,
+  secret: config.auth.secret,
+  debug: config.app.isDevelopment,
 }

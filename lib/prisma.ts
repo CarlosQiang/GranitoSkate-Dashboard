@@ -1,11 +1,17 @@
 import { PrismaClient } from "@prisma/client"
+import config from "./config"
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient }
 
 export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+    datasources: {
+      db: {
+        url: config.database.url,
+      },
+    },
+    log: config.app.isDevelopment ? ["query", "error", "warn"] : ["error"],
   })
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma
@@ -14,6 +20,7 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma
 export async function checkDatabaseConnection() {
   try {
     console.log("Verificando conexión a la base de datos...")
+    console.log("URL de la base de datos:", config.database.url ? "Configurada" : "No configurada")
 
     // Intentar ejecutar una consulta simple
     const result = await prisma.$queryRaw`SELECT 1 as connected`

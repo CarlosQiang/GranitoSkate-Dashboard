@@ -1,12 +1,12 @@
 import { GraphQLClient } from "graphql-request"
-import { envConfig, isShopifyConfigValid, getConfigErrors, devDefaults } from "./config/env"
+import config from "./config"
 
 // Función para obtener la URL base
 export function getBaseUrl() {
   if (typeof window !== "undefined") {
     return window.location.origin
   }
-  return envConfig.appUrl
+  return config.app.url
 }
 
 // Crear un cliente GraphQL para Shopify
@@ -19,31 +19,17 @@ const shopifyClient = new GraphQLClient(`${getBaseUrl()}/api/shopify/proxy`, {
 // Función para realizar consultas GraphQL a Shopify
 export async function shopifyFetch({ query, variables = {} }) {
   try {
-    // Verificar que las variables de entorno estén configuradas
-    if (!isShopifyConfigValid()) {
-      const errors = getConfigErrors().filter((err) => err.includes("SHOPIFY"))
-      throw new Error(`Error de configuración de Shopify: ${errors.join(", ")}`)
-    }
-
     console.log("Enviando consulta GraphQL a Shopify:", {
       query: query.substring(0, 100) + "...", // Solo para logging, truncamos la consulta
       variables,
     })
 
-    // En desarrollo, podemos usar valores predeterminados para pruebas
-    const endpoint =
-      envConfig.shopifyApiUrl ||
-      (envConfig.isDevelopment ? `https://${devDefaults.shopifyShopDomain}/admin/api/2023-07/graphql.json` : null)
+    // Usar valores de configuración
+    const endpoint = config.shopify.apiUrl
+    const key = config.shopify.accessToken
 
-    const key = envConfig.shopifyAccessToken || (envConfig.isDevelopment ? devDefaults.shopifyAccessToken : null)
-
-    if (!endpoint) {
-      throw new Error("URL de la API de Shopify no disponible")
-    }
-
-    if (!key) {
-      throw new Error("Token de acceso de Shopify no disponible")
-    }
+    console.log("Usando endpoint:", endpoint)
+    console.log("Token configurado:", key ? "Sí" : "No")
 
     const response = await fetch(endpoint, {
       method: "POST",
@@ -59,6 +45,7 @@ export async function shopifyFetch({ query, variables = {} }) {
 
     if (!response.ok) {
       const text = await response.text()
+      console.error(`Error en la respuesta de Shopify (${response.status}):`, text)
       throw new Error(`Error en la respuesta de Shopify (${response.status}): ${text}`)
     }
 
@@ -76,7 +63,21 @@ export async function shopifyFetch({ query, variables = {} }) {
     return result
   } catch (error) {
     console.error("Error en shopifyFetch:", error)
-    throw error
+
+    // Devolver un objeto de error estructurado
+    return {
+      data: null,
+      errors: [
+        {
+          message: error instanceof Error ? error.message : "Error desconocido en shopifyFetch",
+          config: {
+            apiUrl: config.shopify.apiUrl,
+            accessToken: config.shopify.accessToken ? "Configurado" : "No configurado",
+            shopDomain: config.shopify.shopDomain,
+          },
+        },
+      ],
+    }
   }
 }
 
@@ -109,21 +110,6 @@ export function formatShopifyId(id: string | number | null | undefined, resource
 // Función para realizar una consulta de prueba a Shopify
 export async function testShopifyConnection(tolerant = false) {
   try {
-    // Verificar que las variables de entorno estén configuradas
-    if (!isShopifyConfigValid()) {
-      const errors = getConfigErrors().filter((err) => err.includes("SHOPIFY"))
-      return {
-        success: false,
-        data: null,
-        message: `Error de configuración de Shopify: ${errors.join(", ")}`,
-        config: {
-          apiUrl: envConfig.shopifyApiUrl ? "Configurado" : "No configurado",
-          accessToken: envConfig.shopifyAccessToken ? "Configurado" : "No configurado",
-          shopDomain: envConfig.shopifyShopDomain ? "Configurado" : "No configurado",
-        },
-      }
-    }
-
     // Si estamos en modo tolerante, intentamos una consulta más simple
     // que podría funcionar incluso con tokens con permisos limitados
     const query = tolerant
@@ -182,12 +168,12 @@ export async function testShopifyConnection(tolerant = false) {
           if (!altResponse.errors) {
             return {
               success: true,
-              data: { shop: { name: envConfig.shopifyShopDomain.split(".")[0] } },
+              data: { shop: { name: config.shopify.shopDomain.split(".")[0] } },
               message: "Conexión alternativa exitosa",
               config: {
-                apiUrl: envConfig.shopifyApiUrl ? "Configurado" : "No configurado",
-                accessToken: envConfig.shopifyAccessToken ? "Configurado" : "No configurado",
-                shopDomain: envConfig.shopifyShopDomain ? "Configurado" : "No configurado",
+                apiUrl: config.shopify.apiUrl,
+                accessToken: config.shopify.accessToken ? "Configurado" : "No configurado",
+                shopDomain: config.shopify.shopDomain,
               },
             }
           }
@@ -201,9 +187,9 @@ export async function testShopifyConnection(tolerant = false) {
         data: null,
         message: errorMessage,
         config: {
-          apiUrl: envConfig.shopifyApiUrl ? "Configurado" : "No configurado",
-          accessToken: envConfig.shopifyAccessToken ? "Configurado" : "No configurado",
-          shopDomain: envConfig.shopifyShopDomain ? "Configurado" : "No configurado",
+          apiUrl: config.shopify.apiUrl,
+          accessToken: config.shopify.accessToken ? "Configurado" : "No configurado",
+          shopDomain: config.shopify.shopDomain,
         },
       }
     }
@@ -213,9 +199,9 @@ export async function testShopifyConnection(tolerant = false) {
       data: response.data,
       message: `Conexión exitosa con la tienda ${response.data?.shop?.name || "Shopify"}`,
       config: {
-        apiUrl: envConfig.shopifyApiUrl ? "Configurado" : "No configurado",
-        accessToken: envConfig.shopifyAccessToken ? "Configurado" : "No configurado",
-        shopDomain: envConfig.shopifyShopDomain ? "Configurado" : "No configurado",
+        apiUrl: config.shopify.apiUrl,
+        accessToken: config.shopify.accessToken ? "Configurado" : "No configurado",
+        shopDomain: config.shopify.shopDomain,
       },
     }
   } catch (error) {
@@ -228,9 +214,9 @@ export async function testShopifyConnection(tolerant = false) {
           ? `Error al conectar con Shopify: ${error.message}`
           : "Error desconocido al conectar con Shopify",
       config: {
-        apiUrl: envConfig.shopifyApiUrl ? "Configurado" : "No configurado",
-        accessToken: envConfig.shopifyAccessToken ? "Configurado" : "No configurado",
-        shopDomain: envConfig.shopifyShopDomain ? "Configurado" : "No configurado",
+        apiUrl: config.shopify.apiUrl,
+        accessToken: config.shopify.accessToken ? "Configurado" : "No configurado",
+        shopDomain: config.shopify.shopDomain,
       },
     }
   }
