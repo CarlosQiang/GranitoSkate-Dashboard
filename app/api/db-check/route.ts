@@ -1,74 +1,80 @@
 import { NextResponse } from "next/server"
-import { sql } from "@vercel/postgres"
-import { prisma } from "@/lib/prisma"
+import { checkConnection, query } from "@/lib/db/neon"
 
 export async function GET() {
   try {
-    // Intentar conexión con @vercel/postgres
-    console.log("Intentando conexión con @vercel/postgres...")
-    const vercelResult = await sql`SELECT NOW() as time`
+    // Verificar conexión
+    const connectionStatus = await checkConnection()
 
-    // Intentar conexión con Prisma
-    console.log("Intentando conexión con Prisma...")
-    const prismaResult = await prisma.$queryRaw`SELECT NOW() as time`
+    if (!connectionStatus.connected) {
+      return NextResponse.json(
+        {
+          status: "error",
+          message: "No se pudo conectar a la base de datos",
+          details: connectionStatus.error,
+        },
+        { status: 500 },
+      )
+    }
 
     // Verificar tablas existentes
-    console.log("Verificando tablas existentes...")
-    const tables = await prisma.$queryRaw`
+    const tablesResult = await query(`
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public'
-    `
+    `)
 
     // Verificar si existe la tabla de administradores
-    console.log("Verificando tabla de administradores...")
-    const adminTable = await prisma.$queryRaw`
+    const adminTableResult = await query(`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
         WHERE table_schema = 'public' 
         AND table_name = 'administradores'
       ) as exists
-    `
+    `)
 
     // Verificar si existe el usuario admin
-    console.log("Verificando usuario admin...")
     let adminExists = false
     let adminData = null
 
-    if ((adminTable as any)[0].exists) {
-      const adminUser = await prisma.$queryRaw`
+    if (adminTableResult.rows[0].exists) {
+      const adminUserResult = await query(`
         SELECT id, nombre_usuario, correo_electronico, activo 
         FROM administradores 
         WHERE nombre_usuario = 'admin'
-      `
-      adminExists = (adminUser as any[]).length > 0
-      adminData = adminExists ? (adminUser as any)[0] : null
+      `)
+
+      adminExists = adminUserResult.rowCount > 0
+      adminData = adminExists ? adminUserResult.rows[0] : null
+    }
+
+    // Obtener variables de entorno (sin valores sensibles)
+    const envVars = {
+      DATABASE_URL: process.env.DATABASE_URL ? "***configurado***" : "no configurado",
+      POSTGRES_URL: process.env.POSTGRES_URL ? "***configurado***" : "no configurado",
+      NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+      NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET ? "***configurado***" : "no configurado",
+      NODE_ENV: process.env.NODE_ENV,
     }
 
     return NextResponse.json({
       status: "success",
-      vercelConnection: {
-        connected: true,
-        time: vercelResult.rows[0].time,
-      },
-      prismaConnection: {
-        connected: true,
-        time: prismaResult,
-      },
+      connection: connectionStatus,
       database: {
-        tables: tables,
-        adminTableExists: (adminTable as any)[0].exists,
+        tables: tablesResult.rows,
+        adminTableExists: adminTableResult.rows[0].exists,
         adminUserExists: adminExists,
         adminUser: adminData,
       },
+      environment: envVars,
     })
   } catch (error) {
-    console.error("Error al verificar la base de datos:", error)
+    console.error("Error en el endpoint de verificación:", error)
     return NextResponse.json(
       {
         status: "error",
-        message: error instanceof Error ? error.message : "Error desconocido",
-        stack: error instanceof Error ? error.stack : null,
+        message: "Error inesperado",
+        details: error.message,
       },
       { status: 500 },
     )
