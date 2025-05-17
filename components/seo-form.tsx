@@ -17,6 +17,7 @@ import {
   getCollectionSeoSettings,
   saveCollectionSeoSettings,
   saveShopSeoSettings,
+  getShopSeoSettings,
 } from "@/lib/api/seo"
 
 // Esquema de validación para el formulario SEO
@@ -78,6 +79,8 @@ export function SeoForm({
           seoSettings = await getProductSeoSettings(ownerId)
         } else if (ownerType === "COLLECTION") {
           seoSettings = await getCollectionSeoSettings(ownerId)
+        } else if (ownerType === "SHOP") {
+          seoSettings = await getShopSeoSettings()
         }
 
         if (seoSettings) {
