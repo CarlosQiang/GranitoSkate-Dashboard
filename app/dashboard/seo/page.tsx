@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
+import { SeoFallback } from "@/components/seo-fallback"
 
 export default function SeoPage() {
   const [activeTab, setActiveTab] = useState("general")
@@ -197,15 +198,19 @@ export default function SeoPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <SeoForm
-                    ownerId="1"
-                    ownerType="SHOP"
-                    defaultTitle={shopInfo?.title || "Granito Skate Shop - Tienda de skate online"}
-                    defaultDescription={
-                      shopInfo?.description ||
-                      "Tienda especializada en productos de skate. Encuentra tablas, ruedas, trucks y accesorios de las mejores marcas."
-                    }
-                  />
+                  {error ? (
+                    <SeoFallback />
+                  ) : (
+                    <SeoForm
+                      ownerId="1"
+                      ownerType="SHOP"
+                      defaultTitle={shopInfo?.title || "Granito Skate Shop - Tienda de skate online"}
+                      defaultDescription={
+                        shopInfo?.description ||
+                        "Tienda especializada en productos de skate. Encuentra tablas, ruedas, trucks y accesorios de las mejores marcas."
+                      }
+                    />
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
