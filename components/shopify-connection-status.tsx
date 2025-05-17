@@ -7,13 +7,18 @@ import { AlertCircle, RefreshCw, CheckCircle } from "lucide-react"
 import { LoadingState } from "@/components/loading-state"
 
 export function ShopifyConnectionStatus() {
-  const [status, setStatus] = useState<"loading" | "connected" | "error">("loading")
+  const [status, setStatus] = useState<"loading" | "connected" | "error" | "hidden">("loading")
   const [errorDetails, setErrorDetails] = useState<string | null>(null)
   const [shopName, setShopName] = useState<string | null>(null)
 
-  const checkConnection = async () => {
-    setStatus("loading")
+  async function checkConnection() {
+    // Si no necesitas la integración con Shopify, simplemente oculta el componente
+    setStatus("hidden")
+    return
+
+    // El código original se mantiene pero no se ejecutará
     try {
+      setStatus("loading")
       const response = await fetch("/api/shopify/check", {
         method: "GET",
         headers: {

@@ -10,8 +10,8 @@ import { Eye, EyeOff } from "lucide-react"
 export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [identifier, setIdentifier] = useState("admin")
-  const [password, setPassword] = useState("GranitoSkate")
+  const [identifier, setIdentifier] = useState("")
+  const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)

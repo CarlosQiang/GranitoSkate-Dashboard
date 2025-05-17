@@ -27,6 +27,8 @@ async function main() {
     } else {
       console.log("ℹ️ El usuario administrador ya existe")
     }
+
+    // No se crean datos de prueba, solo el administrador
   } catch (error) {
     console.error("Error al inicializar la base de datos:", error)
     process.exit(1)
