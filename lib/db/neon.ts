@@ -1,19 +1,19 @@
 import { Pool } from "pg"
-import { createClient } from "@neondatabase/serverless"
+import { neon } from "@neondatabase/serverless"
 
 // Configuración para conexión directa a Neon
-const neonConfig = {
-  connectionString: process.env.POSTGRES_URL || process.env.DATABASE_URL,
-  ssl: true,
-}
+const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL
 
 // Cliente Neon para operaciones serverless
-export const neonClient = createClient(neonConfig.connectionString)
+export const sql = neon(connectionString)
 
 // Pool de conexiones para operaciones tradicionales
-export const pool = new Pool(neonConfig)
+export const pool = new Pool({
+  connectionString,
+  ssl: true,
+})
 
-// Función para ejecutar consultas SQL
+// Función para ejecutar consultas SQL con el pool
 export async function query(text: string, params?: any[]) {
   try {
     const start = Date.now()
@@ -30,8 +30,8 @@ export async function query(text: string, params?: any[]) {
 // Función para verificar la conexión
 export async function checkConnection() {
   try {
-    const result = await query("SELECT NOW()")
-    return { connected: true, timestamp: result.rows[0].now }
+    const result = await sql`SELECT NOW()`
+    return { connected: true, timestamp: result[0].now }
   } catch (error) {
     console.error("Database connection error:", error)
     return { connected: false, error: error.message }
@@ -42,7 +42,7 @@ export async function checkConnection() {
 export async function initializeDatabase() {
   try {
     // Crear tabla de administradores si no existe
-    await query(`
+    await sql`
       CREATE TABLE IF NOT EXISTS administradores (
         id SERIAL PRIMARY KEY,
         nombre_usuario VARCHAR(50) UNIQUE NOT NULL,
@@ -55,20 +55,19 @@ export async function initializeDatabase() {
         fecha_creacion TIMESTAMP NOT NULL DEFAULT NOW(),
         fecha_actualizacion TIMESTAMP
       )
-    `)
+    `
 
     // Verificar si existe el usuario admin
-    const adminCheck = await query(`
+    const adminCheck = await sql`
       SELECT id FROM administradores WHERE nombre_usuario = 'admin'
-    `)
+    `
 
     // Si no existe, crear el usuario admin con la contraseña GranitoSkate
-    if (adminCheck.rowCount === 0) {
+    if (adminCheck.length === 0) {
       // Contraseña hasheada para 'GranitoSkate'
       const hashedPassword = "$2b$10$1X.GQIJJk8L9Fz3HZhQQo.6EsHgHKm7Brx0bKQA9fI.SSjN.ym3Uy"
 
-      await query(
-        `
+      await sql`
         INSERT INTO administradores (
           nombre_usuario, 
           correo_electronico, 
@@ -79,14 +78,12 @@ export async function initializeDatabase() {
         ) VALUES (
           'admin', 
           'admin@granitoskate.com', 
-          $1, 
+          ${hashedPassword}, 
           'Administrador', 
           'superadmin', 
           true
         )
-      `,
-        [hashedPassword],
-      )
+      `
 
       return { initialized: true, adminCreated: true }
     }

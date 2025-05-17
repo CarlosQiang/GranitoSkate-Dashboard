@@ -1,7 +1,7 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { compare } from "bcryptjs"
-import { query } from "./db/neon"
+import { sql } from "./db/neon"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -21,21 +21,18 @@ export const authOptions: NextAuthOptions = {
           console.log("Buscando usuario:", credentials.identifier)
 
           // Buscar usuario por nombre de usuario o correo electrónico
-          const result = await query(
-            `
+          const users = await sql`
             SELECT * FROM administradores 
-            WHERE (nombre_usuario = $1 OR correo_electronico = $1)
+            WHERE (nombre_usuario = ${credentials.identifier} OR correo_electronico = ${credentials.identifier})
             AND activo = true
-          `,
-            [credentials.identifier],
-          )
+          `
 
-          if (result.rowCount === 0) {
+          if (users.length === 0) {
             console.log("Usuario no encontrado:", credentials.identifier)
             return null
           }
 
-          const user = result.rows[0]
+          const user = users[0]
           console.log("Usuario encontrado:", user.nombre_usuario)
 
           // Caso especial para la contraseña predeterminada
@@ -46,14 +43,11 @@ export const authOptions: NextAuthOptions = {
             console.log("Autenticación exitosa con contraseña predeterminada")
 
             // Actualizar último acceso
-            await query(
-              `
+            await sql`
               UPDATE administradores 
               SET ultimo_acceso = NOW() 
-              WHERE id = $1
-            `,
-              [user.id],
-            )
+              WHERE id = ${user.id}
+            `
 
             return {
               id: user.id.toString(),
@@ -74,14 +68,11 @@ export const authOptions: NextAuthOptions = {
           console.log("Autenticación exitosa para:", user.nombre_usuario)
 
           // Actualizar último acceso
-          await query(
-            `
+          await sql`
             UPDATE administradores 
             SET ultimo_acceso = NOW() 
-            WHERE id = $1
-          `,
-            [user.id],
-          )
+            WHERE id = ${user.id}
+          `
 
           return {
             id: user.id.toString(),
