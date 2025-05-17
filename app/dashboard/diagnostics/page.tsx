@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { SystemDiagnostics } from "@/components/system-diagnostics"
 import { DbConnectionStatus } from "@/components/db-connection-status"
 import { DbInitializer } from "@/components/db-initializer"
-import { SystemConfigChecker } from "@/components/system-config-checker"
+import { TestShopifyConnection } from "@/components/test-shopify-connection"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 
@@ -31,7 +31,7 @@ export default function DiagnosticsPage() {
       </p>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <SystemConfigChecker />
+        <TestShopifyConnection />
         <DbConnectionStatus />
         <DbInitializer />
         <Card>
@@ -59,6 +59,7 @@ export default function DiagnosticsPage() {
             <li>Verifica que las credenciales de Shopify sean correctas en las variables de entorno</li>
             <li>Asegúrate de que la tienda esté activa y accesible</li>
             <li>Comprueba que la API de Shopify esté funcionando correctamente</li>
+            <li>Recuerda que todas las solicitudes a Shopify deben pasar por el proxy del servidor</li>
           </ul>
         </div>
 

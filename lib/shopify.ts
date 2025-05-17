@@ -24,18 +24,11 @@ export async function shopifyFetch({ query, variables = {} }) {
       variables,
     })
 
-    // Usar valores de configuración
-    const endpoint = config.shopify.apiUrl
-    const key = config.shopify.accessToken
-
-    console.log("Usando endpoint:", endpoint)
-    console.log("Token configurado:", key ? "Sí" : "No")
-
-    const response = await fetch(endpoint, {
+    // IMPORTANTE: Siempre usamos el proxy del servidor en lugar de conectarnos directamente a Shopify
+    const response = await fetch(`${getBaseUrl()}/api/shopify/proxy`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Shopify-Access-Token": key,
       },
       body: JSON.stringify({
         query,
@@ -45,19 +38,25 @@ export async function shopifyFetch({ query, variables = {} }) {
 
     if (!response.ok) {
       const text = await response.text()
-      console.error(`Error en la respuesta de Shopify (${response.status}):`, text)
-      throw new Error(`Error en la respuesta de Shopify (${response.status}): ${text}`)
+      console.error(`Error en la respuesta del proxy de Shopify (${response.status}):`, text)
+      throw new Error(`Error en la respuesta del proxy de Shopify (${response.status}): ${text}`)
     }
 
     const result = await response.json()
 
     // Verificar si la respuesta contiene datos
     if (!result) {
-      console.error("Respuesta vacía de Shopify")
+      console.error("Respuesta vacía del proxy de Shopify")
       return {
         data: null,
-        errors: [{ message: "Respuesta vacía de la API de Shopify" }],
+        errors: [{ message: "Respuesta vacía del proxy de Shopify" }],
       }
+    }
+
+    // Verificar si la respuesta contiene errores
+    if (result.errors) {
+      console.error("Errores en la respuesta del proxy de Shopify:", result.errors)
+      return result
     }
 
     return result
@@ -70,11 +69,6 @@ export async function shopifyFetch({ query, variables = {} }) {
       errors: [
         {
           message: error instanceof Error ? error.message : "Error desconocido en shopifyFetch",
-          config: {
-            apiUrl: config.shopify.apiUrl,
-            accessToken: config.shopify.accessToken ? "Configurado" : "No configurado",
-            shopDomain: config.shopify.shopDomain,
-          },
         },
       ],
     }
@@ -170,11 +164,6 @@ export async function testShopifyConnection(tolerant = false) {
               success: true,
               data: { shop: { name: config.shopify.shopDomain.split(".")[0] } },
               message: "Conexión alternativa exitosa",
-              config: {
-                apiUrl: config.shopify.apiUrl,
-                accessToken: config.shopify.accessToken ? "Configurado" : "No configurado",
-                shopDomain: config.shopify.shopDomain,
-              },
             }
           }
         } catch (e) {
@@ -186,11 +175,6 @@ export async function testShopifyConnection(tolerant = false) {
         success: false,
         data: null,
         message: errorMessage,
-        config: {
-          apiUrl: config.shopify.apiUrl,
-          accessToken: config.shopify.accessToken ? "Configurado" : "No configurado",
-          shopDomain: config.shopify.shopDomain,
-        },
       }
     }
 
@@ -198,11 +182,6 @@ export async function testShopifyConnection(tolerant = false) {
       success: true,
       data: response.data,
       message: `Conexión exitosa con la tienda ${response.data?.shop?.name || "Shopify"}`,
-      config: {
-        apiUrl: config.shopify.apiUrl,
-        accessToken: config.shopify.accessToken ? "Configurado" : "No configurado",
-        shopDomain: config.shopify.shopDomain,
-      },
     }
   } catch (error) {
     console.error("Error al probar la conexión con Shopify:", error)
@@ -213,11 +192,6 @@ export async function testShopifyConnection(tolerant = false) {
         error instanceof Error
           ? `Error al conectar con Shopify: ${error.message}`
           : "Error desconocido al conectar con Shopify",
-      config: {
-        apiUrl: config.shopify.apiUrl,
-        accessToken: config.shopify.accessToken ? "Configurado" : "No configurado",
-        shopDomain: config.shopify.shopDomain,
-      },
     }
   }
 }

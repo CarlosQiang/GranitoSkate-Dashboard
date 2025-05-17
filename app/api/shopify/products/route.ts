@@ -1,54 +1,97 @@
 import { NextResponse } from "next/server"
-import { sincronizarProductos } from "@/lib/services/sync-service"
+import { shopifyFetch } from "@/lib/shopify"
 
 export async function GET(request: Request) {
   try {
-    // Obtener parámetros de la solicitud
-    const { searchParams } = new URL(request.url)
-    const limit = Number.parseInt(searchParams.get("limit") || "50", 10)
+    // Obtener los parámetros de la solicitud
+    const url = new URL(request.url)
+    const limit = url.searchParams.get("limit") || "10"
+    const cursor = url.searchParams.get("cursor") || null
 
-    // Sincronizar productos reales de Shopify
-    const resultados = await sincronizarProductos(limit)
+    // Construir la consulta GraphQL
+    const query = `
+      query GetProducts($limit: Int!, $cursor: String) {
+        products(first: $limit, after: $cursor) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          edges {
+            cursor
+            node {
+              id
+              title
+              handle
+              description
+              descriptionHtml
+              productType
+              vendor
+              status
+              totalInventory
+              createdAt
+              updatedAt
+              publishedAt
+              images(first: 1) {
+                edges {
+                  node {
+                    id
+                    url
+                    altText
+                    width
+                    height
+                  }
+                }
+              }
+              variants(first: 5) {
+                edges {
+                  node {
+                    id
+                    title
+                    price
+                    compareAtPrice
+                    inventoryQuantity
+                    sku
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `
 
-    return NextResponse.json({
-      success: true,
-      message: `Sincronización completada: ${resultados.creados} creados, ${resultados.actualizados} actualizados, ${resultados.errores} errores`,
-      resultados,
-    })
-  } catch (error) {
-    console.error("Error en la sincronización de productos:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Error desconocido",
-        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+    // Realizar la consulta a Shopify
+    const response = await shopifyFetch({
+      query,
+      variables: {
+        limit: Number.parseInt(limit),
+        cursor,
       },
-      { status: 500 },
-    )
-  }
-}
+    })
 
-export async function POST(request: Request) {
-  try {
-    // Obtener parámetros de la solicitud
-    const { searchParams } = new URL(request.url)
-    const limit = Number.parseInt(searchParams.get("limit") || "50", 10)
+    // Verificar si hay errores
+    if (response.errors) {
+      console.error("Error al obtener productos de Shopify:", response.errors)
+      return NextResponse.json(
+        {
+          success: false,
+          errors: response.errors,
+        },
+        { status: 500 },
+      )
+    }
 
-    // Sincronizar productos reales de Shopify
-    const resultados = await sincronizarProductos(limit)
-
+    // Devolver los productos
     return NextResponse.json({
       success: true,
-      message: `Sincronización completada: ${resultados.creados} creados, ${resultados.actualizados} actualizados, ${resultados.errores} errores`,
-      resultados,
+      data: response.data,
     })
   } catch (error) {
-    console.error("Error en la sincronización de productos:", error)
+    console.error("Error al obtener productos:", error)
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Error desconocido",
-        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+        message: error instanceof Error ? error.message : "Error desconocido al obtener productos",
       },
       { status: 500 },
     )
