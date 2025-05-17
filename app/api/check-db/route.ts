@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { PrismaClient } from "@prisma/client"
+
+const prisma = new PrismaClient()
 
 export async function GET() {
   try {
     // Verificar conexión a la base de datos
     const result = await prisma.$queryRaw`SELECT NOW() as time`
 
-    // Verificar si existe la tabla de administradores
-    const tableExists = await prisma.$queryRaw`
+    // Verificar tabla de administradores
+    const adminTable = await prisma.$queryRaw`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
         WHERE table_schema = 'public' 
@@ -15,45 +17,34 @@ export async function GET() {
       ) as exists
     `
 
-    // Verificar si existe el usuario admin
+    // Verificar usuario admin
     let adminExists = false
     let adminData = null
 
-    if ((tableExists as any)[0].exists) {
-      const adminUser = await prisma.administradores.findFirst({
-        where: {
-          nombre_usuario: "admin",
-        },
-      })
-
-      adminExists = !!adminUser
-      adminData = adminUser
-        ? {
-            id: adminUser.id,
-            nombre_usuario: adminUser.nombre_usuario,
-            correo_electronico: adminUser.correo_electronico,
-            activo: adminUser.activo,
-            rol: adminUser.rol,
-          }
-        : null
+    if ((adminTable as any)[0].exists) {
+      const adminUser = await prisma.$queryRaw`
+        SELECT id, nombre_usuario, correo_electronico, activo 
+        FROM administradores 
+        WHERE nombre_usuario = 'admin'
+      `
+      adminExists = (adminUser as any).length > 0
+      adminData = adminExists ? (adminUser as any)[0] : null
     }
 
     return NextResponse.json({
       status: "success",
       connection: {
         connected: true,
-        time: result,
+        time: result[0].time,
       },
       database: {
-        tableExists: (tableExists as any)[0].exists,
-        adminExists,
-        adminData,
+        adminTableExists: (adminTable as any)[0].exists,
+        adminUserExists: adminExists,
+        adminUser: adminData,
       },
-      environment: {
-        DATABASE_URL: process.env.DATABASE_URL ? "***configurado***" : "no configurado",
-        POSTGRES_URL: process.env.POSTGRES_URL ? "***configurado***" : "no configurado",
-        NEXTAUTH_URL: process.env.NEXTAUTH_URL,
-        NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET ? "***configurado***" : "no configurado",
+      env: {
+        DATABASE_URL: process.env.DATABASE_URL ? "Configurado" : "No configurado",
+        POSTGRES_URL: process.env.POSTGRES_URL ? "Configurado" : "No configurado",
         NODE_ENV: process.env.NODE_ENV,
       },
     })

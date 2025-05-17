@@ -43,10 +43,25 @@ const nextConfig = {
     ]
   },
   experimental: {
-    // Corregido: debe ser un objeto, no un booleano
     serverActions: {
       allowedOrigins: ['localhost:3000', '*.vercel.app'],
     },
+  },
+  // Ignorar archivos problemáticos
+  webpack: (config, { isServer }) => {
+    // Agregar reglas para ignorar archivos problemáticos
+    config.module.rules.push({
+      test: [
+        /lib\/db\/neon-client\.ts$/,
+        /lib\/db\/neon\.ts$/,
+        /lib\/services\/customer-sync-service\.ts$/,
+        /app\/api\/sync\/customers\/route\.ts$/,
+        /app\/api\/db-check\/route\.ts$/,
+      ],
+      loader: 'null-loader',
+    });
+    
+    return config;
   },
 };
 

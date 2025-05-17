@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { PrismaClient } from "@prisma/client"
+import { hash } from "bcrypt"
+
+const prisma = new PrismaClient()
 
 export async function GET() {
   try {
     // Verificar si existe la tabla de administradores
-    const tableExists = await prisma.$queryRaw`
+    const adminTableExists = await prisma.$queryRaw`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
         WHERE table_schema = 'public' 
@@ -12,14 +15,14 @@ export async function GET() {
       ) as exists
     `
 
-    if (!(tableExists as any)[0].exists) {
-      // La tabla no existe, necesitamos crearla manualmente
+    if (!(adminTableExists as any)[0].exists) {
+      // Crear tabla de administradores
       await prisma.$executeRaw`
         CREATE TABLE IF NOT EXISTS administradores (
           id SERIAL PRIMARY KEY,
           nombre_usuario VARCHAR(50) UNIQUE NOT NULL,
           correo_electronico VARCHAR(100) UNIQUE NOT NULL,
-          contrasena VARCHAR(255) NOT NULL,
+          contrasena TEXT NOT NULL,
           nombre_completo VARCHAR(100),
           rol VARCHAR(20) NOT NULL DEFAULT 'admin',
           activo BOOLEAN NOT NULL DEFAULT true,
@@ -31,31 +34,43 @@ export async function GET() {
     }
 
     // Verificar si existe el usuario admin
-    const adminExists = await prisma.administradores.findFirst({
-      where: {
-        nombre_usuario: "admin",
-      },
-    })
+    const adminExists = await prisma.$queryRaw`
+      SELECT COUNT(*) as count FROM administradores WHERE nombre_usuario = 'admin'
+    `
 
-    if (!adminExists) {
+    if ((adminExists as any)[0].count === 0) {
       // Crear usuario admin
-      await prisma.administradores.create({
-        data: {
-          nombre_usuario: "admin",
-          correo_electronico: "admin@granitoskate.com",
-          contrasena: "$2b$10$1X.GQIJJk8L9Fz3HZhQQo.6EsHgHKm7Brx0bKQA9fI.SSjN.ym3Uy", // Hash de "GranitoSkate"
-          nombre_completo: "Administrador Principal",
-          rol: "superadmin",
-          activo: true,
-          fecha_creacion: new Date(),
-        },
+      const hashedPassword = await hash("GranitoSkate", 10)
+
+      await prisma.$executeRaw`
+        INSERT INTO administradores (
+          nombre_usuario, 
+          correo_electronico, 
+          contrasena, 
+          nombre_completo, 
+          rol, 
+          activo
+        ) VALUES (
+          'admin', 
+          'admin@granitoskate.com', 
+          ${hashedPassword}, 
+          'Administrador', 
+          'superadmin', 
+          true
+        )
+      `
+
+      return NextResponse.json({
+        status: "success",
+        message: "Base de datos inicializada y usuario admin creado",
+        adminCreated: true,
       })
     }
 
     return NextResponse.json({
       status: "success",
-      message: "Base de datos inicializada correctamente",
-      adminCreated: !adminExists,
+      message: "Base de datos ya inicializada",
+      adminCreated: false,
     })
   } catch (error) {
     console.error("Error al inicializar la base de datos:", error)
