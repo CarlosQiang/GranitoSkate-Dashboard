@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { sincronizarProductos } from "@/lib/services/sync-service"
 
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   try {
     // Obtener parámetros de la solicitud
     const { searchParams } = new URL(request.url)
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET(request: Request) {
+export async function POST(request: Request) {
   try {
     // Obtener parámetros de la solicitud
     const { searchParams } = new URL(request.url)
