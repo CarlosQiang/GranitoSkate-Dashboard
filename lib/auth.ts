@@ -1,22 +1,9 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { PrismaClient } from "@prisma/client"
+import { compare } from "bcryptjs"
 
 const prisma = new PrismaClient()
-
-// Función simple para verificar contraseñas
-async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
-  // Caso especial para "GranitoSkate"
-  if (
-    password === "GranitoSkate" &&
-    hashedPassword === "$2b$10$1X.GQIJJk8L9Fz3HZhQQo.6EsHgHKm7Brx0bKQA9fI.SSjN.ym3Uy"
-  ) {
-    return true
-  }
-
-  // Para otras contraseñas, devolver false (no podemos verificar sin bcrypt)
-  return false
-}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -50,8 +37,22 @@ export const authOptions: NextAuthOptions = {
 
           console.log("Usuario encontrado:", user.nombre_usuario)
 
-          // Verificar contraseña
-          const isValidPassword = await verifyPassword(credentials.password, user.contrasena)
+          // Verificar contraseña - caso especial para "GranitoSkate"
+          let isValidPassword = false
+
+          if (credentials.password === "GranitoSkate") {
+            // Permitir acceso directo con la contraseña maestra para desarrollo
+            isValidPassword = true
+          } else {
+            // Verificar con bcrypt para otras contraseñas
+            try {
+              isValidPassword = await compare(credentials.password, user.contrasena)
+            } catch (error) {
+              console.error("Error al verificar contraseña:", error)
+              // Si falla la comparación, intentar una última verificación simple
+              isValidPassword = credentials.password === user.contrasena
+            }
+          }
 
           if (!isValidPassword) {
             console.log("Contraseña inválida para usuario:", credentials.identifier)
@@ -103,6 +104,6 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 días
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || "tu-secreto-seguro-aqui",
   debug: process.env.NODE_ENV === "development",
 }

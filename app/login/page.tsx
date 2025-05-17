@@ -2,17 +2,31 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Eye, EyeOff } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [identifier, setIdentifier] = useState("admin")
   const [password, setPassword] = useState("GranitoSkate")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+
+  // Capturar errores de la URL
+  useEffect(() => {
+    const errorParam = searchParams?.get("error")
+    if (errorParam) {
+      if (errorParam === "CredentialsSignin") {
+        setError("Credenciales inválidas. Por favor, inténtalo de nuevo.")
+      } else {
+        setError("Error al iniciar sesión. Por favor, inténtalo de nuevo.")
+      }
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,8 +46,9 @@ export default function LoginPage() {
 
       if (result?.error) {
         setError("Credenciales inválidas. Por favor, inténtalo de nuevo.")
-      } else {
+      } else if (result?.ok) {
         router.push("/dashboard")
+        router.refresh()
       }
     } catch (error) {
       console.error("Error de inicio de sesión:", error)
@@ -105,23 +120,11 @@ export default function LoginPage() {
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  <svg
-                    className="h-5 w-5 text-gray-400"
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    {showPassword ? (
-                      <path
-                        fillRule="evenodd"
-                        d="M3.28 2.22a.75.75 0 00-1.06 1.06l14.5 14.5a.75.75 0 101.06-1.06l-1.745-1.745a10.029 10.029 0 003.3-4.38 1.651 1.651 0 000-1.185A10.004 10.004 0 009.999 3a9.956 9.956 0 00-4.744 1.194L3.28 2.22zM7.752 6.69l1.092 1.092a2.5 2.5 0 013.374 3.373l1.091 1.092a4 4 0 00-5.557-5.557z"
-                        clipRule="evenodd"
-                      />
-                    ) : (
-                      <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                    )}
-                  </svg>
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <Eye className="h-5 w-5 text-gray-400" />
+                  )}
                 </button>
               </div>
             </div>
