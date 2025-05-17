@@ -12,87 +12,117 @@ export function SincronizacionProductos() {
   const [resultado, setResultado] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
   const [debug, setDebug] = useState<any>(null)
-
-  const verificarAPI = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      setDebug(null)
-
-      const response = await fetch("/api/debug", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      setDebug(data)
-      return data
-    } catch (err) {
-      console.error("Error al verificar API:", err)
-      setError(`Error al verificar API: ${err.message}`)
-      return null
-    } finally {
-      setLoading(false)
-    }
-  }
+  const [responseDetails, setResponseDetails] = useState<any>(null)
 
   const sincronizarProductos = async () => {
     try {
       setLoading(true)
       setError(null)
       setDebug(null)
+      setResponseDetails(null)
 
-      // Verificar primero el estado de la API
-      const debugInfo = await verificarAPI()
-      console.log("Información de depuración:", debugInfo)
+      console.log("Iniciando sincronización de productos...")
 
       // Intentar con la ruta en inglés
-      console.log("Intentando sincronizar con /api/sync/products...")
-      let response = await fetch("/api/sync/products", {
+      console.log("Intentando sincronizar con /api/shopify/products?limit=1...")
+
+      let response = await fetch("/api/shopify/products?limit=1", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
       })
 
-      // Si falla, intentar con la ruta en español
-      if (!response.ok && response.status === 404) {
-        console.log("Ruta /api/sync/products no encontrada, intentando con /api/sync/productos")
-        response = await fetch("/api/sync/productos", {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        })
+      // Capturar detalles de la respuesta para depuración
+      const responseInfo = {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries([...response.headers.entries()]),
+        url: response.url,
       }
 
-      // Si ambas fallan, intentar con una ruta alternativa
-      if (!response.ok && response.status === 404) {
-        console.log("Rutas anteriores no encontradas, intentando con /api/shopify/products")
-        response = await fetch("/api/shopify/products", {
+      console.log("Respuesta recibida:", responseInfo)
+      setResponseDetails(responseInfo)
+
+      // Si falla, intentar con otra ruta
+      if (!response.ok) {
+        console.log("Ruta /api/shopify/products falló, intentando con /api/sync/products")
+        response = await fetch("/api/sync/products", {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
           },
         })
+
+        // Actualizar detalles de la respuesta
+        const newResponseInfo = {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries([...response.headers.entries()]),
+          url: response.url,
+        }
+
+        console.log("Nueva respuesta recibida:", newResponseInfo)
+        setResponseDetails((prev) => ({ ...prev, secondAttempt: newResponseInfo }))
       }
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
+        const errorText = await response.text().catch(() => "No se pudo leer el cuerpo de la respuesta")
+        let errorData
+
+        try {
+          errorData = JSON.parse(errorText)
+        } catch (e) {
+          errorData = { error: errorText }
+        }
+
+        console.error("Error en la respuesta:", errorData)
+        setDebug({ errorResponse: errorData })
+
         throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`)
       }
 
       const data = await response.json()
+      console.log("Datos recibidos:", data)
+
       setResultado(data.resultados || data)
+      setDebug({ responseData: data })
     } catch (err) {
       console.error("Error al sincronizar productos:", err)
       setError(err.message || "Error desconocido al sincronizar productos")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const probarConexionShopify = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      setDebug(null)
+
+      console.log("Probando conexión con Shopify...")
+
+      const response = await fetch("/api/shopify/test-connection", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      const data = await response.json()
+      console.log("Resultado de la prueba de conexión:", data)
+
+      setDebug({ shopifyConnection: data })
+
+      if (!data.success) {
+        setError(`Error de conexión con Shopify: ${data.error || "Error desconocido"}`)
+      } else {
+        setError(null)
+      }
+    } catch (err) {
+      console.error("Error al probar conexión con Shopify:", err)
+      setError(err.message || "Error desconocido al probar conexión con Shopify")
     } finally {
       setLoading(false)
     }
@@ -180,7 +210,7 @@ export function SincronizacionProductos() {
           </Alert>
         )}
 
-        {debug && (
+        {(debug || responseDetails) && (
           <Accordion type="single" collapsible className="mb-4">
             <AccordionItem value="debug">
               <AccordionTrigger className="text-sm text-muted-foreground">
@@ -190,9 +220,19 @@ export function SincronizacionProductos() {
                 </span>
               </AccordionTrigger>
               <AccordionContent>
-                <pre className="text-xs overflow-auto p-2 bg-slate-50 rounded max-h-60">
-                  {JSON.stringify(debug, null, 2)}
-                </pre>
+                {responseDetails && (
+                  <div className="mb-2">
+                    <h4 className="font-medium text-sm mb-1">Detalles de la respuesta:</h4>
+                    <pre className="text-xs overflow-auto p-2 bg-slate-50 rounded max-h-40">
+                      {JSON.stringify(responseDetails, null, 2)}
+                    </pre>
+                  </div>
+                )}
+                {debug && (
+                  <pre className="text-xs overflow-auto p-2 bg-slate-50 rounded max-h-60">
+                    {JSON.stringify(debug, null, 2)}
+                  </pre>
+                )}
               </AccordionContent>
             </AccordionItem>
           </Accordion>
@@ -217,9 +257,9 @@ export function SincronizacionProductos() {
             </>
           )}
         </Button>
-        <Button onClick={verificarAPI} variant="outline" size="sm" className="w-full">
+        <Button onClick={probarConexionShopify} variant="outline" size="sm" className="w-full">
           <Bug className="mr-2 h-4 w-4" />
-          Verificar estado de la API
+          Probar Conexión con Shopify
         </Button>
       </CardFooter>
     </Card>
