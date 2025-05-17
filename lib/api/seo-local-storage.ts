@@ -150,6 +150,6 @@ export const saveLocalSocialMediaProfiles = (profiles: SocialMediaProfiles): boo
     return true
   } catch (error) {
     console.error("Error saving social media profiles to localStorage", error)
-    return false
+    return false 
   }
 }
