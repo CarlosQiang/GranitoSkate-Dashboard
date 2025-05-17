@@ -1,121 +1,80 @@
-import { sql } from "@vercel/postgres"
-import type { Cliente, DireccionCliente } from "../schema"
-import { logSyncEvent } from "./registro-repository"
+import { query } from "@/lib/db"
+import type { Cliente, DireccionCliente } from "@/lib/db/schema"
 
-// Obtener todos los clientes
-export async function getAllClientes(): Promise<Cliente[]> {
+// Funciones para clientes
+export async function getAllClientes() {
   try {
-    const result = await sql`
-      SELECT * FROM clientes
-      ORDER BY fecha_creacion DESC
-    `
+    const result = await query(
+      `SELECT * FROM clientes 
+       ORDER BY fecha_creacion DESC`,
+    )
+
     return result.rows
   } catch (error) {
-    console.error("Error al obtener clientes:", error)
+    console.error("Error getting all clientes:", error)
     throw error
   }
 }
 
-// Obtener un cliente por ID
-export async function getClienteById(id: number): Promise<Cliente | null> {
+export async function getClienteById(id: number) {
   try {
-    const result = await sql`
-      SELECT * FROM clientes
-      WHERE id = ${id}
-    `
+    const result = await query(
+      `SELECT * FROM clientes 
+       WHERE id = $1`,
+      [id],
+    )
 
-    return result.rows.length > 0 ? result.rows[0] : null
-  } catch (error) {
-    console.error(`Error al obtener cliente con ID ${id}:`, error)
-    throw error
-  }
-}
-
-// Obtener un cliente por Shopify ID
-export async function getClienteByShopifyId(shopifyId: string): Promise<Cliente | null> {
-  try {
-    const result = await sql`
-      SELECT * FROM clientes
-      WHERE shopify_id = ${shopifyId}
-    `
-
-    return result.rows.length > 0 ? result.rows[0] : null
-  } catch (error) {
-    console.error(`Error al obtener cliente con Shopify ID ${shopifyId}:`, error)
-    throw error
-  }
-}
-
-// Obtener un cliente por email
-export async function getClienteByEmail(email: string): Promise<Cliente | null> {
-  try {
-    const result = await sql`
-      SELECT * FROM clientes
-      WHERE email = ${email}
-    `
-
-    return result.rows.length > 0 ? result.rows[0] : null
-  } catch (error) {
-    console.error(`Error al obtener cliente con email ${email}:`, error)
-    throw error
-  }
-}
-
-// Crear un nuevo cliente
-export async function createCliente(data: Partial<Cliente>): Promise<Cliente> {
-  try {
-    const {
-      shopify_id,
-      email,
-      nombre,
-      apellidos,
-      telefono,
-      acepta_marketing = false,
-      notas,
-      etiquetas,
-      total_pedidos = 0,
-      total_gastado = 0,
-      estado,
-    } = data
-
-    const result = await sql`
-      INSERT INTO clientes (
-        shopify_id, email, nombre, apellidos, telefono, acepta_marketing,
-        notas, etiquetas, total_pedidos, total_gastado, estado,
-        fecha_creacion, fecha_actualizacion
-      )
-      VALUES (
-        ${shopify_id || null}, ${email || null}, ${nombre || null}, ${apellidos || null},
-        ${telefono || null}, ${acepta_marketing}, ${notas || null},
-        ${etiquetas ? JSON.stringify(etiquetas) : null}, ${total_pedidos},
-        ${total_gastado}, ${estado || null}, NOW(), NOW()
-      )
-      RETURNING *
-    `
+    if (result.rows.length === 0) {
+      return null
+    }
 
     return result.rows[0]
   } catch (error) {
-    console.error("Error al crear cliente:", error)
+    console.error(`Error getting cliente with ID ${id}:`, error)
     throw error
   }
 }
 
-// Actualizar un cliente existente
-export async function updateCliente(id: number, data: Partial<Cliente>): Promise<Cliente> {
+export async function getClienteByShopifyId(shopifyId: string) {
   try {
-    // Primero obtenemos el cliente actual
-    const currentCliente = await getClienteById(id)
-    if (!currentCliente) {
-      throw new Error(`Cliente con ID ${id} no encontrado`)
+    const result = await query(
+      `SELECT * FROM clientes 
+       WHERE shopify_id = $1`,
+      [shopifyId],
+    )
+
+    if (result.rows.length === 0) {
+      return null
     }
 
-    // Combinamos los datos actuales con los nuevos
-    const updatedData = {
-      ...currentCliente,
-      ...data,
-      fecha_actualizacion: new Date(),
+    return result.rows[0]
+  } catch (error) {
+    console.error(`Error getting cliente with Shopify ID ${shopifyId}:`, error)
+    throw error
+  }
+}
+
+export async function getClienteByEmail(email: string) {
+  try {
+    const result = await query(
+      `SELECT * FROM clientes 
+       WHERE email = $1`,
+      [email],
+    )
+
+    if (result.rows.length === 0) {
+      return null
     }
 
+    return result.rows[0]
+  } catch (error) {
+    console.error(`Error getting cliente with email ${email}:`, error)
+    throw error
+  }
+}
+
+export async function createCliente(cliente: Partial<Cliente>) {
+  try {
     const {
       shopify_id,
       email,
@@ -128,204 +87,138 @@ export async function updateCliente(id: number, data: Partial<Cliente>): Promise
       total_pedidos,
       total_gastado,
       estado,
-      ultima_sincronizacion,
-    } = updatedData
+    } = cliente
 
-    const result = await sql`
-      UPDATE clientes
-      SET
-        shopify_id = ${shopify_id || null},
-        email = ${email || null},
-        nombre = ${nombre || null},
-        apellidos = ${apellidos || null},
-        telefono = ${telefono || null},
-        acepta_marketing = ${acepta_marketing},
-        notas = ${notas || null},
-        etiquetas = ${etiquetas ? JSON.stringify(etiquetas) : null},
-        total_pedidos = ${total_pedidos},
-        total_gastado = ${total_gastado},
-        estado = ${estado || null},
-        fecha_actualizacion = NOW(),
-        ultima_sincronizacion = ${ultima_sincronizacion || null}
-      WHERE id = ${id}
-      RETURNING *
-    `
-
-    return result.rows[0]
-  } catch (error) {
-    console.error(`Error al actualizar cliente con ID ${id}:`, error)
-    throw error
-  }
-}
-
-// Eliminar un cliente
-export async function deleteCliente(id: number): Promise<boolean> {
-  try {
-    const result = await sql`
-      DELETE FROM clientes
-      WHERE id = ${id}
-      RETURNING id
-    `
-
-    return result.rows.length > 0
-  } catch (error) {
-    console.error(`Error al eliminar cliente con ID ${id}:`, error)
-    throw error
-  }
-}
-
-// Buscar clientes
-export async function searchClientes(
-  query: string,
-  limit = 10,
-  offset = 0,
-): Promise<{ clientes: Cliente[]; total: number }> {
-  try {
-    const searchQuery = `%${query}%`
-
-    const clientesResult = await sql`
-      SELECT * FROM clientes
-      WHERE 
-        email ILIKE ${searchQuery} OR
-        nombre ILIKE ${searchQuery} OR
-        apellidos ILIKE ${searchQuery} OR
-        telefono ILIKE ${searchQuery}
-      ORDER BY fecha_creacion DESC
-      LIMIT ${limit} OFFSET ${offset}
-    `
-
-    const countResult = await sql`
-      SELECT COUNT(*) as total FROM clientes
-      WHERE 
-        email ILIKE ${searchQuery} OR
-        nombre ILIKE ${searchQuery} OR
-        apellidos ILIKE ${searchQuery} OR
-        telefono ILIKE ${searchQuery}
-    `
-
-    return {
-      clientes: clientesResult.rows,
-      total: Number.parseInt(countResult.rows[0].total),
-    }
-  } catch (error) {
-    console.error(`Error al buscar clientes con query "${query}":`, error)
-    throw error
-  }
-}
-
-// Obtener direcciones de un cliente
-export async function getDireccionesByClienteId(clienteId: number): Promise<DireccionCliente[]> {
-  try {
-    const result = await sql`
-      SELECT * FROM direcciones_cliente
-      WHERE cliente_id = ${clienteId}
-      ORDER BY es_predeterminada DESC, fecha_creacion ASC
-    `
-    return result.rows
-  } catch (error) {
-    console.error(`Error al obtener direcciones del cliente con ID ${clienteId}:`, error)
-    throw error
-  }
-}
-
-// Obtener dirección predeterminada de un cliente
-export async function getDireccionPredeterminadaByClienteId(clienteId: number): Promise<DireccionCliente | null> {
-  try {
-    const result = await sql`
-      SELECT * FROM direcciones_cliente
-      WHERE cliente_id = ${clienteId} AND es_predeterminada = true
-      LIMIT 1
-    `
-    return result.rows.length > 0 ? result.rows[0] : null
-  } catch (error) {
-    console.error(`Error al obtener dirección predeterminada del cliente con ID ${clienteId}:`, error)
-    throw error
-  }
-}
-
-// Crear una nueva dirección de cliente
-export async function createDireccionCliente(data: Partial<DireccionCliente>): Promise<DireccionCliente> {
-  try {
-    const {
-      shopify_id,
-      cliente_id,
-      es_predeterminada = false,
-      nombre,
-      apellidos,
-      empresa,
-      direccion1,
-      direccion2,
-      ciudad,
-      provincia,
-      codigo_postal,
-      pais,
-      codigo_pais,
-      telefono,
-    } = data
-
-    // Si es predeterminada, actualizar las demás direcciones del cliente
-    if (es_predeterminada) {
-      await sql`
-        UPDATE direcciones_cliente
-        SET es_predeterminada = false
-        WHERE cliente_id = ${cliente_id}
-      `
-    }
-
-    const result = await sql`
-      INSERT INTO direcciones_cliente (
-        shopify_id, cliente_id, es_predeterminada, nombre, apellidos,
-        empresa, direccion1, direccion2, ciudad, provincia, codigo_postal,
-        pais, codigo_pais, telefono, fecha_creacion, fecha_actualizacion
-      )
-      VALUES (
-        ${shopify_id || null}, ${cliente_id}, ${es_predeterminada}, ${nombre || null},
-        ${apellidos || null}, ${empresa || null}, ${direccion1 || null},
-        ${direccion2 || null}, ${ciudad || null}, ${provincia || null},
-        ${codigo_postal || null}, ${pais || null}, ${codigo_pais || null},
-        ${telefono || null}, NOW(), NOW()
-      )
-      RETURNING *
-    `
+    const result = await query(
+      `INSERT INTO clientes (
+        shopify_id, email, nombre, apellidos, telefono,
+        acepta_marketing, notas, etiquetas, total_pedidos,
+        total_gastado, estado
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+      ) RETURNING *`,
+      [
+        shopify_id,
+        email,
+        nombre,
+        apellidos,
+        telefono,
+        acepta_marketing !== undefined ? acepta_marketing : false,
+        notas,
+        etiquetas,
+        total_pedidos || 0,
+        total_gastado || 0,
+        estado,
+      ],
+    )
 
     return result.rows[0]
   } catch (error) {
-    console.error("Error al crear dirección de cliente:", error)
+    console.error("Error creating cliente:", error)
     throw error
   }
 }
 
-// Actualizar una dirección de cliente existente
-export async function updateDireccionCliente(id: number, data: Partial<DireccionCliente>): Promise<DireccionCliente> {
+export async function updateCliente(id: number, cliente: Partial<Cliente>) {
   try {
-    // Primero obtenemos la dirección actual
-    const result = await sql`
-      SELECT * FROM direcciones_cliente
-      WHERE id = ${id}
-    `
+    // Construir dinámicamente la consulta de actualización
+    const updates: string[] = []
+    const values: any[] = []
+    let paramIndex = 1
+
+    // Añadir cada campo a actualizar
+    Object.entries(cliente).forEach(([key, value]) => {
+      if (key !== "id" && value !== undefined) {
+        updates.push(`${key} = $${paramIndex}`)
+        values.push(value)
+        paramIndex++
+      }
+    })
+
+    // Añadir fecha de actualización
+    updates.push(`fecha_actualizacion = NOW()`)
+
+    // Añadir el ID al final de los valores
+    values.push(id)
+
+    const result = await query(
+      `UPDATE clientes 
+       SET ${updates.join(", ")} 
+       WHERE id = $${paramIndex} 
+       RETURNING *`,
+      values,
+    )
 
     if (result.rows.length === 0) {
-      throw new Error(`Dirección con ID ${id} no encontrada`)
+      return null
     }
 
-    const currentDireccion = result.rows[0]
+    return result.rows[0]
+  } catch (error) {
+    console.error(`Error updating cliente with ID ${id}:`, error)
+    throw error
+  }
+}
 
-    // Si se está estableciendo como predeterminada, actualizar las demás direcciones
-    if (data.es_predeterminada && !currentDireccion.es_predeterminada) {
-      await sql`
-        UPDATE direcciones_cliente
-        SET es_predeterminada = false
-        WHERE cliente_id = ${currentDireccion.cliente_id}
-      `
+export async function deleteCliente(id: number) {
+  try {
+    const result = await query(
+      `DELETE FROM clientes 
+       WHERE id = $1 
+       RETURNING id`,
+      [id],
+    )
+
+    if (result.rows.length === 0) {
+      return false
     }
 
-    // Combinamos los datos actuales con los nuevos
-    const updatedData = {
-      ...currentDireccion,
-      ...data,
-      fecha_actualizacion: new Date(),
+    return true
+  } catch (error) {
+    console.error(`Error deleting cliente with ID ${id}:`, error)
+    throw error
+  }
+}
+
+// Funciones para direcciones de cliente
+export async function getDireccionesByClienteId(clienteId: number) {
+  try {
+    const result = await query(
+      `SELECT * FROM direcciones_cliente 
+       WHERE cliente_id = $1 
+       ORDER BY es_predeterminada DESC, id`,
+      [clienteId],
+    )
+
+    return result.rows
+  } catch (error) {
+    console.error(`Error getting direcciones for cliente ID ${clienteId}:`, error)
+    throw error
+  }
+}
+
+export async function getDireccionPredeterminadaByClienteId(clienteId: number) {
+  try {
+    const result = await query(
+      `SELECT * FROM direcciones_cliente 
+       WHERE cliente_id = $1 AND es_predeterminada = true 
+       LIMIT 1`,
+      [clienteId],
+    )
+
+    if (result.rows.length === 0) {
+      return null
     }
 
+    return result.rows[0]
+  } catch (error) {
+    console.error(`Error getting direccion predeterminada for cliente ID ${clienteId}:`, error)
+    throw error
+  }
+}
+
+export async function createDireccion(direccion: Partial<DireccionCliente>) {
+  try {
     const {
       shopify_id,
       cliente_id,
@@ -341,188 +234,144 @@ export async function updateDireccionCliente(id: number, data: Partial<Direccion
       pais,
       codigo_pais,
       telefono,
-      ultima_sincronizacion,
-    } = updatedData
+    } = direccion
 
-    const updateResult = await sql`
-      UPDATE direcciones_cliente
-      SET
-        shopify_id = ${shopify_id || null},
-        cliente_id = ${cliente_id},
-        es_predeterminada = ${es_predeterminada},
-        nombre = ${nombre || null},
-        apellidos = ${apellidos || null},
-        empresa = ${empresa || null},
-        direccion1 = ${direccion1 || null},
-        direccion2 = ${direccion2 || null},
-        ciudad = ${ciudad || null},
-        provincia = ${provincia || null},
-        codigo_postal = ${codigo_postal || null},
-        pais = ${pais || null},
-        codigo_pais = ${codigo_pais || null},
-        telefono = ${telefono || null},
-        fecha_actualizacion = NOW(),
-        ultima_sincronizacion = ${ultima_sincronizacion || null}
-      WHERE id = ${id}
-      RETURNING *
-    `
-
-    return updateResult.rows[0]
-  } catch (error) {
-    console.error(`Error al actualizar dirección con ID ${id}:`, error)
-    throw error
-  }
-}
-
-// Eliminar una dirección de cliente
-export async function deleteDireccionCliente(id: number): Promise<boolean> {
-  try {
-    const result = await sql`
-      DELETE FROM direcciones_cliente
-      WHERE id = ${id}
-      RETURNING id
-    `
-
-    return result.rows.length > 0
-  } catch (error) {
-    console.error(`Error al eliminar dirección con ID ${id}:`, error)
-    throw error
-  }
-}
-
-// Sincronizar un cliente con Shopify
-export async function syncClienteWithShopify(customer: any): Promise<number> {
-  try {
-    // Verificar si el cliente ya existe
-    const existingCustomer = await getClienteByShopifyId(customer.id)
-
-    if (existingCustomer) {
-      // Actualizar cliente existente
-      const updatedCustomer = await updateCliente(existingCustomer.id, {
-        email: customer.email,
-        nombre: customer.firstName,
-        apellidos: customer.lastName,
-        telefono: customer.phone,
-        acepta_marketing: customer.acceptsMarketing || false,
-        total_pedidos: customer.ordersCount || 0,
-        total_gastado: customer.totalSpent?.amount || 0,
-        etiquetas: customer.tags || [],
-        ultima_sincronizacion: new Date(),
-      })
-
-      // Registrar evento
-      await logSyncEvent({
-        tipo_entidad: "CUSTOMER",
-        entidad_id: customer.id,
-        accion: "UPDATE",
-        resultado: "SUCCESS",
-        mensaje: `Cliente actualizado: ${customer.firstName} ${customer.lastName}`,
-      })
-
-      // Sincronizar direcciones
-      if (customer.addresses && Array.isArray(customer.addresses)) {
-        await syncDireccionesCliente(updatedCustomer.id, customer.id, customer.addresses, customer.defaultAddress?.id)
-      }
-
-      return updatedCustomer.id
-    } else {
-      // Crear nuevo cliente
-      const newCustomer = await createCliente({
-        shopify_id: customer.id,
-        email: customer.email,
-        nombre: customer.firstName,
-        apellidos: customer.lastName,
-        telefono: customer.phone,
-        acepta_marketing: customer.acceptsMarketing || false,
-        total_pedidos: customer.ordersCount || 0,
-        total_gastado: customer.totalSpent?.amount || 0,
-        etiquetas: customer.tags || [],
-        ultima_sincronizacion: new Date(),
-      })
-
-      // Registrar evento
-      await logSyncEvent({
-        tipo_entidad: "CUSTOMER",
-        entidad_id: customer.id,
-        accion: "CREATE",
-        resultado: "SUCCESS",
-        mensaje: `Cliente creado: ${customer.firstName} ${customer.lastName}`,
-      })
-
-      // Sincronizar direcciones
-      if (customer.addresses && Array.isArray(customer.addresses)) {
-        await syncDireccionesCliente(newCustomer.id, customer.id, customer.addresses, customer.defaultAddress?.id)
-      }
-
-      return newCustomer.id
-    }
-  } catch (error) {
-    console.error(`Error al sincronizar cliente ${customer.id}:`, error)
-
-    // Registrar error
-    await logSyncEvent({
-      tipo_entidad: "CUSTOMER",
-      entidad_id: customer.id,
-      accion: "SYNC",
-      resultado: "ERROR",
-      mensaje: `Error al sincronizar cliente: ${(error as Error).message}`,
-    })
-
-    throw error
-  }
-}
-
-// Sincronizar direcciones de un cliente
-async function syncDireccionesCliente(
-  clienteDbId: number,
-  shopifyClienteId: string,
-  addresses: any[],
-  defaultAddressId?: string,
-): Promise<void> {
-  try {
-    // Eliminar direcciones existentes
-    await sql`DELETE FROM direcciones_cliente WHERE cliente_id = ${clienteDbId}`
-
-    // Insertar nuevas direcciones
-    for (const address of addresses) {
-      const esPredeterminada = defaultAddressId ? address.id === defaultAddressId : false
-
-      await sql`
-        INSERT INTO direcciones_cliente (
-          shopify_id, cliente_id, es_predeterminada, nombre, apellidos,
-          empresa, direccion1, direccion2, ciudad, provincia, codigo_postal,
-          pais, codigo_pais, telefono, fecha_creacion, fecha_actualizacion, ultima_sincronizacion
-        )
-        VALUES (
-          ${address.id}, ${clienteDbId}, ${esPredeterminada}, ${address.firstName || null},
-          ${address.lastName || null}, ${address.company || null}, ${address.address1 || null},
-          ${address.address2 || null}, ${address.city || null}, ${address.province || null},
-          ${address.zip || null}, ${address.country || null}, ${address.countryCode || null},
-          ${address.phone || null}, NOW(), NOW(), NOW()
-        )
-      `
+    // Si es predeterminada, actualizar las demás direcciones
+    if (es_predeterminada) {
+      await query(
+        `UPDATE direcciones_cliente 
+         SET es_predeterminada = false 
+         WHERE cliente_id = $1`,
+        [cliente_id],
+      )
     }
 
-    // Registrar evento
-    await logSyncEvent({
-      tipo_entidad: "CUSTOMER_ADDRESSES",
-      entidad_id: shopifyClienteId,
-      accion: "SYNC",
-      resultado: "SUCCESS",
-      mensaje: `Direcciones de cliente sincronizadas: ${addresses.length} direcciones`,
-    })
+    const result = await query(
+      `INSERT INTO direcciones_cliente (
+        shopify_id, cliente_id, es_predeterminada, nombre, apellidos,
+        empresa, direccion1, direccion2, ciudad, provincia,
+        codigo_postal, pais, codigo_pais, telefono
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+      ) RETURNING *`,
+      [
+        shopify_id,
+        cliente_id,
+        es_predeterminada !== undefined ? es_predeterminada : false,
+        nombre,
+        apellidos,
+        empresa,
+        direccion1,
+        direccion2,
+        ciudad,
+        provincia,
+        codigo_postal,
+        pais,
+        codigo_pais,
+        telefono,
+      ],
+    )
+
+    return result.rows[0]
   } catch (error) {
-    console.error(`Error al sincronizar direcciones del cliente ${shopifyClienteId}:`, error)
+    console.error("Error creating direccion:", error)
+    throw error
+  }
+}
 
-    // Registrar error
-    await logSyncEvent({
-      tipo_entidad: "CUSTOMER_ADDRESSES",
-      entidad_id: shopifyClienteId,
-      accion: "SYNC",
-      resultado: "ERROR",
-      mensaje: `Error al sincronizar direcciones de cliente: ${(error as Error).message}`,
+export async function updateDireccion(id: number, direccion: Partial<DireccionCliente>) {
+  try {
+    // Si es predeterminada, actualizar las demás direcciones
+    if (direccion.es_predeterminada) {
+      const currentDireccion = await query(`SELECT cliente_id FROM direcciones_cliente WHERE id = $1`, [id])
+
+      if (currentDireccion.rows.length > 0) {
+        await query(
+          `UPDATE direcciones_cliente 
+           SET es_predeterminada = false 
+           WHERE cliente_id = $1 AND id != $2`,
+          [currentDireccion.rows[0].cliente_id, id],
+        )
+      }
+    }
+
+    // Construir dinámicamente la consulta de actualización
+    const updates: string[] = []
+    const values: any[] = []
+    let paramIndex = 1
+
+    // Añadir cada campo a actualizar
+    Object.entries(direccion).forEach(([key, value]) => {
+      if (key !== "id" && key !== "cliente_id" && value !== undefined) {
+        updates.push(`${key} = $${paramIndex}`)
+        values.push(value)
+        paramIndex++
+      }
     })
 
+    // Añadir fecha de actualización
+    updates.push(`fecha_actualizacion = NOW()`)
+
+    // Añadir el ID al final de los valores
+    values.push(id)
+
+    const result = await query(
+      `UPDATE direcciones_cliente 
+       SET ${updates.join(", ")} 
+       WHERE id = $${paramIndex} 
+       RETURNING *`,
+      values,
+    )
+
+    if (result.rows.length === 0) {
+      return null
+    }
+
+    return result.rows[0]
+  } catch (error) {
+    console.error(`Error updating direccion with ID ${id}:`, error)
+    throw error
+  }
+}
+
+export async function deleteDireccion(id: number) {
+  try {
+    const result = await query(
+      `DELETE FROM direcciones_cliente 
+       WHERE id = $1 
+       RETURNING id, cliente_id, es_predeterminada`,
+      [id],
+    )
+
+    if (result.rows.length === 0) {
+      return false
+    }
+
+    // Si era predeterminada, establecer otra dirección como predeterminada
+    if (result.rows[0].es_predeterminada) {
+      const clienteId = result.rows[0].cliente_id
+
+      const otherDirecciones = await query(
+        `SELECT id FROM direcciones_cliente 
+         WHERE cliente_id = $1 
+         ORDER BY id 
+         LIMIT 1`,
+        [clienteId],
+      )
+
+      if (otherDirecciones.rows.length > 0) {
+        await query(
+          `UPDATE direcciones_cliente 
+           SET es_predeterminada = true 
+           WHERE id = $1`,
+          [otherDirecciones.rows[0].id],
+        )
+      }
+    }
+
+    return true
+  } catch (error) {
+    console.error(`Error deleting direccion with ID ${id}:`, error)
     throw error
   }
 }

@@ -1,106 +1,61 @@
-import { sql } from "@vercel/postgres"
-import type { Coleccion, ProductoColeccion } from "../schema"
-import { logSyncEvent } from "./registro-repository"
+import { query } from "@/lib/db"
+import type { Coleccion } from "@/lib/db/schema"
 
-// Obtener todas las colecciones
-export async function getAllColecciones(): Promise<Coleccion[]> {
+// Funciones para colecciones
+export async function getAllColecciones() {
   try {
-    const result = await sql`
-      SELECT * FROM colecciones
-      ORDER BY fecha_creacion DESC
-    `
+    const result = await query(
+      `SELECT * FROM colecciones 
+       ORDER BY fecha_creacion DESC`,
+    )
+
     return result.rows
   } catch (error) {
-    console.error("Error al obtener colecciones:", error)
+    console.error("Error getting all colecciones:", error)
     throw error
   }
 }
 
-// Obtener una colección por ID
-export async function getColeccionById(id: number): Promise<Coleccion | null> {
+export async function getColeccionById(id: number) {
   try {
-    const result = await sql`
-      SELECT * FROM colecciones
-      WHERE id = ${id}
-    `
+    const result = await query(
+      `SELECT * FROM colecciones 
+       WHERE id = $1`,
+      [id],
+    )
 
-    return result.rows.length > 0 ? result.rows[0] : null
-  } catch (error) {
-    console.error(`Error al obtener colección con ID ${id}:`, error)
-    throw error
-  }
-}
-
-// Obtener una colección por Shopify ID
-export async function getColeccionByShopifyId(shopifyId: string): Promise<Coleccion | null> {
-  try {
-    const result = await sql`
-      SELECT * FROM colecciones
-      WHERE shopify_id = ${shopifyId}
-    `
-
-    return result.rows.length > 0 ? result.rows[0] : null
-  } catch (error) {
-    console.error(`Error al obtener colección con Shopify ID ${shopifyId}:`, error)
-    throw error
-  }
-}
-
-// Crear una nueva colección
-export async function createColeccion(data: Partial<Coleccion>): Promise<Coleccion> {
-  try {
-    const {
-      shopify_id,
-      titulo,
-      descripcion,
-      url_handle,
-      imagen_url,
-      es_automatica = false,
-      condiciones_automaticas,
-      publicada = false,
-      seo_titulo,
-      seo_descripcion,
-      fecha_publicacion,
-    } = data
-
-    const result = await sql`
-      INSERT INTO colecciones (
-        shopify_id, titulo, descripcion, url_handle, imagen_url,
-        es_automatica, condiciones_automaticas, publicada, seo_titulo,
-        seo_descripcion, fecha_creacion, fecha_actualizacion, fecha_publicacion
-      )
-      VALUES (
-        ${shopify_id || null}, ${titulo}, ${descripcion || null}, ${url_handle || null},
-        ${imagen_url || null}, ${es_automatica}, ${condiciones_automaticas ? JSON.stringify(condiciones_automaticas) : null},
-        ${publicada}, ${seo_titulo || null}, ${seo_descripcion || null},
-        NOW(), NOW(), ${fecha_publicacion || null}
-      )
-      RETURNING *
-    `
+    if (result.rows.length === 0) {
+      return null
+    }
 
     return result.rows[0]
   } catch (error) {
-    console.error("Error al crear colección:", error)
+    console.error(`Error getting coleccion with ID ${id}:`, error)
     throw error
   }
 }
 
-// Actualizar una colección existente
-export async function updateColeccion(id: number, data: Partial<Coleccion>): Promise<Coleccion> {
+export async function getColeccionByShopifyId(shopifyId: string) {
   try {
-    // Primero obtenemos la colección actual
-    const currentColeccion = await getColeccionById(id)
-    if (!currentColeccion) {
-      throw new Error(`Colección con ID ${id} no encontrada`)
+    const result = await query(
+      `SELECT * FROM colecciones 
+       WHERE shopify_id = $1`,
+      [shopifyId],
+    )
+
+    if (result.rows.length === 0) {
+      return null
     }
 
-    // Combinamos los datos actuales con los nuevos
-    const updatedData = {
-      ...currentColeccion,
-      ...data,
-      fecha_actualizacion: new Date(),
-    }
+    return result.rows[0]
+  } catch (error) {
+    console.error(`Error getting coleccion with Shopify ID ${shopifyId}:`, error)
+    throw error
+  }
+}
 
+export async function createColeccion(coleccion: Partial<Coleccion>) {
+  try {
     const {
       shopify_id,
       titulo,
@@ -113,294 +68,201 @@ export async function updateColeccion(id: number, data: Partial<Coleccion>): Pro
       seo_titulo,
       seo_descripcion,
       fecha_publicacion,
-      ultima_sincronizacion,
-    } = updatedData
+    } = coleccion
 
-    const result = await sql`
-      UPDATE colecciones
-      SET
-        shopify_id = ${shopify_id || null},
-        titulo = ${titulo},
-        descripcion = ${descripcion || null},
-        url_handle = ${url_handle || null},
-        imagen_url = ${imagen_url || null},
-        es_automatica = ${es_automatica},
-        condiciones_automaticas = ${condiciones_automaticas ? JSON.stringify(condiciones_automaticas) : null},
-        publicada = ${publicada},
-        seo_titulo = ${seo_titulo || null},
-        seo_descripcion = ${seo_descripcion || null},
-        fecha_actualizacion = NOW(),
-        fecha_publicacion = ${fecha_publicacion || null},
-        ultima_sincronizacion = ${ultima_sincronizacion || null}
-      WHERE id = ${id}
-      RETURNING *
-    `
+    const result = await query(
+      `INSERT INTO colecciones (
+        shopify_id, titulo, descripcion, url_handle, imagen_url,
+        es_automatica, condiciones_automaticas, publicada,
+        seo_titulo, seo_descripcion, fecha_publicacion
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+      ) RETURNING *`,
+      [
+        shopify_id,
+        titulo,
+        descripcion,
+        url_handle,
+        imagen_url,
+        es_automatica !== undefined ? es_automatica : false,
+        condiciones_automaticas ? JSON.stringify(condiciones_automaticas) : null,
+        publicada !== undefined ? publicada : false,
+        seo_titulo,
+        seo_descripcion,
+        fecha_publicacion,
+      ],
+    )
 
     return result.rows[0]
   } catch (error) {
-    console.error(`Error al actualizar colección con ID ${id}:`, error)
+    console.error("Error creating coleccion:", error)
     throw error
   }
 }
 
-// Eliminar una colección
-export async function deleteColeccion(id: number): Promise<boolean> {
+export async function updateColeccion(id: number, coleccion: Partial<Coleccion>) {
   try {
-    const result = await sql`
-      DELETE FROM colecciones
-      WHERE id = ${id}
-      RETURNING id
-    `
+    // Construir dinámicamente la consulta de actualización
+    const updates: string[] = []
+    const values: any[] = []
+    let paramIndex = 1
 
-    return result.rows.length > 0
-  } catch (error) {
-    console.error(`Error al eliminar colección con ID ${id}:`, error)
-    throw error
-  }
-}
+    // Añadir cada campo a actualizar
+    Object.entries(coleccion).forEach(([key, value]) => {
+      if (key !== "id" && value !== undefined) {
+        // Manejar el caso especial de condiciones_automaticas
+        if (key === "condiciones_automaticas" && value) {
+          updates.push(`${key} = $${paramIndex}`)
+          values.push(JSON.stringify(value))
+        } else {
+          updates.push(`${key} = $${paramIndex}`)
+          values.push(value)
+        }
+        paramIndex++
+      }
+    })
 
-// Buscar colecciones
-export async function searchColecciones(
-  query: string,
-  limit = 10,
-  offset = 0,
-): Promise<{ colecciones: Coleccion[]; total: number }> {
-  try {
-    const searchQuery = `%${query}%`
+    // Añadir fecha de actualización
+    updates.push(`fecha_actualizacion = NOW()`)
 
-    const coleccionesResult = await sql`
-      SELECT * FROM colecciones
-      WHERE 
-        titulo ILIKE ${searchQuery} OR
-        descripcion ILIKE ${searchQuery}
-      ORDER BY fecha_creacion DESC
-      LIMIT ${limit} OFFSET ${offset}
-    `
+    // Añadir el ID al final de los valores
+    values.push(id)
 
-    const countResult = await sql`
-      SELECT COUNT(*) as total FROM colecciones
-      WHERE 
-        titulo ILIKE ${searchQuery} OR
-        descripcion ILIKE ${searchQuery}
-    `
+    const result = await query(
+      `UPDATE colecciones 
+       SET ${updates.join(", ")} 
+       WHERE id = $${paramIndex} 
+       RETURNING *`,
+      values,
+    )
 
-    return {
-      colecciones: coleccionesResult.rows,
-      total: Number.parseInt(countResult.rows[0].total),
+    if (result.rows.length === 0) {
+      return null
     }
+
+    return result.rows[0]
   } catch (error) {
-    console.error(`Error al buscar colecciones con query "${query}":`, error)
+    console.error(`Error updating coleccion with ID ${id}:`, error)
     throw error
   }
 }
 
-// Obtener productos de una colección
-export async function getProductosByColeccionId(coleccionId: number): Promise<any[]> {
+export async function deleteColeccion(id: number) {
   try {
-    const result = await sql`
-      SELECT p.* FROM productos p
-      JOIN productos_colecciones pc ON p.id = pc.producto_id
-      WHERE pc.coleccion_id = ${coleccionId}
-      ORDER BY pc.posicion ASC, p.titulo ASC
-    `
+    const result = await query(
+      `DELETE FROM colecciones 
+       WHERE id = $1 
+       RETURNING id`,
+      [id],
+    )
+
+    if (result.rows.length === 0) {
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.error(`Error deleting coleccion with ID ${id}:`, error)
+    throw error
+  }
+}
+
+// Funciones para la relación productos-colecciones
+export async function getProductosByColeccionId(coleccionId: number) {
+  try {
+    const result = await query(
+      `SELECT p.* 
+       FROM productos p
+       JOIN productos_colecciones pc ON p.id = pc.producto_id
+       WHERE pc.coleccion_id = $1
+       ORDER BY pc.posicion, p.titulo`,
+      [coleccionId],
+    )
 
     return result.rows
   } catch (error) {
-    console.error(`Error al obtener productos de la colección con ID ${coleccionId}:`, error)
+    console.error(`Error getting productos for coleccion ID ${coleccionId}:`, error)
     throw error
   }
 }
 
-// Añadir un producto a una colección
-export async function addProductoToColeccion(
-  productoId: number,
-  coleccionId: number,
-  posicion?: number,
-): Promise<ProductoColeccion> {
+export async function getColeccionesByProductoId(productoId: number) {
+  try {
+    const result = await query(
+      `SELECT c.* 
+       FROM colecciones c
+       JOIN productos_colecciones pc ON c.id = pc.coleccion_id
+       WHERE pc.producto_id = $1
+       ORDER BY c.titulo`,
+      [productoId],
+    )
+
+    return result.rows
+  } catch (error) {
+    console.error(`Error getting colecciones for producto ID ${productoId}:`, error)
+    throw error
+  }
+}
+
+export async function addProductoToColeccion(productoId: number, coleccionId: number, posicion?: number) {
   try {
     // Verificar si ya existe la relación
-    const existingRelation = await sql`
-      SELECT * FROM productos_colecciones
-      WHERE producto_id = ${productoId} AND coleccion_id = ${coleccionId}
-    `
+    const checkResult = await query(
+      `SELECT * FROM productos_colecciones 
+       WHERE producto_id = $1 AND coleccion_id = $2`,
+      [productoId, coleccionId],
+    )
 
-    if (existingRelation.rows.length > 0) {
-      // Actualizar posición si es necesario
+    if (checkResult.rows.length > 0) {
+      // Si ya existe, actualizar la posición si se proporciona
       if (posicion !== undefined) {
-        const result = await sql`
-          UPDATE productos_colecciones
-          SET posicion = ${posicion}, fecha_actualizacion = NOW()
-          WHERE producto_id = ${productoId} AND coleccion_id = ${coleccionId}
-          RETURNING *
-        `
-        return result.rows[0]
+        const updateResult = await query(
+          `UPDATE productos_colecciones 
+           SET posicion = $1, fecha_actualizacion = NOW()
+           WHERE producto_id = $2 AND coleccion_id = $3
+           RETURNING *`,
+          [posicion, productoId, coleccionId],
+        )
+
+        return updateResult.rows[0]
       }
-      return existingRelation.rows[0]
+
+      return checkResult.rows[0]
     }
 
-    // Crear nueva relación
-    const result = await sql`
-      INSERT INTO productos_colecciones (
-        producto_id, coleccion_id, posicion, fecha_creacion, fecha_actualizacion
-      )
-      VALUES (
-        ${productoId}, ${coleccionId}, ${posicion || null}, NOW(), NOW()
-      )
-      RETURNING *
-    `
+    // Si no existe, crear la relación
+    const result = await query(
+      `INSERT INTO productos_colecciones (
+        producto_id, coleccion_id, posicion
+      ) VALUES (
+        $1, $2, $3
+      ) RETURNING *`,
+      [productoId, coleccionId, posicion],
+    )
 
     return result.rows[0]
   } catch (error) {
-    console.error(`Error al añadir producto ${productoId} a la colección ${coleccionId}:`, error)
+    console.error(`Error adding producto ${productoId} to coleccion ${coleccionId}:`, error)
     throw error
   }
 }
 
-// Eliminar un producto de una colección
-export async function removeProductoFromColeccion(productoId: number, coleccionId: number): Promise<boolean> {
+export async function removeProductoFromColeccion(productoId: number, coleccionId: number) {
   try {
-    const result = await sql`
-      DELETE FROM productos_colecciones
-      WHERE producto_id = ${productoId} AND coleccion_id = ${coleccionId}
-      RETURNING id
-    `
+    const result = await query(
+      `DELETE FROM productos_colecciones 
+       WHERE producto_id = $1 AND coleccion_id = $2
+       RETURNING *`,
+      [productoId, coleccionId],
+    )
 
-    return result.rows.length > 0
-  } catch (error) {
-    console.error(`Error al eliminar producto ${productoId} de la colección ${coleccionId}:`, error)
-    throw error
-  }
-}
-
-// Sincronizar una colección con Shopify
-export async function syncColeccionWithShopify(collection: any): Promise<number> {
-  try {
-    // Verificar si la colección ya existe
-    const existingCollection = await getColeccionByShopifyId(collection.id)
-
-    if (existingCollection) {
-      // Actualizar colección existente
-      const updatedCollection = await updateColeccion(existingCollection.id, {
-        titulo: collection.title,
-        descripcion: collection.description || collection.descriptionHtml,
-        url_handle: collection.handle,
-        imagen_url: collection.image?.url,
-        publicada: true, // Asumimos que si viene de Shopify está publicada
-        seo_titulo: collection.seo?.title || collection.title,
-        seo_descripcion: collection.seo?.description || collection.description?.substring(0, 160),
-        ultima_sincronizacion: new Date(),
-      })
-
-      // Registrar evento
-      await logSyncEvent({
-        tipo_entidad: "COLLECTION",
-        entidad_id: collection.id,
-        accion: "UPDATE",
-        resultado: "SUCCESS",
-        mensaje: `Colección actualizada: ${collection.title}`,
-      })
-
-      return updatedCollection.id
-    } else {
-      // Crear nueva colección
-      const newCollection = await createColeccion({
-        shopify_id: collection.id,
-        titulo: collection.title,
-        descripcion: collection.description || collection.descriptionHtml,
-        url_handle: collection.handle,
-        imagen_url: collection.image?.url,
-        publicada: true, // Asumimos que si viene de Shopify está publicada
-        seo_titulo: collection.seo?.title || collection.title,
-        seo_descripcion: collection.seo?.description || collection.description?.substring(0, 160),
-        ultima_sincronizacion: new Date(),
-      })
-
-      // Registrar evento
-      await logSyncEvent({
-        tipo_entidad: "COLLECTION",
-        entidad_id: collection.id,
-        accion: "CREATE",
-        resultado: "SUCCESS",
-        mensaje: `Colección creada: ${collection.title}`,
-      })
-
-      return newCollection.id
-    }
-  } catch (error) {
-    console.error(`Error al sincronizar colección ${collection.id}:`, error)
-
-    // Registrar error
-    await logSyncEvent({
-      tipo_entidad: "COLLECTION",
-      entidad_id: collection.id,
-      accion: "SYNC",
-      resultado: "ERROR",
-      mensaje: `Error al sincronizar colección: ${(error as Error).message}`,
-    })
-
-    throw error
-  }
-}
-
-// Sincronizar productos de una colección
-export async function syncProductosColeccion(
-  coleccionId: number,
-  shopifyColeccionId: string,
-  productIds: string[],
-): Promise<void> {
-  try {
-    // Eliminar relaciones existentes
-    await sql`DELETE FROM productos_colecciones WHERE coleccion_id = ${coleccionId}`
-
-    // Si no hay productos, terminar
-    if (!productIds.length) {
-      return
+    if (result.rows.length === 0) {
+      return false
     }
 
-    // Insertar nuevas relaciones
-    for (let i = 0; i < productIds.length; i++) {
-      const productId = productIds[i]
-
-      // Buscar el ID de la base de datos para el producto
-      const productResult = await sql`
-        SELECT id FROM productos WHERE shopify_id = ${productId}
-      `
-
-      if (productResult.rows.length > 0) {
-        const productDbId = productResult.rows[0].id
-
-        // Insertar relación
-        await sql`
-          INSERT INTO productos_colecciones (
-            producto_id, coleccion_id, posicion, fecha_creacion, fecha_actualizacion
-          )
-          VALUES (
-            ${productDbId}, ${coleccionId}, ${i + 1}, NOW(), NOW()
-          )
-        `
-      }
-    }
-
-    // Registrar evento
-    await logSyncEvent({
-      tipo_entidad: "COLLECTION_PRODUCTS",
-      entidad_id: shopifyColeccionId,
-      accion: "SYNC",
-      resultado: "SUCCESS",
-      mensaje: `Productos de colección sincronizados: ${productIds.length} productos`,
-    })
+    return true
   } catch (error) {
-    console.error(`Error al sincronizar productos de colección ${shopifyColeccionId}:`, error)
-
-    // Registrar error
-    await logSyncEvent({
-      tipo_entidad: "COLLECTION_PRODUCTS",
-      entidad_id: shopifyColeccionId,
-      accion: "SYNC",
-      resultado: "ERROR",
-      mensaje: `Error al sincronizar productos de colección: ${(error as Error).message}`,
-    })
-
+    console.error(`Error removing producto ${productoId} from coleccion ${coleccionId}:`, error)
     throw error
   }
 }

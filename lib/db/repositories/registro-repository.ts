@@ -1,133 +1,80 @@
-import { sql } from "@vercel/postgres"
-import type { RegistroSincronizacion } from "../schema"
+import { query } from "@/lib/db"
 
-// Registrar un evento de sincronización
-export async function logSyncEvent(data: Partial<RegistroSincronizacion>): Promise<RegistroSincronizacion> {
+export interface SyncEvent {
+  tipo_entidad: string
+  entidad_id?: string
+  accion: string
+  resultado: string
+  mensaje?: string
+  detalles?: any
+}
+
+export async function logSyncEvent(event: SyncEvent) {
   try {
-    const { tipo_entidad, entidad_id, accion, resultado, mensaje, detalles } = data
+    const { tipo_entidad, entidad_id, accion, resultado, mensaje, detalles } = event
 
-    const result = await sql`
-      INSERT INTO registro_sincronizacion (
-        tipo_entidad, entidad_id, accion, resultado, mensaje, detalles, fecha
-      )
-      VALUES (
-        ${tipo_entidad}, ${entidad_id || null}, ${accion}, ${resultado},
-        ${mensaje || null}, ${detalles ? JSON.stringify(detalles) : null}, NOW()
-      )
-      RETURNING *
-    `
+    const result = await query(
+      `INSERT INTO registro_sincronizacion 
+       (tipo_entidad, entidad_id, accion, resultado, mensaje, detalles) 
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id`,
+      [tipo_entidad, entidad_id, accion, resultado, mensaje, detalles ? JSON.stringify(detalles) : null],
+    )
 
-    return result.rows[0]
+    return result.rows[0].id
   } catch (error) {
-    console.error("Error al registrar evento de sincronización:", error)
-    // No lanzamos el error para evitar que falle la operación principal
-    return {
-      id: 0,
-      tipo_entidad: data.tipo_entidad || "ERROR",
-      accion: data.accion || "ERROR",
-      resultado: "ERROR",
-      mensaje: `Error al registrar: ${(error as Error).message}`,
-      fecha: new Date(),
-    }
+    console.error("Error logging sync event:", error)
+    // No lanzar error para evitar interrumpir el flujo principal
+    return null
   }
 }
 
-// Obtener registros de sincronización
-export async function getRegistrosSincronizacion(
-  limit = 100,
-  offset = 0,
-): Promise<{ registros: RegistroSincronizacion[]; total: number }> {
+export async function getRecentSyncEvents(limit = 50) {
   try {
-    const registrosResult = await sql`
-      SELECT * FROM registro_sincronizacion
-      ORDER BY fecha DESC
-      LIMIT ${limit} OFFSET ${offset}
-    `
+    const result = await query(
+      `SELECT * FROM registro_sincronizacion 
+       ORDER BY fecha DESC 
+       LIMIT $1`,
+      [limit],
+    )
 
-    const countResult = await sql`
-      SELECT COUNT(*) as total FROM registro_sincronizacion
-    `
-
-    return {
-      registros: registrosResult.rows,
-      total: Number.parseInt(countResult.rows[0].total),
-    }
+    return result.rows
   } catch (error) {
-    console.error("Error al obtener registros de sincronización:", error)
-    throw error
+    console.error("Error getting recent sync events:", error)
+    return []
   }
 }
 
-// Obtener registros de sincronización por tipo de entidad
-export async function getRegistrosByTipoEntidad(
-  tipoEntidad: string,
-  limit = 100,
-  offset = 0,
-): Promise<{ registros: RegistroSincronizacion[]; total: number }> {
+export async function getSyncEventsByType(tipo: string, limit = 50) {
   try {
-    const registrosResult = await sql`
-      SELECT * FROM registro_sincronizacion
-      WHERE tipo_entidad = ${tipoEntidad}
-      ORDER BY fecha DESC
-      LIMIT ${limit} OFFSET ${offset}
-    `
+    const result = await query(
+      `SELECT * FROM registro_sincronizacion 
+       WHERE tipo_entidad = $1
+       ORDER BY fecha DESC 
+       LIMIT $2`,
+      [tipo, limit],
+    )
 
-    const countResult = await sql`
-      SELECT COUNT(*) as total FROM registro_sincronizacion
-      WHERE tipo_entidad = ${tipoEntidad}
-    `
-
-    return {
-      registros: registrosResult.rows,
-      total: Number.parseInt(countResult.rows[0].total),
-    }
+    return result.rows
   } catch (error) {
-    console.error(`Error al obtener registros de sincronización para tipo ${tipoEntidad}:`, error)
-    throw error
+    console.error(`Error getting sync events for type ${tipo}:`, error)
+    return []
   }
 }
 
-// Obtener registros de sincronización por entidad específica
-export async function getRegistrosByEntidad(
-  tipoEntidad: string,
-  entidadId: string,
-  limit = 100,
-  offset = 0,
-): Promise<{ registros: RegistroSincronizacion[]; total: number }> {
+export async function getSyncEventsByEntity(tipo: string, entidadId: string, limit = 50) {
   try {
-    const registrosResult = await sql`
-      SELECT * FROM registro_sincronizacion
-      WHERE tipo_entidad = ${tipoEntidad} AND entidad_id = ${entidadId}
-      ORDER BY fecha DESC
-      LIMIT ${limit} OFFSET ${offset}
-    `
+    const result = await query(
+      `SELECT * FROM registro_sincronizacion 
+       WHERE tipo_entidad = $1 AND entidad_id = $2
+       ORDER BY fecha DESC 
+       LIMIT $3`,
+      [tipo, entidadId, limit],
+    )
 
-    const countResult = await sql`
-      SELECT COUNT(*) as total FROM registro_sincronizacion
-      WHERE tipo_entidad = ${tipoEntidad} AND entidad_id = ${entidadId}
-    `
-
-    return {
-      registros: registrosResult.rows,
-      total: Number.parseInt(countResult.rows[0].total),
-    }
+    return result.rows
   } catch (error) {
-    console.error(`Error al obtener registros de sincronización para ${tipoEntidad} con ID ${entidadId}:`, error)
-    throw error
-  }
-}
-
-// Eliminar registros antiguos (mantener solo los últimos X días)
-export async function purgeOldRegistros(diasAMantener = 30): Promise<number> {
-  try {
-    const result = await sql`
-      DELETE FROM registro_sincronizacion
-      WHERE fecha < NOW() - INTERVAL '${diasAMantener} days'
-      RETURNING id
-    `
-    return result.rows.length
-  } catch (error) {
-    console.error(`Error al purgar registros antiguos (más de ${diasAMantener} días):`, error)
-    throw error
+    console.error(`Error getting sync events for entity ${tipo}/${entidadId}:`, error)
+    return []
   }
 }

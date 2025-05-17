@@ -1,112 +1,80 @@
-import { sql } from "@vercel/postgres"
-import type { Promocion } from "../schema"
-import { logSyncEvent } from "./registro-repository"
+import { query } from "@/lib/db"
+import type { Promocion } from "@/lib/db/schema"
 
-// Obtener todas las promociones
-export async function getAllPromociones(): Promise<Promocion[]> {
+// Funciones para promociones
+export async function getAllPromociones() {
   try {
-    const result = await sql`
-      SELECT * FROM promociones
-      ORDER BY fecha_creacion DESC
-    `
+    const result = await query(
+      `SELECT * FROM promociones 
+       ORDER BY fecha_creacion DESC`,
+    )
+
     return result.rows
   } catch (error) {
-    console.error("Error al obtener promociones:", error)
+    console.error("Error getting all promociones:", error)
     throw error
   }
 }
 
-// Obtener una promoción por ID
-export async function getPromocionById(id: number): Promise<Promocion | null> {
+export async function getPromocionById(id: number) {
   try {
-    const result = await sql`
-      SELECT * FROM promociones
-      WHERE id = ${id}
-    `
+    const result = await query(
+      `SELECT * FROM promociones 
+       WHERE id = $1`,
+      [id],
+    )
 
-    return result.rows.length > 0 ? result.rows[0] : null
-  } catch (error) {
-    console.error(`Error al obtener promoción con ID ${id}:`, error)
-    throw error
-  }
-}
-
-// Obtener una promoción por Shopify ID
-export async function getPromocionByShopifyId(shopifyId: string): Promise<Promocion | null> {
-  try {
-    const result = await sql`
-      SELECT * FROM promociones
-      WHERE shopify_id = ${shopifyId}
-    `
-
-    return result.rows.length > 0 ? result.rows[0] : null
-  } catch (error) {
-    console.error(`Error al obtener promoción con Shopify ID ${shopifyId}:`, error)
-    throw error
-  }
-}
-
-// Crear una nueva promoción
-export async function createPromocion(data: Partial<Promocion>): Promise<Promocion> {
-  try {
-    const {
-      shopify_id,
-      titulo,
-      descripcion,
-      tipo,
-      valor,
-      codigo,
-      objetivo,
-      objetivo_id,
-      condiciones,
-      fecha_inicio,
-      fecha_fin,
-      activa = false,
-      limite_uso,
-      contador_uso = 0,
-      es_automatica = false,
-    } = data
-
-    const result = await sql`
-      INSERT INTO promociones (
-        shopify_id, titulo, descripcion, tipo, valor, codigo, objetivo,
-        objetivo_id, condiciones, fecha_inicio, fecha_fin, activa,
-        limite_uso, contador_uso, es_automatica, fecha_creacion, fecha_actualizacion
-      )
-      VALUES (
-        ${shopify_id || null}, ${titulo}, ${descripcion || null}, ${tipo},
-        ${valor || null}, ${codigo || null}, ${objetivo || null},
-        ${objetivo_id || null}, ${condiciones ? JSON.stringify(condiciones) : null},
-        ${fecha_inicio || null}, ${fecha_fin || null}, ${activa},
-        ${limite_uso || null}, ${contador_uso}, ${es_automatica},
-        NOW(), NOW()
-      )
-      RETURNING *
-    `
+    if (result.rows.length === 0) {
+      return null
+    }
 
     return result.rows[0]
   } catch (error) {
-    console.error("Error al crear promoción:", error)
+    console.error(`Error getting promocion with ID ${id}:`, error)
     throw error
   }
 }
 
-// Actualizar una promoción existente
-export async function updatePromocion(id: number, data: Partial<Promocion>): Promise<Promocion> {
+export async function getPromocionByShopifyId(shopifyId: string) {
   try {
-    // Primero obtenemos la promoción actual
-    const currentPromocion = await getPromocionById(id)
-    if (!currentPromocion) {
-      throw new Error(`Promoción con ID ${id} no encontrada`)
+    const result = await query(
+      `SELECT * FROM promociones 
+       WHERE shopify_id = $1`,
+      [shopifyId],
+    )
+
+    if (result.rows.length === 0) {
+      return null
     }
 
-    // Combinamos los datos actuales con los nuevos
-    const updatedData = {
-      ...currentPromocion,
-      ...data,
-      fecha_actualizacion: new Date(),
+    return result.rows[0]
+  } catch (error) {
+    console.error(`Error getting promocion with Shopify ID ${shopifyId}:`, error)
+    throw error
+  }
+}
+
+export async function getPromocionByCodigo(codigo: string) {
+  try {
+    const result = await query(
+      `SELECT * FROM promociones 
+       WHERE codigo = $1`,
+      [codigo],
+    )
+
+    if (result.rows.length === 0) {
+      return null
     }
 
+    return result.rows[0]
+  } catch (error) {
+    console.error(`Error getting promocion with codigo ${codigo}:`, error)
+    throw error
+  }
+}
+
+export async function createPromocion(promocion: Partial<Promocion>) {
+  try {
     const {
       shopify_id,
       titulo,
@@ -123,171 +91,147 @@ export async function updatePromocion(id: number, data: Partial<Promocion>): Pro
       limite_uso,
       contador_uso,
       es_automatica,
-      ultima_sincronizacion,
-    } = updatedData
+    } = promocion
 
-    const result = await sql`
-      UPDATE promociones
-      SET
-        shopify_id = ${shopify_id || null},
-        titulo = ${titulo},
-        descripcion = ${descripcion || null},
-        tipo = ${tipo},
-        valor = ${valor || null},
-        codigo = ${codigo || null},
-        objetivo = ${objetivo || null},
-        objetivo_id = ${objetivo_id || null},
-        condiciones = ${condiciones ? JSON.stringify(condiciones) : null},
-        fecha_inicio = ${fecha_inicio || null},
-        fecha_fin = ${fecha_fin || null},
-        activa = ${activa},
-        limite_uso = ${limite_uso || null},
-        contador_uso = ${contador_uso},
-        es_automatica = ${es_automatica},
-        fecha_actualizacion = NOW(),
-        ultima_sincronizacion = ${ultima_sincronizacion || null}
-      WHERE id = ${id}
-      RETURNING *
-    `
+    const result = await query(
+      `INSERT INTO promociones (
+        shopify_id, titulo, descripcion, tipo, valor, codigo,
+        objetivo, objetivo_id, condiciones, fecha_inicio, fecha_fin,
+        activa, limite_uso, contador_uso, es_automatica
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+      ) RETURNING *`,
+      [
+        shopify_id,
+        titulo,
+        descripcion,
+        tipo,
+        valor,
+        codigo,
+        objetivo,
+        objetivo_id,
+        condiciones ? JSON.stringify(condiciones) : null,
+        fecha_inicio,
+        fecha_fin,
+        activa !== undefined ? activa : false,
+        limite_uso,
+        contador_uso || 0,
+        es_automatica !== undefined ? es_automatica : false,
+      ],
+    )
 
     return result.rows[0]
   } catch (error) {
-    console.error(`Error al actualizar promoción con ID ${id}:`, error)
+    console.error("Error creating promocion:", error)
     throw error
   }
 }
 
-// Eliminar una promoción
-export async function deletePromocion(id: number): Promise<boolean> {
+export async function updatePromocion(id: number, promocion: Partial<Promocion>) {
   try {
-    const result = await sql`
-      DELETE FROM promociones
-      WHERE id = ${id}
-      RETURNING id
-    `
+    // Construir dinámicamente la consulta de actualización
+    const updates: string[] = []
+    const values: any[] = []
+    let paramIndex = 1
 
-    return result.rows.length > 0
-  } catch (error) {
-    console.error(`Error al eliminar promoción con ID ${id}:`, error)
-    throw error
-  }
-}
-
-// Buscar promociones
-export async function searchPromociones(
-  query: string,
-  limit = 10,
-  offset = 0,
-): Promise<{ promociones: Promocion[]; total: number }> {
-  try {
-    const searchQuery = `%${query}%`
-
-    const promocionesResult = await sql`
-      SELECT * FROM promociones
-      WHERE 
-        titulo ILIKE ${searchQuery} OR
-        descripcion ILIKE ${searchQuery} OR
-        codigo ILIKE ${searchQuery}
-      ORDER BY fecha_creacion DESC
-      LIMIT ${limit} OFFSET ${offset}
-    `
-
-    const countResult = await sql`
-      SELECT COUNT(*) as total FROM promociones
-      WHERE 
-        titulo ILIKE ${searchQuery} OR
-        descripcion ILIKE ${searchQuery} OR
-        codigo ILIKE ${searchQuery}
-    `
-
-    return {
-      promociones: promocionesResult.rows,
-      total: Number.parseInt(countResult.rows[0].total),
-    }
-  } catch (error) {
-    console.error(`Error al buscar promociones con query "${query}":`, error)
-    throw error
-  }
-}
-
-// Sincronizar una promoción con Shopify
-export async function syncPromocionWithShopify(shopifyPromocion: any): Promise<Promocion> {
-  try {
-    // Buscar si la promoción ya existe
-    const existingPromocion = await getPromocionByShopifyId(shopifyPromocion.id)
-
-    if (existingPromocion) {
-      // Actualizar promoción existente
-      const updatedPromocion = await updatePromocion(existingPromocion.id, {
-        titulo: shopifyPromocion.title,
-        descripcion: shopifyPromocion.summary,
-        tipo: shopifyPromocion.valueType === "percentage" ? "PERCENTAGE_DISCOUNT" : "FIXED_AMOUNT_DISCOUNT",
-        valor: shopifyPromocion.value,
-        codigo: shopifyPromocion.code,
-        objetivo: shopifyPromocion.target || "CART",
-        objetivo_id: shopifyPromocion.targetId,
-        fecha_inicio: shopifyPromocion.startsAt ? new Date(shopifyPromocion.startsAt) : null,
-        fecha_fin: shopifyPromocion.endsAt ? new Date(shopifyPromocion.endsAt) : null,
-        activa: shopifyPromocion.status === "ACTIVE",
-        limite_uso: shopifyPromocion.usageLimit,
-        contador_uso: shopifyPromocion.usageCount || 0,
-        es_automatica: shopifyPromocion.isAutomatic || false,
-        ultima_sincronizacion: new Date(),
-      })
-
-      // Registrar evento
-      await logSyncEvent({
-        tipo_entidad: "PROMOTION",
-        entidad_id: shopifyPromocion.id,
-        accion: "UPDATE",
-        resultado: "SUCCESS",
-        mensaje: `Promoción actualizada: ${shopifyPromocion.title}`,
-      })
-
-      return updatedPromocion
-    } else {
-      // Crear nueva promoción
-      const newPromocion = await createPromocion({
-        shopify_id: shopifyPromocion.id,
-        titulo: shopifyPromocion.title,
-        descripcion: shopifyPromocion.summary,
-        tipo: shopifyPromocion.valueType === "percentage" ? "PERCENTAGE_DISCOUNT" : "FIXED_AMOUNT_DISCOUNT",
-        valor: shopifyPromocion.value,
-        codigo: shopifyPromocion.code,
-        objetivo: shopifyPromocion.target || "CART",
-        objetivo_id: shopifyPromocion.targetId,
-        fecha_inicio: shopifyPromocion.startsAt ? new Date(shopifyPromocion.startsAt) : null,
-        fecha_fin: shopifyPromocion.endsAt ? new Date(shopifyPromocion.endsAt) : null,
-        activa: shopifyPromocion.status === "ACTIVE",
-        limite_uso: shopifyPromocion.usageLimit,
-        contador_uso: shopifyPromocion.usageCount || 0,
-        es_automatica: shopifyPromocion.isAutomatic || false,
-        ultima_sincronizacion: new Date(),
-      })
-
-      // Registrar evento
-      await logSyncEvent({
-        tipo_entidad: "PROMOTION",
-        entidad_id: shopifyPromocion.id,
-        accion: "CREATE",
-        resultado: "SUCCESS",
-        mensaje: `Promoción creada: ${shopifyPromocion.title}`,
-      })
-
-      return newPromocion
-    }
-  } catch (error) {
-    console.error(`Error al sincronizar promoción con Shopify ID ${shopifyPromocion.id}:`, error)
-
-    // Registrar error
-    await logSyncEvent({
-      tipo_entidad: "PROMOTION",
-      entidad_id: shopifyPromocion.id,
-      accion: "SYNC",
-      resultado: "ERROR",
-      mensaje: `Error al sincronizar promoción: ${(error as Error).message}`,
+    // Añadir cada campo a actualizar
+    Object.entries(promocion).forEach(([key, value]) => {
+      if (key !== "id" && value !== undefined) {
+        // Manejar el caso especial de condiciones
+        if (key === "condiciones" && value) {
+          updates.push(`${key} = $${paramIndex}`)
+          values.push(JSON.stringify(value))
+        } else {
+          updates.push(`${key} = $${paramIndex}`)
+          values.push(value)
+        }
+        paramIndex++
+      }
     })
 
+    // Añadir fecha de actualización
+    updates.push(`fecha_actualizacion = NOW()`)
+
+    // Añadir el ID al final de los valores
+    values.push(id)
+
+    const result = await query(
+      `UPDATE promociones 
+       SET ${updates.join(", ")} 
+       WHERE id = $${paramIndex} 
+       RETURNING *`,
+      values,
+    )
+
+    if (result.rows.length === 0) {
+      return null
+    }
+
+    return result.rows[0]
+  } catch (error) {
+    console.error(`Error updating promocion with ID ${id}:`, error)
+    throw error
+  }
+}
+
+export async function deletePromocion(id: number) {
+  try {
+    const result = await query(
+      `DELETE FROM promociones 
+       WHERE id = $1 
+       RETURNING id`,
+      [id],
+    )
+
+    if (result.rows.length === 0) {
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.error(`Error deleting promocion with ID ${id}:`, error)
+    throw error
+  }
+}
+
+export async function incrementarContadorUso(id: number) {
+  try {
+    const result = await query(
+      `UPDATE promociones 
+       SET contador_uso = contador_uso + 1, 
+           fecha_actualizacion = NOW() 
+       WHERE id = $1 
+       RETURNING *`,
+      [id],
+    )
+
+    if (result.rows.length === 0) {
+      return null
+    }
+
+    return result.rows[0]
+  } catch (error) {
+    console.error(`Error incrementing contador_uso for promocion with ID ${id}:`, error)
+    throw error
+  }
+}
+
+export async function getPromocionesActivas() {
+  try {
+    const now = new Date()
+
+    const result = await query(
+      `SELECT * FROM promociones 
+       WHERE activa = true 
+       AND (fecha_inicio IS NULL OR fecha_inicio <= $1) 
+       AND (fecha_fin IS NULL OR fecha_fin >= $1) 
+       ORDER BY fecha_creacion DESC`,
+      [now],
+    )
+
+    return result.rows
+  } catch (error) {
+    console.error("Error getting active promociones:", error)
     throw error
   }
 }

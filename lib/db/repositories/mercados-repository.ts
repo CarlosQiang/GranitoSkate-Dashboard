@@ -1,123 +1,80 @@
-import { sql } from "@vercel/postgres"
-import type { Mercado } from "../schema"
-import { logSyncEvent } from "./registro-repository"
+import { query } from "@/lib/db"
+import type { Mercado } from "@/lib/db/schema"
 
-// Obtener todos los mercados
-export async function getAllMercados(): Promise<Mercado[]> {
+// Funciones para mercados
+export async function getAllMercados() {
   try {
-    const result = await sql`
-      SELECT * FROM mercados
-      ORDER BY es_principal DESC, nombre ASC
-    `
+    const result = await query(
+      `SELECT * FROM mercados 
+       ORDER BY es_principal DESC, nombre`,
+    )
+
     return result.rows
   } catch (error) {
-    console.error("Error al obtener mercados:", error)
+    console.error("Error getting all mercados:", error)
     throw error
   }
 }
 
-// Obtener un mercado por ID
-export async function getMercadoById(id: number): Promise<Mercado | null> {
+export async function getMercadoById(id: number) {
   try {
-    const result = await sql`
-      SELECT * FROM mercados
-      WHERE id = ${id}
-    `
+    const result = await query(
+      `SELECT * FROM mercados 
+       WHERE id = $1`,
+      [id],
+    )
 
-    return result.rows.length > 0 ? result.rows[0] : null
-  } catch (error) {
-    console.error(`Error al obtener mercado con ID ${id}:`, error)
-    throw error
-  }
-}
-
-// Obtener un mercado por Shopify ID
-export async function getMercadoByShopifyId(shopifyId: string): Promise<Mercado | null> {
-  try {
-    const result = await sql`
-      SELECT * FROM mercados
-      WHERE shopify_id = ${shopifyId}
-    `
-
-    return result.rows.length > 0 ? result.rows[0] : null
-  } catch (error) {
-    console.error(`Error al obtener mercado con Shopify ID ${shopifyId}:`, error)
-    throw error
-  }
-}
-
-// Crear un nuevo mercado
-export async function createMercado(data: Partial<Mercado>): Promise<Mercado> {
-  try {
-    const {
-      shopify_id,
-      nombre,
-      activo = false,
-      es_principal = false,
-      moneda_codigo,
-      moneda_simbolo,
-      dominio,
-      subfolder_sufijo,
-      paises,
-      idiomas,
-    } = data
-
-    // Si es principal, actualizar los demás mercados
-    if (es_principal) {
-      await sql`
-        UPDATE mercados
-        SET es_principal = false
-        WHERE es_principal = true
-      `
+    if (result.rows.length === 0) {
+      return null
     }
-
-    const result = await sql`
-      INSERT INTO mercados (
-        shopify_id, nombre, activo, es_principal, moneda_codigo,
-        moneda_simbolo, dominio, subfolder_sufijo, paises, idiomas,
-        fecha_creacion, fecha_actualizacion
-      )
-      VALUES (
-        ${shopify_id || null}, ${nombre}, ${activo}, ${es_principal},
-        ${moneda_codigo || null}, ${moneda_simbolo || null}, ${dominio || null},
-        ${subfolder_sufijo || null}, ${paises ? JSON.stringify(paises) : null},
-        ${idiomas ? JSON.stringify(idiomas) : null}, NOW(), NOW()
-      )
-      RETURNING *
-    `
 
     return result.rows[0]
   } catch (error) {
-    console.error("Error al crear mercado:", error)
+    console.error(`Error getting mercado with ID ${id}:`, error)
     throw error
   }
 }
 
-// Actualizar un mercado existente
-export async function updateMercado(id: number, data: Partial<Mercado>): Promise<Mercado> {
+export async function getMercadoByShopifyId(shopifyId: string) {
   try {
-    // Primero obtenemos el mercado actual
-    const currentMercado = await getMercadoById(id)
-    if (!currentMercado) {
-      throw new Error(`Mercado con ID ${id} no encontrado`)
+    const result = await query(
+      `SELECT * FROM mercados 
+       WHERE shopify_id = $1`,
+      [shopifyId],
+    )
+
+    if (result.rows.length === 0) {
+      return null
     }
 
-    // Si se está estableciendo como principal, actualizar los demás mercados
-    if (data.es_principal && !currentMercado.es_principal) {
-      await sql`
-        UPDATE mercados
-        SET es_principal = false
-        WHERE es_principal = true
-      `
+    return result.rows[0]
+  } catch (error) {
+    console.error(`Error getting mercado with Shopify ID ${shopifyId}:`, error)
+    throw error
+  }
+}
+
+export async function getMercadoPrincipal() {
+  try {
+    const result = await query(
+      `SELECT * FROM mercados 
+       WHERE es_principal = true 
+       LIMIT 1`,
+    )
+
+    if (result.rows.length === 0) {
+      return null
     }
 
-    // Combinamos los datos actuales con los nuevos
-    const updatedData = {
-      ...currentMercado,
-      ...data,
-      fecha_actualizacion: new Date(),
-    }
+    return result.rows[0]
+  } catch (error) {
+    console.error("Error getting mercado principal:", error)
+    throw error
+  }
+}
 
+export async function createMercado(mercado: Partial<Mercado>) {
+  try {
     const {
       shopify_id,
       nombre,
@@ -129,121 +86,123 @@ export async function updateMercado(id: number, data: Partial<Mercado>): Promise
       subfolder_sufijo,
       paises,
       idiomas,
-      ultima_sincronizacion,
-    } = updatedData
+    } = mercado
 
-    const result = await sql`
-      UPDATE mercados
-      SET
-        shopify_id = ${shopify_id || null},
-        nombre = ${nombre},
-        activo = ${activo},
-        es_principal = ${es_principal},
-        moneda_codigo = ${moneda_codigo || null},
-        moneda_simbolo = ${moneda_simbolo || null},
-        dominio = ${dominio || null},
-        subfolder_sufijo = ${subfolder_sufijo || null},
-        paises = ${paises ? JSON.stringify(paises) : null},
-        idiomas = ${idiomas ? JSON.stringify(idiomas) : null},
-        fecha_actualizacion = NOW(),
-        ultima_sincronizacion = ${ultima_sincronizacion || null}
-      WHERE id = ${id}
-      RETURNING *
-    `
+    // Si es principal, actualizar los demás mercados
+    if (es_principal) {
+      await query(
+        `UPDATE mercados 
+         SET es_principal = false`,
+      )
+    }
+
+    const result = await query(
+      `INSERT INTO mercados (
+        shopify_id, nombre, activo, es_principal, moneda_codigo,
+        moneda_simbolo, dominio, subfolder_sufijo, paises, idiomas
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+      ) RETURNING *`,
+      [
+        shopify_id,
+        nombre,
+        activo !== undefined ? activo : false,
+        es_principal !== undefined ? es_principal : false,
+        moneda_codigo,
+        moneda_simbolo,
+        dominio,
+        subfolder_sufijo,
+        paises,
+        idiomas ? JSON.stringify(idiomas) : null,
+      ],
+    )
 
     return result.rows[0]
   } catch (error) {
-    console.error(`Error al actualizar mercado con ID ${id}:`, error)
+    console.error("Error creating mercado:", error)
     throw error
   }
 }
 
-// Eliminar un mercado
-export async function deleteMercado(id: number): Promise<boolean> {
+export async function updateMercado(id: number, mercado: Partial<Mercado>) {
   try {
-    const result = await sql`
-      DELETE FROM mercados
-      WHERE id = ${id}
-      RETURNING id
-    `
-
-    return result.rows.length > 0
-  } catch (error) {
-    console.error(`Error al eliminar mercado con ID ${id}:`, error)
-    throw error
-  }
-}
-
-// Sincronizar un mercado con Shopify
-export async function syncMercadoWithShopify(market: any): Promise<Mercado> {
-  try {
-    // Buscar si el mercado ya existe
-    const existingMercado = await getMercadoByShopifyId(market.id)
-
-    if (existingMercado) {
-      // Actualizar mercado existente
-      const updatedMercado = await updateMercado(existingMercado.id, {
-        nombre: market.name,
-        activo: market.enabled || false,
-        es_principal: market.primary || false,
-        moneda_codigo: market.currency?.code,
-        moneda_simbolo: market.currency?.symbol,
-        dominio: market.web?.domain,
-        subfolder_sufijo: market.web?.subfolderSuffix,
-        paises: market.countries || [],
-        idiomas: market.languages || {},
-        ultima_sincronizacion: new Date(),
-      })
-
-      // Registrar evento
-      await logSyncEvent({
-        tipo_entidad: "MARKET",
-        entidad_id: market.id,
-        accion: "UPDATE",
-        resultado: "SUCCESS",
-        mensaje: `Mercado actualizado: ${market.name}`,
-      })
-
-      return updatedMercado
-    } else {
-      // Crear nuevo mercado
-      const newMercado = await createMercado({
-        shopify_id: market.id,
-        nombre: market.name,
-        activo: market.enabled || false,
-        es_principal: market.primary || false,
-        moneda_codigo: market.currency?.code,
-        moneda_simbolo: market.currency?.symbol,
-        dominio: market.web?.domain,
-        subfolder_sufijo: market.web?.subfolderSuffix,
-        paises: market.countries || [],
-        idiomas: market.languages || {},
-        ultima_sincronizacion: new Date(),
-      })
-
-      // Registrar evento
-      await logSyncEvent({
-        tipo_entidad: "MARKET",
-        entidad_id: market.id,
-        accion: "CREATE",
-        resultado: "SUCCESS",
-        mensaje: `Mercado creado: ${market.name}`,
-      })
-
-      return newMercado
+    // Si es principal, actualizar los demás mercados
+    if (mercado.es_principal) {
+      await query(
+        `UPDATE mercados 
+         SET es_principal = false 
+         WHERE id != $1`,
+        [id],
+      )
     }
-  } catch (error) {
-    console.error(`Error al sincronizar mercado con Shopify ID ${market.id}:`, error)
 
-    // Registrar error
-    await logSyncEvent({
-      tipo_entidad: "MARKET",
-      entidad_id: market.id,
-      accion: "SYNC",
-      resultado: "ERROR",
-      mensaje: `Error al sincronizar mercado: ${(error as Error).message}`,
+    // Construir dinámicamente la consulta de actualización
+    const updates: string[] = []
+    const values: any[] = []
+    let paramIndex = 1
+
+    // Añadir cada campo a actualizar
+    Object.entries(mercado).forEach(([key, value]) => {
+      if (key !== "id" && value !== undefined) {
+        // Manejar el caso especial de idiomas
+        if (key === "idiomas" && value) {
+          updates.push(`${key} = $${paramIndex}`)
+          values.push(JSON.stringify(value))
+        } else {
+          updates.push(`${key} = $${paramIndex}`)
+          values.push(value)
+        }
+        paramIndex++
+      }
     })
 
+    // Añadir fecha de actualización
+    updates.push(`fecha_actualizacion = NOW()`)
+
+    // Añadir el ID al final de los valores
+    values.push(id)
+
+    const result = await query(
+      `UPDATE mercados 
+       SET ${updates.join(", ")} 
+       WHERE id = $${paramIndex} 
+       RETURNING *`,
+      values,
+    )
+
+    if (result.rows.length === 0) {
+      return null
+    }
+
+    return result.rows[0]
+  } catch (error) {
+    console.error(`Error updating mercado with ID ${id}:`, error)
+    throw error
+  }
+}
+
+export async function deleteMercado(id: number) {
+  try {
+    // Verificar si es el mercado principal
+    const mercado = await getMercadoById(id)
+    if (mercado && mercado.es_principal) {
+      throw new Error("No se puede eliminar el mercado principal")
+    }
+
+    const result = await query(
+      `DELETE FROM mercados 
+       WHERE id = $1 
+       RETURNING id`,
+      [id],
+    )
+
+    if (result.rows.length === 0) {
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.error(`Error deleting mercado with ID ${id}:`, error)
     throw error
   }
 }

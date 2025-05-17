@@ -1,50 +1,51 @@
-import { sql } from "@vercel/postgres"
-import type { Metadato } from "../schema"
-import { logSyncEvent } from "./registro-repository"
+import { query } from "@/lib/db"
+import type { Metadato } from "@/lib/db/schema"
 
-// Obtener metadatos por tipo de propietario y ID
-export async function getMetadatosByPropietario(tipoPropietario: string, propietarioId: number): Promise<Metadato[]> {
+// Funciones para metadatos
+export async function getMetadatosByPropietario(tipoPropietario: string, propietarioId: number) {
   try {
-    const result = await sql`
-      SELECT * FROM metadatos
-      WHERE tipo_propietario = ${tipoPropietario} AND propietario_id = ${propietarioId}
-      ORDER BY namespace, clave
-    `
+    const result = await query(
+      `SELECT * FROM metadatos 
+       WHERE tipo_propietario = $1 AND propietario_id = $2`,
+      [tipoPropietario, propietarioId],
+    )
+
     return result.rows
   } catch (error) {
-    console.error(`Error al obtener metadatos para ${tipoPropietario} con ID ${propietarioId}:`, error)
+    console.error(`Error getting metadatos for ${tipoPropietario} ID ${propietarioId}:`, error)
     throw error
   }
 }
 
-// Obtener metadatos por tipo de propietario, ID, namespace y clave
-export async function getMetadato(
+export async function getMetadatoByKey(
   tipoPropietario: string,
   propietarioId: number,
   namespace: string,
   clave: string,
-): Promise<Metadato | null> {
+) {
   try {
-    const result = await sql`
-      SELECT * FROM metadatos
-      WHERE 
-        tipo_propietario = ${tipoPropietario} AND 
-        propietario_id = ${propietarioId} AND
-        namespace = ${namespace} AND
-        clave = ${clave}
-    `
-    return result.rows.length > 0 ? result.rows[0] : null
+    const result = await query(
+      `SELECT * FROM metadatos 
+       WHERE tipo_propietario = $1 AND propietario_id = $2 AND namespace = $3 AND clave = $4 
+       LIMIT 1`,
+      [tipoPropietario, propietarioId, namespace, clave],
+    )
+
+    if (result.rows.length === 0) {
+      return null
+    }
+
+    return result.rows[0]
   } catch (error) {
     console.error(
-      `Error al obtener metadato para ${tipoPropietario} con ID ${propietarioId}, namespace ${namespace}, clave ${clave}:`,
+      `Error getting metadato for ${tipoPropietario} ID ${propietarioId}, namespace ${namespace}, key ${clave}:`,
       error,
     )
     throw error
   }
 }
 
-// Crear o actualizar un metadato
-export async function upsertMetadato(data: Partial<Metadato>): Promise<Metadato> {
+export async function createMetadato(metadato: Partial<Metadato>) {
   try {
     const {
       shopify_id,
@@ -55,127 +56,113 @@ export async function upsertMetadato(data: Partial<Metadato>): Promise<Metadato>
       clave,
       valor,
       tipo_valor,
-    } = data
+    } = metadato
 
-    // Verificar si el metadato ya existe
-    const existingMetadato = await getMetadato(tipo_propietario!, propietario_id!, namespace!, clave!)
+    // Verificar si ya existe
+    const existingMetadato = await getMetadatoByKey(tipo_propietario, propietario_id, namespace, clave)
 
     if (existingMetadato) {
-      // Actualizar metadato existente
-      const result = await sql`
-        UPDATE metadatos
-        SET
-          shopify_id = ${shopify_id || null},
-          shopify_propietario_id = ${shopify_propietario_id || null},
-          valor = ${valor || null},
-          tipo_valor = ${tipo_valor || null},
-          fecha_actualizacion = NOW(),
-          ultima_sincronizacion = NOW()
-        WHERE id = ${existingMetadato.id}
-        RETURNING *
-      `
-      return result.rows[0]
-    } else {
-      // Crear nuevo metadato
-      const result = await sql`
-        INSERT INTO metadatos (
-          shopify_id, tipo_propietario, propietario_id, shopify_propietario_id,
-          namespace, clave, valor, tipo_valor, fecha_creacion, fecha_actualizacion,
-          ultima_sincronizacion
-        )
-        VALUES (
-          ${shopify_id || null}, ${tipo_propietario}, ${propietario_id},
-          ${shopify_propietario_id || null}, ${namespace}, ${clave},
-          ${valor || null}, ${tipo_valor || null}, NOW(), NOW(), NOW()
-        )
-        RETURNING *
-      `
-      return result.rows[0]
-    }
-  } catch (error) {
-    console.error("Error al crear/actualizar metadato:", error)
-    throw error
-  }
-}
-
-// Eliminar un metadato
-export async function deleteMetadato(id: number): Promise<boolean> {
-  try {
-    const result = await sql`
-      DELETE FROM metadatos
-      WHERE id = ${id}
-      RETURNING id
-    `
-    return result.rows.length > 0
-  } catch (error) {
-    console.error(`Error al eliminar metadato con ID ${id}:`, error)
-    throw error
-  }
-}
-
-// Eliminar todos los metadatos de un propietario
-export async function deleteMetadatosByPropietario(tipoPropietario: string, propietarioId: number): Promise<number> {
-  try {
-    const result = await sql`
-      DELETE FROM metadatos
-      WHERE tipo_propietario = ${tipoPropietario} AND propietario_id = ${propietarioId}
-      RETURNING id
-    `
-    return result.rows.length
-  } catch (error) {
-    console.error(`Error al eliminar metadatos para ${tipoPropietario} con ID ${propietarioId}:`, error)
-    throw error
-  }
-}
-
-// Sincronizar metadatos con Shopify
-export async function syncMetadatosWithShopify(
-  tipoPropietario: string,
-  propietarioId: number,
-  shopifyPropietarioId: string,
-  metafields: any[],
-): Promise<void> {
-  try {
-    // Eliminar metadatos existentes
-    await deleteMetadatosByPropietario(tipoPropietario, propietarioId)
-
-    // Insertar nuevos metadatos
-    for (const metafield of metafields) {
-      await upsertMetadato({
-        shopify_id: metafield.id,
-        tipo_propietario: tipoPropietario,
-        propietario_id: propietarioId,
-        shopify_propietario_id: shopifyPropietarioId,
-        namespace: metafield.namespace,
-        clave: metafield.key,
-        valor: metafield.value,
-        tipo_valor: metafield.type,
-      })
+      // Actualizar el existente
+      return await updateMetadato(existingMetadato.id, metadato)
     }
 
-    // Registrar evento
-    await logSyncEvent({
-      tipo_entidad: "METAFIELDS",
-      entidad_id: shopifyPropietarioId,
-      accion: "SYNC",
-      resultado: "SUCCESS",
-      mensaje: `Metadatos sincronizados para ${tipoPropietario} con ID ${propietarioId}: ${metafields.length} metadatos`,
-    })
-  } catch (error) {
-    console.error(
-      `Error al sincronizar metadatos para ${tipoPropietario} con ID ${propietarioId}, Shopify ID ${shopifyPropietarioId}:`,
-      error,
+    const result = await query(
+      `INSERT INTO metadatos (
+        shopify_id, tipo_propietario, propietario_id, shopify_propietario_id,
+        namespace, clave, valor, tipo_valor
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8
+      ) RETURNING *`,
+      [shopify_id, tipo_propietario, propietario_id, shopify_propietario_id, namespace, clave, valor, tipo_valor],
     )
 
-    // Registrar error
-    await logSyncEvent({
-      tipo_entidad: "METAFIELDS",
-      entidad_id: shopifyPropietarioId,
-      accion: "SYNC",
-      resultado: "ERROR",
-      mensaje: `Error al sincronizar metadatos: ${(error as Error).message}`,
+    return result.rows[0]
+  } catch (error) {
+    console.error("Error creating metadato:", error)
+    throw error
+  }
+}
+
+export async function updateMetadato(id: number, metadato: Partial<Metadato>) {
+  try {
+    // Construir dinámicamente la consulta de actualización
+    const updates: string[] = []
+    const values: any[] = []
+    let paramIndex = 1
+
+    // Añadir cada campo a actualizar
+    Object.entries(metadato).forEach(([key, value]) => {
+      if (
+        key !== "id" &&
+        key !== "tipo_propietario" &&
+        key !== "propietario_id" &&
+        key !== "namespace" &&
+        key !== "clave" &&
+        value !== undefined
+      ) {
+        updates.push(`${key} = $${paramIndex}`)
+        values.push(value)
+        paramIndex++
+      }
     })
 
+    // Añadir fecha de actualización
+    updates.push(`fecha_actualizacion = NOW()`)
+
+    // Añadir el ID al final de los valores
+    values.push(id)
+
+    const result = await query(
+      `UPDATE metadatos 
+       SET ${updates.join(", ")} 
+       WHERE id = $${paramIndex} 
+       RETURNING *`,
+      values,
+    )
+
+    if (result.rows.length === 0) {
+      return null
+    }
+
+    return result.rows[0]
+  } catch (error) {
+    console.error(`Error updating metadato with ID ${id}:`, error)
+    throw error
+  }
+}
+
+export async function deleteMetadato(id: number) {
+  try {
+    const result = await query(
+      `DELETE FROM metadatos 
+       WHERE id = $1 
+       RETURNING id`,
+      [id],
+    )
+
+    if (result.rows.length === 0) {
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.error(`Error deleting metadato with ID ${id}:`, error)
+    throw error
+  }
+}
+
+export async function deleteMetadatosByPropietario(tipoPropietario: string, propietarioId: number) {
+  try {
+    const result = await query(
+      `DELETE FROM metadatos 
+       WHERE tipo_propietario = $1 AND propietario_id = $2 
+       RETURNING id`,
+      [tipoPropietario, propietarioId],
+    )
+
+    return result.rowCount > 0
+  } catch (error) {
+    console.error(`Error deleting metadatos for ${tipoPropietario} ID ${propietarioId}:`, error)
     throw error
   }
 }
