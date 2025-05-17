@@ -19,16 +19,19 @@ export default function ProductsPage() {
   const [activeTab, setActiveTab] = useState("all")
   const [isLoading, setIsLoading] = useState(true)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [error, setError] = useState(null)
 
   // Función para cargar productos
   const loadProducts = async () => {
     setIsLoading(true)
+    setError(null)
     try {
       const data = await fetchProducts(100) // Obtener hasta 100 productos
       setProducts(data)
       filterProducts(data, searchTerm, activeTab)
     } catch (error) {
       console.error("Error al cargar productos:", error)
+      setError("No se pudieron cargar los productos. Intente nuevamente más tarde.")
     } finally {
       setIsLoading(false)
     }
@@ -64,8 +67,6 @@ export default function ProductsPage() {
   // Cargar productos al montar el componente
   useEffect(() => {
     loadProducts()
-    // Sincronizar automáticamente al cargar la página
-    syncProducts()
   }, [])
 
   // Actualizar filtros cuando cambian los criterios
@@ -83,9 +84,10 @@ export default function ProductsPage() {
     setSearchTerm(e.target.value)
   }
 
-  // Función para sincronizar productos con Shopify (ahora automática)
+  // Función para sincronizar productos con Shopify
   const syncProducts = async () => {
     setIsSyncing(true)
+    setError(null)
     try {
       // Llamar a la API para sincronizar productos
       const response = await fetch("/api/sync/products")
@@ -97,6 +99,7 @@ export default function ProductsPage() {
       await loadProducts()
     } catch (error) {
       console.error("Error al sincronizar productos:", error)
+      setError("No se pudieron sincronizar los productos. Intente nuevamente más tarde.")
     } finally {
       setIsSyncing(false)
     }
@@ -130,8 +133,16 @@ export default function ProductsPage() {
                   onChange={handleSearchChange}
                 />
               </div>
-              {/* Eliminamos el botón de sincronización manual */}
+              <Button onClick={syncProducts} disabled={isSyncing} variant="outline">
+                {isSyncing ? "Sincronizando..." : "Sincronizar"}
+              </Button>
             </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
+                <span className="block sm:inline">{error}</span>
+              </div>
+            )}
 
             <Tabs defaultValue="all" value={activeTab} onValueChange={handleTabChange}>
               <TabsList>

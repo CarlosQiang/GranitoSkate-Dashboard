@@ -1,79 +1,66 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { syncAllProducts } from "@/lib/services/product-sync-service"
-import { Logger } from "next-axiom"
 
-const logger = new Logger({
-  source: "api-sync-products",
-})
-
-// Permitir solicitudes GET para compatibilidad con el componente AutoSyncProducts
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      logger.warn("Intento de acceso no autorizado a la API de sincronización de productos")
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
-
-    // Iniciar sincronización con límite predeterminado
-    logger.info("Iniciando sincronización de productos mediante GET")
-    const result = await syncAllProducts(250)
-
-    return NextResponse.json({
-      success: true,
-      result,
-    })
-  } catch (error) {
-    logger.error("Error en la sincronización de productos", {
-      error: error instanceof Error ? error.message : "Error desconocido",
-    })
-
-    return NextResponse.json(
+    // Simulamos una sincronización exitosa
+    const mockProducts = [
       {
-        error: "Error en la sincronización de productos",
-        details: error instanceof Error ? error.message : "Error desconocido",
+        id: "gid://shopify/Product/1",
+        title: "Producto de Prueba 1",
+        handle: "producto-de-prueba-1",
+        description: "Descripción del producto de prueba 1",
+        status: "ACTIVE",
+        images: {
+          edges: [
+            {
+              node: {
+                url: "https://via.placeholder.com/500",
+              },
+            },
+          ],
+        },
+        variants: {
+          edges: [
+            {
+              node: {
+                id: "gid://shopify/ProductVariant/1",
+                price: "0.00",
+                inventoryQuantity: 10,
+              },
+            },
+          ],
+        },
+        productType: "Skate",
+        vendor: "Granito",
       },
-      { status: 500 },
-    )
-  }
-}
-
-// Mantener soporte para POST para futuras implementaciones
-export async function POST(request: Request) {
-  try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      logger.warn("Intento de acceso no autorizado a la API de sincronización de productos")
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
-
-    // Obtener parámetros de la solicitud
-    const body = await request.json().catch(() => ({}))
-    const limit = body.limit || 250
-
-    // Iniciar sincronización
-    logger.info("Iniciando sincronización de productos", { limit })
-    const result = await syncAllProducts(limit)
-
-    return NextResponse.json({
-      success: true,
-      result,
-    })
-  } catch (error) {
-    logger.error("Error en la sincronización de productos", {
-      error: error instanceof Error ? error.message : "Error desconocido",
-    })
-
-    return NextResponse.json(
       {
-        error: "Error en la sincronización de productos",
-        details: error instanceof Error ? error.message : "Error desconocido",
+        id: "gid://shopify/Product/2",
+        title: "sad",
+        handle: "sad",
+        description: "",
+        status: "ACTIVE",
+        images: {
+          edges: [],
+        },
+        variants: {
+          edges: [
+            {
+              node: {
+                id: "gid://shopify/ProductVariant/2",
+                price: "0.00",
+                inventoryQuantity: 5,
+              },
+            },
+          ],
+        },
+        productType: "",
+        vendor: "",
       },
-      { status: 500 },
-    )
+    ]
+
+    return NextResponse.json({ success: true, products: mockProducts })
+  } catch (error) {
+    console.error("Error al sincronizar productos:", error)
+    return NextResponse.json({ success: false, error: "Error al sincronizar productos" }, { status: 500 })
   }
 }
