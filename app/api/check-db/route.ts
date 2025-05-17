@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 
 export async function GET() {
   try {
-    // Verificar la conexión a la base de datos
+    // Verificar conexión a la base de datos
     const result = await prisma.$queryRaw`SELECT NOW() as time`
 
     // Verificar si existe la tabla de administradores
@@ -15,11 +15,27 @@ export async function GET() {
       ) as exists
     `
 
-    // Contar administradores
-    let adminCount = 0
+    // Verificar si existe el usuario admin
+    let adminExists = false
+    let adminData = null
+
     if ((tableExists as any)[0].exists) {
-      const countResult = await prisma.administradores.count()
-      adminCount = countResult
+      const adminUser = await prisma.administradores.findFirst({
+        where: {
+          nombre_usuario: "admin",
+        },
+      })
+
+      adminExists = !!adminUser
+      adminData = adminUser
+        ? {
+            id: adminUser.id,
+            nombre_usuario: adminUser.nombre_usuario,
+            correo_electronico: adminUser.correo_electronico,
+            activo: adminUser.activo,
+            rol: adminUser.rol,
+          }
+        : null
     }
 
     return NextResponse.json({
@@ -29,11 +45,15 @@ export async function GET() {
         time: result,
       },
       database: {
-        adminTableExists: (tableExists as any)[0].exists,
-        adminCount,
+        tableExists: (tableExists as any)[0].exists,
+        adminExists,
+        adminData,
       },
       environment: {
-        DATABASE_URL: process.env.DATABASE_URL ? "Configurado" : "No configurado",
+        DATABASE_URL: process.env.DATABASE_URL ? "***configurado***" : "no configurado",
+        POSTGRES_URL: process.env.POSTGRES_URL ? "***configurado***" : "no configurado",
+        NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+        NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET ? "***configurado***" : "no configurado",
         NODE_ENV: process.env.NODE_ENV,
       },
     })
@@ -43,10 +63,7 @@ export async function GET() {
       {
         status: "error",
         message: error instanceof Error ? error.message : "Error desconocido",
-        environment: {
-          DATABASE_URL: process.env.DATABASE_URL ? "Configurado" : "No configurado",
-          NODE_ENV: process.env.NODE_ENV,
-        },
+        stack: error instanceof Error ? error.stack : null,
       },
       { status: 500 },
     )

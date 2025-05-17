@@ -13,13 +13,13 @@ export async function GET() {
     `
 
     if (!(tableExists as any)[0].exists) {
-      // La tabla no existe, intentar crearla usando Prisma
+      // La tabla no existe, necesitamos crearla manualmente
       await prisma.$executeRaw`
         CREATE TABLE IF NOT EXISTS administradores (
           id SERIAL PRIMARY KEY,
           nombre_usuario VARCHAR(50) UNIQUE NOT NULL,
           correo_electronico VARCHAR(100) UNIQUE NOT NULL,
-          contrasena TEXT NOT NULL,
+          contrasena VARCHAR(255) NOT NULL,
           nombre_completo VARCHAR(100),
           rol VARCHAR(20) NOT NULL DEFAULT 'admin',
           activo BOOLEAN NOT NULL DEFAULT true,
@@ -44,9 +44,10 @@ export async function GET() {
           nombre_usuario: "admin",
           correo_electronico: "admin@granitoskate.com",
           contrasena: "$2b$10$1X.GQIJJk8L9Fz3HZhQQo.6EsHgHKm7Brx0bKQA9fI.SSjN.ym3Uy", // Hash de "GranitoSkate"
-          nombre_completo: "Administrador",
+          nombre_completo: "Administrador Principal",
           rol: "superadmin",
           activo: true,
+          fecha_creacion: new Date(),
         },
       })
     }
@@ -62,6 +63,7 @@ export async function GET() {
       {
         status: "error",
         message: error instanceof Error ? error.message : "Error desconocido",
+        stack: error instanceof Error ? error.stack : null,
       },
       { status: 500 },
     )
