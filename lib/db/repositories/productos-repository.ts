@@ -1,14 +1,75 @@
 "use server"
 
 import { query } from "@/lib/db"
-import type { Producto, VarianteProducto, ImagenProducto } from "@/lib/db/schema"
+
+// Tipo para un producto
+export type Producto = {
+  id?: number
+  shopify_id: string
+  titulo: string
+  descripcion: string
+  tipo_producto: string
+  proveedor: string
+  estado: string
+  publicado: boolean
+  destacado: boolean
+  etiquetas: string[]
+  imagen_destacada_url: string
+  precio_base: number
+  precio_comparacion: number | null
+  sku: string
+  codigo_barras: string
+  inventario_disponible: number
+  politica_inventario: string
+  requiere_envio: boolean
+  peso: number
+  unidad_peso: string
+  url_handle: string
+  fecha_publicacion: Date | null
+}
+
+// Tipo para una variante de producto
+export type VarianteProducto = {
+  id?: number
+  shopify_id: string
+  producto_id: number
+  titulo: string
+  precio: number
+  precio_comparacion: number | null
+  sku: string
+  codigo_barras: string
+  inventario_disponible: number
+  politica_inventario: string
+  requiere_envio: boolean
+  peso: number
+  unidad_peso: string
+  opcion1_nombre: string | null
+  opcion1_valor: string | null
+  opcion2_nombre: string | null
+  opcion2_valor: string | null
+  opcion3_nombre: string | null
+  opcion3_valor: string | null
+  posicion: number
+}
+
+// Tipo para una imagen de producto
+export type ImagenProducto = {
+  id?: number
+  shopify_id: string
+  producto_id: number
+  variante_id: number | null
+  url: string
+  texto_alternativo: string | null
+  posicion: number
+  es_destacada: boolean
+}
 
 // Funciones para productos
 export async function getAllProductos() {
   try {
     const result = await query(
       `SELECT * FROM productos 
-       ORDER BY fecha_creacion DESC`,
+       ORDER BY created_at DESC`,
     )
 
     return result.rows
@@ -140,7 +201,7 @@ export async function updateProducto(id: number, producto: Partial<Producto>) {
     })
 
     // Añadir fecha de actualización
-    updates.push(`fecha_actualizacion = NOW()`)
+    updates.push(`updated_at = NOW()`)
 
     // Añadir el ID al final de los valores
     values.push(id)
@@ -306,6 +367,26 @@ export async function createImagen(imagen: Partial<ImagenProducto>) {
     return result.rows[0]
   } catch (error) {
     console.error("Error creating imagen:", error)
+    throw error
+  }
+}
+
+// Función para obtener un producto completo con variantes e imágenes
+export async function getProductoCompleto(id: number) {
+  try {
+    const producto = await getProductoById(id)
+    if (!producto) return null
+
+    const variantes = await getVariantesByProductoId(id)
+    const imagenes = await getImagenesByProductoId(id)
+
+    return {
+      ...producto,
+      variantes,
+      imagenes,
+    }
+  } catch (error) {
+    console.error(`Error getting producto completo with ID ${id}:`, error)
     throw error
   }
 }

@@ -7,7 +7,7 @@ import { getProductoCompleto } from "@/lib/db/repositories/productos-repository"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const id = Number.parseInt(params.id)
+    const id = Number.parseInt(params.id, 10)
 
     if (isNaN(id)) {
       return NextResponse.json({ error: "ID de producto inválido" }, { status: 400 })
@@ -22,7 +22,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     return NextResponse.json(producto)
   } catch (error) {
     console.error("Error al obtener producto:", error)
-    return NextResponse.json({ error: "Error al obtener producto", details: (error as Error).message }, { status: 500 })
+    return NextResponse.json({ error: "Error al obtener producto" }, { status: 500 })
   }
 }
 
@@ -34,7 +34,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    const id = Number.parseInt(params.id)
+    const id = Number.parseInt(params.id, 10)
     const data = await request.json()
 
     // Validar datos
@@ -85,7 +85,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    const id = Number.parseInt(params.id)
+    const id = Number.parseInt(params.id, 10)
 
     // Verificar que el producto existe
     const producto = await productosRepository.getProductoById(id)
