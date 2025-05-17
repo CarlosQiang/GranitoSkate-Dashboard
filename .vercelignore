@@ -11,10 +11,10 @@ components/auto-sync.tsx
 components/auto-sync-products.tsx
 components/sync-dashboard.tsx
 components/sync-manager.tsx
-lib/sync/sync-service.ts
 components/product-sync-button.tsx
 lib/repositories/product-repository.ts
 app/api/db-init/route.ts
 app/dashboard/sincronizacion/page.tsx
 app/dashboard/sincronizacion/shopify/page.tsx
 app/dashboard/productos/sincronizacion/page.tsx
+app/api/sync/route.ts

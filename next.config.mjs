@@ -57,6 +57,7 @@ const nextConfig = {
         /lib\/services\/customer-sync-service\.ts$/,
         /app\/api\/sync\/customers\/route\.ts$/,
         /app\/api\/db-check\/route\.ts$/,
+        /app\/api\/sync\/route\.ts$/,
       ],
       loader: 'null-loader',
     });
