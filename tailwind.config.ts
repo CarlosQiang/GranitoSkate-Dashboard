@@ -25,9 +25,9 @@ const config: Config = {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         granito: {
-          DEFAULT: "#D9A336", // Color dorado/ámbar del logo
-          dark: "#B78520",
-          light: "#F0C875",
+          DEFAULT: "#c59d45", // Color dorado/ámbar del logo
+          dark: "#b08a3a",
+          light: "#d9b96a",
         },
         amber: {
           50: "#FFFBEB",

@@ -138,6 +138,35 @@ async function guardarProductosEnBD(productos) {
       `Guardando ${productos.length} productos en la base de datos`,
     )
 
+    // Verificar si la tabla productos existe
+    try {
+      await sql`SELECT 1 FROM productos LIMIT 1`
+    } catch (error) {
+      // Si la tabla no existe, la creamos
+      await sql`
+        CREATE TABLE IF NOT EXISTS productos (
+          id SERIAL PRIMARY KEY,
+          shopify_id TEXT UNIQUE,
+          titulo TEXT,
+          descripcion TEXT,
+          estado TEXT,
+          tipo TEXT,
+          proveedor TEXT,
+          handle TEXT,
+          etiquetas TEXT,
+          precio TEXT,
+          precio_comparacion TEXT,
+          sku TEXT,
+          inventario INTEGER,
+          imagen_url TEXT,
+          datos_adicionales JSONB,
+          creado_en TIMESTAMP DEFAULT NOW(),
+          actualizado_en TIMESTAMP DEFAULT NOW()
+        )
+      `
+      console.log("Tabla productos creada")
+    }
+
     // Guardar cada producto en la base de datos
     for (const producto of productos) {
       const shopifyId = producto.id.split("/").pop()
@@ -251,16 +280,20 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    // Simulamos una sincronización exitosa
-    console.log("Simulando sincronización de productos")
+    // Obtener el límite de la URL si existe
+    const url = new URL(request.url)
+    const limit = Number.parseInt(url.searchParams.get("limit") || "20")
 
-    // Esperamos un segundo para simular el proceso
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    // Obtener productos de Shopify
+    const productos = await obtenerProductosDeShopify(limit)
+
+    // Guardar productos en la base de datos
+    const resultado = await guardarProductosEnBD(productos)
 
     return NextResponse.json({
       success: true,
-      message: "Sincronización de productos simulada con éxito",
-      count: 10,
+      message: `Sincronización de productos completada. Se sincronizaron ${resultado.count} productos.`,
+      count: resultado.count,
     })
   } catch (error: any) {
     console.error("Error en sincronización de productos:", error)
