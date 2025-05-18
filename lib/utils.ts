@@ -118,3 +118,8 @@ export function calculateDiscount(originalPrice: number, discountedPrice: number
   const discount = ((originalPrice - discountedPrice) / originalPrice) * 100
   return Math.round(discount)
 }
+
+// Añadir la función logError que falta
+export function logError(message: string, error: unknown): void {
+  console.error(`${message}`, error)
+}
