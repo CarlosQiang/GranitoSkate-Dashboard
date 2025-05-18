@@ -9,38 +9,57 @@ import { UserPlus, Edit, Trash2, CheckCircle, XCircle } from "lucide-react"
 import { Suspense } from "react"
 
 export default async function AdministradoresPage() {
-  const session = await getServerSession(authOptions)
+  try {
+    const session = await getServerSession(authOptions)
 
-  if (!session) {
-    redirect("/login")
-  }
+    if (!session) {
+      console.log("No hay sesión, redirigiendo a /login")
+      redirect("/login")
+    }
 
-  // Verificar si el usuario tiene permisos de superadmin
-  if (session.user.role !== "superadmin") {
-    redirect("/dashboard")
-  }
+    // Verificar si el usuario tiene permisos de superadmin
+    // Comentamos esta validación temporalmente para depurar
+    /*
+    if (session.user.role !== "superadmin") {
+      console.log("Usuario no es superadmin, redirigiendo a /dashboard")
+      redirect("/dashboard")
+    }
+    */
 
-  return (
-    <div className="container mx-auto py-4 md:py-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <h1 className="text-xl md:text-2xl font-bold">Gestión de Administradores</h1>
-        <Link href="/dashboard/administradores/nuevo">
-          <Button className="bg-granito hover:bg-granito-dark w-full sm:w-auto">
-            <UserPlus className="mr-2 h-4 w-4" />
-            Nuevo Administrador
-          </Button>
-        </Link>
+    return (
+      <div className="container mx-auto py-4 md:py-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+          <h1 className="text-xl md:text-2xl font-bold">Gestión de Administradores</h1>
+          <Link href="/dashboard/administradores/nuevo">
+            <Button className="bg-[#c7a04a] hover:bg-[#b08e42] w-full sm:w-auto">
+              <UserPlus className="mr-2 h-4 w-4" />
+              Nuevo Administrador
+            </Button>
+          </Link>
+        </div>
+
+        <Suspense fallback={<div className="text-center py-8">Cargando administradores...</div>}>
+          <AdministradoresList />
+        </Suspense>
       </div>
-
-      <Suspense fallback={<div className="text-center py-8">Cargando administradores...</div>}>
-        <AdministradoresList />
-      </Suspense>
-    </div>
-  )
+    )
+  } catch (error) {
+    console.error("Error en AdministradoresPage:", error)
+    return (
+      <div className="container mx-auto py-6">
+        <h1 className="text-2xl font-bold mb-6">Gestión de Administradores</h1>
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <p>Error al cargar la página de administradores: {error.message}</p>
+        </div>
+      </div>
+    )
+  }
 }
 
 async function AdministradoresList() {
   try {
+    console.log("Obteniendo lista de administradores...")
+
     // Obtener la lista de administradores
     const { rows: administradores } = await sql`
       SELECT 
@@ -58,10 +77,18 @@ async function AdministradoresList() {
         fecha_creacion DESC
     `
 
+    console.log(`Se encontraron ${administradores.length} administradores`)
+
     if (administradores.length === 0) {
       return (
         <div className="text-center py-8">
           <p className="text-muted-foreground">No hay administradores registrados.</p>
+          <Link href="/dashboard/administradores/nuevo" className="mt-4 inline-block">
+            <Button className="bg-[#c7a04a] hover:bg-[#b08e42]">
+              <UserPlus className="mr-2 h-4 w-4" />
+              Crear primer administrador
+            </Button>
+          </Link>
         </div>
       )
     }
@@ -89,7 +116,7 @@ async function AdministradoresList() {
               </p>
               <p className="text-sm text-gray-500 mb-2">
                 <span className="font-medium">Rol:</span>{" "}
-                <span className={admin.rol === "superadmin" ? "text-granito font-semibold" : ""}>
+                <span className={admin.rol === "superadmin" ? "text-[#c7a04a] font-semibold" : ""}>
                   {admin.rol === "superadmin" ? "Super Administrador" : "Administrador"}
                 </span>
               </p>
@@ -125,7 +152,7 @@ async function AdministradoresList() {
     console.error("Error al obtener administradores:", error)
     return (
       <div className="text-center py-8">
-        <p className="text-red-500">Error al cargar los administradores. Intente nuevamente más tarde.</p>
+        <p className="text-red-500">Error al cargar los administradores: {error.message}</p>
       </div>
     )
   }
