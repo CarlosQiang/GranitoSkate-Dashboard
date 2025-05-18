@@ -1,96 +1,27 @@
 import { NextResponse } from "next/server"
 import { shopifyFetch } from "@/lib/shopify"
-import { Pool } from "pg"
-
-// Crear una conexión directa a la base de datos
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || process.env.POSTGRES_URL,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
-})
-
-// Función para ejecutar consultas SQL
-async function query(text: string, params?: any[]) {
-  try {
-    console.log("Ejecutando consulta SQL:", { text, params })
-    const start = Date.now()
-    const res = await pool.query(text, params)
-    const duration = Date.now() - start
-    console.log("Consulta SQL ejecutada en", duration, "ms. Filas:", res.rowCount)
-    return res
-  } catch (error) {
-    console.error("Error al ejecutar consulta SQL:", error)
-    throw error
-  }
-}
-
-// Función para verificar la conexión a la base de datos
-async function checkConnection() {
-  try {
-    const result = await query("SELECT NOW()")
-    return { connected: true, result: result.rows[0] }
-  } catch (error) {
-    console.error("Error al verificar la conexión a la base de datos:", error)
-    return { connected: false, error: error.message }
-  }
-}
-
-// Función para inicializar las tablas necesarias
-async function initTables() {
-  try {
-    // Verificar si la tabla productos existe
-    const tableExists = await query(`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = 'productos'
-      );
-    `)
-
-    // Si la tabla no existe, crearla
-    if (!tableExists.rows[0].exists) {
-      console.log("Creando tabla productos...")
-      await query(`
-        CREATE TABLE IF NOT EXISTS productos (
-          id SERIAL PRIMARY KEY,
-          shopify_id VARCHAR(255),
-          titulo VARCHAR(255) NOT NULL,
-          descripcion TEXT,
-          tipo_producto VARCHAR(100),
-          proveedor VARCHAR(100),
-          estado VARCHAR(50),
-          publicado BOOLEAN DEFAULT false,
-          destacado BOOLEAN DEFAULT false,
-          etiquetas TEXT[],
-          imagen_destacada_url TEXT,
-          precio_base DECIMAL(10, 2),
-          precio_comparacion DECIMAL(10, 2),
-          sku VARCHAR(100),
-          codigo_barras VARCHAR(100),
-          inventario_disponible INTEGER,
-          politica_inventario VARCHAR(50),
-          requiere_envio BOOLEAN DEFAULT true,
-          peso DECIMAL(10, 2),
-          unidad_peso VARCHAR(10),
-          url_handle VARCHAR(255),
-          fecha_publicacion TIMESTAMP,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        
-        CREATE INDEX IF NOT EXISTS idx_productos_shopify_id ON productos(shopify_id);
-      `)
-    }
-
-    return { success: true, message: "Tablas inicializadas correctamente" }
-  } catch (error) {
-    console.error("Error al inicializar tablas:", error)
-    return { success: false, error: error.message }
-  }
-}
+import {
+  createProducto,
+  getProductoByShopifyId,
+  updateProducto,
+  createVariante,
+  createImagen,
+  registrarSincronizacion,
+} from "@/lib/db/repositories/productos-repository"
+import { query } from "@/lib/db"
 
 // Función para obtener productos de Shopify
 async function obtenerProductosDeShopify(limit = 10) {
   try {
+    // Registrar inicio de la obtención
+    await registrarSincronizacion(
+      "productos",
+      null,
+      "consulta",
+      "iniciado",
+      `Obteniendo productos de Shopify (límite: ${limit})`,
+    )
+
     // Consulta GraphQL para obtener productos
     const query = `
       query {
@@ -150,96 +81,27 @@ async function obtenerProductosDeShopify(limit = 10) {
       throw new Error("No se pudieron obtener productos de Shopify: respuesta vacía o inválida")
     }
 
+    // Registrar éxito de la obtención
+    const productCount = response.data.products.edges.length
+    await registrarSincronizacion(
+      "productos",
+      null,
+      "consulta",
+      "completado",
+      `Se obtuvieron ${productCount} productos de Shopify`,
+    )
+
     return response.data.products.edges.map((edge: any) => edge.node)
   } catch (error) {
+    // Registrar error
+    await registrarSincronizacion(
+      "productos",
+      null,
+      "consulta",
+      "error",
+      `Error al obtener productos de Shopify: ${error.message}`,
+    )
     console.error("Error al obtener productos de Shopify:", error)
-    throw error
-  }
-}
-
-// Función para guardar un producto en la base de datos
-async function guardarProducto(producto: any) {
-  try {
-    // Extraer el ID de Shopify
-    const shopifyId = producto.id.split("/").pop() || ""
-
-    // Verificar si el producto ya existe
-    const existeProducto = await query(`SELECT id FROM productos WHERE shopify_id = $1`, [shopifyId])
-
-    if (existeProducto.rows.length > 0) {
-      // Actualizar producto existente
-      const result = await query(
-        `UPDATE productos SET 
-          titulo = $1,
-          descripcion = $2,
-          tipo_producto = $3,
-          proveedor = $4,
-          estado = $5,
-          publicado = $6,
-          imagen_destacada_url = $7,
-          precio_base = $8,
-          precio_comparacion = $9,
-          sku = $10,
-          codigo_barras = $11,
-          inventario_disponible = $12,
-          url_handle = $13,
-          updated_at = NOW()
-        WHERE shopify_id = $14
-        RETURNING id`,
-        [
-          producto.title || "",
-          producto.description || "",
-          producto.productType || "",
-          producto.vendor || "",
-          (producto.status || "").toLowerCase(),
-          producto.status === "ACTIVE",
-          producto.images?.edges?.length > 0 ? producto.images.edges[0].node.url : "",
-          producto.variants?.edges?.length > 0 ? Number.parseFloat(producto.variants.edges[0].node.price) : 0,
-          producto.variants?.edges?.length > 0 && producto.variants.edges[0].node.compareAtPrice
-            ? Number.parseFloat(producto.variants.edges[0].node.compareAtPrice)
-            : null,
-          producto.variants?.edges?.length > 0 ? producto.variants.edges[0].node.sku : "",
-          producto.variants?.edges?.length > 0 ? producto.variants.edges[0].node.barcode : "",
-          producto.variants?.edges?.length > 0 ? producto.variants.edges[0].node.inventoryQuantity || 0 : 0,
-          producto.handle || "",
-          shopifyId,
-        ],
-      )
-
-      return { id: result.rows[0].id, accion: "actualizado" }
-    } else {
-      // Crear nuevo producto
-      const result = await query(
-        `INSERT INTO productos (
-          shopify_id, titulo, descripcion, tipo_producto, proveedor, estado,
-          publicado, imagen_destacada_url, precio_base, precio_comparacion,
-          sku, codigo_barras, inventario_disponible, url_handle
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-        RETURNING id`,
-        [
-          shopifyId,
-          producto.title || "",
-          producto.description || "",
-          producto.productType || "",
-          producto.vendor || "",
-          (producto.status || "").toLowerCase(),
-          producto.status === "ACTIVE",
-          producto.images?.edges?.length > 0 ? producto.images.edges[0].node.url : "",
-          producto.variants?.edges?.length > 0 ? Number.parseFloat(producto.variants.edges[0].node.price) : 0,
-          producto.variants?.edges?.length > 0 && producto.variants.edges[0].node.compareAtPrice
-            ? Number.parseFloat(producto.variants.edges[0].node.compareAtPrice)
-            : null,
-          producto.variants?.edges?.length > 0 ? producto.variants.edges[0].node.sku : "",
-          producto.variants?.edges?.length > 0 ? producto.variants.edges[0].node.barcode : "",
-          producto.variants?.edges?.length > 0 ? producto.variants.edges[0].node.inventoryQuantity || 0 : 0,
-          producto.handle || "",
-        ],
-      )
-
-      return { id: result.rows[0].id, accion: "creado" }
-    }
-  } catch (error) {
-    console.error("Error al guardar producto:", error)
     throw error
   }
 }
@@ -248,39 +110,56 @@ export async function GET(request: Request) {
   try {
     // Obtener parámetros de la solicitud
     const { searchParams } = new URL(request.url)
-    const limit = Number.parseInt(searchParams.get("limit") || "5", 10)
+    const limit = Number.parseInt(searchParams.get("limit") || "10", 10)
 
     console.log(`Iniciando sincronización de productos (límite: ${limit})...`)
 
     // Verificar la conexión a la base de datos
-    const connectionStatus = await checkConnection()
-    if (!connectionStatus.connected) {
+    try {
+      await query("SELECT NOW()")
+    } catch (error) {
+      console.error("Error al conectar con la base de datos:", error)
       return NextResponse.json(
         {
           success: false,
-          message: "No se pudo conectar a la base de datos",
-          error: connectionStatus.error,
+          message: "Error al conectar con la base de datos",
+          error: error.message,
         },
         { status: 500 },
       )
     }
 
-    console.log("Conexión a la base de datos establecida:", connectionStatus)
+    // Verificar si las tablas existen
+    try {
+      const tableExists = await query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'productos'
+        );
+      `)
 
-    // Inicializar las tablas si no existen
-    const initResult = await initTables()
-    if (!initResult.success) {
+      if (!tableExists.rows[0].exists) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "La tabla 'productos' no existe en la base de datos",
+            error: "Tabla no encontrada",
+          },
+          { status: 500 },
+        )
+      }
+    } catch (error) {
+      console.error("Error al verificar la existencia de tablas:", error)
       return NextResponse.json(
         {
           success: false,
-          message: "Error al inicializar las tablas",
-          error: initResult.error,
+          message: "Error al verificar la existencia de tablas",
+          error: error.message,
         },
         { status: 500 },
       )
     }
-
-    console.log("Tablas inicializadas correctamente")
 
     // Obtener productos de Shopify
     const productos = await obtenerProductosDeShopify(limit)
@@ -294,36 +173,191 @@ export async function GET(request: Request) {
       detalles: [] as any[],
     }
 
-    // Guardar cada producto en la base de datos
-    for (const producto of productos) {
-      try {
-        const resultado = await guardarProducto(producto)
+    // Registrar inicio de sincronización
+    await registrarSincronizacion(
+      "productos",
+      null,
+      "sincronizar",
+      "iniciado",
+      `Iniciando sincronización de ${productos.length} productos`,
+    )
 
-        if (resultado.accion === "creado") {
-          resultados.creados++
-        } else {
+    for (const productoData of productos) {
+      try {
+        // Extraer el ID de Shopify
+        const shopifyId = productoData.id.split("/").pop() || ""
+        console.log(`Procesando producto: ${productoData.title} (ID: ${shopifyId})`)
+
+        // Verificar si el producto ya existe
+        const productoExistente = shopifyId ? await getProductoByShopifyId(shopifyId) : null
+
+        // Preparar los datos del producto
+        const productoObj = {
+          shopify_id: shopifyId,
+          titulo: productoData.title || "",
+          descripcion: productoData.description || "",
+          tipo_producto: productoData.productType || "",
+          proveedor: productoData.vendor || "",
+          estado: (productoData.status || "").toLowerCase(),
+          publicado: productoData.status === "ACTIVE",
+          destacado: false,
+          etiquetas: productoData.tags || [],
+          imagen_destacada_url: productoData.images?.edges?.length > 0 ? productoData.images.edges[0].node.url : "",
+          precio_base:
+            productoData.variants?.edges?.length > 0 ? Number.parseFloat(productoData.variants.edges[0].node.price) : 0,
+          precio_comparacion:
+            productoData.variants?.edges?.length > 0 && productoData.variants.edges[0].node.compareAtPrice
+              ? Number.parseFloat(productoData.variants.edges[0].node.compareAtPrice)
+              : null,
+          sku: productoData.variants?.edges?.length > 0 ? productoData.variants.edges[0].node.sku : "",
+          codigo_barras: productoData.variants?.edges?.length > 0 ? productoData.variants.edges[0].node.barcode : "",
+          inventario_disponible:
+            productoData.variants?.edges?.length > 0 ? productoData.variants.edges[0].node.inventoryQuantity || 0 : 0,
+          politica_inventario:
+            productoData.variants?.edges?.length > 0
+              ? productoData.variants.edges[0].node.inventoryPolicy?.toLowerCase() || ""
+              : "",
+          requiere_envio: true,
+          peso: productoData.variants?.edges?.length > 0 ? productoData.variants.edges[0].node.weight || 0 : 0,
+          unidad_peso:
+            productoData.variants?.edges?.length > 0
+              ? productoData.variants.edges[0].node.weightUnit?.toLowerCase() || "kg"
+              : "kg",
+          url_handle: productoData.handle || "",
+          fecha_publicacion: productoData.publishedAt ? new Date(productoData.publishedAt) : null,
+        }
+
+        let producto
+
+        // Crear o actualizar el producto
+        if (productoExistente) {
+          producto = await updateProducto(productoExistente.id, productoObj)
           resultados.actualizados++
+          await registrarSincronizacion(
+            "productos",
+            shopifyId,
+            "actualizar",
+            "exito",
+            `Producto actualizado: ${productoObj.titulo}`,
+          )
+          console.log(`Producto actualizado: ${productoObj.titulo}`)
+        } else {
+          producto = await createProducto(productoObj)
+          resultados.creados++
+          await registrarSincronizacion(
+            "productos",
+            shopifyId,
+            "crear",
+            "exito",
+            `Producto creado: ${productoObj.titulo}`,
+          )
+          console.log(`Producto creado: ${productoObj.titulo}`)
+        }
+
+        // Procesar variantes si existen
+        if (producto && productoData.variants?.edges) {
+          // Eliminar variantes existentes para evitar duplicados
+          await query(`DELETE FROM variantes_producto WHERE producto_id = $1`, [producto.id])
+
+          for (const varianteData of productoData.variants.edges) {
+            const variante = varianteData.node
+            const varianteShopifyId = variante.id.split("/").pop() || ""
+
+            try {
+              await createVariante({
+                shopify_id: varianteShopifyId,
+                producto_id: producto.id,
+                titulo: variante.title || "",
+                precio: Number.parseFloat(variante.price) || 0,
+                precio_comparacion: variante.compareAtPrice ? Number.parseFloat(variante.compareAtPrice) : null,
+                sku: variante.sku || "",
+                codigo_barras: variante.barcode || "",
+                inventario_disponible: variante.inventoryQuantity || 0,
+                politica_inventario: variante.inventoryPolicy?.toLowerCase() || "",
+                requiere_envio: true,
+                peso: variante.weight || 0,
+                unidad_peso: variante.weightUnit?.toLowerCase() || "kg",
+                posicion: 1,
+              })
+            } catch (error) {
+              console.error(`Error al crear variante para producto ${producto.id}:`, error)
+              await registrarSincronizacion(
+                "variantes",
+                varianteShopifyId,
+                "crear",
+                "error",
+                `Error al crear variante: ${error.message}`,
+              )
+            }
+          }
+        }
+
+        // Procesar imágenes si existen
+        if (producto && productoData.images?.edges) {
+          // Eliminar imágenes existentes para evitar duplicados
+          await query(`DELETE FROM imagenes_producto WHERE producto_id = $1`, [producto.id])
+
+          for (let i = 0; i < productoData.images.edges.length; i++) {
+            const imagenData = productoData.images.edges[i].node
+            const imagenShopifyId = imagenData.id.split("/").pop() || ""
+
+            try {
+              await createImagen({
+                shopify_id: imagenShopifyId,
+                producto_id: producto.id,
+                variante_id: null,
+                url: imagenData.url || "",
+                texto_alternativo: imagenData.altText || "",
+                posicion: i + 1,
+                es_destacada: i === 0,
+              })
+            } catch (error) {
+              console.error(`Error al crear imagen para producto ${producto.id}:`, error)
+              await registrarSincronizacion(
+                "imagenes",
+                imagenShopifyId,
+                "crear",
+                "error",
+                `Error al crear imagen: ${error.message}`,
+              )
+            }
+          }
         }
 
         resultados.detalles.push({
-          id: producto.id.split("/").pop() || "",
-          titulo: producto.title || "",
+          id: shopifyId,
+          titulo: productoObj.titulo,
           resultado: "exito",
-          accion: resultado.accion,
         })
-
-        console.log(`Producto ${resultado.accion}: ${producto.title}`)
       } catch (error) {
         console.error("Error al sincronizar producto:", error)
         resultados.errores++
         resultados.detalles.push({
-          id: producto.id ? producto.id.split("/").pop() : "",
-          titulo: producto.title || "Desconocido",
+          id: productoData.id ? productoData.id.split("/").pop() : "",
+          titulo: productoData.title || "Desconocido",
           resultado: "error",
           mensaje: error.message,
         })
+
+        await registrarSincronizacion(
+          "productos",
+          productoData.id ? productoData.id.split("/").pop() : "",
+          "sincronizar",
+          "error",
+          `Error al sincronizar producto: ${error.message}`,
+          { error: error.message, stack: error.stack },
+        )
       }
     }
+
+    // Registrar finalización de sincronización
+    await registrarSincronizacion(
+      "productos",
+      null,
+      "sincronizar",
+      "completado",
+      `Sincronización completada: ${resultados.creados} creados, ${resultados.actualizados} actualizados, ${resultados.errores} errores`,
+    )
 
     console.log(
       `Sincronización completada: ${resultados.creados} creados, ${resultados.actualizados} actualizados, ${resultados.errores} errores`,

@@ -1,75 +1,18 @@
 "use server"
 
 import { query } from "@/lib/db"
-
-// Tipo para un producto
-export type Producto = {
-  id?: number
-  shopify_id: string
-  titulo: string
-  descripcion: string
-  tipo_producto: string
-  proveedor: string
-  estado: string
-  publicado: boolean
-  destacado: boolean
-  etiquetas: string[]
-  imagen_destacada_url: string
-  precio_base: number
-  precio_comparacion: number | null
-  sku: string
-  codigo_barras: string
-  inventario_disponible: number
-  politica_inventario: string
-  requiere_envio: boolean
-  peso: number
-  unidad_peso: string
-  url_handle: string
-  fecha_publicacion: Date | null
-}
-
-// Tipo para una variante de producto
-export type VarianteProducto = {
-  id?: number
-  shopify_id: string
-  producto_id: number
-  titulo: string
-  precio: number
-  precio_comparacion: number | null
-  sku: string
-  codigo_barras: string
-  inventario_disponible: number
-  politica_inventario: string
-  requiere_envio: boolean
-  peso: number
-  unidad_peso: string
-  opcion1_nombre: string | null
-  opcion1_valor: string | null
-  opcion2_nombre: string | null
-  opcion2_valor: string | null
-  opcion3_nombre: string | null
-  opcion3_valor: string | null
-  posicion: number
-}
-
-// Tipo para una imagen de producto
-export type ImagenProducto = {
-  id?: number
-  shopify_id: string
-  producto_id: number
-  variante_id: number | null
-  url: string
-  texto_alternativo: string | null
-  posicion: number
-  es_destacada: boolean
-}
+import type {
+  Producto as DbProducto,
+  VarianteProducto as DbVarianteProducto,
+  ImagenProducto as DbImagenProducto,
+} from "@/lib/db/schema"
 
 // Funciones para productos
 export async function getAllProductos() {
   try {
     const result = await query(
       `SELECT * FROM productos 
-       ORDER BY created_at DESC`,
+       ORDER BY fecha_creacion DESC`,
     )
 
     return result.rows
@@ -117,7 +60,7 @@ export async function getProductoByShopifyId(shopifyId: string) {
   }
 }
 
-export async function createProducto(producto: Partial<Producto>) {
+export async function createProducto(producto: Partial<DbProducto>) {
   try {
     const {
       shopify_id,
@@ -139,6 +82,8 @@ export async function createProducto(producto: Partial<Producto>) {
       requiere_envio,
       peso,
       unidad_peso,
+      seo_titulo,
+      seo_descripcion,
       url_handle,
       fecha_publicacion,
     } = producto
@@ -148,9 +93,11 @@ export async function createProducto(producto: Partial<Producto>) {
         shopify_id, titulo, descripcion, tipo_producto, proveedor, estado,
         publicado, destacado, etiquetas, imagen_destacada_url, precio_base,
         precio_comparacion, sku, codigo_barras, inventario_disponible,
-        politica_inventario, requiere_envio, peso, unidad_peso, url_handle, fecha_publicacion
+        politica_inventario, requiere_envio, peso, unidad_peso, seo_titulo,
+        seo_descripcion, url_handle, fecha_publicacion, ultima_sincronizacion
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+        $16, $17, $18, $19, $20, $21, $22, $23, NOW()
       ) RETURNING *`,
       [
         shopify_id,
@@ -171,7 +118,9 @@ export async function createProducto(producto: Partial<Producto>) {
         politica_inventario,
         requiere_envio !== undefined ? requiere_envio : true,
         peso,
-        unidad_peso,
+        unidad_peso || "kg",
+        seo_titulo,
+        seo_descripcion,
         url_handle,
         fecha_publicacion,
       ],
@@ -184,7 +133,7 @@ export async function createProducto(producto: Partial<Producto>) {
   }
 }
 
-export async function updateProducto(id: number, producto: Partial<Producto>) {
+export async function updateProducto(id: number, producto: Partial<DbProducto>) {
   try {
     // Construir dinámicamente la consulta de actualización
     const updates: string[] = []
@@ -200,8 +149,9 @@ export async function updateProducto(id: number, producto: Partial<Producto>) {
       }
     })
 
-    // Añadir fecha de actualización
-    updates.push(`updated_at = NOW()`)
+    // Añadir fecha de actualización y última sincronización
+    updates.push(`fecha_actualizacion = NOW()`)
+    updates.push(`ultima_sincronizacion = NOW()`)
 
     // Añadir el ID al final de los valores
     values.push(id)
@@ -227,6 +177,11 @@ export async function updateProducto(id: number, producto: Partial<Producto>) {
 
 export async function deleteProducto(id: number) {
   try {
+    // Primero eliminamos las variantes y las imágenes asociadas
+    await query(`DELETE FROM variantes_producto WHERE producto_id = $1`, [id])
+    await query(`DELETE FROM imagenes_producto WHERE producto_id = $1`, [id])
+
+    // Luego eliminamos el producto
     const result = await query(
       `DELETE FROM productos 
        WHERE id = $1 
@@ -251,7 +206,7 @@ export async function getVariantesByProductoId(productoId: number) {
     const result = await query(
       `SELECT * FROM variantes_producto 
        WHERE producto_id = $1 
-       ORDER BY posicion`,
+       ORDER BY posicion, id`,
       [productoId],
     )
 
@@ -262,7 +217,7 @@ export async function getVariantesByProductoId(productoId: number) {
   }
 }
 
-export async function createVariante(variante: Partial<VarianteProducto>) {
+export async function createVariante(variante: Partial<DbVarianteProducto>) {
   try {
     const {
       shopify_id,
@@ -291,9 +246,10 @@ export async function createVariante(variante: Partial<VarianteProducto>) {
         shopify_id, producto_id, titulo, precio, precio_comparacion,
         sku, codigo_barras, inventario_disponible, politica_inventario,
         requiere_envio, peso, unidad_peso, opcion1_nombre, opcion1_valor,
-        opcion2_nombre, opcion2_valor, opcion3_nombre, opcion3_valor, posicion
+        opcion2_nombre, opcion2_valor, opcion3_nombre, opcion3_valor, posicion,
+        ultima_sincronizacion
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, NOW()
       ) RETURNING *`,
       [
         shopify_id,
@@ -307,7 +263,7 @@ export async function createVariante(variante: Partial<VarianteProducto>) {
         politica_inventario,
         requiere_envio !== undefined ? requiere_envio : true,
         peso,
-        unidad_peso,
+        unidad_peso || "kg",
         opcion1_nombre,
         opcion1_valor,
         opcion2_nombre,
@@ -331,7 +287,7 @@ export async function getImagenesByProductoId(productoId: number) {
     const result = await query(
       `SELECT * FROM imagenes_producto 
        WHERE producto_id = $1 
-       ORDER BY posicion`,
+       ORDER BY posicion, id`,
       [productoId],
     )
 
@@ -342,16 +298,16 @@ export async function getImagenesByProductoId(productoId: number) {
   }
 }
 
-export async function createImagen(imagen: Partial<ImagenProducto>) {
+export async function createImagen(imagen: Partial<DbImagenProducto>) {
   try {
     const { shopify_id, producto_id, variante_id, url, texto_alternativo, posicion, es_destacada } = imagen
 
     const result = await query(
       `INSERT INTO imagenes_producto (
         shopify_id, producto_id, variante_id, url, texto_alternativo,
-        posicion, es_destacada
+        posicion, es_destacada, ultima_sincronizacion
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7
+        $1, $2, $3, $4, $5, $6, $7, NOW()
       ) RETURNING *`,
       [
         shopify_id,
@@ -388,5 +344,26 @@ export async function getProductoCompleto(id: number) {
   } catch (error) {
     console.error(`Error getting producto completo with ID ${id}:`, error)
     throw error
+  }
+}
+
+// Función para registrar la sincronización
+export async function registrarSincronizacion(
+  tipoEntidad: string,
+  entidadId: string | null,
+  accion: string,
+  resultado: string,
+  mensaje: string,
+  detalles?: any,
+) {
+  try {
+    await query(
+      `INSERT INTO registro_sincronizacion (
+        tipo_entidad, entidad_id, accion, resultado, mensaje, detalles
+      ) VALUES ($1, $2, $3, $4, $5, $6)`,
+      [tipoEntidad, entidadId, accion, resultado, mensaje, detalles ? JSON.stringify(detalles) : null],
+    )
+  } catch (error) {
+    console.error("Error al registrar sincronización:", error)
   }
 }

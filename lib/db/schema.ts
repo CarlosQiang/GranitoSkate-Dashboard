@@ -189,3 +189,73 @@ export type Promocion = {
   fecha_actualizacion?: Date
   ultima_sincronizacion?: Date
 }
+
+export type Producto = {
+  id?: number
+  shopify_id: string
+  titulo: string
+  descripcion: string
+  tipo_producto: string
+  proveedor: string
+  estado: string
+  publicado: boolean
+  destacado: boolean
+  etiquetas: string[]
+  imagen_destacada_url: string
+  precio_base: number
+  precio_comparacion: number
+  sku: string
+  codigo_barras: string
+  inventario_disponible: number
+  politica_inventario: string
+  requiere_envio: boolean
+  peso: number
+  unidad_peso: string
+  seo_titulo: string
+  seo_descripcion: string
+  url_handle: string
+  fecha_creacion?: Date
+  fecha_actualizacion?: Date
+  fecha_publicacion: Date | null
+  ultima_sincronizacion?: Date
+}
+
+export type VarianteProducto = {
+  id?: number
+  shopify_id: string
+  producto_id: number
+  titulo: string
+  precio: number
+  precio_comparacion: number
+  sku: string
+  codigo_barras: string
+  inventario_disponible: number
+  politica_inventario: string
+  requiere_envio: boolean
+  peso: number
+  unidad_peso: string
+  opcion1_nombre: string
+  opcion1_valor: string
+  opcion2_nombre: string
+  opcion2_valor: string
+  opcion3_nombre: string
+  opcion3_valor: string
+  posicion: number
+  fecha_creacion?: Date
+  fecha_actualizacion?: Date
+  ultima_sincronizacion?: Date
+}
+
+export type ImagenProducto = {
+  id?: number
+  shopify_id: string
+  producto_id: number
+  variante_id: number
+  url: string
+  texto_alternativo: string
+  posicion: number
+  es_destacada: boolean
+  fecha_creacion?: Date
+  fecha_actualizacion?: Date
+  ultima_sincronizacion?: Date
+}
