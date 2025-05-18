@@ -3,16 +3,16 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Search } from "lucide-react"
+import { Plus } from "lucide-react"
 import { ProductsList } from "@/components/products-list"
 import { fetchProducts } from "@/lib/api/products"
-import { LoadingState } from "@/components/loading-state"
+import { Suspense } from "react"
+import Link from "next/link"
+import { SyncProductsButton } from "@/components/sync-products-button"
 
 // Marcar la página como dinámica para evitar errores de renderizado estático
 export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export default function ProductsPage() {
   const router = useRouter()
@@ -109,83 +109,30 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Productos</h1>
-        <Button onClick={() => router.push("/dashboard/products/new")}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nuevo producto
-        </Button>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Gestiona los productos de tu tienda</CardTitle>
-          <CardDescription>Visualiza, edita y crea nuevos productos para tu tienda online.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col space-y-4">
-            <div className="flex items-center space-x-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder="Buscar productos..."
-                  className="pl-8"
-                  value={searchTerm}
-                  onChange={handleSearchChange}
-                />
-              </div>
-              <Button onClick={syncProducts} disabled={isSyncing} variant="outline">
-                {isSyncing ? "Sincronizando..." : "Sincronizar"}
-              </Button>
-            </div>
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
-                <span className="block sm:inline">{error}</span>
-              </div>
-            )}
-
-            <Tabs defaultValue="all" value={activeTab} onValueChange={handleTabChange}>
-              <TabsList>
-                <TabsTrigger value="all">Todos</TabsTrigger>
-                <TabsTrigger value="active">Activos</TabsTrigger>
-                <TabsTrigger value="draft">Borradores</TabsTrigger>
-                <TabsTrigger value="archived">Archivados</TabsTrigger>
-              </TabsList>
-              <TabsContent value="all" className="mt-4">
-                {isLoading ? (
-                  <LoadingState message="Cargando productos..." />
-                ) : (
-                  <ProductsList products={filteredProducts} onRefresh={loadProducts} />
-                )}
-              </TabsContent>
-              <TabsContent value="active" className="mt-4">
-                {isLoading ? (
-                  <LoadingState message="Cargando productos activos..." />
-                ) : (
-                  <ProductsList products={filteredProducts} onRefresh={loadProducts} />
-                )}
-              </TabsContent>
-              <TabsContent value="draft" className="mt-4">
-                {isLoading ? (
-                  <LoadingState message="Cargando borradores..." />
-                ) : (
-                  <ProductsList products={filteredProducts} onRefresh={loadProducts} />
-                )}
-              </TabsContent>
-              <TabsContent value="archived" className="mt-4">
-                {isLoading ? (
-                  <LoadingState message="Cargando productos archivados..." />
-                ) : (
-                  <ProductsList products={filteredProducts} onRefresh={loadProducts} />
-                )}
-              </TabsContent>
-            </Tabs>
+    <div className="flex flex-col min-h-screen">
+      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-3xl font-bold tracking-tight">Productos</h2>
+          <div className="flex items-center gap-2">
+            <SyncProductsButton />
+            <Button asChild>
+              <Link href="/dashboard/products/new">
+                <Plus className="mr-2 h-4 w-4" />
+                Nuevo producto
+              </Link>
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-xl font-semibold mb-2">Gestiona los productos de tu tienda</h3>
+          <p className="text-gray-500 mb-6">Visualiza, edita y crea nuevos productos para tu tienda online.</p>
+
+          <Suspense fallback={<div>Cargando productos...</div>}>
+            <ProductsList products={filteredProducts} onRefresh={loadProducts} />
+          </Suspense>
+        </div>
+      </div>
     </div>
   )
 }

@@ -2,51 +2,66 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 39 54% 53%; /* Color Granito #D9A336 */
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 39 54% 53%; /* Color Granito #D9A336 */
-    --radius: 0.5rem;
-  }
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
 
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 39 54% 53%; /* Color Granito #D9A336 */
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 39 54% 53%; /* Color Granito #D9A336 */
-  }
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+
+  --primary: 37 80% 53%;
+  --primary-foreground: 210 40% 98%;
+
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+
+  --accent: 210 40% 96.1%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 37 80% 53%;
+
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+
+  --primary: 37 80% 53%;
+  --primary-foreground: 222.2 47.4% 11.2%;
+
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 37 80% 53%;
 }
 
 @layer base {
@@ -59,123 +74,17 @@
 }
 
 .granito-gradient {
-  background: linear-gradient(to right, #d9a336, #f0c875);
+  background: linear-gradient(135deg, #d9a336 0%, #b78520 100%);
 }
 
-/* Clases de utilidad para responsividad */
-.mobile-container {
-  @apply px-4 sm:px-6 md:px-8;
+/* Estilos personalizados para botones */
+.btn-granito {
+  @apply bg-amber-600 hover:bg-amber-700 text-white;
 }
 
-.responsive-grid {
-  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4;
-}
-
-.responsive-grid-tight {
-  @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3;
-}
-
-.responsive-flex {
-  @apply flex flex-col sm:flex-row gap-4;
-}
-
-/* Mejoras para dispositivos móviles */
-@media (max-width: 640px) {
-  .hide-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-
-  .hide-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-
-  .mobile-full-height {
-    min-height: calc(100vh - 4rem);
-  }
-
-  .mobile-bottom-sheet {
-    @apply fixed bottom-0 left-0 right-0 bg-background border-t rounded-t-xl shadow-lg z-50 p-4;
-    max-height: 80vh;
-    overflow-y: auto;
-  }
-
-  /* Ajustes para tablas en móvil */
-  .table-responsive {
-    display: block;
-    width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Ajustes para tarjetas en móvil */
-  .card-responsive {
-    @apply p-3 md:p-6;
-  }
-
-  /* Ajustes para botones en móvil */
-  .btn-responsive {
-    @apply text-sm py-1.5 px-3 md:text-base md:py-2 md:px-4;
-  }
-}
-
-/* Animaciones para mejorar la experiencia de usuario */
-.fade-in {
-  animation: fadeIn 0.3s ease-in-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.slide-up {
-  animation: slideUp 0.3s ease-in-out;
-}
-
-@keyframes slideUp {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-/* Mejoras para la responsividad de formularios */
-.form-responsive {
-  @apply space-y-4 md:space-y-6;
-}
-
-.form-responsive .form-group {
-  @apply flex flex-col space-y-2;
-}
-
-.form-responsive .form-row {
-  @apply grid grid-cols-1 md:grid-cols-2 gap-4;
-}
-
-/* Mejoras para la responsividad de tablas */
-.table-container {
-  @apply w-full overflow-x-auto rounded-md border;
-}
-
-/* Mejoras para la responsividad de botones */
-.button-group {
-  @apply flex flex-wrap gap-2;
-}
-
-/* Mejoras para la responsividad de tarjetas */
-.card-grid {
-  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4;
-}
-
-.card-grid-compact {
-  @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3;
+/* Estilos para el botón de sincronizar */
+button[type="submit"],
+.btn-primary,
+.btn-submit {
+  @apply bg-amber-600 hover:bg-amber-700 text-white;
 }

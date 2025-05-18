@@ -3,7 +3,6 @@ import { shopifyFetch } from "@/lib/shopify"
 import { sql } from "@vercel/postgres"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { sincronizarProductos } from "@/lib/services/sync-service"
 
 // Marcar la ruta como dinámica para evitar errores de renderizado estático
 export const dynamic = "force-dynamic"
@@ -32,7 +31,7 @@ async function registrarSincronizacion(
 }
 
 // Función para obtener productos de Shopify
-async function obtenerProductosDeShopify(limit = 10) {
+async function obtenerProductosDeShopify(limit = 20) {
   try {
     // Registrar inicio de la obtención
     await registrarSincronizacion(
@@ -127,6 +126,123 @@ async function obtenerProductosDeShopify(limit = 10) {
   }
 }
 
+// Función para guardar productos en la base de datos
+async function guardarProductosEnBD(productos) {
+  try {
+    // Registrar inicio del guardado
+    await registrarSincronizacion(
+      "productos",
+      null,
+      "guardar",
+      "iniciado",
+      `Guardando ${productos.length} productos en la base de datos`,
+    )
+
+    // Guardar cada producto en la base de datos
+    for (const producto of productos) {
+      const shopifyId = producto.id.split("/").pop()
+      const title = producto.title
+      const description = producto.description || ""
+      const status = producto.status
+      const productType = producto.productType || ""
+      const vendor = producto.vendor || ""
+      const handle = producto.handle || ""
+      const tags = producto.tags ? producto.tags.join(",") : ""
+
+      // Obtener la primera variante para precio e inventario
+      const firstVariant = producto.variants?.edges?.[0]?.node
+      const price = firstVariant?.price || "0.00"
+      const compareAtPrice = firstVariant?.compareAtPrice || null
+      const sku = firstVariant?.sku || ""
+      const inventoryQuantity = firstVariant?.inventoryQuantity || 0
+
+      // Obtener la primera imagen
+      const firstImage = producto.images?.edges?.[0]?.node
+      const imageUrl = firstImage?.url || null
+
+      // Datos adicionales en JSON
+      const datosAdicionales = {
+        allVariants: producto.variants?.edges?.map((e) => e.node) || [],
+        allImages: producto.images?.edges?.map((e) => e.node) || [],
+        publishedAt: producto.publishedAt,
+      }
+
+      // Verificar si el producto ya existe
+      const existingProduct = await sql`
+        SELECT id FROM productos WHERE shopify_id = ${shopifyId}
+      `
+
+      if (existingProduct.rows.length > 0) {
+        // Actualizar producto existente
+        await sql`
+          UPDATE productos 
+          SET 
+            titulo = ${title},
+            descripcion = ${description},
+            estado = ${status},
+            tipo = ${productType},
+            proveedor = ${vendor},
+            handle = ${handle},
+            etiquetas = ${tags},
+            precio = ${price},
+            precio_comparacion = ${compareAtPrice},
+            sku = ${sku},
+            inventario = ${inventoryQuantity},
+            imagen_url = ${imageUrl},
+            datos_adicionales = ${JSON.stringify(datosAdicionales)},
+            actualizado_en = NOW()
+          WHERE shopify_id = ${shopifyId}
+        `
+
+        await registrarSincronizacion(
+          "productos",
+          shopifyId,
+          "actualizar",
+          "completado",
+          `Producto actualizado: ${title}`,
+        )
+      } else {
+        // Insertar nuevo producto
+        await sql`
+          INSERT INTO productos (
+            shopify_id, titulo, descripcion, estado, tipo, proveedor, 
+            handle, etiquetas, precio, precio_comparacion, sku, 
+            inventario, imagen_url, datos_adicionales, creado_en, actualizado_en
+          ) VALUES (
+            ${shopifyId}, ${title}, ${description}, ${status}, ${productType}, ${vendor},
+            ${handle}, ${tags}, ${price}, ${compareAtPrice}, ${sku},
+            ${inventoryQuantity}, ${imageUrl}, ${JSON.stringify(datosAdicionales)}, NOW(), NOW()
+          )
+        `
+
+        await registrarSincronizacion("productos", shopifyId, "crear", "completado", `Producto creado: ${title}`)
+      }
+    }
+
+    // Registrar éxito del guardado
+    await registrarSincronizacion(
+      "productos",
+      null,
+      "guardar",
+      "completado",
+      `Se guardaron ${productos.length} productos en la base de datos`,
+    )
+
+    return { success: true, count: productos.length }
+  } catch (error) {
+    // Registrar error
+    await registrarSincronizacion(
+      "productos",
+      null,
+      "guardar",
+      "error",
+      `Error al guardar productos en la base de datos: ${error.message}`,
+    )
+    console.error("Error al guardar productos en la base de datos:", error)
+    throw error
+  }
+}
+
 export async function GET(request: Request) {
   try {
     // Verificar autenticación
@@ -137,15 +253,18 @@ export async function GET(request: Request) {
 
     // Obtener el límite de la URL si existe
     const url = new URL(request.url)
-    const limit = Number.parseInt(url.searchParams.get("limit") || "10")
+    const limit = Number.parseInt(url.searchParams.get("limit") || "20")
 
-    // Sincronizar productos
-    const resultados = await sincronizarProductos(limit)
+    // Obtener productos de Shopify
+    const productos = await obtenerProductosDeShopify(limit)
+
+    // Guardar productos en la base de datos
+    const resultado = await guardarProductosEnBD(productos)
 
     return NextResponse.json({
       success: true,
-      message: `Sincronización de productos completada`,
-      resultados,
+      message: `Sincronización de productos completada. Se sincronizaron ${resultado.count} productos.`,
+      count: resultado.count,
     })
   } catch (error: any) {
     console.error("Error en sincronización de productos:", error)
