@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
 import { shopifyFetch } from "@/lib/shopify"
 import { sql } from "@vercel/postgres"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { sincronizarProductos } from "@/lib/services/sync-service"
 
 // Marcar la ruta como dinámica para evitar errores de renderizado estático
 export const dynamic = "force-dynamic"
@@ -126,37 +129,30 @@ async function obtenerProductosDeShopify(limit = 10) {
 
 export async function GET(request: Request) {
   try {
-    console.log("Iniciando sincronización de productos (simplificada)...")
-
-    // Verificar la conexión a la base de datos
-    try {
-      const result = await sql`SELECT NOW()`
-      console.log("Conexión a la base de datos establecida:", result)
-    } catch (error) {
-      console.error("Error al conectar con la base de datos:", error)
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Error al conectar con la base de datos",
-          error: error.message,
-        },
-        { status: 500 },
-      )
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    console.log("Sincronización completada (simplificada)")
+    // Obtener el límite de la URL si existe
+    const url = new URL(request.url)
+    const limit = Number.parseInt(url.searchParams.get("limit") || "10")
+
+    // Sincronizar productos
+    const resultados = await sincronizarProductos(limit)
 
     return NextResponse.json({
       success: true,
-      message: "Sincronización completada (simplificada)",
+      message: `Sincronización de productos completada`,
+      resultados,
     })
-  } catch (error) {
-    console.error("Error en la sincronización de productos (simplificada):", error)
+  } catch (error: any) {
+    console.error("Error en sincronización de productos:", error)
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Error desconocido",
-        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+        error: error.message || "Error desconocido en sincronización de productos",
       },
       { status: 500 },
     )

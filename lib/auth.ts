@@ -40,7 +40,7 @@ export const authOptions: NextAuthOptions = {
                   id: 1,
                   nombre_usuario: "admin",
                   correo_electronico: "admin@example.com",
-                  contrasena: "GranitoSkate", // Contraseña maestra para desarrollo
+                  contrasena: "$2a$10$1X.GQIJJk8L9Fz3HZhQQo.6EsHgHKm7Brx0bKQA9fI.SSjN.ym3Uy", // Hash de "GranitoSkate"
                   nombre_completo: "Administrador",
                   rol: "admin",
                   activo: true,
@@ -63,14 +63,17 @@ export const authOptions: NextAuthOptions = {
           if (credentials.password === "GranitoSkate") {
             // Permitir acceso directo con la contraseña maestra para desarrollo
             isValidPassword = true
+            console.log("Acceso con contraseña maestra")
           } else {
             // Verificar con bcrypt para otras contraseñas
             try {
               isValidPassword = await compare(credentials.password, user.contrasena)
+              console.log("Resultado de verificación bcrypt:", isValidPassword)
             } catch (error) {
-              console.error("Error al verificar contraseña:", error)
+              console.error("Error al verificar contraseña con bcrypt:", error)
               // Si falla la comparación, intentar una última verificación simple
               isValidPassword = credentials.password === user.contrasena
+              console.log("Resultado de verificación simple:", isValidPassword)
             }
           }
 

@@ -43,7 +43,7 @@ export function SincronizacionProductos() {
           dbInfo: data,
         })
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error al verificar la base de datos:", err)
       setError(err.message || "Error desconocido al verificar la base de datos")
     } finally {
@@ -82,26 +82,17 @@ export function SincronizacionProductos() {
         },
       })
 
-      // Capturar el texto de la respuesta para depuración
-      const responseText = await response.text()
-      console.log("Respuesta recibida (texto):", responseText)
-
-      let data
-      try {
-        data = JSON.parse(responseText)
-      } catch (e) {
-        throw new Error(`Error al parsear la respuesta: ${responseText}`)
-      }
-
-      console.log("Respuesta parseada:", data)
-
       if (!response.ok) {
-        throw new Error(data.error || `Error ${response.status}: ${response.statusText}`)
+        const errorText = await response.text()
+        throw new Error(`Error ${response.status}: ${errorText}`)
       }
+
+      const data = await response.json()
+      console.log("Respuesta de sincronización:", data)
 
       setResultado(data)
       setDebug({ responseData: data, dbCheck: dbCheckData })
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error al sincronizar productos:", err)
       setError(err.message || "Error desconocido al sincronizar productos")
     } finally {
