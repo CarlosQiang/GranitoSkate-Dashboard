@@ -1,35 +1,29 @@
 import type { Metadata } from "next"
-import { DbInitializer } from "@/components/db-initializer"
 import { SystemStatus } from "@/components/system-status"
 import { ShopifyConnectionStatus } from "@/components/shopify-connection-status"
-import { ShopifyConnectionDiagnostics } from "@/components/shopify-connection-diagnostics"
-import { SystemDiagnostics } from "@/components/system-diagnostics"
+import { DbConnectionStatus } from "@/components/db-connection-status"
+import { InitAdmin } from "@/components/init-admin"
 
 export const metadata: Metadata = {
-  title: "Diagnósticos del Sistema",
-  description: "Herramientas de diagnóstico y estado del sistema",
+  title: "Diagnósticos del Sistema | GestionGranito",
+  description: "Diagnósticos y estado del sistema GestionGranito",
 }
 
 export default function DiagnosticsPage() {
   return (
-    <div className="container mx-auto py-6">
-      <h1 className="text-2xl font-bold mb-6">Diagnósticos del Sistema</h1>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <DbInitializer />
-        <SystemStatus />
+    <div className="container mx-auto py-6 space-y-8">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold tracking-tight">Diagnósticos del Sistema</h1>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 mb-6">
+      <div className="grid gap-6 md:grid-cols-2">
+        <DbConnectionStatus />
         <ShopifyConnectionStatus />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 mb-6">
-        <ShopifyConnectionDiagnostics />
-      </div>
-
-      <div className="grid grid-cols-1 gap-6">
-        <SystemDiagnostics />
+      <div className="grid gap-6 md:grid-cols-2">
+        <InitAdmin />
+        <SystemStatus />
       </div>
     </div>
   )
