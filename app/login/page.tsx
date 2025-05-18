@@ -2,145 +2,91 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { signIn } from "next-auth/react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { Eye, EyeOff } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { PasswordInput } from "@/components/password-input"
+import Image from "next/image"
 
 export default function LoginPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const [identifier, setIdentifier] = useState("")
+  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-
-  // Capturar errores de la URL
-  useEffect(() => {
-    const errorParam = searchParams?.get("error")
-    if (errorParam) {
-      if (errorParam === "CredentialsSignin") {
-        setError("Credenciales inválidas. Por favor, inténtalo de nuevo.")
-      } else {
-        setError("Error al iniciar sesión. Por favor, inténtalo de nuevo.")
-      }
-    }
-  }, [searchParams])
+  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
     setError("")
+    setLoading(true)
 
     try {
-      console.log("Intentando iniciar sesión con:", { identifier, password })
-
       const result = await signIn("credentials", {
         redirect: false,
-        identifier,
+        username,
         password,
       })
 
-      console.log("Resultado de inicio de sesión:", result)
-
       if (result?.error) {
         setError("Credenciales inválidas. Por favor, inténtalo de nuevo.")
-      } else if (result?.ok) {
-        router.push("/dashboard")
-        router.refresh()
+        setLoading(false)
+        return
       }
+
+      router.push("/dashboard")
     } catch (error) {
-      console.error("Error de inicio de sesión:", error)
+      console.error("Error en inicio de sesión:", error)
       setError("Ocurrió un error al iniciar sesión. Por favor, inténtalo de nuevo.")
-    } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <div className="flex justify-center">
-            <div className="h-16 w-16 rounded-md bg-granito flex items-center justify-center">
-              <span className="text-white text-2xl font-bold">G</span>
-            </div>
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1 text-center">
+          <div className="flex justify-center mb-4">
+            <Image src="/logo-granito.png" alt="Granito Logo" width={150} height={50} priority />
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">GestionGranito</h2>
-          <p className="mt-2 text-center text-sm text-gray-600">Accede a tu panel de administración</p>
-        </div>
-
-        <form className="mt-8 space-y-6 bg-white p-8 shadow rounded-lg" onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Iniciar sesión</h3>
-            <p className="text-sm text-gray-500">Introduce tu nombre de usuario o email para acceder</p>
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
-                <span className="block sm:inline">{error}</span>
-              </div>
-            )}
-
-            <div>
-              <label htmlFor="identifier" className="block text-sm font-medium text-gray-700">
-                Usuario o Email
-              </label>
-              <div className="mt-1">
-                <input
-                  id="identifier"
-                  name="identifier"
-                  type="text"
-                  autoComplete="username"
-                  required
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-granito focus:border-granito sm:text-sm"
-                />
-              </div>
+          <CardTitle className="text-2xl font-bold">Iniciar sesión</CardTitle>
+          <CardDescription>Ingresa tus credenciales para acceder al panel</CardDescription>
+        </CardHeader>
+        <form onSubmit={handleSubmit}>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Usuario</Label>
+              <Input
+                id="username"
+                type="text"
+                placeholder="Nombre de usuario"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
             </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Contraseña
-              </label>
-              <div className="mt-1 relative">
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-granito focus:border-granito sm:text-sm pr-10"
-                />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400" />
-                  ) : (
-                    <Eye className="h-5 w-5 text-gray-400" />
-                  )}
-                </button>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Contraseña</Label>
+              <PasswordInput
+                id="password"
+                placeholder="Contraseña"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
             </div>
-          </div>
-
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-granito hover:bg-granito-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-granito"
-            >
+            {error && <div className="text-sm text-red-500">{error}</div>}
+          </CardContent>
+          <CardFooter>
+            <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Iniciando sesión..." : "Iniciar sesión"}
-            </button>
-          </div>
+            </Button>
+          </CardFooter>
         </form>
-      </div>
+      </Card>
     </div>
   )
 }
