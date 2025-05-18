@@ -8,6 +8,9 @@ import Link from "next/link"
 import { UserPlus, Edit, Trash2, CheckCircle, XCircle } from "lucide-react"
 import { Suspense } from "react"
 
+// Marcar la página como dinámica para evitar errores de renderizado estático
+export const dynamic = "force-dynamic"
+
 export default async function AdministradoresPage() {
   try {
     const session = await getServerSession(authOptions)

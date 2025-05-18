@@ -5,6 +5,9 @@ import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { Suspense } from "react"
 
+// Marcar el layout como dinámico para evitar errores de renderizado estático
+export const dynamic = "force-dynamic"
+
 export default async function DashboardLayout({
   children,
 }: {

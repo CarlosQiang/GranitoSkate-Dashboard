@@ -2,6 +2,9 @@ import { NextResponse } from "next/server"
 import { shopifyFetch } from "@/lib/shopify"
 import { sql } from "@vercel/postgres"
 
+// Marcar la ruta como dinámica para evitar errores de renderizado estático
+export const dynamic = "force-dynamic"
+
 // Función para registrar la sincronización
 async function registrarSincronizacion(
   tipoEntidad: string,

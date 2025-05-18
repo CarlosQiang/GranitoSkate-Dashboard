@@ -11,6 +11,9 @@ import { ProductsList } from "@/components/products-list"
 import { fetchProducts } from "@/lib/api/products"
 import { LoadingState } from "@/components/loading-state"
 
+// Marcar la página como dinámica para evitar errores de renderizado estático
+export const dynamic = "force-dynamic"
+
 export default function ProductsPage() {
   const router = useRouter()
   const [products, setProducts] = useState([])
