@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { AlertCircle, Loader2, Eye, EyeOff } from "lucide-react"
+import { AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from "next/link"
 
@@ -35,6 +35,7 @@ export default function EditarAdministradorForm({ administrador }: { administrad
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [success, setSuccess] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -53,8 +54,11 @@ export default function EditarAdministradorForm({ administrador }: { administrad
     e.preventDefault()
     setError("")
     setLoading(true)
+    setSuccess(false)
 
     try {
+      console.log("Enviando datos:", formData)
+
       const response = await fetch(`/api/administradores/${administrador.id}`, {
         method: "PUT",
         headers: {
@@ -64,18 +68,31 @@ export default function EditarAdministradorForm({ administrador }: { administrad
       })
 
       const data = await response.json()
+      console.log("Respuesta:", data)
 
       if (!response.ok) {
         throw new Error(data.error || "Error al actualizar el administrador")
       }
 
-      router.push("/dashboard/administradores")
-      router.refresh()
+      setSuccess(true)
+      setTimeout(() => {
+        router.push("/dashboard/administradores")
+        router.refresh()
+      }, 2000)
     } catch (error) {
+      console.error("Error al actualizar administrador:", error)
       setError(error instanceof Error ? error.message : "Error al actualizar el administrador")
     } finally {
       setLoading(false)
     }
+  }
+
+  if (success) {
+    return (
+      <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded mb-4">
+        <p>Administrador actualizado correctamente. Redirigiendo...</p>
+      </div>
+    )
   }
 
   return (
@@ -174,7 +191,7 @@ export default function EditarAdministradorForm({ administrador }: { administrad
             Cancelar
           </Button>
         </Link>
-        <Button type="submit" className="bg-granito hover:bg-granito-dark" disabled={loading}>
+        <Button type="submit" className="bg-[#c7a04a] hover:bg-[#b08e42]" disabled={loading}>
           {loading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

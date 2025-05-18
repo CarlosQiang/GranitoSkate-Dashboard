@@ -4,8 +4,13 @@ import { hash, compare } from "bcryptjs"
 import { sql } from "@vercel/postgres"
 
 export async function hashPassword(password: string): Promise<string> {
-  const saltRounds = 10
-  return await hash(password, saltRounds)
+  try {
+    const saltRounds = 10
+    return await hash(password, saltRounds)
+  } catch (error) {
+    console.error("Error al hashear contraseña:", error)
+    throw new Error("Error al hashear contraseña")
+  }
 }
 
 export async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
@@ -26,8 +31,11 @@ export async function verifyPassword(password: string, hashedPassword: string): 
 
 export async function listAdmins() {
   try {
-    const result =
-      await sql`SELECT id, nombre_usuario, correo_electronico, nombre_completo, rol, activo FROM administradores`
+    const result = await sql`
+      SELECT id, nombre_usuario, correo_electronico, nombre_completo, rol, activo, ultimo_acceso, fecha_creacion
+      FROM administradores
+      ORDER BY fecha_creacion DESC
+    `
     return result.rows
   } catch (error) {
     console.error("Error al listar administradores:", error)
