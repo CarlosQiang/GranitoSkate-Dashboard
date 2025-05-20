@@ -1,5 +1,4 @@
 import { Pool } from "pg"
-import { PrismaClient } from "@prisma/client"
 import dotenv from "dotenv"
 
 // Cargar variables de entorno
@@ -10,12 +9,11 @@ const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL
 
 if (!connectionString) {
   console.error("Error: No se ha definido la variable de entorno POSTGRES_URL o DATABASE_URL")
-  process.exit(1)
 }
 
 // Crear un pool de conexiones
-const pool = new Pool({
-  connectionString,
+export const pool = new Pool({
+  connectionString: connectionString || "",
   ssl: {
     rejectUnauthorized: false,
   },
@@ -30,7 +28,12 @@ pool.on("error", (err) => {
 })
 
 // Verificar la conexión
-async function testConnection() {
+export async function testConnection() {
+  if (!connectionString) {
+    console.error("No hay URL de conexión definida")
+    return false
+  }
+
   try {
     const client = await pool.connect()
     console.log("Conexión a la base de datos establecida correctamente")
@@ -42,16 +45,34 @@ async function testConnection() {
   }
 }
 
-// Exportar el pool para su uso en la aplicación
-export { pool, testConnection }
+// Función para ejecutar consultas
+export async function query(text: string, params: any[] = []) {
+  try {
+    const start = Date.now()
+    const res = await pool.query(text, params)
+    const duration = Date.now() - start
+    console.log("Consulta ejecutada", { text, duration, rows: res.rowCount })
+    return res
+  } catch (error) {
+    console.error("Error ejecutando consulta", { text, error })
+    throw error
+  }
+}
 
-// Crear y exportar una instancia de PrismaClient
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: connectionString,
-    },
-  },
-})
+// Función para cerrar la conexión
+export async function closeConnection() {
+  try {
+    await pool.end()
+    console.log("Conexión a la base de datos cerrada correctamente")
+  } catch (error) {
+    console.error("Error al cerrar la conexión a la base de datos:", error)
+  }
+}
 
-export default prisma
+// Exportar funciones
+export default {
+  pool,
+  testConnection,
+  query,
+  closeConnection,
+}
