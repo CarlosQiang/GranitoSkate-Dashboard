@@ -790,13 +790,5 @@ export async function sincronizarPedidos(limit = 50) {
   }
 }
 
-export default {
-  obtenerProductosDeShopify,
-  sincronizarProductos,
-  obtenerColeccionesDeShopify,
-  sincronizarColecciones,
-  obtenerClientesDeShopify,
-  sincronizarClientes,
-  obtenerPedidosDeShopify,
-  sincronizarPedidos,
-}
+// Exportar cada función individualmente
+// Las funciones ya están siendo exportadas individualmente arriba

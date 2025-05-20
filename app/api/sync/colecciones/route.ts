@@ -1,28 +1,12 @@
 import { NextResponse } from "next/server"
-import { obtenerColeccionesDeShopify } from "@/lib/services/sync-service"
+import syncService from "@/lib/services"
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    // Obtener parámetros de la solicitud
-    const { searchParams } = new URL(request.url)
-    const limit = Number.parseInt(searchParams.get("limit") || "50", 10)
-
-    // Obtener colecciones reales de Shopify
-    const colecciones = await obtenerColeccionesDeShopify(limit)
-
-    return NextResponse.json({
-      success: true,
-      message: `Se obtuvieron ${colecciones.length} colecciones de Shopify`,
-      data: colecciones,
-    })
+    await syncService.sincronizarColecciones()
+    return NextResponse.json({ message: "Colecciones sincronizadas correctamente" }, { status: 200 })
   } catch (error) {
-    console.error("Error al obtener colecciones:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Error desconocido",
-      },
-      { status: 500 },
-    )
+    console.error("Error al sincronizar colecciones:", error)
+    return NextResponse.json({ message: "Error al sincronizar colecciones", error: error.message }, { status: 500 })
   }
 }
