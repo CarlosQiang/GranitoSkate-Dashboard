@@ -10,6 +10,8 @@ interface ThemeContextType {
   resetTheme: () => void
   isDarkMode: boolean
   toggleDarkMode: () => void
+  saveTheme: () => Promise<boolean>
+  isSaving: boolean
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
@@ -17,20 +19,52 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<ThemeConfig>(defaultThemeConfig)
   const [isDarkMode, setIsDarkMode] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Cargar tema guardado al iniciar
+  // Cargar tema desde localStorage al iniciar
   useEffect(() => {
-    const savedTheme = localStorage.getItem("app-theme")
-    if (savedTheme) {
+    const loadTheme = async () => {
       try {
-        const parsedTheme = JSON.parse(savedTheme)
-        setTheme(parsedTheme)
+        setIsLoading(true)
+
+        // Primero intentamos cargar desde localStorage para una experiencia más rápida
+        const savedTheme = localStorage.getItem("app-theme")
+        if (savedTheme) {
+          try {
+            const parsedTheme = JSON.parse(savedTheme)
+            setTheme(parsedTheme)
+          } catch (error) {
+            console.error("Error al cargar el tema guardado:", error)
+          }
+        }
+
+        // Luego intentamos cargar desde la API si está disponible
+        try {
+          const response = await fetch("/api/theme")
+          if (response.ok) {
+            const data = await response.json()
+            if (data.themeConfig) {
+              setTheme(data.themeConfig)
+              localStorage.setItem("app-theme", JSON.stringify(data.themeConfig))
+            }
+          }
+        } catch (error) {
+          console.error("Error al cargar el tema desde la API:", error)
+          // No bloqueamos la carga si la API falla
+        }
       } catch (error) {
-        console.error("Error al cargar el tema guardado:", error)
+        console.error("Error al cargar el tema:", error)
+      } finally {
+        setIsLoading(false)
       }
     }
 
-    // Detectar preferencia de modo oscuro
+    loadTheme()
+  }, [])
+
+  // Detectar preferencia de modo oscuro
+  useEffect(() => {
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
     const savedDarkMode = localStorage.getItem("dark-mode")
 
@@ -39,7 +73,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } else if (theme.preferDarkMode || (theme.enableDarkMode && prefersDark)) {
       setIsDarkMode(true)
     }
-  }, [])
+  }, [theme.enableDarkMode, theme.preferDarkMode])
 
   // Aplicar modo oscuro
   useEffect(() => {
@@ -53,6 +87,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   // Aplicar variables CSS personalizadas
   useEffect(() => {
+    if (isLoading) return
+
     const root = document.documentElement
 
     // Convertir colores hex a HSL para compatibilidad con Tailwind
@@ -114,9 +150,18 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       root.style.setProperty("--font-family", theme.fontFamily)
     }
 
-    // Guardar tema en localStorage
+    // Aplicar clases de animación
+    if (theme.enableAnimations) {
+      document.body.classList.remove("disable-animations")
+      document.body.classList.add(`theme-animation-${theme.animationSpeed}`)
+    } else {
+      document.body.classList.add("disable-animations")
+      document.body.classList.remove("theme-animation-slow", "theme-animation-normal", "theme-animation-fast")
+    }
+
+    // Guardar tema en localStorage para acceso rápido
     localStorage.setItem("app-theme", JSON.stringify(theme))
-  }, [theme])
+  }, [theme, isLoading])
 
   const updateTheme = (newTheme: Partial<ThemeConfig>) => {
     setTheme((prevTheme) => ({
@@ -134,8 +179,51 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setIsDarkMode((prev) => !prev)
   }
 
+  const saveTheme = async (): Promise<boolean> => {
+    try {
+      setIsSaving(true)
+
+      // Intentar guardar en la API si está disponible
+      try {
+        const response = await fetch("/api/theme", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ themeConfig: theme }),
+        })
+
+        if (!response.ok) {
+          console.error("Error al guardar el tema en la API:", await response.text())
+        }
+      } catch (error) {
+        console.error("Error al guardar el tema en la API:", error)
+        // No bloqueamos el guardado si la API falla
+      }
+
+      // Siempre guardamos en localStorage
+      localStorage.setItem("app-theme", JSON.stringify(theme))
+      return true
+    } catch (error) {
+      console.error("Error al guardar el tema:", error)
+      return false
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   return (
-    <ThemeContext.Provider value={{ theme, updateTheme, resetTheme, isDarkMode, toggleDarkMode }}>
+    <ThemeContext.Provider
+      value={{
+        theme,
+        updateTheme,
+        resetTheme,
+        isDarkMode,
+        toggleDarkMode,
+        saveTheme,
+        isSaving,
+      }}
+    >
       {children}
     </ThemeContext.Provider>
   )

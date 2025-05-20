@@ -9,16 +9,16 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Check, Info, RefreshCw, Upload } from "lucide-react"
+import { Check, Info, RefreshCw } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { defaultThemeConfig } from "@/types/theme-config"
-import { ColorPicker } from "@/components/color-picker"
-import { toast } from "@/components/ui/use-toast"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function PersonalizacionPage() {
   const { theme, updateTheme, resetTheme, isDarkMode, toggleDarkMode, saveTheme, isSaving } = useTheme()
   const [isResetting, setIsResetting] = useState(false)
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile" | "tablet">("desktop")
+  const { toast } = useToast()
 
   const handleReset = async () => {
     setIsResetting(true)
@@ -36,7 +36,20 @@ export default function PersonalizacionPage() {
   }
 
   const handleSave = async () => {
-    await saveTheme()
+    const success = await saveTheme()
+
+    if (success) {
+      toast({
+        title: "Configuración guardada",
+        description: "Los cambios se han guardado correctamente.",
+      })
+    } else {
+      toast({
+        title: "Error al guardar",
+        description: "No se pudo guardar la configuración.",
+        variant: "destructive",
+      })
+    }
   }
 
   return (
@@ -81,10 +94,17 @@ export default function PersonalizacionPage() {
                     <div className="space-y-2">
                       <Label htmlFor="primaryColor">Color principal</Label>
                       <div className="flex items-center gap-2">
-                        <ColorPicker
-                          color={theme.primaryColor}
-                          onChange={(color) => updateTheme({ primaryColor: color })}
-                          id="primaryColor"
+                        <div
+                          className="w-10 h-10 rounded-md border cursor-pointer"
+                          style={{ backgroundColor: theme.primaryColor }}
+                          onClick={() => {
+                            // Aquí iría un selector de color
+                            // Por simplicidad, solo cambiamos entre algunos colores predefinidos
+                            const colors = ["#c7a04a", "#3182ce", "#38a169", "#e53e3e", "#805ad5"]
+                            const currentIndex = colors.indexOf(theme.primaryColor)
+                            const nextIndex = (currentIndex + 1) % colors.length
+                            updateTheme({ primaryColor: colors[nextIndex] })
+                          }}
                         />
                         <Input
                           value={theme.primaryColor}
@@ -100,10 +120,15 @@ export default function PersonalizacionPage() {
                     <div className="space-y-2">
                       <Label htmlFor="secondaryColor">Color secundario</Label>
                       <div className="flex items-center gap-2">
-                        <ColorPicker
-                          color={theme.secondaryColor}
-                          onChange={(color) => updateTheme({ secondaryColor: color })}
-                          id="secondaryColor"
+                        <div
+                          className="w-10 h-10 rounded-md border cursor-pointer"
+                          style={{ backgroundColor: theme.secondaryColor }}
+                          onClick={() => {
+                            const colors = ["#4a5568", "#2c5282", "#276749", "#9b2c2c", "#553c9a"]
+                            const currentIndex = colors.indexOf(theme.secondaryColor)
+                            const nextIndex = (currentIndex + 1) % colors.length
+                            updateTheme({ secondaryColor: colors[nextIndex] })
+                          }}
                         />
                         <Input
                           value={theme.secondaryColor}
@@ -121,10 +146,15 @@ export default function PersonalizacionPage() {
                     <div className="space-y-2">
                       <Label htmlFor="accentColor">Color de acento</Label>
                       <div className="flex items-center gap-2">
-                        <ColorPicker
-                          color={theme.accentColor}
-                          onChange={(color) => updateTheme({ accentColor: color })}
-                          id="accentColor"
+                        <div
+                          className="w-10 h-10 rounded-md border cursor-pointer"
+                          style={{ backgroundColor: theme.accentColor }}
+                          onClick={() => {
+                            const colors = ["#3182ce", "#c7a04a", "#38a169", "#e53e3e", "#805ad5"]
+                            const currentIndex = colors.indexOf(theme.accentColor)
+                            const nextIndex = (currentIndex + 1) % colors.length
+                            updateTheme({ accentColor: colors[nextIndex] })
+                          }}
                         />
                         <Input
                           value={theme.accentColor}
@@ -418,7 +448,6 @@ export default function PersonalizacionPage() {
                       </div>
 
                       <Button variant="outline" className="flex items-center gap-2">
-                        <Upload className="h-4 w-4" />
                         Subir logo
                       </Button>
 
@@ -447,7 +476,6 @@ export default function PersonalizacionPage() {
                       </div>
 
                       <Button variant="outline" size="sm" className="flex items-center gap-2">
-                        <Upload className="h-4 w-4" />
                         Subir favicon
                       </Button>
 
