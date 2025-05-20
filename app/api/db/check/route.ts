@@ -1,37 +1,43 @@
 import { NextResponse } from "next/server"
-import { query } from "@/lib/db"
-
-export const dynamic = "force-dynamic"
+import { testConnection } from "@/lib/db/neon-client"
+import prisma from "@/lib/db/neon-client"
 
 export async function GET() {
   try {
-    // Intentar ejecutar una consulta simple
-    const result = await query(`SELECT 1 as connected`)
+    // Probar la conexión directa con el pool
+    const poolConnected = await testConnection()
 
-    // Verificar tablas existentes
-    const tablesResult = await query(`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public'
-    `)
+    if (!poolConnected) {
+      return NextResponse.json({ error: "Error al conectar con la base de datos usando el pool" }, { status: 500 })
+    }
 
-    const tables = tablesResult.rows.map((row: any) => row.table_name)
+    // Probar la conexión con Prisma
+    await prisma.$connect()
+
+    // Realizar una consulta simple para verificar que todo funciona
+    const result = await prisma.$queryRaw`SELECT 1 as test`
 
     return NextResponse.json({
       success: true,
       message: "Conexión a la base de datos establecida correctamente",
-      tables,
-      connected: true,
+      details: {
+        poolConnected,
+        prismaConnected: true,
+        queryResult: result,
+      },
     })
-  } catch (error: any) {
-    console.error("Error al verificar la base de datos:", error)
+  } catch (error) {
+    console.error("Error al verificar la conexión a la base de datos:", error)
+
     return NextResponse.json(
       {
-        success: false,
-        error: error.message || "Error desconocido",
-        connected: false,
+        error: "Error al verificar la conexión a la base de datos",
+        details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 },
     )
+  } finally {
+    // Asegurarse de desconectar Prisma
+    await prisma.$disconnect()
   }
 }
