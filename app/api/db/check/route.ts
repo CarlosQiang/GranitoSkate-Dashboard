@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { testConnection, query } from "@/lib/db/neon-client"
+import { testConnection, query } from "@/lib/db"
 
 export const dynamic = "force-dynamic"
 
