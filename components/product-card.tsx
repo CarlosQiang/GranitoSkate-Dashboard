@@ -18,6 +18,7 @@ export function ProductCard({ product }) {
     titulo = title, // Soporte para ambos nombres de propiedad
     price = 0,
     precio = price, // Soporte para ambos nombres de propiedad
+    compareAtPrice,
     currencyCode = "EUR",
     status = "ACTIVE",
     estado = status, // Soporte para ambos nombres de propiedad
@@ -35,6 +36,9 @@ export function ProductCard({ product }) {
     return id
   }
 
+  // Determinar si hay un descuento
+  const hasDiscount = compareAtPrice && Number(compareAtPrice) > Number(price)
+
   return (
     <Link href={`/dashboard/products/${cleanId(id)}`} className="block">
       <Card className="overflow-hidden transition-all hover:shadow-md h-full flex flex-col">
@@ -50,20 +54,35 @@ export function ProductCard({ product }) {
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gray-100">
-              <Package className="h-12 w-12 text-muted-foreground" />
+              <Package className="h-12 w-12 text-granito-400" />
+            </div>
+          )}
+          {(estado || status) !== "ACTIVE" && (
+            <div className="absolute top-2 right-2">
+              <Badge variant="secondary" className="bg-gray-200 text-gray-700">
+                {(estado || status) === "DRAFT" ? "Borrador" : "Archivado"}
+              </Badge>
             </div>
           )}
         </div>
         <CardContent className="p-4 flex-grow">
           <h3 className="font-medium line-clamp-1">{titulo || title}</h3>
           <div className="flex items-center justify-between mt-2">
-            <span className="font-bold">{formatCurrency(precio || price, currencyCode)}</span>
-            <Badge variant={(estado || status) === "ACTIVE" ? "default" : "secondary"}>
-              {(estado || status) === "ACTIVE" ? "Activo" : "Borrador"}
-            </Badge>
+            <div className="flex flex-col">
+              <span className="font-bold text-granito-700">{formatCurrency(precio || price, currencyCode)}</span>
+              {hasDiscount && (
+                <span className="text-sm line-through text-gray-500">
+                  {formatCurrency(compareAtPrice, currencyCode)}
+                </span>
+              )}
+            </div>
+            {(estado || status) === "ACTIVE" && (
+              <Badge variant="default" className="bg-granito-500 hover:bg-granito-600">
+                Activo
+              </Badge>
+            )}
           </div>
         </CardContent>
-        {/* Eliminada la clase border-t para quitar la línea separadora */}
         <CardFooter className="p-4 pt-0 text-xs text-muted-foreground mt-auto">
           <span className="truncate">ID: {cleanId(id)}</span>
         </CardFooter>

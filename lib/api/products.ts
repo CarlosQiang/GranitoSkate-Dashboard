@@ -91,12 +91,12 @@ export async function fetchLowStockProducts(threshold = 10) {
   }
 }
 
-// Función para obtener todos los productos
+// Mejorar la función fetchProducts para obtener datos reales de Shopify
 export async function fetchProducts(limit = 20) {
   try {
     const query = `
       query {
-        products(first: ${limit}) {
+        products(first: ${limit}, sortKey: UPDATED_AT, reverse: true) {
           edges {
             node {
               id
@@ -110,11 +110,14 @@ export async function fetchProducts(limit = 20) {
                   node {
                     price
                     inventoryQuantity
+                    compareAtPrice
                   }
                 }
               }
               productType
               vendor
+              createdAt
+              updatedAt
             }
           }
         }
@@ -124,6 +127,7 @@ export async function fetchProducts(limit = 20) {
     const response = await shopifyFetch({ query })
 
     if (!response.data) {
+      console.error("Respuesta de Shopify sin datos:", response)
       throw new Error("No se pudieron obtener los productos")
     }
 
@@ -135,14 +139,17 @@ export async function fetchProducts(limit = 20) {
         status: node.status,
         image: node.featuredImage?.url || null,
         price: variant?.price || "0",
+        compareAtPrice: variant?.compareAtPrice || null,
         inventoryQuantity: variant?.inventoryQuantity || 0,
-        productType: node.productType,
-        vendor: node.vendor,
+        productType: node.productType || "",
+        vendor: node.vendor || "",
+        createdAt: node.createdAt,
+        updatedAt: node.updatedAt,
       }
     })
   } catch (error) {
     console.error("Error al obtener todos los productos:", error)
-    return []
+    throw error
   }
 }
 

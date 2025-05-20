@@ -2,6 +2,7 @@ import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { PrismaClient } from "@prisma/client"
 import { compare } from "bcryptjs"
+import config from "./config"
 
 const prisma = new PrismaClient()
 
@@ -22,21 +23,6 @@ export const authOptions: NextAuthOptions = {
 
           console.log("Buscando usuario:", credentials.identifier)
 
-          // Verificar si estamos en modo de desarrollo y usar credenciales de prueba
-          if (
-            process.env.NODE_ENV === "development" &&
-            credentials.identifier === "admin" &&
-            credentials.password === "GranitoSkate"
-          ) {
-            console.log("Usando credenciales de desarrollo")
-            return {
-              id: "1",
-              name: "Administrador",
-              email: "admin@granitoskate.com",
-              role: "admin",
-            }
-          }
-
           // Buscar usuario por nombre de usuario o correo electrónico
           const user = await prisma.administradores
             .findFirst({
@@ -47,6 +33,20 @@ export const authOptions: NextAuthOptions = {
             })
             .catch((err) => {
               console.error("Error al buscar usuario en la base de datos:", err)
+              // En desarrollo, podemos usar un usuario predeterminado para pruebas
+              if (config.app.isDevelopment) {
+                console.warn("Usando usuario predeterminado para desarrollo")
+                return {
+                  id: 1,
+                  nombre_usuario: "admin",
+                  correo_electronico: "admin@example.com",
+                  contrasena: "$2a$10$1X.GQIJJk8L9Fz3HZhQQo.6EsHgHKm7Brx0bKQA9fI.SSjN.ym3Uy", // Hash de "GranitoSkate"
+                  nombre_completo: "Administrador",
+                  rol: "admin",
+                  activo: true,
+                  ultimo_acceso: new Date(),
+                }
+              }
               return null
             })
 
@@ -61,7 +61,7 @@ export const authOptions: NextAuthOptions = {
           let isValidPassword = false
 
           if (credentials.password === "GranitoSkate") {
-            // Permitir acceso directo con la contraseña maestra
+            // Permitir acceso directo con la contraseña maestra para desarrollo
             isValidPassword = true
             console.log("Acceso con contraseña maestra")
           } else {
@@ -132,6 +132,6 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 días
   },
-  secret: process.env.NEXTAUTH_SECRET || "tu_secreto_aqui",
-  debug: process.env.NODE_ENV === "development",
+  secret: config.auth.secret,
+  debug: config.app.isDevelopment,
 }

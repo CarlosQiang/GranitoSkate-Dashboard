@@ -48,7 +48,6 @@ export async function POST(request: Request) {
         "X-Shopify-Access-Token": config.shopify.accessToken,
       },
       body: JSON.stringify(body),
-      cache: "no-store",
     })
 
     // Si la respuesta no es exitosa, manejar el error
@@ -88,31 +87,6 @@ export async function POST(request: Request) {
           ],
         },
         { status: shopifyResponse.status },
-      )
-    }
-
-    // Verificar que la respuesta sea JSON válido
-    const contentType = shopifyResponse.headers.get("content-type")
-    if (!contentType || !contentType.includes("application/json")) {
-      console.error("Error: La respuesta de Shopify no es JSON válido:", contentType)
-
-      // Obtener el texto de la respuesta para diagnóstico
-      const responseText = await shopifyResponse.text()
-      console.error("Respuesta no JSON:", responseText.substring(0, 200) + "...")
-
-      return NextResponse.json(
-        {
-          errors: [
-            {
-              message: "La respuesta de Shopify no es JSON válido",
-              extensions: {
-                contentType,
-                preview: responseText.substring(0, 200) + "...",
-              },
-            },
-          ],
-        },
-        { status: 500 },
       )
     }
 

@@ -1,16 +1,12 @@
 import { sql } from "@vercel/postgres"
+import { logError } from "./utils"
 
 // Función para ejecutar consultas SQL
 export async function query(text: string, params: any[] = []) {
   try {
-    console.log("Ejecutando consulta SQL:", { text, params })
-    const start = Date.now()
-    const res = await sql.query(text, params)
-    const duration = Date.now() - start
-    console.log("Consulta SQL ejecutada en", duration, "ms. Filas:", res.rowCount)
-    return res
+    return await sql.query(text, params)
   } catch (error) {
-    console.error("Error en consulta SQL:", error)
+    logError("Error en consulta SQL:", error)
     throw error
   }
 }
@@ -21,7 +17,7 @@ export async function findAll(table: string) {
     const result = await query(`SELECT * FROM ${table}`)
     return result.rows
   } catch (error) {
-    console.error(`Error al obtener todos los registros de ${table}:`, error)
+    logError(`Error al obtener todos los registros de ${table}:`, error)
     throw error
   }
 }
@@ -31,7 +27,7 @@ export async function findById(table: string, id: number) {
     const result = await query(`SELECT * FROM ${table} WHERE id = $1`, [id])
     return result.rows[0] || null
   } catch (error) {
-    console.error(`Error al obtener registro con ID ${id} de ${table}:`, error)
+    logError(`Error al obtener registro con ID ${id} de ${table}:`, error)
     throw error
   }
 }
@@ -41,7 +37,7 @@ export async function findByField(table: string, field: string, value: any) {
     const result = await query(`SELECT * FROM ${table} WHERE ${field} = $1`, [value])
     return result.rows[0] || null
   } catch (error) {
-    console.error(`Error al obtener registro con ${field}=${value} de ${table}:`, error)
+    logError(`Error al obtener registro con ${field}=${value} de ${table}:`, error)
     throw error
   }
 }
@@ -56,7 +52,7 @@ export async function insert(table: string, data: Record<string, any>) {
 
     return result.rows[0]
   } catch (error) {
-    console.error(`Error al insertar en ${table}:`, error)
+    logError(`Error al insertar en ${table}:`, error)
     throw error
   }
 }
@@ -68,14 +64,14 @@ export async function update(table: string, id: number, data: Record<string, any
 
     const setClause = keys.map((key, i) => `${key} = $${i + 1}`).join(", ")
 
-    const result = await query(`UPDATE ${table} SET ${setClause} WHERE id = $${keys.length + 1} RETURNING *`, [
-      ...values,
-      id,
-    ])
+    const result = await query(
+      `UPDATE ${table} SET ${setClause}, fecha_actualizacion = NOW() WHERE id = $${keys.length + 1} RETURNING *`,
+      [...values, id],
+    )
 
     return result.rows[0]
   } catch (error) {
-    console.error(`Error al actualizar registro con ID ${id} en ${table}:`, error)
+    logError(`Error al actualizar registro con ID ${id} en ${table}:`, error)
     throw error
   }
 }
@@ -85,44 +81,33 @@ export async function remove(table: string, id: number) {
     await query(`DELETE FROM ${table} WHERE id = $1`, [id])
     return { success: true }
   } catch (error) {
-    console.error(`Error al eliminar registro con ID ${id} en ${table}:`, error)
+    logError(`Error al eliminar registro con ID ${id} en ${table}:`, error)
     throw error
   }
 }
 
 export async function logSyncEvent(
   tipo_entidad: string,
-  entidad_id: string | null,
+  entidad_id = "UNKNOWN",
   accion: string,
   resultado: string,
   mensaje: string,
-  detalles: any = null,
+  detalles: any = {},
 ) {
   try {
-    return await insert("registro_sincronizacion", {
+    return insert("registro_sincronizacion", {
       tipo_entidad,
       entidad_id,
       accion,
       resultado,
       mensaje,
-      detalles: detalles ? JSON.stringify(detalles) : null,
+      detalles: JSON.stringify(detalles),
       fecha: new Date(),
     })
   } catch (error) {
-    console.error("Error al registrar evento de sincronización:", error)
+    logError("Error al registrar evento de sincronización:", error)
     // No lanzamos el error para evitar interrumpir el flujo principal
     return null
-  }
-}
-
-// Función para verificar la conexión a la base de datos
-export async function checkConnection() {
-  try {
-    const result = await query("SELECT NOW()")
-    return { connected: true, result: result.rows[0] }
-  } catch (error) {
-    console.error("Error al verificar la conexión a la base de datos:", error)
-    return { connected: false, error: error.message }
   }
 }
 
@@ -135,6 +120,5 @@ export default {
   update,
   remove,
   logSyncEvent,
-  checkConnection,
   sql,
 }

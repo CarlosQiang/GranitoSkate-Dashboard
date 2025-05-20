@@ -25,22 +25,20 @@ const config: Config = {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         granito: {
-          DEFAULT: "#c59d45", // Color dorado/ámbar del logo
-          dark: "#b08a3a",
-          light: "#d9b96a",
-        },
-        amber: {
-          50: "#FFFBEB",
-          100: "#FEF3C7",
-          200: "#FDE68A",
-          300: "#FCD34D",
-          400: "#FBBF24",
-          500: "#F59E0B",
-          600: "#D97706",
-          700: "#B45309",
-          800: "#92400E",
-          900: "#78350F",
-          950: "#451A03",
+          DEFAULT: "#c7a04a", // Color principal actualizado
+          light: "#d5b66e",
+          dark: "#a58339",
+          50: "#faf6eb",
+          100: "#f5ecd7",
+          200: "#ebdab0",
+          300: "#e1c789",
+          400: "#d7b562",
+          500: "#c7a04a", // Color principal
+          600: "#a58339",
+          700: "#846722",
+          800: "#624c1a",
+          900: "#413212",
+          950: "#211909",
         },
         primary: {
           DEFAULT: "hsl(var(--primary))",

@@ -2,18 +2,19 @@
 export const config = {
   // Shopify
   shopify: {
-    accessToken: process.env.SHOPIFY_ACCESS_TOKEN || "",
-    shopDomain: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || "",
+    accessToken: process.env.SHOPIFY_ACCESS_TOKEN || "shpat_92c47a8a5fb5ca7e57...",
+    shopDomain: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || "qiangtheme.myshopify.com",
     apiUrl:
       process.env.SHOPIFY_API_URL ||
       (process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
         ? `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-07/graphql.json`
-        : ""),
+        : "https://qiangtheme.myshopify.com/admin/api/2023-07/graphql.json"),
   },
 
   // Base de datos
   database: {
-    url: process.env.DATABASE_URL || process.env.POSTGRES_URL || "",
+    url:
+      process.env.DATABASE_URL || process.env.POSTGRES_URL || "postgresql://postgres:postgres@localhost:5432/granito",
   },
 
   // Autenticación

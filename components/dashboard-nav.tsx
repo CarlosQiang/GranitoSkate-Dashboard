@@ -80,7 +80,7 @@ export function DashboardNav() {
         <div className="flex flex-col gap-1 p-4 pt-16 md:pt-4 overflow-y-auto hide-scrollbar">
           {/* Logo o título en la parte superior del menú */}
           <div className="mb-6 flex items-center justify-center md:justify-start">
-            <div className="h-8 w-8 rounded-md granito-gradient flex items-center justify-center mr-2">
+            <div className="h-8 w-8 rounded-md bg-granito-500 flex items-center justify-center mr-2">
               <span className="text-white font-bold">G</span>
             </div>
             <span className="font-bold text-lg">GranitoSkate</span>
@@ -92,9 +92,9 @@ export function DashboardNav() {
               href={item.href}
               className={cn(
                 "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                "hover:bg-primary/10",
-                pathname === item.href
-                  ? "bg-primary text-primary-foreground"
+                "hover:bg-granito-100 dark:hover:bg-granito-900/20",
+                pathname === item.href || pathname.startsWith(`${item.href}/`)
+                  ? "bg-granito-500 text-white"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >

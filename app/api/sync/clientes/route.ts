@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { sincronizarClientes } from "@/lib/services/sync-service"
+import { obtenerClientesDeShopify } from "@/lib/services/sync-service"
 
 export async function GET(request: Request) {
   try {
@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     const limit = Number.parseInt(searchParams.get("limit") || "50", 10)
 
     // Obtener clientes reales de Shopify
-    const clientes = await sincronizarClientes(limit)
+    const clientes = await obtenerClientesDeShopify(limit)
 
     return NextResponse.json({
       success: true,

@@ -1,3 +1,5 @@
+"use server"
+
 import { shopifyFetch } from "@/lib/shopify"
 import { logSyncEvent } from "@/lib/db"
 import { saveProductFromShopify } from "@/lib/repositories/productos-repository"
@@ -786,4 +788,15 @@ export async function sincronizarPedidos(limit = 50) {
     console.error("Error general en sincronizarPedidos:", error)
     throw error
   }
+}
+
+export default {
+  obtenerProductosDeShopify,
+  sincronizarProductos,
+  obtenerColeccionesDeShopify,
+  sincronizarColecciones,
+  obtenerClientesDeShopify,
+  sincronizarClientes,
+  obtenerPedidosDeShopify,
+  sincronizarPedidos,
 }

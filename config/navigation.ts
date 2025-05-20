@@ -1,15 +1,17 @@
 import {
   LayoutDashboard,
-  ShoppingBag,
   Users,
   FileText,
   Settings,
   Package,
-  BarChart3,
-  Percent,
   Search,
   AlertTriangle,
   UserCog,
+  Palette,
+  Layers,
+  ShoppingCart,
+  Tag,
+  BarChart,
 } from "lucide-react"
 
 // Exportamos navigationItems para mantener compatibilidad con el código existente
@@ -22,32 +24,17 @@ export const navigationItems = [
   {
     name: "Productos",
     href: "/dashboard/products",
-    icon: ShoppingBag,
+    icon: Package,
   },
   {
     name: "Colecciones",
     href: "/dashboard/collections",
-    icon: Package,
+    icon: Layers,
   },
-  {
-    name: "Promociones",
-    href: "/dashboard/promotions",
-    icon: Percent,
-  },
-  {
-    name: "SEO",
-    href: "/dashboard/seo",
-    icon: Search,
-  },
-  // {
-  //   name: "Mercados",
-  //   href: "/dashboard/seo-markets",
-  //   icon: Globe,
-  // },
   {
     name: "Pedidos",
     href: "/dashboard/orders",
-    icon: FileText,
+    icon: ShoppingCart,
   },
   {
     name: "Clientes",
@@ -55,9 +42,24 @@ export const navigationItems = [
     icon: Users,
   },
   {
+    name: "Promociones",
+    href: "/dashboard/promociones",
+    icon: Tag,
+  },
+  {
+    name: "SEO",
+    href: "/dashboard/seo",
+    icon: Search,
+  },
+  {
     name: "Analíticas",
     href: "/dashboard/analytics",
-    icon: BarChart3,
+    icon: BarChart,
+  },
+  {
+    name: "Personalización",
+    href: "/dashboard/personalizacion",
+    icon: Palette,
   },
   {
     name: "Configuración",
@@ -88,13 +90,13 @@ export const mainNav = [
   {
     title: "Colecciones",
     href: "/dashboard/collections",
-    icon: Package,
+    icon: Layers,
     color: "text-pink-500",
   },
   {
     title: "Pedidos",
     href: "/dashboard/orders",
-    icon: ShoppingBag,
+    icon: ShoppingCart,
     color: "text-orange-500",
   },
   {
@@ -105,8 +107,8 @@ export const mainNav = [
   },
   {
     title: "Promociones",
-    href: "/dashboard/promotions",
-    icon: Percent,
+    href: "/dashboard/promociones",
+    icon: Tag,
     color: "text-yellow-500",
   },
   {
@@ -130,7 +132,7 @@ export const mainNav = [
   {
     title: "Analíticas",
     href: "/dashboard/analytics",
-    icon: BarChart3,
+    icon: BarChart,
     color: "text-indigo-500",
   },
 ]
