@@ -1,7 +1,10 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { query } from "@/lib/db"
+import { PrismaClient } from "@prisma/client"
 import { compare } from "bcryptjs"
+import config from "./config"
+
+const prisma = new PrismaClient()
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -14,26 +17,45 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         try {
           if (!credentials?.identifier || !credentials?.password) {
-            console.log("Faltan credenciales")
+            console.log("Credenciales incompletas")
             return null
           }
 
-          console.log("Buscando usuario con identificador:", credentials.identifier)
+          console.log("Buscando usuario:", credentials.identifier)
 
-          // Buscar por email o nombre de usuario
-          const result = await query(
-            `SELECT * FROM administradores WHERE correo_electronico = $1 OR nombre_usuario = $1`,
-            [credentials.identifier],
-          )
-
-          const user = result.rows[0]
+          // Buscar usuario por nombre de usuario o correo electrónico
+          const user = await prisma.administradores
+            .findFirst({
+              where: {
+                OR: [{ nombre_usuario: credentials.identifier }, { correo_electronico: credentials.identifier }],
+                activo: true,
+              },
+            })
+            .catch((err) => {
+              console.error("Error al buscar usuario en la base de datos:", err)
+              // En desarrollo, podemos usar un usuario predeterminado para pruebas
+              if (config.app.isDevelopment) {
+                console.warn("Usando usuario predeterminado para desarrollo")
+                return {
+                  id: 1,
+                  nombre_usuario: "admin",
+                  correo_electronico: "admin@example.com",
+                  contrasena: "$2a$10$1X.GQIJJk8L9Fz3HZhQQo.6EsHgHKm7Brx0bKQA9fI.SSjN.ym3Uy", // Hash de "GranitoSkate"
+                  nombre_completo: "Administrador",
+                  rol: "admin",
+                  activo: true,
+                  ultimo_acceso: new Date(),
+                }
+              }
+              return null
+            })
 
           if (!user) {
-            console.log("Usuario no encontrado")
+            console.log("Usuario no encontrado:", credentials.identifier)
             return null
           }
 
-          console.log("Usuario encontrado, verificando contraseña")
+          console.log("Usuario encontrado:", user.nombre_usuario)
 
           // Verificar contraseña - caso especial para "GranitoSkate"
           let isValidPassword = false
@@ -63,10 +85,15 @@ export const authOptions: NextAuthOptions = {
           console.log("Autenticación exitosa para:", user.nombre_usuario)
 
           // Actualizar último acceso
-          await query(`UPDATE administradores SET ultimo_acceso = NOW() WHERE id = $1`, [user.id]).catch((err) => {
-            console.error("Error al actualizar último acceso:", err)
-            // No bloqueamos la autenticación si esto falla
-          })
+          await prisma.administradores
+            .update({
+              where: { id: user.id },
+              data: { ultimo_acceso: new Date() },
+            })
+            .catch((err) => {
+              console.error("Error al actualizar último acceso:", err)
+              // No bloqueamos la autenticación si esto falla
+            })
 
           return {
             id: user.id.toString(),
@@ -81,10 +108,6 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
@@ -101,10 +124,14 @@ export const authOptions: NextAuthOptions = {
       return session
     },
   },
+  pages: {
+    signIn: "/login",
+    error: "/login",
+  },
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 días
   },
-  secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === "development",
+  secret: process.env.NEXTAUTH_SECRET || config.auth.secret,
+  debug: process.env.NODE_ENV === "development" || config.app.isDevelopment,
 }

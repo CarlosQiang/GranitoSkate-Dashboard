@@ -188,6 +188,7 @@ export async function fetchProductById(id) {
                 compareAtPrice
                 inventoryQuantity
                 inventoryPolicy
+                inventoryManagement
                 sku
                 barcode
               }
@@ -252,6 +253,7 @@ export async function fetchProductById(id) {
         compareAtPrice: node.compareAtPrice,
         inventoryQuantity: node.inventoryQuantity,
         inventoryPolicy: node.inventoryPolicy,
+        inventoryManagement: node.inventoryManagement,
         sku: node.sku,
         barcode: node.barcode,
       })),
@@ -287,6 +289,7 @@ export async function createProduct(productData) {
               edges {
                 node {
                   id
+                  inventoryManagement
                 }
               }
             }
@@ -312,6 +315,7 @@ export async function createProduct(productData) {
           compareAtPrice: productData.variants?.[0]?.compareAtPrice || productData.compareAtPrice,
           sku: productData.variants?.[0]?.sku || productData.sku || "",
           barcode: productData.variants?.[0]?.barcode || productData.barcode,
+          inventoryManagement: "SHOPIFY", // Habilitar el seguimiento de inventario
         },
       ],
     }
@@ -345,7 +349,12 @@ export async function createProduct(productData) {
     if (productData.inventoryQuantity !== undefined && createdProduct) {
       const variantId = createdProduct.variants.edges[0]?.node?.id
       if (variantId) {
-        await updateInventoryLevel(variantId.split("/").pop(), Number.parseInt(productData.inventoryQuantity, 10))
+        try {
+          await updateInventoryLevel(variantId.split("/").pop(), Number.parseInt(productData.inventoryQuantity, 10))
+        } catch (error) {
+          console.error("Error al actualizar el inventario inicial:", error)
+          // No bloqueamos la creación del producto si falla la actualización del inventario
+        }
       }
     }
 
@@ -369,6 +378,7 @@ export async function updateProduct(id, productData) {
               edges {
                 node {
                   id
+                  inventoryManagement
                 }
               }
             }
@@ -405,7 +415,12 @@ export async function updateProduct(id, productData) {
     if (productData.inventoryQuantity !== undefined && updatedProduct) {
       const variantId = updatedProduct.variants.edges[0]?.node?.id
       if (variantId) {
-        await updateInventoryLevel(variantId.split("/").pop(), Number.parseInt(productData.inventoryQuantity, 10))
+        try {
+          await updateInventoryLevel(variantId.split("/").pop(), Number.parseInt(productData.inventoryQuantity, 10))
+        } catch (error) {
+          console.error("Error al actualizar el inventario:", error)
+          // No bloqueamos la actualización del producto si falla la actualización del inventario
+        }
       }
     }
 
@@ -416,13 +431,14 @@ export async function updateProduct(id, productData) {
   }
 }
 
-// Nueva función para actualizar el nivel de inventario
+// Función mejorada para actualizar el nivel de inventario
 export async function updateInventoryLevel(variantId, quantity) {
   try {
-    // Primero obtenemos el inventoryItemId asociado a la variante
-    const queryInventoryItem = `
-      query getInventoryItemId($variantId: ID!) {
+    // Primero verificamos si el producto tiene habilitado el seguimiento de inventario
+    const queryVariant = `
+      query getVariantDetails($variantId: ID!) {
         productVariant(id: $variantId) {
+          inventoryManagement
           inventoryItem {
             id
           }
@@ -430,16 +446,59 @@ export async function updateInventoryLevel(variantId, quantity) {
       }
     `
 
-    const inventoryResponse = await shopifyFetch({
-      query: queryInventoryItem,
+    const variantResponse = await shopifyFetch({
+      query: queryVariant,
       variables: { variantId: `gid://shopify/ProductVariant/${variantId}` },
     })
 
-    if (inventoryResponse.errors || !inventoryResponse.data?.productVariant?.inventoryItem?.id) {
+    if (variantResponse.errors) {
+      throw new Error(variantResponse.errors[0].message)
+    }
+
+    const variant = variantResponse.data?.productVariant
+
+    // Si el producto no tiene habilitado el seguimiento de inventario, primero lo habilitamos
+    if (variant?.inventoryManagement !== "SHOPIFY") {
+      const updateVariantMutation = `
+        mutation updateVariant($input: ProductVariantInput!) {
+          productVariantUpdate(input: $input) {
+            productVariant {
+              id
+              inventoryManagement
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `
+
+      const updateVariantResponse = await shopifyFetch({
+        query: updateVariantMutation,
+        variables: {
+          input: {
+            id: `gid://shopify/ProductVariant/${variantId}`,
+            inventoryManagement: "SHOPIFY",
+          },
+        },
+      })
+
+      if (updateVariantResponse.errors || updateVariantResponse.data?.productVariantUpdate?.userErrors?.length > 0) {
+        const errorMessage =
+          updateVariantResponse.errors?.[0]?.message ||
+          updateVariantResponse.data?.productVariantUpdate?.userErrors[0]?.message
+        console.error("Error al habilitar el seguimiento de inventario:", errorMessage)
+        throw new Error(errorMessage)
+      }
+    }
+
+    // Ahora obtenemos el inventoryItemId
+    if (!variant?.inventoryItem?.id) {
       throw new Error("No se pudo obtener el ID del inventario")
     }
 
-    const inventoryItemId = inventoryResponse.data.productVariant.inventoryItem.id
+    const inventoryItemId = variant.inventoryItem.id
 
     // Obtenemos la ubicación del inventario
     const queryLocation = `
@@ -500,6 +559,7 @@ export async function getInventoryLevel(variantId) {
       query getVariantInventory($id: ID!) {
         productVariant(id: $id) {
           inventoryQuantity
+          inventoryManagement
           inventoryItem {
             id
             inventoryLevels(first: 1) {

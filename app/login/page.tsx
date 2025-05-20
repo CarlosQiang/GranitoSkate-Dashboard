@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, AlertCircle } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -33,6 +33,7 @@ export default function LoginPage() {
 
       if (result?.error) {
         setError("Credenciales inválidas. Por favor, inténtalo de nuevo.")
+        setLoading(false)
         return
       }
 
@@ -40,7 +41,6 @@ export default function LoginPage() {
     } catch (err) {
       console.error("Error de inicio de sesión:", err)
       setError("Ocurrió un error al iniciar sesión. Por favor, inténtalo de nuevo.")
-    } finally {
       setLoading(false)
     }
   }
@@ -53,7 +53,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow-md">
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 rounded-full bg-amber-600 flex items-center justify-center">
+          <div className="mx-auto h-16 w-16 rounded-full bg-granito-500 flex items-center justify-center">
             <span className="text-2xl font-bold text-white">G</span>
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900">GranitoSkate</h2>
@@ -69,19 +69,8 @@ export default function LoginPage() {
 
             {error && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-md flex items-start">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mr-2 mt-0.5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                {error}
+                <AlertCircle className="h-5 w-5 mr-2 mt-0.5" />
+                <span>{error}</span>
               </div>
             )}
 
@@ -98,7 +87,7 @@ export default function LoginPage() {
                   required
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-amber-500 focus:border-amber-500"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-granito-500 focus:border-granito-500"
                   placeholder="Ingresa tu usuario o email"
                 />
               </div>
@@ -116,7 +105,7 @@ export default function LoginPage() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-amber-500 focus:border-amber-500"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-granito-500 focus:border-granito-500"
                     placeholder="Ingresa tu contraseña"
                   />
                   <button
@@ -138,7 +127,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50"
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-granito-500 hover:bg-granito-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-granito-500 disabled:opacity-50"
                 >
                   {loading ? "Iniciando sesión..." : "Iniciar sesión"}
                 </button>
