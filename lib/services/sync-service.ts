@@ -1136,14 +1136,14 @@ export async function syncOrders(limit = 50) {
   }
 }
 
-// Exportar cada función individualmente
-export default {
-  sincronizarProductos,
-  sincronizarColecciones,
-  sincronizarClientes,
-  sincronizarPedidos,
-  syncProducts,
-  syncCollections,
-  syncCustomers,
-  syncOrders,
-}
+// No podemos exportar un objeto por defecto en un archivo con 'use server'
+// export default {
+//   sincronizarProductos,
+//   sincronizarColecciones,
+//   sincronizarClientes,
+//   sincronizarPedidos,
+//   syncProducts,
+//   syncCollections,
+//   syncCustomers,
+//   syncOrders,
+// }
