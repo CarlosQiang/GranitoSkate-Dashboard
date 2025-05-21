@@ -1,29 +1,26 @@
 import type React from "react"
-import "./globals.css"
-import { Inter } from "next/font/google"
-import { AuthProvider } from "@/components/auth-provider"
 import type { Metadata } from "next"
+import { Inter } from "next/font/google"
+import "./globals.css"
+import { ThemeProvider } from "@/contexts/theme-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "GranitoSkate - Dashboard",
-  description: "Panel de administración para tu tienda Shopify",
-  icons: {
-    icon: [{ url: "/favicon.ico" }],
-  },
+  title: "GranitoSkate - Panel de Administración",
+  description: "Panel de administración para la tienda GranitoSkate",
     generator: 'v0.dev'
 }
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode
-}) {
+}>) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
       <body className={inter.className}>
-        <AuthProvider>{children}</AuthProvider>
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   )

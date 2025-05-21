@@ -2,7 +2,46 @@
 
 import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
-import { type ThemeConfig, defaultThemeConfig } from "@/types/theme-config"
+
+// Definición de la configuración del tema
+export interface ThemeConfig {
+  primaryColor: string
+  secondaryColor: string
+  accentColor: string
+  enableDarkMode: boolean
+  preferDarkMode: boolean
+  fontFamily: string
+  headingFontFamily: string
+  borderRadius: "none" | "small" | "medium" | "large" | "full"
+  buttonStyle: "solid" | "outline" | "soft" | "ghost"
+  cardStyle: "flat" | "raised" | "bordered"
+  sidebarStyle: "default" | "compact" | "expanded"
+  enableAnimations: boolean
+  animationSpeed: "slow" | "normal" | "fast"
+  shopName: string
+  logoUrl: string | null
+  favicon: string | null
+}
+
+// Valores predeterminados del tema
+export const defaultThemeConfig: ThemeConfig = {
+  primaryColor: "#c7a04a", // Color Granito dorado
+  secondaryColor: "#4a5568",
+  accentColor: "#3182ce",
+  enableDarkMode: true,
+  preferDarkMode: false,
+  fontFamily: "Inter, sans-serif",
+  headingFontFamily: "Inter, sans-serif",
+  borderRadius: "medium",
+  buttonStyle: "solid",
+  cardStyle: "raised",
+  sidebarStyle: "default",
+  enableAnimations: true,
+  animationSpeed: "normal",
+  shopName: "GranitoSkate",
+  logoUrl: null,
+  favicon: null,
+}
 
 interface ThemeContextType {
   theme: ThemeConfig
@@ -85,55 +124,103 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("dark-mode", isDarkMode.toString())
   }, [isDarkMode])
 
+  // Función para convertir hex a HSL
+  const hexToHSL = (hex: string) => {
+    // Implementación simple para convertir hex a HSL
+    const r = Number.parseInt(hex.slice(1, 3), 16) / 255
+    const g = Number.parseInt(hex.slice(3, 5), 16) / 255
+    const b = Number.parseInt(hex.slice(5, 7), 16) / 255
+
+    const max = Math.max(r, g, b)
+    const min = Math.min(r, g, b)
+    let h = 0,
+      s = 0,
+      l = (max + min) / 2
+
+    if (max !== min) {
+      const d = max - min
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+
+      switch (max) {
+        case r:
+          h = (g - b) / d + (g < b ? 6 : 0)
+          break
+        case g:
+          h = (b - r) / d + 2
+          break
+        case b:
+          h = (r - g) / d + 4
+          break
+      }
+
+      h = Math.round(h * 60)
+    }
+
+    s = Math.round(s * 100)
+    l = Math.round(l * 100)
+
+    return `${h} ${s}% ${l}%`
+  }
+
+  // Función para ajustar el brillo de un color
+  const adjustColor = (hex: string, percent: number): string => {
+    // Convertir hex a RGB
+    let r = Number.parseInt(hex.substring(1, 3), 16)
+    let g = Number.parseInt(hex.substring(3, 5), 16)
+    let b = Number.parseInt(hex.substring(5, 7), 16)
+
+    // Ajustar brillo
+    r = Math.min(255, Math.max(0, r + Math.round((percent / 100) * 255)))
+    g = Math.min(255, Math.max(0, g + Math.round((percent / 100) * 255)))
+    b = Math.min(255, Math.max(0, b + Math.round((percent / 100) * 255)))
+
+    // Convertir de nuevo a hex
+    return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`
+  }
+
   // Aplicar variables CSS personalizadas
   useEffect(() => {
     if (isLoading) return
 
     const root = document.documentElement
 
-    // Convertir colores hex a HSL para compatibilidad con Tailwind
-    const hexToHSL = (hex: string) => {
-      // Implementación simple para convertir hex a HSL
-      // En una implementación real, usaríamos una biblioteca como color2k o similar
-      const r = Number.parseInt(hex.slice(1, 3), 16) / 255
-      const g = Number.parseInt(hex.slice(3, 5), 16) / 255
-      const b = Number.parseInt(hex.slice(5, 7), 16) / 255
+    // Generar variaciones de color para la paleta completa
+    const primaryLight = adjustColor(theme.primaryColor, 15)
+    const primaryDark = adjustColor(theme.primaryColor, -15)
+    const primaryLighter = adjustColor(theme.primaryColor, 30)
+    const primaryDarker = adjustColor(theme.primaryColor, -30)
+    const primaryLightest = adjustColor(theme.primaryColor, 45)
+    const primaryDarkest = adjustColor(theme.primaryColor, -45)
 
-      const max = Math.max(r, g, b)
-      const min = Math.min(r, g, b)
-      let h = 0,
-        s = 0,
-        l = (max + min) / 2
-
-      if (max !== min) {
-        const d = max - min
-        s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
-
-        switch (max) {
-          case r:
-            h = (g - b) / d + (g < b ? 6 : 0)
-            break
-          case g:
-            h = (b - r) / d + 2
-            break
-          case b:
-            h = (r - g) / d + 4
-            break
-        }
-
-        h = Math.round(h * 60)
-      }
-
-      s = Math.round(s * 100)
-      l = Math.round(l * 100)
-
-      return `${h} ${s}% ${l}%`
-    }
-
-    // Aplicar colores personalizados
+    // Aplicar colores personalizados como variables CSS
     root.style.setProperty("--primary", hexToHSL(theme.primaryColor))
     root.style.setProperty("--secondary", hexToHSL(theme.secondaryColor))
     root.style.setProperty("--accent", hexToHSL(theme.accentColor))
+    root.style.setProperty("--ring", hexToHSL(theme.primaryColor))
+
+    // También establecer los colores directamente para compatibilidad
+    root.style.setProperty("--color-primary", theme.primaryColor)
+    root.style.setProperty("--color-secondary", theme.secondaryColor)
+    root.style.setProperty("--color-accent", theme.accentColor)
+    root.style.setProperty("--color-primary-light", primaryLight)
+    root.style.setProperty("--color-primary-dark", primaryDark)
+    root.style.setProperty("--color-primary-lighter", primaryLighter)
+    root.style.setProperty("--color-primary-darker", primaryDarker)
+    root.style.setProperty("--color-primary-lightest", primaryLightest)
+    root.style.setProperty("--color-primary-darkest", primaryDarkest)
+
+    // Actualizar colores de Granito en CSS
+    root.style.setProperty("--granito-500", hexToHSL(theme.primaryColor))
+    root.style.setProperty("--granito-600", hexToHSL(primaryDark))
+    root.style.setProperty("--granito-700", hexToHSL(primaryDarker))
+    root.style.setProperty("--granito-800", hexToHSL(primaryDarkest))
+    root.style.setProperty("--granito-400", hexToHSL(primaryLight))
+    root.style.setProperty("--granito-300", hexToHSL(primaryLighter))
+    root.style.setProperty("--granito-200", hexToHSL(primaryLightest))
+    root.style.setProperty("--granito-100", hexToHSL(adjustColor(theme.primaryColor, 60)))
+    root.style.setProperty("--granito-50", hexToHSL(adjustColor(theme.primaryColor, 75)))
+    root.style.setProperty("--granito-900", hexToHSL(adjustColor(theme.primaryColor, -60)))
+    root.style.setProperty("--granito-950", hexToHSL(adjustColor(theme.primaryColor, -75)))
 
     // Aplicar radio de borde
     const borderRadiusMap = {
@@ -149,6 +236,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (theme.fontFamily) {
       root.style.setProperty("--font-family", theme.fontFamily)
     }
+    if (theme.headingFontFamily) {
+      root.style.setProperty("--heading-font-family", theme.headingFontFamily)
+    }
 
     // Aplicar clases de animación
     if (theme.enableAnimations) {
@@ -161,7 +251,23 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
     // Guardar tema en localStorage para acceso rápido
     localStorage.setItem("app-theme", JSON.stringify(theme))
+
+    // Aplicar estilos específicos basados en las preferencias
+    applyButtonStyle(theme.buttonStyle)
+    applyCardStyle(theme.cardStyle)
   }, [theme, isLoading])
+
+  // Aplicar estilos de botón
+  const applyButtonStyle = (style: string) => {
+    const root = document.documentElement
+    root.setAttribute("data-button-style", style)
+  }
+
+  // Aplicar estilos de tarjeta
+  const applyCardStyle = (style: string) => {
+    const root = document.documentElement
+    root.setAttribute("data-card-style", style)
+  }
 
   const updateTheme = (newTheme: Partial<ThemeConfig>) => {
     setTheme((prevTheme) => ({

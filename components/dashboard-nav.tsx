@@ -8,8 +8,10 @@ import { signOut } from "next-auth/react"
 import { cn } from "@/lib/utils"
 import { navigationItems } from "@/config/navigation"
 import { Button } from "@/components/ui/button"
+import { useTheme } from "@/contexts/theme-context"
 
 export function DashboardNav() {
+  const { theme } = useTheme()
   const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -22,6 +24,12 @@ export function DashboardNav() {
     setIsCollapsed(!isCollapsed)
     // Guardar preferencia en localStorage
     localStorage.setItem("navCollapsed", String(!isCollapsed))
+    // Actualizar clase en el documento para el layout
+    if (!isCollapsed) {
+      document.documentElement.classList.add("sidebar-collapsed")
+    } else {
+      document.documentElement.classList.remove("sidebar-collapsed")
+    }
   }
 
   const handleLogout = async () => {
@@ -32,7 +40,13 @@ export function DashboardNav() {
   useEffect(() => {
     const savedCollapsed = localStorage.getItem("navCollapsed")
     if (savedCollapsed !== null) {
-      setIsCollapsed(savedCollapsed === "true")
+      const collapsed = savedCollapsed === "true"
+      setIsCollapsed(collapsed)
+      if (collapsed) {
+        document.documentElement.classList.add("sidebar-collapsed")
+      } else {
+        document.documentElement.classList.remove("sidebar-collapsed")
+      }
     }
   }, [])
 
@@ -68,6 +82,18 @@ export function DashboardNav() {
     }
   }, [isMenuOpen])
 
+  // Estilo dinámico para el color de fondo del elemento activo
+  const activeItemStyle = {
+    backgroundColor: theme.primaryColor,
+    color: "#ffffff",
+  }
+
+  // Estilo para el botón de cerrar sesión
+  const logoutButtonStyle = {
+    color: "#ef4444", // Color rojo para el botón de cerrar sesión
+    borderColor: "#ef4444",
+  }
+
   return (
     <>
       {/* Botón de menú móvil con animación mejorada */}
@@ -84,22 +110,24 @@ export function DashboardNav() {
       <nav
         id="mobile-nav"
         className={cn(
-          "w-full md:w-64 flex-col border-r bg-white dark:bg-gray-900 shadow-sm",
-          "fixed md:sticky top-0 left-0 h-full z-40",
+          "sidebar",
+          "flex flex-col border-r bg-white dark:bg-gray-900 shadow-sm",
+          "fixed top-0 left-0 h-full z-40",
           "transform transition-all duration-300 ease-in-out",
-          "md:transform-none md:opacity-100 md:pointer-events-auto",
-          "flex flex-col justify-between",
           isMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
-          isCollapsed && "md:w-20",
+          isCollapsed && "sidebar-collapsed",
         )}
       >
-        <div className="flex flex-col gap-1 p-4 pt-16 md:pt-4 overflow-y-auto hide-scrollbar">
+        <div className="flex flex-col gap-1 p-4 pt-16 md:pt-4 overflow-y-auto hide-scrollbar h-full">
           {/* Logo o título en la parte superior del menú */}
           <div className="mb-6 flex items-center justify-center md:justify-start">
-            <div className="h-10 w-10 rounded-md bg-granito-500 flex items-center justify-center mr-2 flex-shrink-0">
+            <div
+              className="h-10 w-10 rounded-md flex items-center justify-center mr-2 flex-shrink-0"
+              style={{ backgroundColor: theme.primaryColor }}
+            >
               <span className="text-white font-bold text-lg">G</span>
             </div>
-            {!isCollapsed && <span className="font-bold text-lg">GranitoSkate</span>}
+            {!isCollapsed && <span className="font-bold text-lg">{theme.shopName || "GranitoSkate"}</span>}
           </div>
 
           {/* Botón para colapsar/expandir el menú (solo en escritorio) */}
@@ -113,23 +141,24 @@ export function DashboardNav() {
             />
           </button>
 
-          {navigationItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-all",
-                "hover:bg-gray-100 dark:hover:bg-gray-800",
-                pathname === item.href || pathname.startsWith(`${item.href}/`)
-                  ? "bg-granito-500 text-white"
-                  : "text-gray-700 dark:text-gray-300",
-                isCollapsed && "md:justify-center md:px-2",
-              )}
-            >
-              <item.icon className={cn("h-5 w-5 flex-shrink-0", isCollapsed && "md:h-6 md:w-6")} />
-              {!isCollapsed && <span className="truncate">{item.name}</span>}
-            </Link>
-          ))}
+          {navigationItems.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-all",
+                  "hover:bg-gray-100 dark:hover:bg-gray-800",
+                  isCollapsed && "md:justify-center md:px-2",
+                )}
+                style={isActive ? activeItemStyle : {}}
+              >
+                <item.icon className={cn("h-5 w-5 flex-shrink-0", isCollapsed && "md:h-6 md:w-6")} />
+                {!isCollapsed && <span className="truncate">{item.name}</span>}
+              </Link>
+            )
+          })}
         </div>
 
         {/* Botón de logout con estilo mejorado */}
@@ -137,9 +166,10 @@ export function DashboardNav() {
           <Button
             variant="outline"
             className={cn(
-              "w-full flex items-center justify-center gap-2 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20",
+              "w-full flex items-center justify-center gap-2 hover:bg-red-50 dark:hover:bg-red-950/20",
               isCollapsed && "md:p-2",
             )}
+            style={logoutButtonStyle}
             onClick={handleLogout}
           >
             <LogOut className="h-4 w-4" />
