@@ -34,6 +34,8 @@ export async function shopifyFetch({ query, variables = {} }) {
     const endpoint = process.env.SHOPIFY_API_URL
     const key = process.env.SHOPIFY_ACCESS_TOKEN
 
+    logger.debug("Enviando consulta GraphQL a Shopify", { query: query.substring(0, 100) + "..." })
+
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
@@ -48,13 +50,20 @@ export async function shopifyFetch({ query, variables = {} }) {
 
     if (!response.ok) {
       const text = await response.text()
+      logger.error(`Error en la solicitud a Shopify (${response.status})`, { text })
       throw new Error(`Error en la solicitud a Shopify (${response.status}): ${text}`)
     }
 
     const json = await response.json()
+
+    if (json.errors) {
+      logger.error("Errores en la respuesta de Shopify", { errors: json.errors })
+      throw new Error(`Errores en la respuesta de Shopify: ${JSON.stringify(json.errors)}`)
+    }
+
     return json
   } catch (error) {
-    console.error("Error en shopifyFetch:", error)
+    logger.error("Error en shopifyFetch", { error: error instanceof Error ? error.message : "Error desconocido" })
     throw error
   }
 }

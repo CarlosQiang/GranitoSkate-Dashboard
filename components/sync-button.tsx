@@ -1,93 +1,93 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Loader2, RefreshCw } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
+import { cn } from "@/lib/utils"
 
-interface SyncButtonProps {
+interface SyncButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   entityType: "productos" | "colecciones" | "clientes" | "pedidos"
-  entityId?: string
-  onSuccess?: (data: any) => void
+  shopifyId?: string
+  onSuccess?: () => void
   onError?: (error: any) => void
-  className?: string
+  label?: string
   variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link"
-  size?: "default" | "sm" | "lg" | "icon"
 }
 
 export function SyncButton({
   entityType,
-  entityId,
+  shopifyId,
   onSuccess,
   onError,
-  className,
+  label,
   variant = "default",
-  size = "default",
+  className,
+  ...props
 }: SyncButtonProps) {
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
 
-  // Mapeo de tipos de entidades a endpoints y mensajes
-  const entityConfig = {
+  // Mapeo de tipos de entidad a endpoints y mensajes
+  const entityMap = {
     productos: {
       endpoint: "/api/sync/products",
-      successMessage: "Productos sincronizados correctamente",
-      errorMessage: "Error al sincronizar productos",
-      paramName: "shopifyId",
+      singularLabel: "producto",
+      pluralLabel: "productos",
     },
     colecciones: {
       endpoint: "/api/sync/collections",
-      successMessage: "Colecciones sincronizadas correctamente",
-      errorMessage: "Error al sincronizar colecciones",
-      paramName: "shopifyId",
+      singularLabel: "colección",
+      pluralLabel: "colecciones",
     },
     clientes: {
-      endpoint: "/api/sync/clientes",
-      successMessage: "Clientes sincronizados correctamente",
-      errorMessage: "Error al sincronizar clientes",
-      paramName: "shopifyId",
+      endpoint: "/api/sync/customers",
+      singularLabel: "cliente",
+      pluralLabel: "clientes",
     },
     pedidos: {
-      endpoint: "/api/sync/pedidos",
-      successMessage: "Pedidos sincronizados correctamente",
-      errorMessage: "Error al sincronizar pedidos",
-      paramName: "shopifyId",
+      endpoint: "/api/sync/orders",
+      singularLabel: "pedido",
+      pluralLabel: "pedidos",
     },
   }
 
-  const config = entityConfig[entityType]
+  const { endpoint, singularLabel, pluralLabel } = entityMap[entityType]
 
   const handleSync = async () => {
     setIsLoading(true)
     try {
       // Construir la URL con parámetros si es necesario
-      let url = config.endpoint
-      if (entityId) {
-        url += `?${config.paramName}=${entityId}`
+      let url = endpoint
+      if (shopifyId) {
+        url += `?shopifyId=${shopifyId}`
       }
 
       const response = await fetch(url)
-      const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.message || config.errorMessage)
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || `Error al sincronizar ${shopifyId ? singularLabel : pluralLabel}`)
       }
 
+      const data = await response.json()
+
       toast({
-        title: "Sincronización exitosa",
-        description: data.message || config.successMessage,
-        variant: "default",
+        title: "Sincronización completada",
+        description: data.message || `${shopifyId ? singularLabel : pluralLabel} sincronizado(s) correctamente`,
       })
 
       if (onSuccess) {
-        onSuccess(data)
+        onSuccess()
       }
     } catch (error) {
       console.error(`Error al sincronizar ${entityType}:`, error)
 
       toast({
         title: "Error de sincronización",
-        description: error instanceof Error ? error.message : config.errorMessage,
+        description: error instanceof Error ? error.message : `Error al sincronizar ${pluralLabel}`,
         variant: "destructive",
       })
 
@@ -99,19 +99,19 @@ export function SyncButton({
     }
   }
 
+  // Determinar el texto del botón
+  const buttonText = label || (shopifyId ? `Sincronizar ${singularLabel}` : `Sincronizar ${pluralLabel}`)
+
   return (
-    <Button onClick={handleSync} disabled={isLoading} className={className} variant={variant} size={size}>
-      {isLoading ? (
-        <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Sincronizando...
-        </>
-      ) : (
-        <>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Sincronizar
-        </>
-      )}
+    <Button
+      onClick={handleSync}
+      disabled={isLoading}
+      variant={variant}
+      className={cn("flex items-center gap-2", className)}
+      {...props}
+    >
+      {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+      {buttonText}
     </Button>
   )
 }

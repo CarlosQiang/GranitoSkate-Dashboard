@@ -7,10 +7,18 @@ import * as coleccionesRepository from "@/lib/repositories/colecciones-repositor
 import * as clientesRepository from "@/lib/repositories/clientes-repository"
 import * as pedidosRepository from "@/lib/repositories/pedidos-repository"
 import db from "@/lib/db/vercel-postgres"
-import { fetchShopifyProducts } from "@/lib/services/shopify-service"
-import { fetchShopifyCollections } from "@/lib/services/shopify-service"
-import { fetchShopifyCustomers } from "@/lib/services/shopify-service"
-import { fetchShopifyOrders } from "@/lib/services/shopify-service"
+import {
+  fetchShopifyProducts,
+  fetchShopifyCollections,
+  fetchShopifyCustomers,
+  fetchShopifyOrders,
+} from "@/lib/services/shopify-service"
+import { getShopifyProducts, getShopifyCollections } from "./shopify-service"
+import { Logger } from "next-axiom"
+
+const logger = new Logger({
+  source: "sync-service",
+})
 
 // Función para obtener productos de Shopify
 export async function obtenerProductosDeShopify(limit = 10) {
@@ -806,34 +814,41 @@ export async function syncProducts(limit = 100) {
       return {
         success: false,
         message: "No se encontraron productos en Shopify",
-        syncedCount: 0,
-        errorCount: 0,
       }
     }
 
     // Sincronizar cada producto
     const results = {
-      success: true,
-      syncedCount: 0,
-      errorCount: 0,
-      successfulProducts: [],
-      failedProducts: [],
+      total: shopifyProducts.length,
+      success: 0,
+      errors: 0,
+      created: 0,
+      updated: 0,
+      details: [] as any[],
     }
 
     for (const product of shopifyProducts) {
       try {
         const result = await productosRepository.saveProductFromShopify(product)
-        results.syncedCount++
-        results.successfulProducts.push({
+        results.success++
+        if (result.action === "updated") {
+          results.updated++
+        } else {
+          results.created++
+        }
+
+        results.details.push({
           id: product.id,
           title: product.title,
-          action: result.accion,
+          status: "success",
+          action: result.action,
         })
       } catch (error) {
-        results.errorCount++
-        results.failedProducts.push({
+        results.errors++
+        results.details.push({
           id: product.id,
           title: product.title,
+          status: "error",
           error: error instanceof Error ? error.message : String(error),
         })
       }
@@ -844,20 +859,15 @@ export async function syncProducts(limit = 100) {
       "productos",
       "BATCH",
       "sincronizar",
-      results.errorCount === 0 ? "exito" : "parcial",
-      `Sincronización de productos: ${results.syncedCount} exitosos, ${results.errorCount} fallidos`,
-      {
-        syncedCount: results.syncedCount,
-        errorCount: results.errorCount,
-        successfulProducts: results.successfulProducts,
-        failedProducts: results.failedProducts,
-      },
+      results.errors === 0 ? "exito" : "parcial",
+      `Sincronización de productos: ${results.success} exitosos (${results.created} creados, ${results.updated} actualizados), ${results.errors} errores`,
+      { results },
     )
 
     return {
       success: true,
-      message: `Sincronización completada: ${results.syncedCount} productos sincronizados, ${results.errorCount} errores`,
-      ...results,
+      message: `Sincronización completada: ${results.success} productos sincronizados, ${results.errors} errores`,
+      results,
     }
   } catch (error) {
     console.error("Error general al sincronizar productos:", error)
@@ -867,13 +877,7 @@ export async function syncProducts(limit = 100) {
       error: error instanceof Error ? error.message : String(error),
     })
 
-    return {
-      success: false,
-      message: "Error general al sincronizar productos",
-      error: error instanceof Error ? error.message : String(error),
-      syncedCount: 0,
-      errorCount: 1,
-    }
+    throw error
   }
 }
 
@@ -897,34 +901,41 @@ export async function syncCollections(limit = 50) {
       return {
         success: false,
         message: "No se encontraron colecciones en Shopify",
-        syncedCount: 0,
-        errorCount: 0,
       }
     }
 
     // Sincronizar cada colección
     const results = {
-      success: true,
-      syncedCount: 0,
-      errorCount: 0,
-      successfulCollections: [],
-      failedCollections: [],
+      total: shopifyCollections.length,
+      success: 0,
+      errors: 0,
+      created: 0,
+      updated: 0,
+      details: [] as any[],
     }
 
     for (const collection of shopifyCollections) {
       try {
         const result = await coleccionesRepository.saveColeccionFromShopify(collection)
-        results.syncedCount++
-        results.successfulCollections.push({
+        results.success++
+        if (result.action === "updated") {
+          results.updated++
+        } else {
+          results.created++
+        }
+
+        results.details.push({
           id: collection.id,
           title: collection.title,
-          action: result.accion,
+          status: "success",
+          action: result.action,
         })
       } catch (error) {
-        results.errorCount++
-        results.failedCollections.push({
+        results.errors++
+        results.details.push({
           id: collection.id,
           title: collection.title,
+          status: "error",
           error: error instanceof Error ? error.message : String(error),
         })
       }
@@ -935,20 +946,15 @@ export async function syncCollections(limit = 50) {
       "colecciones",
       "BATCH",
       "sincronizar",
-      results.errorCount === 0 ? "exito" : "parcial",
-      `Sincronización de colecciones: ${results.syncedCount} exitosas, ${results.errorCount} fallidas`,
-      {
-        syncedCount: results.syncedCount,
-        errorCount: results.errorCount,
-        successfulCollections: results.successfulCollections,
-        failedCollections: results.failedCollections,
-      },
+      results.errors === 0 ? "exito" : "parcial",
+      `Sincronización de colecciones: ${results.success} exitosas (${results.created} creadas, ${results.updated} actualizadas), ${results.errors} errores`,
+      { results },
     )
 
     return {
       success: true,
-      message: `Sincronización completada: ${results.syncedCount} colecciones sincronizadas, ${results.errorCount} errores`,
-      ...results,
+      message: `Sincronización completada: ${results.success} colecciones sincronizadas, ${results.errors} errores`,
+      results,
     }
   } catch (error) {
     console.error("Error general al sincronizar colecciones:", error)
@@ -958,13 +964,7 @@ export async function syncCollections(limit = 50) {
       error: error instanceof Error ? error.message : String(error),
     })
 
-    return {
-      success: false,
-      message: "Error general al sincronizar colecciones",
-      error: error instanceof Error ? error.message : String(error),
-      syncedCount: 0,
-      errorCount: 1,
-    }
+    throw error
   }
 }
 
@@ -981,8 +981,6 @@ export async function syncCustomers(limit = 50) {
       return {
         success: false,
         message: "No se encontraron clientes en Shopify",
-        syncedCount: 0,
-        errorCount: 0,
       }
     }
 
@@ -1065,8 +1063,6 @@ export async function syncOrders(limit = 50) {
       return {
         success: false,
         message: "No se encontraron pedidos en Shopify",
-        syncedCount: 0,
-        errorCount: 0,
       }
     }
 
@@ -1135,3 +1131,297 @@ export async function syncOrders(limit = 50) {
     }
   }
 }
+
+/**
+ * Sincroniza productos de Shopify con la base de datos
+ * @param limit Número máximo de productos a sincronizar
+ * @returns Resultado de la sincronización
+ */
+export async function syncProductsToDatabase(limit = 100) {
+  try {
+    logger.info(`Iniciando sincronización de productos (límite: ${limit})`)
+
+    // Obtener productos de Shopify
+    const productos = await getShopifyProducts(true, limit)
+
+    if (!productos || productos.length === 0) {
+      logger.warn("No se encontraron productos en Shopify")
+      return {
+        success: false,
+        message: "No se encontraron productos en Shopify",
+      }
+    }
+
+    logger.info(`Se obtuvieron ${productos.length} productos de Shopify`)
+
+    const results = {
+      total: productos.length,
+      success: 0,
+      errors: 0,
+      created: 0,
+      updated: 0,
+      details: [] as any[],
+    }
+
+    // Sincronizar cada producto
+    for (const producto of productos) {
+      try {
+        logger.debug(`Sincronizando producto: ${producto.title}`)
+
+        // Verificar si el producto ya existe
+        const existingProduct = await productosRepository.getProductByShopifyId(producto.id)
+
+        const result = await productosRepository.saveProductFromShopify(producto)
+
+        results.success++
+        if (existingProduct) {
+          results.updated++
+        } else {
+          results.created++
+        }
+
+        results.details.push({
+          id: producto.id,
+          title: producto.title,
+          status: "success",
+          action: existingProduct ? "updated" : "created",
+        })
+
+        logger.debug(`Producto sincronizado correctamente: ${producto.title}`)
+      } catch (error) {
+        logger.error(`Error al sincronizar producto ${producto.id}`, {
+          error: error instanceof Error ? error.message : "Error desconocido",
+        })
+
+        results.errors++
+        results.details.push({
+          id: producto.id,
+          title: producto.title,
+          status: "error",
+          error: error instanceof Error ? error.message : "Error desconocido",
+        })
+      }
+    }
+
+    // Registrar el evento de sincronización
+    await db.logSyncEvent(
+      "productos",
+      "BATCH",
+      "sincronizar",
+      results.errors === 0 ? "exito" : "parcial",
+      `Sincronización de productos: ${results.success} exitosos (${results.created} creados, ${results.updated} actualizados), ${results.errors} errores`,
+      { results },
+    )
+
+    logger.info(`Sincronización de productos completada: ${results.success} exitosos, ${results.errors} errores`)
+
+    return {
+      success: true,
+      message: `Sincronización completada: ${results.success} productos sincronizados, ${results.errors} errores`,
+      results,
+    }
+  } catch (error) {
+    logger.error("Error al sincronizar productos", {
+      error: error instanceof Error ? error.message : "Error desconocido",
+    })
+
+    // Registrar el error
+    await db.logSyncEvent("productos", "BATCH", "sincronizar", "error", "Error general al sincronizar productos", {
+      error: error instanceof Error ? error.message : "Error desconocido",
+    })
+
+    throw error
+  }
+}
+
+/**
+ * Sincroniza colecciones de Shopify con la base de datos
+ * @param limit Número máximo de colecciones a sincronizar
+ * @returns Resultado de la sincronización
+ */
+export async function syncCollectionsToDatabase(limit = 50) {
+  try {
+    logger.info(`Iniciando sincronización de colecciones (límite: ${limit})`)
+
+    // Obtener colecciones de Shopify
+    const colecciones = await getShopifyCollections(true, limit)
+
+    if (!colecciones || colecciones.length === 0) {
+      logger.warn("No se encontraron colecciones en Shopify")
+      return {
+        success: false,
+        message: "No se encontraron colecciones en Shopify",
+      }
+    }
+
+    logger.info(`Se obtuvieron ${colecciones.length} colecciones de Shopify`)
+
+    const results = {
+      total: colecciones.length,
+      success: 0,
+      errors: 0,
+      created: 0,
+      updated: 0,
+      details: [] as any[],
+    }
+
+    // Sincronizar cada colección
+    for (const coleccion of colecciones) {
+      try {
+        logger.debug(`Sincronizando colección: ${coleccion.title}`)
+
+        // Verificar si la colección ya existe
+        const existingCollection = await coleccionesRepository.getCollectionByShopifyId(coleccion.id)
+
+        const result = await coleccionesRepository.saveColeccionFromShopify(coleccion)
+
+        results.success++
+        if (existingCollection) {
+          results.updated++
+        } else {
+          results.created++
+        }
+
+        results.details.push({
+          id: coleccion.id,
+          title: coleccion.title,
+          status: "success",
+          action: existingCollection ? "updated" : "created",
+        })
+
+        logger.debug(`Colección sincronizada correctamente: ${coleccion.title}`)
+      } catch (error) {
+        logger.error(`Error al sincronizar colección ${coleccion.id}`, {
+          error: error instanceof Error ? error.message : "Error desconocido",
+        })
+
+        results.errors++
+        results.details.push({
+          id: coleccion.id,
+          title: coleccion.title,
+          status: "error",
+          error: error instanceof Error ? error.message : "Error desconocido",
+        })
+      }
+    }
+
+    // Registrar el evento de sincronización
+    await db.logSyncEvent(
+      "colecciones",
+      "BATCH",
+      "sincronizar",
+      results.errors === 0 ? "exito" : "parcial",
+      `Sincronización de colecciones: ${results.success} exitosas (${results.created} creadas, ${results.updated} actualizadas), ${results.errors} errores`,
+      { results },
+    )
+
+    logger.info(`Sincronización de colecciones completada: ${results.success} exitosas, ${results.errors} errores`)
+
+    return {
+      success: true,
+      message: `Sincronización completada: ${results.success} colecciones sincronizadas, ${results.errors} errores`,
+      results,
+    }
+  } catch (error) {
+    logger.error("Error al sincronizar colecciones", {
+      error: error instanceof Error ? error.message : "Error desconocido",
+    })
+
+    // Registrar el error
+    await db.logSyncEvent("colecciones", "BATCH", "sincronizar", "error", "Error general al sincronizar colecciones", {
+      error: error instanceof Error ? error.message : "Error desconocido",
+    })
+
+    throw error
+  }
+}
+
+/**
+ * Sincroniza un producto específico de Shopify con la base de datos
+ * @param shopifyId ID de Shopify del producto
+ * @returns Resultado de la sincronización
+ */
+export async function syncProductByShopifyId(shopifyId: string) {
+  try {
+    logger.info(`Iniciando sincronización de producto con ID ${shopifyId}`)
+
+    // Obtener productos de Shopify
+    const productos = await getShopifyProducts(true)
+
+    // Encontrar el producto específico
+    const producto = productos.find((p) => p.id === shopifyId || p.id.includes(shopifyId))
+
+    if (!producto) {
+      logger.warn(`No se encontró el producto con ID ${shopifyId} en Shopify`)
+      return {
+        success: false,
+        message: `No se encontró el producto con ID ${shopifyId} en Shopify`,
+      }
+    }
+
+    logger.info(`Producto encontrado en Shopify: ${producto.title}`)
+
+    // Sincronizar el producto
+    const result = await productosRepository.saveProductFromShopify(producto)
+
+    logger.info(`Producto sincronizado correctamente: ${producto.title}`)
+
+    return {
+      success: true,
+      message: `Producto sincronizado correctamente: ${producto.title}`,
+      data: result,
+    }
+  } catch (error) {
+    logger.error(`Error al sincronizar producto con ID ${shopifyId}`, {
+      error: error instanceof Error ? error.message : "Error desconocido",
+    })
+
+    throw error
+  }
+}
+
+/**
+ * Sincroniza una colección específica de Shopify con la base de datos
+ * @param shopifyId ID de Shopify de la colección
+ * @returns Resultado de la sincronización
+ */
+export async function syncCollectionByShopifyId(shopifyId: string) {
+  try {
+    logger.info(`Iniciando sincronización de colección con ID ${shopifyId}`)
+
+    // Obtener colecciones de Shopify
+    const colecciones = await getShopifyCollections(true)
+
+    // Encontrar la colección específica
+    const coleccion = colecciones.find((c) => c.id === shopifyId || c.id.includes(shopifyId))
+
+    if (!coleccion) {
+      logger.warn(`No se encontró la colección con ID ${shopifyId} en Shopify`)
+      return {
+        success: false,
+        message: `No se encontró la colección con ID ${shopifyId} en Shopify`,
+      }
+    }
+
+    logger.info(`Colección encontrada en Shopify: ${coleccion.title}`)
+
+    // Sincronizar la colección
+    const result = await coleccionesRepository.saveColeccionFromShopify(coleccion)
+
+    logger.info(`Colección sincronizada correctamente: ${coleccion.title}`)
+
+    return {
+      success: true,
+      message: `Colección sincronizada correctamente: ${coleccion.title}`,
+      data: result,
+    }
+  } catch (error) {
+    logger.error(`Error al sincronizar colección con ID ${shopifyId}`, {
+      error: error instanceof Error ? error.message : "Error desconocido",
+    })
+
+    throw error
+  }
+}
+
+// Exportar todas las funciones

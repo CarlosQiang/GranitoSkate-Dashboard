@@ -1,84 +1,51 @@
 import { NextResponse } from "next/server"
-import { sql } from "@vercel/postgres"
-import { hashPassword } from "@/lib/auth-service"
+import db from "@/lib/db/vercel-postgres"
+import { Logger } from "next-axiom"
+
+const logger = new Logger({
+  source: "init-db-api",
+})
+
+export const dynamic = "force-dynamic"
 
 export async function GET() {
   try {
-    // Verificar si existe la tabla de administradores
-    const adminTableExists = await sql`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = 'administradores'
-      ) as exists
-    `
+    logger.info("Iniciando inicialización de la base de datos")
 
-    if (!(adminTableExists as any)[0].exists) {
-      // Crear tabla de administradores
-      await sql`
-        CREATE TABLE IF NOT EXISTS administradores (
-          id SERIAL PRIMARY KEY,
-          nombre_usuario VARCHAR(50) UNIQUE NOT NULL,
-          correo_electronico VARCHAR(100) UNIQUE NOT NULL,
-          contrasena TEXT NOT NULL,
-          nombre_completo VARCHAR(100),
-          rol VARCHAR(20) NOT NULL DEFAULT 'admin',
-          activo BOOLEAN NOT NULL DEFAULT true,
-          ultimo_acceso TIMESTAMP,
-          fecha_creacion TIMESTAMP NOT NULL DEFAULT NOW(),
-          fecha_actualizacion TIMESTAMP
-        )
-      `
-    }
+    const result = await db.initDatabase()
 
-    // Verificar si existe el usuario admin
-    const adminExists = await sql`
-      SELECT COUNT(*) as count FROM administradores WHERE nombre_usuario = 'admin'
-    `
-
-    if ((adminExists as any)[0].count === 0) {
-      // Crear usuario admin con hash predefinido
-      const hashedPassword = await hashPassword("GranitoSkate")
-
-      await sql`
-        INSERT INTO administradores (
-          nombre_usuario, 
-          correo_electronico, 
-          contrasena, 
-          nombre_completo, 
-          rol, 
-          activo
-        ) VALUES (
-          'admin', 
-          'admin@gmail.com', 
-          ${hashedPassword}, 
-          'Administrador', 
-          'superadmin', 
-          true
-        )
-      `
-
+    if (result.success) {
+      logger.info("Base de datos inicializada correctamente")
       return NextResponse.json({
-        status: "success",
-        message: "Base de datos inicializada y usuario admin creado",
-        adminCreated: true,
+        success: true,
+        message: "Base de datos inicializada correctamente",
       })
+    } else {
+      logger.error("Error al inicializar la base de datos", { error: result.error })
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Error al inicializar la base de datos",
+          error: result.error,
+        },
+        { status: 500 },
+      )
     }
-
-    return NextResponse.json({
-      status: "success",
-      message: "Base de datos ya inicializada",
-      adminCreated: false,
-    })
   } catch (error) {
-    console.error("Error al inicializar la base de datos:", error)
+    logger.error("Error al inicializar la base de datos", {
+      error: error instanceof Error ? error.message : "Error desconocido",
+    })
     return NextResponse.json(
       {
-        status: "error",
-        message: error instanceof Error ? error.message : "Error desconocido",
-        stack: error instanceof Error ? error.stack : null,
+        success: false,
+        message: "Error al inicializar la base de datos",
+        error: error instanceof Error ? error.message : "Error desconocido",
       },
       { status: 500 },
     )
   }
+}
+
+export async function POST() {
+  return GET()
 }

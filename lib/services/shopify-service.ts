@@ -1,5 +1,26 @@
-import { shopifyFetch } from "@/lib/shopify"
-import { shopifyCache } from "./cache-service"
+import { shopifyFetch } from "@/lib/shopify-client"
+import { Logger } from "next-axiom"
+
+const logger = new Logger({
+  source: "shopify-service",
+})
+
+// Caché en memoria para productos
+let productCache = []
+let productCacheTimestamp = 0
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutos
+
+// Caché en memoria para colecciones
+let collectionCache = []
+let collectionCacheTimestamp = 0
+
+// Caché en memoria para clientes
+let customerCache = []
+let customerCacheTimestamp = 0
+
+// Caché en memoria para pedidos
+let orderCache = []
+let orderCacheTimestamp = 0
 
 /**
  * Obtiene productos de Shopify y los almacena en caché
@@ -7,17 +28,18 @@ import { shopifyCache } from "./cache-service"
  * @param limit Número máximo de productos a obtener
  * @returns Array de productos
  */
-export async function fetchShopifyProducts(forceRefresh = false, limit = 100): Promise<any[]> {
+export async function obtenerProductosPorShopify(forceRefresh = false, limit = 100) {
   try {
     // Si la caché es válida y no se fuerza la actualización, devolver datos en caché
-    if (!forceRefresh && shopifyCache.isProductCacheValid() && shopifyCache.getProductCacheSize() > 0) {
-      console.log("Usando productos en caché")
-      return shopifyCache.getAllProducts()
+    const now = Date.now()
+    if (!forceRefresh && productCache.length > 0 && now - productCacheTimestamp < CACHE_TTL) {
+      logger.debug("Usando productos en caché", { count: productCache.length })
+      return productCache
     }
 
-    console.log(`Obteniendo ${limit} productos de Shopify...`)
+    logger.info(`Obteniendo ${limit} productos de Shopify...`)
 
-    // Consulta GraphQL simplificada para obtener productos
+    // Consulta GraphQL para obtener productos
     const query = `
       query {
         products(first: ${limit}, sortKey: UPDATED_AT, reverse: true) {
@@ -25,23 +47,51 @@ export async function fetchShopifyProducts(forceRefresh = false, limit = 100): P
             node {
               id
               title
+              description
+              productType
+              vendor
               status
+              publishedAt
+              handle
+              tags
               featuredImage {
                 url
+                altText
               }
-              variants(first: 1) {
+              images(first: 5) {
                 edges {
                   node {
-                    price
-                    inventoryQuantity
-                    compareAtPrice
+                    id
+                    url
+                    altText
                   }
                 }
               }
-              productType
-              vendor
-              createdAt
-              updatedAt
+              variants(first: 10) {
+                edges {
+                  node {
+                    id
+                    title
+                    price
+                    compareAtPrice
+                    sku
+                    barcode
+                    inventoryQuantity
+                    inventoryPolicy
+                    weight
+                    weightUnit
+                  }
+                }
+              }
+              metafields(first: 10) {
+                edges {
+                  node {
+                    namespace
+                    key
+                    value
+                  }
+                }
+              }
             }
           }
         }
@@ -53,7 +103,7 @@ export async function fetchShopifyProducts(forceRefresh = false, limit = 100): P
 
     // Verificar si hay errores en la respuesta
     if (response.errors) {
-      const errorMessage = response.errors.map((e: any) => e.message).join(", ")
+      const errorMessage = response.errors.map((e) => e.message).join(", ")
       throw new Error(`Error en la API de Shopify: ${errorMessage}`)
     }
 
@@ -62,20 +112,23 @@ export async function fetchShopifyProducts(forceRefresh = false, limit = 100): P
     }
 
     // Extraer productos de la respuesta
-    const products = response.data.products.edges.map((edge: any) => edge.node)
-    console.log(`Se obtuvieron ${products.length} productos de Shopify`)
+    const products = response.data.products.edges.map((edge) => edge.node)
+    logger.info(`Se obtuvieron ${products.length} productos de Shopify`)
 
     // Almacenar en caché
-    shopifyCache.cacheProducts(products)
+    productCache = products
+    productCacheTimestamp = now
 
     return products
-  } catch (error: any) {
-    console.error("Error al obtener productos de Shopify:", error)
+  } catch (error) {
+    logger.error("Error al obtener productos de Shopify", {
+      error: error instanceof Error ? error.message : "Error desconocido",
+    })
 
     // Si hay un error pero tenemos datos en caché, devolverlos como fallback
-    if (shopifyCache.getProductCacheSize() > 0) {
-      console.log("Usando productos en caché como fallback después de un error")
-      return shopifyCache.getAllProducts()
+    if (productCache.length > 0) {
+      logger.info("Usando productos en caché como fallback después de un error", { count: productCache.length })
+      return productCache
     }
 
     throw error
@@ -88,15 +141,16 @@ export async function fetchShopifyProducts(forceRefresh = false, limit = 100): P
  * @param limit Número máximo de colecciones a obtener
  * @returns Array de colecciones
  */
-export async function fetchShopifyCollections(forceRefresh = false, limit = 50): Promise<any[]> {
+export async function obtenerColeccionesPorShopify(forceRefresh = false, limit = 50) {
   try {
     // Si la caché es válida y no se fuerza la actualización, devolver datos en caché
-    if (!forceRefresh && shopifyCache.isCollectionCacheValid() && shopifyCache.getCollectionCacheSize() > 0) {
-      console.log("Usando colecciones en caché")
-      return shopifyCache.getAllCollections()
+    const now = Date.now()
+    if (!forceRefresh && collectionCache.length > 0 && now - collectionCacheTimestamp < CACHE_TTL) {
+      logger.debug("Usando colecciones en caché", { count: collectionCache.length })
+      return collectionCache
     }
 
-    console.log(`Obteniendo ${limit} colecciones de Shopify...`)
+    logger.info(`Obteniendo ${limit} colecciones de Shopify...`)
 
     // Consulta GraphQL para obtener colecciones
     const query = `
@@ -141,7 +195,7 @@ export async function fetchShopifyCollections(forceRefresh = false, limit = 50):
 
     // Verificar si hay errores en la respuesta
     if (response.errors) {
-      const errorMessage = response.errors.map((e: any) => e.message).join(", ")
+      const errorMessage = response.errors.map((e) => e.message).join(", ")
       throw new Error(`Error en la API de Shopify: ${errorMessage}`)
     }
 
@@ -150,20 +204,23 @@ export async function fetchShopifyCollections(forceRefresh = false, limit = 50):
     }
 
     // Extraer colecciones de la respuesta
-    const collections = response.data.collections.edges.map((edge: any) => edge.node)
-    console.log(`Se obtuvieron ${collections.length} colecciones de Shopify`)
+    const collections = response.data.collections.edges.map((edge) => edge.node)
+    logger.info(`Se obtuvieron ${collections.length} colecciones de Shopify`)
 
     // Almacenar en caché
-    shopifyCache.cacheCollections(collections)
+    collectionCache = collections
+    collectionCacheTimestamp = now
 
     return collections
-  } catch (error: any) {
-    console.error("Error al obtener colecciones de Shopify:", error)
+  } catch (error) {
+    logger.error("Error al obtener colecciones de Shopify", {
+      error: error instanceof Error ? error.message : "Error desconocido",
+    })
 
     // Si hay un error pero tenemos datos en caché, devolverlos como fallback
-    if (shopifyCache.getCollectionCacheSize() > 0) {
-      console.log("Usando colecciones en caché como fallback después de un error")
-      return shopifyCache.getAllCollections()
+    if (collectionCache.length > 0) {
+      logger.info("Usando colecciones en caché como fallback después de un error", { count: collectionCache.length })
+      return collectionCache
     }
 
     throw error
@@ -176,15 +233,16 @@ export async function fetchShopifyCollections(forceRefresh = false, limit = 50):
  * @param limit Número máximo de clientes a obtener
  * @returns Array de clientes
  */
-export async function fetchShopifyCustomers(forceRefresh = false, limit = 50): Promise<any[]> {
+export async function obtenerClientesPorShopify(forceRefresh = false, limit = 50) {
   try {
     // Si la caché es válida y no se fuerza la actualización, devolver datos en caché
-    if (!forceRefresh && shopifyCache.isCustomerCacheValid() && shopifyCache.getCustomerCacheSize() > 0) {
-      console.log("Usando clientes en caché")
-      return shopifyCache.getAllCustomers()
+    const now = Date.now()
+    if (!forceRefresh && customerCache.length > 0 && now - customerCacheTimestamp < CACHE_TTL) {
+      logger.debug("Usando clientes en caché", { count: customerCache.length })
+      return customerCache
     }
 
-    console.log(`Obteniendo ${limit} clientes de Shopify...`)
+    logger.info(`Obteniendo ${limit} clientes de Shopify...`)
 
     // Consulta GraphQL para obtener clientes
     const query = `
@@ -245,7 +303,7 @@ export async function fetchShopifyCustomers(forceRefresh = false, limit = 50): P
 
     // Verificar si hay errores en la respuesta
     if (response.errors) {
-      const errorMessage = response.errors.map((e: any) => e.message).join(", ")
+      const errorMessage = response.errors.map((e) => e.message).join(", ")
       throw new Error(`Error en la API de Shopify: ${errorMessage}`)
     }
 
@@ -254,20 +312,23 @@ export async function fetchShopifyCustomers(forceRefresh = false, limit = 50): P
     }
 
     // Extraer clientes de la respuesta
-    const customers = response.data.customers.edges.map((edge: any) => edge.node)
-    console.log(`Se obtuvieron ${customers.length} clientes de Shopify`)
+    const customers = response.data.customers.edges.map((edge) => edge.node)
+    logger.info(`Se obtuvieron ${customers.length} clientes de Shopify`)
 
     // Almacenar en caché
-    shopifyCache.cacheCustomers(customers)
+    customerCache = customers
+    customerCacheTimestamp = now
 
     return customers
-  } catch (error: any) {
-    console.error("Error al obtener clientes de Shopify:", error)
+  } catch (error) {
+    logger.error("Error al obtener clientes de Shopify", {
+      error: error instanceof Error ? error.message : "Error desconocido",
+    })
 
     // Si hay un error pero tenemos datos en caché, devolverlos como fallback
-    if (shopifyCache.getCustomerCacheSize() > 0) {
-      console.log("Usando clientes en caché como fallback después de un error")
-      return shopifyCache.getAllCustomers()
+    if (customerCache.length > 0) {
+      logger.info("Usando clientes en caché como fallback después de un error", { count: customerCache.length })
+      return customerCache
     }
 
     throw error
@@ -280,15 +341,16 @@ export async function fetchShopifyCustomers(forceRefresh = false, limit = 50): P
  * @param limit Número máximo de pedidos a obtener
  * @returns Array de pedidos
  */
-export async function fetchShopifyOrders(forceRefresh = false, limit = 50): Promise<any[]> {
+export async function obtenerPedidosPorShopify(forceRefresh = false, limit = 50) {
   try {
     // Si la caché es válida y no se fuerza la actualización, devolver datos en caché
-    if (!forceRefresh && shopifyCache.isOrderCacheValid() && shopifyCache.getOrderCacheSize() > 0) {
-      console.log("Usando pedidos en caché")
-      return shopifyCache.getAllOrders()
+    const now = Date.now()
+    if (!forceRefresh && orderCache.length > 0 && now - orderCacheTimestamp < CACHE_TTL) {
+      logger.debug("Usando pedidos en caché", { count: orderCache.length })
+      return orderCache
     }
 
-    console.log(`Obteniendo ${limit} pedidos de Shopify...`)
+    logger.info(`Obteniendo ${limit} pedidos de Shopify...`)
 
     // Consulta GraphQL para obtener pedidos
     const query = `
@@ -398,7 +460,7 @@ export async function fetchShopifyOrders(forceRefresh = false, limit = 50): Prom
 
     // Verificar si hay errores en la respuesta
     if (response.errors) {
-      const errorMessage = response.errors.map((e: any) => e.message).join(", ")
+      const errorMessage = response.errors.map((e) => e.message).join(", ")
       throw new Error(`Error en la API de Shopify: ${errorMessage}`)
     }
 
@@ -407,20 +469,23 @@ export async function fetchShopifyOrders(forceRefresh = false, limit = 50): Prom
     }
 
     // Extraer pedidos de la respuesta
-    const orders = response.data.orders.edges.map((edge: any) => edge.node)
-    console.log(`Se obtuvieron ${orders.length} pedidos de Shopify`)
+    const orders = response.data.orders.edges.map((edge) => edge.node)
+    logger.info(`Se obtuvieron ${orders.length} pedidos de Shopify`)
 
     // Almacenar en caché
-    shopifyCache.cacheOrders(orders)
+    orderCache = orders
+    orderCacheTimestamp = now
 
     return orders
-  } catch (error: any) {
-    console.error("Error al obtener pedidos de Shopify:", error)
+  } catch (error) {
+    logger.error("Error al obtener pedidos de Shopify", {
+      error: error instanceof Error ? error.message : "Error desconocido",
+    })
 
     // Si hay un error pero tenemos datos en caché, devolverlos como fallback
-    if (shopifyCache.getOrderCacheSize() > 0) {
-      console.log("Usando pedidos en caché como fallback después de un error")
-      return shopifyCache.getAllOrders()
+    if (orderCache.length > 0) {
+      logger.info("Usando pedidos en caché como fallback después de un error", { count: orderCache.length })
+      return orderCache
     }
 
     throw error
@@ -431,13 +496,62 @@ export async function fetchShopifyOrders(forceRefresh = false, limit = 50): Prom
  * Obtiene estadísticas de la caché
  * @returns Estadísticas de la caché
  */
-export function getCacheStats(): Record<string, any> {
-  return shopifyCache.getCacheStats()
+export function obtenerEstadisticasCache() {
+  return {
+    productos: {
+      cantidad: productCache.length,
+      ultimaActualizacion: new Date(productCacheTimestamp).toISOString(),
+      tiempoTranscurrido: Date.now() - productCacheTimestamp,
+      valido: Date.now() - productCacheTimestamp < CACHE_TTL,
+    },
+    colecciones: {
+      cantidad: collectionCache.length,
+      ultimaActualizacion: new Date(collectionCacheTimestamp).toISOString(),
+      tiempoTranscurrido: Date.now() - collectionCacheTimestamp,
+      valido: Date.now() - collectionCacheTimestamp < CACHE_TTL,
+    },
+    clientes: {
+      cantidad: customerCache.length,
+      ultimaActualizacion: new Date(customerCacheTimestamp).toISOString(),
+      tiempoTranscurrido: Date.now() - customerCacheTimestamp,
+      valido: Date.now() - customerCacheTimestamp < CACHE_TTL,
+    },
+    pedidos: {
+      cantidad: orderCache.length,
+      ultimaActualizacion: new Date(orderCacheTimestamp).toISOString(),
+      tiempoTranscurrido: Date.now() - orderCacheTimestamp,
+      valido: Date.now() - orderCacheTimestamp < CACHE_TTL,
+    },
+  }
 }
 
 /**
  * Limpia la caché
  */
-export function clearCache(): void {
-  shopifyCache.clearCache()
+export function limpiarCache() {
+  productCache = []
+  productCacheTimestamp = 0
+  collectionCache = []
+  collectionCacheTimestamp = 0
+  customerCache = []
+  customerCacheTimestamp = 0
+  orderCache = []
+  orderCacheTimestamp = 0
+
+  logger.info("Caché limpiada correctamente")
+
+  return {
+    success: true,
+    message: "Caché limpiada correctamente",
+  }
+}
+
+// Exportar todas las funciones
+export {
+  obtenerProductosPorShopify as getShopifyProducts,
+  obtenerColeccionesPorShopify as getShopifyCollections,
+  obtenerClientesPorShopify as getShopifyCustomers,
+  obtenerPedidosPorShopify as getShopifyOrders,
+  obtenerEstadisticasCache as getCacheStats,
+  limpiarCache as clearCache,
 }

@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server"
-import productosRepository from "@/lib/repositories/productos-repository"
-import db from "@/lib/db/vercel-postgres"
+import * as productosRepository from "@/lib/repositories/productos-repository"
+import { Logger } from "next-axiom"
+
+const logger = new Logger({
+  source: "api-db-productos-id",
+})
+
+export const dynamic = "force-dynamic"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
@@ -10,36 +16,43 @@ export async function GET(request: Request, { params }: { params: { id: string }
       return NextResponse.json(
         {
           success: false,
-          message: "ID inválido",
+          message: "ID de producto inválido",
         },
         { status: 400 },
       )
     }
 
-    const producto = await productosRepository.getProductoById(id)
+    logger.debug(`Obteniendo producto con ID ${id}`)
+
+    const producto = await productosRepository.getProductById(id)
 
     if (!producto) {
+      logger.warn(`Producto con ID ${id} no encontrado`)
       return NextResponse.json(
         {
           success: false,
-          message: `Producto con ID ${id} no encontrado`,
+          message: "Producto no encontrado",
         },
         { status: 404 },
       )
     }
 
+    logger.debug(`Producto encontrado: ${producto.titulo}`)
+
     return NextResponse.json({
       success: true,
-      message: "Producto obtenido correctamente",
       data: producto,
     })
   } catch (error) {
-    console.error(`Error al obtener producto con ID ${params.id}:`, error)
+    logger.error(`Error al obtener producto con ID ${params.id}`, {
+      error: error instanceof Error ? error.message : "Error desconocido",
+    })
+
     return NextResponse.json(
       {
         success: false,
-        message: `Error al obtener producto con ID ${params.id}`,
-        error: error instanceof Error ? error.message : String(error),
+        message: "Error al obtener producto",
+        error: error instanceof Error ? error.message : "Error desconocido",
       },
       { status: 500 },
     )
@@ -54,50 +67,53 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       return NextResponse.json(
         {
           success: false,
-          message: "ID inválido",
+          message: "ID de producto inválido",
         },
         { status: 400 },
       )
     }
 
-    // Verificar si el producto existe
-    const productoExistente = await productosRepository.getProductoById(id)
+    logger.debug(`Actualizando producto con ID ${id}`)
 
-    if (!productoExistente) {
+    // Verificar si el producto existe
+    const existingProduct = await productosRepository.getProductById(id)
+
+    if (!existingProduct) {
+      logger.warn(`Producto con ID ${id} no encontrado para actualizar`)
       return NextResponse.json(
         {
           success: false,
-          message: `Producto con ID ${id} no encontrado`,
+          message: "Producto no encontrado",
         },
         { status: 404 },
       )
     }
 
     const data = await request.json()
-    const productoActualizado = await productosRepository.updateProducto(id, data)
 
-    // Registrar evento de actualización
-    await db.logSyncEvent(
-      "productos",
-      productoExistente.shopify_id,
-      "actualizar",
-      "exito",
-      `Producto actualizado manualmente: ${productoActualizado.titulo}`,
-      { producto: productoActualizado },
-    )
+    // Actualizar el producto
+    const updatedProduct = await productosRepository.updateProduct(id, {
+      ...data,
+      fecha_actualizacion: new Date(),
+    })
+
+    logger.info(`Producto actualizado: ${updatedProduct.id}`)
 
     return NextResponse.json({
       success: true,
       message: "Producto actualizado correctamente",
-      data: productoActualizado,
+      data: updatedProduct,
     })
   } catch (error) {
-    console.error(`Error al actualizar producto con ID ${params.id}:`, error)
+    logger.error(`Error al actualizar producto con ID ${params.id}`, {
+      error: error instanceof Error ? error.message : "Error desconocido",
+    })
+
     return NextResponse.json(
       {
         success: false,
-        message: `Error al actualizar producto con ID ${params.id}`,
-        error: error instanceof Error ? error.message : String(error),
+        message: "Error al actualizar producto",
+        error: error instanceof Error ? error.message : "Error desconocido",
       },
       { status: 500 },
     )
@@ -112,48 +128,47 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
       return NextResponse.json(
         {
           success: false,
-          message: "ID inválido",
+          message: "ID de producto inválido",
         },
         { status: 400 },
       )
     }
 
-    // Verificar si el producto existe
-    const productoExistente = await productosRepository.getProductoById(id)
+    logger.debug(`Eliminando producto con ID ${id}`)
 
-    if (!productoExistente) {
+    // Verificar si el producto existe
+    const existingProduct = await productosRepository.getProductById(id)
+
+    if (!existingProduct) {
+      logger.warn(`Producto con ID ${id} no encontrado para eliminar`)
       return NextResponse.json(
         {
           success: false,
-          message: `Producto con ID ${id} no encontrado`,
+          message: "Producto no encontrado",
         },
         { status: 404 },
       )
     }
 
-    await productosRepository.deleteProducto(id)
+    // Eliminar el producto
+    await productosRepository.deleteProduct(id)
 
-    // Registrar evento de eliminación
-    await db.logSyncEvent(
-      "productos",
-      productoExistente.shopify_id,
-      "eliminar",
-      "exito",
-      `Producto eliminado manualmente: ${productoExistente.titulo}`,
-      { producto: productoExistente },
-    )
+    logger.info(`Producto eliminado: ${id}`)
 
     return NextResponse.json({
       success: true,
       message: "Producto eliminado correctamente",
     })
   } catch (error) {
-    console.error(`Error al eliminar producto con ID ${params.id}:`, error)
+    logger.error(`Error al eliminar producto con ID ${params.id}`, {
+      error: error instanceof Error ? error.message : "Error desconocido",
+    })
+
     return NextResponse.json(
       {
         success: false,
-        message: `Error al eliminar producto con ID ${params.id}`,
-        error: error instanceof Error ? error.message : String(error),
+        message: "Error al eliminar producto",
+        error: error instanceof Error ? error.message : "Error desconocido",
       },
       { status: 500 },
     )

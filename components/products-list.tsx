@@ -1,126 +1,187 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Search, Package, RefreshCw } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-// Corregimos la importación para usar la exportación con nombre
-import { ProductCard } from "./product-card"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ProductCard } from "@/components/product-card"
+import { useToast } from "@/components/ui/use-toast"
+import { Loader2, Search, RefreshCw } from "lucide-react"
 
-export default function ProductsList() {
+export function ProductsList() {
   const [products, setProducts] = useState([])
   const [filteredProducts, setFilteredProducts] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [activeTab, setActiveTab] = useState("todos")
+  const [error, setError] = useState(null)
+  const { toast } = useToast()
 
   useEffect(() => {
     fetchProducts()
   }, [])
 
   useEffect(() => {
-    if (!products.length) return
+    if (products.length > 0) {
+      filterProducts()
+    }
+  }, [searchTerm, activeTab, products])
 
+  const fetchProducts = async () => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      // Primero intentamos obtener de la base de datos
+      const dbResponse = await fetch("/api/db/productos")
+
+      if (dbResponse.ok) {
+        const dbData = await dbResponse.json()
+        if (dbData.success && dbData.data && dbData.data.length > 0) {
+          setProducts(dbData.data)
+          return
+        }
+      }
+
+      // Si no hay datos en la base de datos, obtenemos de la caché
+      const cacheResponse = await fetch("/api/cached/products?transform=true")
+
+      if (!cacheResponse.ok) {
+        throw new Error("Error al cargar productos")
+      }
+
+      const cacheData = await cacheResponse.json()
+      setProducts(cacheData)
+    } catch (error) {
+      console.error("Error al cargar productos:", error)
+      setError(error instanceof Error ? error.message : "Error al cargar productos")
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los productos. Intente nuevamente más tarde.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const filterProducts = () => {
     let filtered = [...products]
 
-    // Aplicar filtro de estado
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((product) => product.status === statusFilter)
-    }
-
-    // Aplicar búsqueda
+    // Filtrar por término de búsqueda
     if (searchTerm) {
-      const term = searchTerm.toLowerCase()
       filtered = filtered.filter(
         (product) =>
-          product.title?.toLowerCase().includes(term) ||
-          product.vendor?.toLowerCase().includes(term) ||
-          product.product_type?.toLowerCase().includes(term),
+          product.titulo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          product.title?.toLowerCase().includes(searchTerm.toLowerCase()),
       )
     }
 
-    setFilteredProducts(filtered)
-  }, [products, statusFilter, searchTerm])
-
-  const fetchProducts = async (useCache = true) => {
-    setLoading(true)
-
-    try {
-      const response = await fetch(`/api/cached/products?transform=true${!useCache ? "&refresh=true" : ""}`)
-      const data = await response.json()
-      setProducts(data.data || [])
-      setFilteredProducts(data.data || [])
-    } finally {
-      setLoading(false)
+    // Filtrar por estado
+    if (activeTab !== "todos") {
+      filtered = filtered.filter((product) => {
+        const status = product.estado || product.status
+        if (activeTab === "activos") return status === "ACTIVE" || status === "active"
+        if (activeTab === "borradores") return status === "DRAFT" || status === "draft"
+        if (activeTab === "archivados") return status === "ARCHIVED" || status === "archived"
+        return true
+      })
     }
+
+    setFilteredProducts(filtered)
   }
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-40">
-        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+  const handleSyncSuccess = () => {
+    toast({
+      title: "Sincronización completada",
+      description: "Los productos se han sincronizado correctamente",
+    })
+    fetchProducts()
   }
 
-  if (products.length === 0) {
-    return (
-      <div className="text-center py-10 border rounded-md">
-        <Package className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-        <p className="text-muted-foreground mb-4">No hay productos disponibles</p>
-        <Button onClick={() => fetchProducts(false)}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Actualizar
-        </Button>
-      </div>
-    )
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value)
+  }
+
+  const handleTabChange = (value) => {
+    setActiveTab(value)
+  }
+
+  const getActiveCount = () => {
+    return products.filter(
+      (p) => p.estado === "ACTIVE" || p.estado === "active" || p.status === "ACTIVE" || p.status === "active",
+    ).length
+  }
+
+  const getDraftCount = () => {
+    return products.filter(
+      (p) => p.estado === "DRAFT" || p.estado === "draft" || p.status === "DRAFT" || p.status === "draft",
+    ).length
+  }
+
+  const getArchivedCount = () => {
+    return products.filter(
+      (p) => p.estado === "ARCHIVED" || p.estado === "archived" || p.status === "ARCHIVED" || p.status === "archived",
+    ).length
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Buscar productos..."
-            className="pl-8"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filtrar por estado" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los estados</SelectItem>
-            <SelectItem value="ACTIVE">Activos</SelectItem>
-            <SelectItem value="DRAFT">Borradores</SelectItem>
-            <SelectItem value="ARCHIVED">Archivados</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button onClick={() => fetchProducts(false)} variant="outline" className="flex items-center gap-2">
-          <RefreshCw className="h-4 w-4" />
-          Actualizar
-        </Button>
-      </div>
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row gap-4 items-center">
+            <div className="relative w-full md:w-96">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Buscar productos..." className="pl-8" value={searchTerm} onChange={handleSearch} />
+            </div>
+            <div className="flex-1 w-full md:w-auto">
+              <Tabs defaultValue="todos" value={activeTab} onValueChange={handleTabChange}>
+                <TabsList className="w-full">
+                  <TabsTrigger value="todos" className="flex-1">
+                    Todos ({products.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="activos" className="flex-1">
+                    Activos ({getActiveCount()})
+                  </TabsTrigger>
+                  <TabsTrigger value="borradores" className="flex-1">
+                    Borradores ({getDraftCount()})
+                  </TabsTrigger>
+                  <TabsTrigger value="archivados" className="flex-1">
+                    Archivados ({getArchivedCount()})
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      {filteredProducts.length === 0 ? (
-        <div className="text-center py-12 border rounded-md bg-gray-50">
-          <Package className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium">No hay productos disponibles</h3>
-          <p className="text-muted-foreground mt-1">
-            {products.length > 0
-              ? "No se encontraron productos que coincidan con los filtros"
-              : "No hay productos disponibles"}
-          </p>
+      {isLoading ? (
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <span className="ml-2">Cargando productos...</span>
+        </div>
+      ) : error ? (
+        <div className="text-center p-8 border rounded-lg bg-background">
+          <p className="text-destructive mb-4">{error}</p>
+          <Button variant="outline" onClick={fetchProducts} className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Reintentar
+          </Button>
+        </div>
+      ) : filteredProducts.length === 0 ? (
+        <div className="text-center p-8 border rounded-lg bg-background">
+          <p className="text-muted-foreground mb-4">No se encontraron productos</p>
+          <Button variant="outline" onClick={fetchProducts} className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Recargar
+          </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredProducts.map((product: any) => (
-            <ProductCard key={product.shopify_id || product.id} product={product} />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredProducts.map((product) => (
+            <ProductCard key={product.id || product.shopify_id} product={product} />
           ))}
         </div>
       )}
