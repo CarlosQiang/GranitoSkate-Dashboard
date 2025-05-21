@@ -2,10 +2,10 @@
 
 import { shopifyFetch } from "@/lib/shopify"
 import { logSyncEvent } from "@/lib/db"
-import productosRepository from "@/lib/repositories/productos-repository"
-import coleccionesRepository from "@/lib/repositories/colecciones-repository"
-import clientesRepository from "@/lib/repositories/clientes-repository"
-import pedidosRepository from "@/lib/repositories/pedidos-repository"
+import * as productosRepository from "@/lib/repositories/productos-repository"
+import * as coleccionesRepository from "@/lib/repositories/colecciones-repository"
+import * as clientesRepository from "@/lib/repositories/clientes-repository"
+import * as pedidosRepository from "@/lib/repositories/pedidos-repository"
 import db from "@/lib/db/vercel-postgres"
 import { fetchShopifyProducts } from "@/lib/services/shopify-service"
 import { fetchShopifyCollections } from "@/lib/services/shopify-service"
@@ -1135,15 +1135,3 @@ export async function syncOrders(limit = 50) {
     }
   }
 }
-
-// No podemos exportar un objeto por defecto en un archivo con 'use server'
-// export default {
-//   sincronizarProductos,
-//   sincronizarColecciones,
-//   sincronizarClientes,
-//   sincronizarPedidos,
-//   syncProducts,
-//   syncCollections,
-//   syncCustomers,
-//   syncOrders,
-// }
