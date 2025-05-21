@@ -7,7 +7,8 @@ interface ProductCardProps {
   product: any
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+// Cambiamos de export default a export nombrado para que coincida con la importación
+export function ProductCard({ product }: ProductCardProps) {
   // Extraer datos de forma segura
   const id = product.shopify_id || product.id || "unknown"
   const title = product.title || "Sin título"
