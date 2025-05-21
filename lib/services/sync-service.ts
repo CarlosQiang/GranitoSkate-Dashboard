@@ -12,8 +12,9 @@ import {
   fetchShopifyCollections,
   fetchShopifyCustomers,
   fetchShopifyOrders,
-} from "@/lib/services/shopify-service"
-import { getShopifyProducts, getShopifyCollections } from "./shopify-service"
+  getShopifyProducts,
+  getShopifyCollections,
+} from "./shopify-service"
 import { Logger } from "next-axiom"
 
 const logger = new Logger({

@@ -1,4 +1,4 @@
-import { shopifyFetch } from "@/lib/shopify-client"
+import { shopifyFetch } from "@/lib/shopify"
 import { Logger } from "next-axiom"
 
 const logger = new Logger({
@@ -28,7 +28,7 @@ let orderCacheTimestamp = 0
  * @param limit Número máximo de productos a obtener
  * @returns Array de productos
  */
-export async function obtenerProductosPorShopify(forceRefresh = false, limit = 100) {
+export async function fetchShopifyProducts(forceRefresh = false, limit = 100) {
   try {
     // Si la caché es válida y no se fuerza la actualización, devolver datos en caché
     const now = Date.now()
@@ -141,7 +141,7 @@ export async function obtenerProductosPorShopify(forceRefresh = false, limit = 1
  * @param limit Número máximo de colecciones a obtener
  * @returns Array de colecciones
  */
-export async function obtenerColeccionesPorShopify(forceRefresh = false, limit = 50) {
+export async function fetchShopifyCollections(forceRefresh = false, limit = 50) {
   try {
     // Si la caché es válida y no se fuerza la actualización, devolver datos en caché
     const now = Date.now()
@@ -233,7 +233,7 @@ export async function obtenerColeccionesPorShopify(forceRefresh = false, limit =
  * @param limit Número máximo de clientes a obtener
  * @returns Array de clientes
  */
-export async function obtenerClientesPorShopify(forceRefresh = false, limit = 50) {
+export async function fetchShopifyCustomers(forceRefresh = false, limit = 50) {
   try {
     // Si la caché es válida y no se fuerza la actualización, devolver datos en caché
     const now = Date.now()
@@ -341,7 +341,7 @@ export async function obtenerClientesPorShopify(forceRefresh = false, limit = 50
  * @param limit Número máximo de pedidos a obtener
  * @returns Array de pedidos
  */
-export async function obtenerPedidosPorShopify(forceRefresh = false, limit = 50) {
+export async function fetchShopifyOrders(forceRefresh = false, limit = 50) {
   try {
     // Si la caché es válida y no se fuerza la actualización, devolver datos en caché
     const now = Date.now()
@@ -496,7 +496,7 @@ export async function obtenerPedidosPorShopify(forceRefresh = false, limit = 50)
  * Obtiene estadísticas de la caché
  * @returns Estadísticas de la caché
  */
-export function obtenerEstadisticasCache() {
+export function getCacheStats() {
   return {
     productos: {
       cantidad: productCache.length,
@@ -528,7 +528,7 @@ export function obtenerEstadisticasCache() {
 /**
  * Limpia la caché
  */
-export function limpiarCache() {
+export function clearCache() {
   productCache = []
   productCacheTimestamp = 0
   collectionCache = []
@@ -546,12 +546,13 @@ export function limpiarCache() {
   }
 }
 
+// Inicializar caché
+console.log("Inicializando caché de datos de Shopify")
+
 // Exportar todas las funciones
 export {
-  obtenerProductosPorShopify as getShopifyProducts,
-  obtenerColeccionesPorShopify as getShopifyCollections,
-  obtenerClientesPorShopify as getShopifyCustomers,
-  obtenerPedidosPorShopify as getShopifyOrders,
-  obtenerEstadisticasCache as getCacheStats,
-  limpiarCache as clearCache,
+  fetchShopifyProducts as getShopifyProducts,
+  fetchShopifyCollections as getShopifyCollections,
+  fetchShopifyCustomers as getShopifyCustomers,
+  fetchShopifyOrders as getShopifyOrders,
 }

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { shopifyCache } from "@/lib/services/cache-service"
 import { fetchShopifyProducts } from "@/lib/services/shopify-service"
 
 // Marcar la ruta como dinámica para evitar errores de renderizado estático
@@ -20,16 +19,13 @@ export async function GET(request: Request) {
     const forceRefresh = url.searchParams.get("refresh") === "true"
     const limit = Number.parseInt(url.searchParams.get("limit") || "100")
 
-    // Desactivamos la transformación por ahora
-    const transform = false
-
     // Obtener productos de Shopify (o de la caché)
     const products = await fetchShopifyProducts(forceRefresh, limit)
 
     return NextResponse.json({
       success: true,
       count: products.length,
-      fromCache: !forceRefresh && shopifyCache.isProductCacheValid(),
+      fromCache: !forceRefresh,
       data: products,
     })
   } catch (error: any) {

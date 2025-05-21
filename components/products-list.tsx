@@ -9,7 +9,7 @@ import { ProductCard } from "@/components/product-card"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, Search, RefreshCw } from "lucide-react"
 
-export function ProductsList() {
+export default function ProductsList() {
   const [products, setProducts] = useState([])
   const [filteredProducts, setFilteredProducts] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -40,6 +40,7 @@ export function ProductsList() {
         const dbData = await dbResponse.json()
         if (dbData.success && dbData.data && dbData.data.length > 0) {
           setProducts(dbData.data)
+          setFilteredProducts(dbData.data)
           return
         }
       }
@@ -52,7 +53,8 @@ export function ProductsList() {
       }
 
       const cacheData = await cacheResponse.json()
-      setProducts(cacheData)
+      setProducts(cacheData.data || [])
+      setFilteredProducts(cacheData.data || [])
     } catch (error) {
       console.error("Error al cargar productos:", error)
       setError(error instanceof Error ? error.message : "Error al cargar productos")
