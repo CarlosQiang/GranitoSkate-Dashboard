@@ -17,7 +17,7 @@ export async function fetchShopifyProducts(forceRefresh = false, limit = 100): P
 
     console.log(`Obteniendo ${limit} productos de Shopify...`)
 
-    // Consulta GraphQL para obtener productos
+    // Consulta GraphQL simplificada para obtener productos
     const query = `
       query {
         products(first: ${limit}, sortKey: UPDATED_AT, reverse: true) {
@@ -25,51 +25,23 @@ export async function fetchShopifyProducts(forceRefresh = false, limit = 100): P
             node {
               id
               title
-              description
-              productType
-              vendor
               status
-              publishedAt
-              handle
-              tags
               featuredImage {
                 url
-                altText
               }
-              images(first: 5) {
+              variants(first: 1) {
                 edges {
                   node {
-                    id
-                    url
-                    altText
-                  }
-                }
-              }
-              variants(first: 10) {
-                edges {
-                  node {
-                    id
-                    title
                     price
-                    compareAtPrice
-                    sku
-                    barcode
                     inventoryQuantity
-                    inventoryPolicy
-                    weight
-                    weightUnit
+                    compareAtPrice
                   }
                 }
               }
-              metafields(first: 10) {
-                edges {
-                  node {
-                    namespace
-                    key
-                    value
-                  }
-                }
-              }
+              productType
+              vendor
+              createdAt
+              updatedAt
             }
           }
         }
