@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Search, Package, RefreshCw } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import ProductCard from "./product-card"
+// Corregimos la importación para usar la exportación con nombre
+import { ProductCard } from "./product-card"
 
 export default function ProductsList() {
   const [products, setProducts] = useState([])
