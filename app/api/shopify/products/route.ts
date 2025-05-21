@@ -5,12 +5,6 @@ export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
   try {
-    // Verificar autenticación - Comentamos esta parte temporalmente para diagnosticar
-    // const session = await getServerSession(authOptions)
-    // if (!session) {
-    //   return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    // }
-
     // Obtener las credenciales de Shopify
     const { SHOPIFY_STORE_DOMAIN, SHOPIFY_ACCESS_TOKEN } = process.env
 
@@ -86,7 +80,7 @@ export async function GET(request: Request) {
       price: product.variants[0]?.price || "0.00",
       precio: product.variants[0]?.price || "0.00",
       image: product.image?.src || null,
-      imagen: product.image?.src || null,
+      imagen_url: product.image?.src || null,
       status: product.status,
       estado: product.status,
       created_at: product.created_at,

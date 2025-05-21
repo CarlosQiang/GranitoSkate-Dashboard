@@ -47,7 +47,6 @@ export default function ProductsList() {
       }
 
       // Si no hay datos en la base de datos, obtenemos directamente de Shopify
-      // Usamos la ruta directa en lugar de la caché para evitar problemas de autenticación
       const shopifyResponse = await fetch("/api/shopify/products")
 
       if (!shopifyResponse.ok) {
@@ -68,6 +67,14 @@ export default function ProductsList() {
       }
 
       const productsData = shopifyData.data || []
+
+      // Verificar si hay productos
+      if (productsData.length === 0) {
+        console.log("No se encontraron productos en Shopify")
+      } else {
+        console.log(`Se encontraron ${productsData.length} productos en Shopify`)
+      }
+
       setProducts(productsData)
       setFilteredProducts(productsData)
     } catch (error) {
