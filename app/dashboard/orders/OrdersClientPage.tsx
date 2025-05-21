@@ -103,11 +103,7 @@ export default function OrdersClientPage() {
             <p className="text-muted-foreground">Gestiona los pedidos de tu tienda Shopify</p>
           </div>
           <div className="flex gap-2">
-            <SyncButton 
-              entityType="pedidos" 
-              label="Sincronizar pedidos" 
-              variant="outline"
-            />
+            <SyncButton entityType="pedidos" label="Sincronizar pedidos" variant="outline" />
           </div>
         </div>
 
@@ -138,11 +134,7 @@ export default function OrdersClientPage() {
           <p className="text-muted-foreground">Gestiona los pedidos de tu tienda Shopify</p>
         </div>
         <div className="flex gap-2">
-          <SyncButton 
-            entityType="pedidos" 
-            label="Sincronizar pedidos" 
-            variant="outline"
-          />
+          <SyncButton entityType="pedidos" label="Sincronizar pedidos" variant="outline" />
         </div>
       </div>
 
@@ -229,7 +221,7 @@ export default function OrdersClientPage() {
                       {order.customer
                         ? `${order.customer.firstName} ${order.customer.lastName}`
                         : "Cliente no registrado"}
-                    TableCell>
+                    </TableCell>
                     <TableCell>
                       <Badge className={getStatusColor(order.displayFulfillmentStatus)}>
                         {order.displayFulfillmentStatus || "PENDIENTE"}
@@ -261,4 +253,4 @@ export default function OrdersClientPage() {
       )}
     </div>
   )
-}\
+}
