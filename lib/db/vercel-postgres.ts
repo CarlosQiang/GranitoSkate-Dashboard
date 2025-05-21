@@ -11,6 +11,14 @@ export async function findById(table: string, id: number) {
   return result.rows[0] || null
 }
 
+export async function findByField(table: string, field: string, value: any) {
+  const result = await sql`
+    SELECT * FROM ${sql.identifier(table)} 
+    WHERE ${sql.identifier(field)} = ${value}
+  `
+  return result.rows[0] || null
+}
+
 export async function findOne(table: string, conditions: Record<string, any>) {
   const keys = Object.keys(conditions)
   const values = Object.values(conditions)
@@ -84,7 +92,7 @@ export async function executeQuery(query: string, params: any[] = []) {
 export default {
   findAll,
   findById,
-  findOne,
+  findByField,
   insert,
   update,
   remove,

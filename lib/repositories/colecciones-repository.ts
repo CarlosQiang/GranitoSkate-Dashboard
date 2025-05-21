@@ -1,4 +1,4 @@
-import { insert, update, findById, findAll, findByField, remove } from "@/lib/db"
+import { findAll, findById, findByField, insert, update, remove } from "@/lib/db"
 
 export type Coleccion = {
   id?: number
