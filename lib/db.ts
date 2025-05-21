@@ -1,4 +1,47 @@
+import { Pool } from "pg"
 import { sql } from "@vercel/postgres"
+import { logError } from "./utils"
+
+// Obtener la URL de conexión de las variables de entorno
+const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL
+
+if (!connectionString) {
+  console.error("Error: No se ha definido la variable de entorno POSTGRES_URL o DATABASE_URL")
+}
+
+// Crear un pool de conexiones
+export const pool = new Pool({
+  connectionString: connectionString || "",
+  ssl: {
+    rejectUnauthorized: false,
+  },
+  max: 10, // Máximo número de conexiones en el pool
+  idleTimeoutMillis: 30000, // Tiempo máximo que una conexión puede estar inactiva antes de ser cerrada
+  connectionTimeoutMillis: 5000, // Tiempo máximo para establecer una conexión
+})
+
+// Manejar errores de conexión
+pool.on("error", (err) => {
+  console.error("Error inesperado en el cliente de PostgreSQL:", err)
+})
+
+// Verificar la conexión
+export async function testConnection() {
+  if (!connectionString) {
+    console.error("No hay URL de conexión definida")
+    return false
+  }
+
+  try {
+    const client = await pool.connect()
+    console.log("Conexión a la base de datos establecida correctamente")
+    client.release()
+    return true
+  } catch (error) {
+    console.error("Error al conectar con la base de datos:", error)
+    return false
+  }
+}
 
 // Funciones de utilidad para operaciones comunes
 export async function findAll(table: string) {
@@ -52,9 +95,17 @@ export async function remove(table: string, id: number) {
   return { success: true }
 }
 
-export async function query(queryText: string, params: any[] = []) {
-  const result = await sql.query(queryText, params)
-  return result.rows
+export async function query(text: string, params: any[] = []) {
+  try {
+    const start = Date.now()
+    const res = await pool.query(text, params)
+    const duration = Date.now() - start
+    console.log("Consulta ejecutada", { text, duration, rows: res.rowCount })
+    return res
+  } catch (error) {
+    logError("Error ejecutando consulta", error)
+    throw error
+  }
 }
 
 export async function logSyncEvent(
@@ -76,11 +127,23 @@ export async function logSyncEvent(
   })
 }
 
+// Función para cerrar la conexión
+export async function closeConnection() {
+  try {
+    await pool.end()
+    console.log("Conexión a la base de datos cerrada correctamente")
+  } catch (error) {
+    console.error("Error al cerrar la conexión a la base de datos:", error)
+  }
+}
+
 // Exportar también el objeto sql para consultas personalizadas
 export { sql }
 
 // Exportar un objeto con todas las funciones para importación por defecto
 export default {
+  pool,
+  testConnection,
   findAll,
   findById,
   findByField,
@@ -89,5 +152,6 @@ export default {
   remove,
   query,
   logSyncEvent,
+  closeConnection,
   sql,
 }
