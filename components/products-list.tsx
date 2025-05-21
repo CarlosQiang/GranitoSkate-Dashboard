@@ -1,264 +1,176 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { RefreshCw, Package, Search } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
-import { ProductCard } from "@/components/product-card"
-import { fetchProducts, fetchProductsByStatus } from "@/lib/api/products"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Search, Package, RefreshCw } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-export function ProductsList() {
-  const [products, setProducts] = useState([])
-  const [filteredProducts, setFilteredProducts] = useState([])
-  const [activeTab, setActiveTab] = useState("all")
+export default function ProductsList() {
+  const [products, setProducts] = useState<any[]>([])
+  const [filteredProducts, setFilteredProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
-  const [counts, setCounts] = useState({
-    all: 0,
-    active: 0,
-    draft: 0,
-    archived: 0,
-  })
+  const [statusFilter, setStatusFilter] = useState<string>("all")
 
-  // Cargar productos según la pestaña activa
-  const loadProducts = async (tab = activeTab) => {
+  useEffect(() => {
+    fetchProducts()
+  }, [])
+
+  useEffect(() => {
+    if (!products.length) return
+
+    let filtered = [...products]
+
+    // Aplicar filtro de estado
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((product) => product.status === statusFilter)
+    }
+
+    // Aplicar búsqueda
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase()
+      filtered = filtered.filter(
+        (product) =>
+          product.title?.toLowerCase().includes(term) ||
+          product.vendor?.toLowerCase().includes(term) ||
+          product.product_type?.toLowerCase().includes(term),
+      )
+    }
+
+    setFilteredProducts(filtered)
+  }, [products, statusFilter, searchTerm])
+
+  const fetchProducts = async () => {
     setLoading(true)
     setError(null)
-    try {
-      let data
 
-      // Cargar productos según la pestaña seleccionada
-      if (tab === "all") {
-        data = await fetchProducts(100)
-      } else {
-        // Convertir el nombre de la pestaña al formato que espera la API
-        const status = tab.toUpperCase()
-        data = await fetchProductsByStatus(status, 100)
+    try {
+      // Intentar obtener productos de la caché
+      const response = await fetch("/api/cached/products?transform=true")
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`)
       }
 
-      // Actualizar los productos y aplicar filtro de búsqueda
-      setProducts(data || [])
-      filterProductsBySearch(data, searchTerm)
+      const data = await response.json()
 
-      // Actualizar contadores solo si estamos en la pestaña "all"
-      if (tab === "all") {
-        updateCounts(data)
+      if (data.success) {
+        setProducts(data.data || [])
+        setFilteredProducts(data.data || [])
+      } else {
+        throw new Error(data.error || "Error desconocido al obtener productos")
       }
     } catch (err) {
       console.error("Error al cargar productos:", err)
-      setError("No se pudieron cargar los productos")
+      setError(err instanceof Error ? err.message : "Error desconocido")
     } finally {
       setLoading(false)
     }
   }
 
-  // Actualizar contadores de productos por estado
-  const updateCounts = (data) => {
-    const newCounts = {
-      all: data.length,
-      active: data.filter((p) => p.status === "ACTIVE").length,
-      draft: data.filter((p) => p.status === "DRAFT").length,
-      archived: data.filter((p) => p.status === "ARCHIVED").length,
-    }
-    setCounts(newCounts)
-  }
-
-  // Filtrar productos por término de búsqueda
-  const filterProductsBySearch = (productsData, term) => {
-    if (!term) {
-      setFilteredProducts(productsData)
-      return
-    }
-
-    const filtered = productsData.filter(
-      (product) =>
-        product.title?.toLowerCase().includes(term.toLowerCase()) ||
-        product.productType?.toLowerCase().includes(term.toLowerCase()) ||
-        product.vendor?.toLowerCase().includes(term.toLowerCase()),
-    )
-
-    setFilteredProducts(filtered)
-  }
-
-  // Manejar cambio de pestaña
-  const handleTabChange = (value) => {
-    setActiveTab(value)
-    loadProducts(value)
-  }
-
-  // Manejar cambio en la búsqueda
-  const handleSearchChange = (e) => {
-    const term = e.target.value
-    setSearchTerm(term)
-    filterProductsBySearch(products, term)
-  }
-
-  // Cargar productos al montar el componente
-  useEffect(() => {
-    loadProducts()
-  }, [])
-
-  // Renderizar estado de carga
   if (loading) {
     return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="w-full max-w-md">
-            <Skeleton className="h-10 w-full" />
-          </div>
-          <Skeleton className="h-10 w-32" />
-        </div>
-
-        <Tabs defaultValue="all" className="w-full">
-          <TabsList className="mb-4">
-            <Skeleton className="h-10 w-20" />
-            <Skeleton className="h-10 w-20 ml-1" />
-            <Skeleton className="h-10 w-20 ml-1" />
-            <Skeleton className="h-10 w-20 ml-1" />
-          </TabsList>
-
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {Array(8)
-              .fill(0)
-              .map((_, i) => (
-                <div key={i} className="border rounded-md overflow-hidden">
-                  <Skeleton className="h-48 w-full" />
-                  <div className="p-4 space-y-2">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-4 w-1/2" />
-                  </div>
-                </div>
-              ))}
-          </div>
-        </Tabs>
+      <div className="flex justify-center items-center h-40">
+        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     )
   }
 
-  // Renderizar estado de error
   if (error) {
     return (
-      <Card className="p-6 text-center">
-        <p className="text-red-500 mb-4">{error}</p>
-        <Button variant="outline" onClick={() => loadProducts()}>
+      <div className="text-center py-10 border rounded-md">
+        <p className="text-destructive mb-4">{error}</p>
+        <Button onClick={fetchProducts}>
           <RefreshCw className="mr-2 h-4 w-4" />
           Reintentar
         </Button>
-      </Card>
+      </div>
     )
   }
 
-  // Renderizar estado vacío
-  if (products.length === 0 && !loading && !error) {
-    return (
-      <Card className="p-6 text-center">
-        <Package className="h-12 w-12 mx-auto text-granito-500 mb-4" />
-        <p className="text-muted-foreground mb-4">No hay productos disponibles en tu tienda Shopify</p>
-        <Button asChild className="bg-granito-500 hover:bg-granito-600">
-          <a href="/dashboard/products/new">Crear primer producto</a>
-        </Button>
-      </Card>
-    )
-  }
-
-  // Renderizar lista de productos
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
-        <div className="relative flex-1 max-w-md">
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
             placeholder="Buscar productos..."
             className="pl-8"
             value={searchTerm}
-            onChange={handleSearchChange}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-
-        <Button variant="outline" onClick={() => loadProducts()} className="border-granito-300 hover:bg-granito-50">
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Actualizar
-        </Button>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filtrar por estado" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los estados</SelectItem>
+            <SelectItem value="ACTIVE">Activos</SelectItem>
+            <SelectItem value="DRAFT">Borradores</SelectItem>
+            <SelectItem value="ARCHIVED">Archivados</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      <Tabs defaultValue="all" value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="bg-muted/60 w-full justify-start mb-4">
-          <TabsTrigger value="all" className="data-[state=active]:bg-granito-500 data-[state=active]:text-white">
-            Todos
-            <Badge variant="outline" className="ml-2 bg-white/20">
-              {counts.all}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="active" className="data-[state=active]:bg-granito-500 data-[state=active]:text-white">
-            Activos
-            <Badge variant="outline" className="ml-2 bg-white/20">
-              {counts.active}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="draft" className="data-[state=active]:bg-granito-500 data-[state=active]:text-white">
-            Borradores
-            <Badge variant="outline" className="ml-2 bg-white/20">
-              {counts.draft}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="archived" className="data-[state=active]:bg-granito-500 data-[state=active]:text-white">
-            Archivados
-            <Badge variant="outline" className="ml-2 bg-white/20">
-              {counts.archived}
-            </Badge>
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={activeTab} className="mt-0">
-          {filteredProducts.length === 0 ? (
-            <div className="text-center py-12 border rounded-md bg-gray-50 dark:bg-gray-900">
-              <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-                <Search className="h-6 w-6 text-gray-400" />
+      {filteredProducts.length === 0 ? (
+        <div className="text-center py-12 border rounded-md bg-gray-50">
+          <Package className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+          <h3 className="text-lg font-medium">No hay productos disponibles</h3>
+          <p className="text-muted-foreground mt-1">
+            {products.length > 0
+              ? "No se encontraron productos que coincidan con los filtros"
+              : "No hay productos disponibles"}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredProducts.map((product) => (
+            <Card key={product.shopify_id} className="overflow-hidden hover:shadow-md transition-shadow">
+              <div className="aspect-video bg-slate-100 relative">
+                {product.featured_image ? (
+                  <img
+                    src={product.featured_image || "/placeholder.svg"}
+                    alt={product.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <Package className="h-12 w-12 text-slate-300" />
+                  </div>
+                )}
+                <Badge
+                  className="absolute top-2 right-2"
+                  variant={
+                    product.status === "ACTIVE" ? "default" : product.status === "DRAFT" ? "secondary" : "outline"
+                  }
+                >
+                  {product.status === "ACTIVE" ? "Activo" : product.status === "DRAFT" ? "Borrador" : "Archivado"}
+                </Badge>
               </div>
-              <h3 className="text-lg font-medium">No se encontraron productos</h3>
-              <p className="text-muted-foreground mt-1 mb-4">
-                {searchTerm
-                  ? `No hay resultados para "${searchTerm}"`
-                  : `No hay productos ${
-                      activeTab === "all"
-                        ? ""
-                        : activeTab === "active"
-                          ? "activos"
-                          : activeTab === "draft"
-                            ? "en borrador"
-                            : "archivados"
-                    }`}
-              </p>
-              <Button
-                onClick={() => {
-                  setSearchTerm("")
-                  loadProducts()
-                }}
-                variant="outline"
-                className="mr-2"
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Actualizar
-              </Button>
-              <Button asChild className="bg-granito-500 hover:bg-granito-600">
-                <a href="/dashboard/products/new">Crear nuevo producto</a>
-              </Button>
-            </div>
-          ) : (
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+              <div className="p-4">
+                <h3 className="font-medium truncate">{product.title}</h3>
+                <div className="flex justify-between items-center mt-2">
+                  <div>
+                    <span className="font-bold">${Number.parseFloat(product.price || 0).toFixed(2)}</span>
+                    {product.compare_at_price && (
+                      <span className="text-sm text-muted-foreground line-through ml-2">
+                        ${Number.parseFloat(product.compare_at_price || 0).toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-sm text-muted-foreground">Stock: {product.inventory_quantity || 0}</span>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

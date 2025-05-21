@@ -1,0 +1,47 @@
+import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { shopifyCache } from "@/lib/services/cache-service"
+import { fetchShopifyCustomers } from "@/lib/services/shopify-service"
+import { transformShopifyCustomer } from "@/lib/services/data-transformer"
+
+// Marcar la ruta como dinámica para evitar errores de renderizado estático
+export const dynamic = "force-dynamic"
+
+export async function GET(request: Request) {
+  try {
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
+    // Obtener parámetros de la URL
+    const url = new URL(request.url)
+    const forceRefresh = url.searchParams.get("refresh") === "true"
+    const limit = Number.parseInt(url.searchParams.get("limit") || "50")
+    const transform = url.searchParams.get("transform") !== "false" // Por defecto transformar
+
+    // Obtener clientes de Shopify (o de la caché)
+    const customers = await fetchShopifyCustomers(forceRefresh, limit)
+
+    // Transformar clientes si se solicita
+    const transformedCustomers = transform ? customers.map((customer) => transformShopifyCustomer(customer)) : customers
+
+    return NextResponse.json({
+      success: true,
+      count: transformedCustomers.length,
+      fromCache: !forceRefresh && shopifyCache.isCustomerCacheValid(),
+      data: transformedCustomers,
+    })
+  } catch (error: any) {
+    console.error("Error al obtener clientes en caché:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message || "Error desconocido al obtener clientes",
+      },
+      { status: 500 },
+    )
+  }
+}

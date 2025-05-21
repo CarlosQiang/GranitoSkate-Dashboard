@@ -1,4 +1,6 @@
 import { shopifyFetch } from "@/lib/shopify"
+import { fetchShopifyProducts } from "@/lib/services/shopify-service"
+import { transformShopifyProduct } from "@/lib/services/data-transformer"
 
 // Función para obtener productos recientes
 export async function fetchRecentProducts(limit = 5) {
@@ -209,6 +211,8 @@ export async function fetchProductById(id) {
                 title
                 price
                 compareAtPrice
+                sku
+                barcode
                 inventoryQuantity
                 inventoryPolicy
                 inventoryManagement
@@ -648,6 +652,171 @@ export async function deleteProduct(id) {
     return response.data?.productDelete?.deletedProductId
   } catch (error) {
     console.error(`Error al eliminar el producto con ID ${id}:`, error)
+    throw error
+  }
+}
+
+/**
+ * Obtiene productos de Shopify
+ * @param limit Número máximo de productos a obtener
+ * @returns Array de productos
+ */
+export async function getProducts(limit = 100) {
+  try {
+    // Usar el servicio de caché para obtener productos
+    const products = await fetchShopifyProducts(false, limit)
+    return products.map((product) => transformShopifyProduct(product))
+  } catch (error) {
+    console.error("Error al obtener productos:", error)
+    throw error
+  }
+}
+
+/**
+ * Obtiene un producto específico de Shopify por ID
+ * @param id ID del producto
+ * @returns Producto
+ */
+export async function getProductById(id: string) {
+  try {
+    // Consulta GraphQL para obtener un producto específico
+    const query = `
+      query {
+        product(id: "gid://shopify/Product/${id}") {
+          id
+          title
+          description
+          productType
+          vendor
+          status
+          publishedAt
+          handle
+          tags
+          featuredImage {
+            url
+            altText
+          }
+          images(first: 10) {
+            edges {
+              node {
+                id
+                url
+                altText
+              }
+            }
+          }
+          variants(first: 10) {
+            edges {
+              node {
+                id
+                title
+                price
+                compareAtPrice
+                sku
+                barcode
+                inventoryQuantity
+                inventoryPolicy
+                weight
+                weightUnit
+              }
+            }
+          }
+          metafields(first: 10) {
+            edges {
+              node {
+                namespace
+                key
+                value
+              }
+            }
+          }
+        }
+      }
+    `
+
+    // Realizar la consulta a Shopify
+    const response = await shopifyFetch({ query })
+
+    // Verificar si hay errores en la respuesta
+    if (response.errors) {
+      const errorMessage = response.errors.map((e: any) => e.message).join(", ")
+      throw new Error(`Error en la API de Shopify: ${errorMessage}`)
+    }
+
+    if (!response.data || !response.data.product) {
+      throw new Error(`No se pudo encontrar el producto con ID ${id}`)
+    }
+
+    // Transformar el producto
+    return transformShopifyProduct(response.data.product)
+  } catch (error) {
+    console.error(`Error al obtener producto con ID ${id}:`, error)
+    throw error
+  }
+}
+
+/**
+ * Busca productos en Shopify
+ * @param query Término de búsqueda
+ * @param limit Número máximo de productos a obtener
+ * @returns Array de productos que coinciden con la búsqueda
+ */
+export async function searchProducts(query: string, limit = 20) {
+  try {
+    // Consulta GraphQL para buscar productos
+    const graphqlQuery = `
+      query {
+        products(first: ${limit}, query: "${query}") {
+          edges {
+            node {
+              id
+              title
+              description
+              productType
+              vendor
+              status
+              publishedAt
+              handle
+              tags
+              featuredImage {
+                url
+                altText
+              }
+              variants(first: 1) {
+                edges {
+                  node {
+                    id
+                    title
+                    price
+                    compareAtPrice
+                    inventoryQuantity
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+
+    // Realizar la consulta a Shopify
+    const response = await shopifyFetch({ query: graphqlQuery })
+
+    // Verificar si hay errores en la respuesta
+    if (response.errors) {
+      const errorMessage = response.errors.map((e: any) => e.message).join(", ")
+      throw new Error(`Error en la API de Shopify: ${errorMessage}`)
+    }
+
+    if (!response.data || !response.data.products) {
+      throw new Error("No se pudieron obtener resultados de búsqueda")
+    }
+
+    // Transformar los productos
+    const products = response.data.products.edges.map((edge: any) => edge.node)
+    return products.map((product: any) => transformShopifyProduct(product))
+  } catch (error) {
+    console.error(`Error al buscar productos con término "${query}":`, error)
     throw error
   }
 }
