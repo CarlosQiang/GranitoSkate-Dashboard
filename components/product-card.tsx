@@ -6,10 +6,11 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatCurrency } from "@/lib/utils"
 import { useState } from "react"
-import { Package } from "lucide-react"
+import { Package, Tag, Calendar, Eye } from "lucide-react"
 
 export function ProductCard({ product }) {
   const [imageError, setImageError] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
 
   // Asegurarse de que el producto tiene todas las propiedades necesarias
   const {
@@ -22,6 +23,8 @@ export function ProductCard({ product }) {
     currencyCode = "EUR",
     status = "ACTIVE",
     estado = status, // Soporte para ambos nombres de propiedad
+    productType,
+    createdAt,
   } = product || {}
 
   // Intentar obtener la URL de la imagen de diferentes propiedades
@@ -39,35 +42,89 @@ export function ProductCard({ product }) {
   // Determinar si hay un descuento
   const hasDiscount = compareAtPrice && Number(compareAtPrice) > Number(price)
 
+  // Calcular el porcentaje de descuento
+  const discountPercentage = hasDiscount ? Math.round((1 - Number(price) / Number(compareAtPrice)) * 100) : 0
+
+  // Formatear la fecha de creación
+  const formattedDate = createdAt
+    ? new Date(createdAt).toLocaleDateString("es-ES", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : null
+
   return (
-    <Link href={`/dashboard/products/${cleanId(id)}`} className="block">
-      <Card className="overflow-hidden transition-all hover:shadow-md h-full flex flex-col">
-        <div className="aspect-square relative bg-muted">
+    <Link
+      href={`/dashboard/products/${cleanId(id)}`}
+      className="block h-full transition-transform duration-200 hover:-translate-y-1"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <Card className="overflow-hidden h-full flex flex-col border-gray-200 dark:border-gray-800 transition-all duration-200 hover:shadow-md">
+        <div className="aspect-square relative bg-gray-100 dark:bg-gray-800 overflow-hidden">
           {!imageError && imageUrl ? (
             <Image
               src={imageUrl || "/placeholder.svg"}
               alt={titulo || title}
               fill
-              className="object-cover"
+              className="object-cover transition-transform duration-500 ease-in-out"
+              style={{ transform: isHovered ? "scale(1.05)" : "scale(1)" }}
               sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
               onError={() => setImageError(true)}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-100">
-              <Package className="h-12 w-12 text-granito-400" />
+            <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
+              <Package className="h-12 w-12 text-gray-400" />
             </div>
           )}
-          {(estado || status) !== "ACTIVE" && (
-            <div className="absolute top-2 right-2">
-              <Badge variant="secondary" className="bg-gray-200 text-gray-700">
+
+          {/* Etiquetas superpuestas */}
+          <div className="absolute top-2 left-2 flex flex-col gap-1">
+            {(estado || status) !== "ACTIVE" && (
+              <Badge variant="secondary" className="bg-gray-800 text-white dark:bg-gray-700">
                 {(estado || status) === "DRAFT" ? "Borrador" : "Archivado"}
               </Badge>
-            </div>
-          )}
+            )}
+
+            {hasDiscount && <Badge className="bg-red-500 text-white">-{discountPercentage}%</Badge>}
+          </div>
+
+          {/* Overlay con botón de vista rápida al hacer hover */}
+          <div
+            className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity duration-200 ${
+              isHovered ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            <Badge variant="secondary" className="bg-white text-gray-800 flex items-center gap-1 px-3 py-1">
+              <Eye className="h-3.5 w-3.5" />
+              Ver detalles
+            </Badge>
+          </div>
         </div>
+
         <CardContent className="p-4 flex-grow">
-          <h3 className="font-medium line-clamp-1">{titulo || title}</h3>
-          <div className="flex items-center justify-between mt-2">
+          <div className="space-y-2">
+            <h3 className="font-medium line-clamp-2 h-12">{titulo || title}</h3>
+
+            {productType && (
+              <div className="flex items-center text-xs text-muted-foreground">
+                <Tag className="h-3.5 w-3.5 mr-1" />
+                {productType}
+              </div>
+            )}
+
+            {formattedDate && (
+              <div className="flex items-center text-xs text-muted-foreground">
+                <Calendar className="h-3.5 w-3.5 mr-1" />
+                {formattedDate}
+              </div>
+            )}
+          </div>
+        </CardContent>
+
+        <CardFooter className="p-4 pt-0 border-t mt-auto">
+          <div className="w-full flex items-center justify-between">
             <div className="flex flex-col">
               <span className="font-bold text-granito-700">{formatCurrency(precio || price, currencyCode)}</span>
               {hasDiscount && (
@@ -77,14 +134,11 @@ export function ProductCard({ product }) {
               )}
             </div>
             {(estado || status) === "ACTIVE" && (
-              <Badge variant="default" className="bg-granito-500 hover:bg-granito-600">
+              <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
                 Activo
               </Badge>
             )}
           </div>
-        </CardContent>
-        <CardFooter className="p-4 pt-0 text-xs text-muted-foreground mt-auto">
-          <span className="truncate">ID: {cleanId(id)}</span>
         </CardFooter>
       </Card>
     </Link>
