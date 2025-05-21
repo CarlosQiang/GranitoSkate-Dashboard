@@ -1,32 +1,27 @@
 import { NextResponse } from "next/server"
+import { shopifyConfig, isShopifyConfigValid, getShopifyConfigErrors } from "@/lib/config/shopify"
 
 // Marcar la ruta como dinámica para evitar errores de renderizado estático
 export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
   try {
-    // Obtener las credenciales de Shopify
-    const { SHOPIFY_STORE_DOMAIN, SHOPIFY_ACCESS_TOKEN } = process.env
-
-    if (!SHOPIFY_STORE_DOMAIN || !SHOPIFY_ACCESS_TOKEN) {
-      console.error("Faltan credenciales de Shopify:", {
-        hasDomain: !!SHOPIFY_STORE_DOMAIN,
-        hasToken: !!SHOPIFY_ACCESS_TOKEN,
-      })
+    // Verificar si la configuración de Shopify es válida
+    if (!isShopifyConfigValid()) {
+      const errors = getShopifyConfigErrors()
+      console.error("Configuración de Shopify inválida:", errors)
       return NextResponse.json(
         {
+          success: false,
           error: "Faltan credenciales de Shopify en las variables de entorno",
-          details: {
-            hasDomain: !!SHOPIFY_STORE_DOMAIN,
-            hasToken: !!SHOPIFY_ACCESS_TOKEN,
-          },
+          details: errors,
         },
         { status: 500 },
       )
     }
 
     // Construir la URL de la API de Shopify
-    const url = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2023-07/products.json?limit=50`
+    const url = `https://${shopifyConfig.shopDomain}/admin/api/${shopifyConfig.apiVersion}/products.json?limit=50`
 
     console.log("Enviando solicitud a Shopify:", {
       url,
@@ -40,7 +35,7 @@ export async function GET(request: Request) {
     const shopifyResponse = await fetch(url, {
       method: "GET",
       headers: {
-        "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
+        "X-Shopify-Access-Token": shopifyConfig.accessToken,
       },
     })
 
@@ -59,6 +54,7 @@ export async function GET(request: Request) {
 
       return NextResponse.json(
         {
+          success: false,
           error: `Error ${shopifyResponse.status}: ${shopifyResponse.statusText}`,
           details: errorText.substring(0, 1000), // Limitar el tamaño para evitar respuestas muy grandes
         },
@@ -106,6 +102,7 @@ export async function GET(request: Request) {
     console.error("Error al obtener productos de Shopify:", error)
     return NextResponse.json(
       {
+        success: false,
         error: error.message || "Error desconocido al obtener productos de Shopify",
         stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
       },

@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ProductCard } from "@/components/product-card"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2, Search, RefreshCw } from "lucide-react"
+import { Loader2, Search, RefreshCw, AlertTriangle, ExternalLink } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import Link from "next/link"
 
 export default function ProductsList() {
   const [products, setProducts] = useState([])
@@ -16,6 +18,7 @@ export default function ProductsList() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("todos")
   const [error, setError] = useState(null)
+  const [errorDetails, setErrorDetails] = useState(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -31,6 +34,7 @@ export default function ProductsList() {
   const fetchProducts = async () => {
     setIsLoading(true)
     setError(null)
+    setErrorDetails(null)
 
     try {
       // Primero intentamos obtener de la base de datos
@@ -51,13 +55,17 @@ export default function ProductsList() {
 
       if (!shopifyResponse.ok) {
         let errorMessage = `Error ${shopifyResponse.status}: ${shopifyResponse.statusText}`
+        let errorDetailsData = null
+
         try {
           const errorData = await shopifyResponse.json()
           errorMessage = errorData.error || errorMessage
+          errorDetailsData = errorData.details || null
         } catch (e) {
           // Si no podemos parsear el error, usamos el mensaje genérico
         }
-        throw new Error(errorMessage)
+
+        throw new Error(errorMessage, { cause: errorDetailsData })
       }
 
       const shopifyData = await shopifyResponse.json()
@@ -80,6 +88,8 @@ export default function ProductsList() {
     } catch (error) {
       console.error("Error al cargar productos:", error)
       setError(error instanceof Error ? error.message : "Error al cargar productos")
+      setErrorDetails(error instanceof Error ? error.cause : null)
+
       toast({
         title: "Error",
         description: "No se pudieron cargar los productos. Intente nuevamente más tarde.",
@@ -150,6 +160,8 @@ export default function ProductsList() {
     ).length
   }
 
+  const isShopifyCredentialsError = error && error.includes("Faltan credenciales de Shopify")
+
   return (
     <div className="space-y-4">
       <Card>
@@ -187,9 +199,37 @@ export default function ProductsList() {
           <span className="ml-2">Cargando productos...</span>
         </div>
       ) : error ? (
-        <div className="text-center p-8 border rounded-lg bg-background">
-          <p className="text-destructive mb-4">{error}</p>
-          <Button variant="outline" onClick={fetchProducts} className="flex items-center gap-2">
+        <div className="text-center p-8 border rounded-lg bg-background space-y-4">
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Error al cargar productos</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+
+          {isShopifyCredentialsError && (
+            <Alert variant="warning" className="mt-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Configuración de Shopify incompleta</AlertTitle>
+              <AlertDescription className="space-y-2">
+                <p>Faltan variables de entorno necesarias para conectar con Shopify.</p>
+                <Link href="/dashboard/configuracion" className="flex items-center gap-1 text-primary hover:underline">
+                  <span>Ir a la página de configuración</span>
+                  <ExternalLink className="h-3 w-3" />
+                </Link>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {errorDetails && (
+            <div className="mt-4 text-left">
+              <h3 className="text-sm font-medium mb-2">Detalles del error:</h3>
+              <pre className="bg-muted p-3 rounded text-xs overflow-auto max-h-40">
+                {typeof errorDetails === "string" ? errorDetails : JSON.stringify(errorDetails, null, 2)}
+              </pre>
+            </div>
+          )}
+
+          <Button variant="outline" onClick={fetchProducts} className="flex items-center gap-2 mt-4">
             <RefreshCw className="h-4 w-4" />
             Reintentar
           </Button>

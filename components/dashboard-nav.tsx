@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
-import { Menu, X, LogOut, ChevronRight } from "lucide-react"
+import { Menu, X, LogOut, ChevronRight, Settings } from "lucide-react"
 import { signOut } from "next-auth/react"
 import { cn } from "@/lib/utils"
 import { navigationItems } from "@/config/navigation"
@@ -141,24 +141,30 @@ export function DashboardNav() {
             />
           </button>
 
-          {navigationItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-all",
-                  "hover:bg-gray-100 dark:hover:bg-gray-800",
-                  isCollapsed && "md:justify-center md:px-2",
-                )}
-                style={isActive ? activeItemStyle : {}}
-              >
-                <item.icon className={cn("h-5 w-5 flex-shrink-0", isCollapsed && "md:h-6 md:w-6")} />
-                {!isCollapsed && <span className="truncate">{item.name}</span>}
-              </Link>
-            )
-          })}
+          {navigationItems
+            .concat({
+              title: "Configuración",
+              href: "/dashboard/configuracion",
+              icon: Settings,
+            })
+            .map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-all",
+                    "hover:bg-gray-100 dark:hover:bg-gray-800",
+                    isCollapsed && "md:justify-center md:px-2",
+                  )}
+                  style={isActive ? activeItemStyle : {}}
+                >
+                  <item.icon className={cn("h-5 w-5 flex-shrink-0", isCollapsed && "md:h-6 md:w-6")} />
+                  {!isCollapsed && <span className="truncate">{item.title}</span>}
+                </Link>
+              )
+            })}
         </div>
 
         {/* Botón de logout con estilo mejorado */}
