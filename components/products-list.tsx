@@ -46,21 +46,28 @@ export default function ProductsList() {
         }
       }
 
-      // Si no hay datos en la base de datos, obtenemos de la caché
-      const cacheResponse = await fetch("/api/cached/products")
+      // Si no hay datos en la base de datos, obtenemos directamente de Shopify
+      // Usamos la ruta directa en lugar de la caché para evitar problemas de autenticación
+      const shopifyResponse = await fetch("/api/shopify/products")
 
-      if (!cacheResponse.ok) {
-        const errorData = await cacheResponse.json()
-        throw new Error(errorData.error || "Error al cargar productos")
+      if (!shopifyResponse.ok) {
+        let errorMessage = `Error ${shopifyResponse.status}: ${shopifyResponse.statusText}`
+        try {
+          const errorData = await shopifyResponse.json()
+          errorMessage = errorData.error || errorMessage
+        } catch (e) {
+          // Si no podemos parsear el error, usamos el mensaje genérico
+        }
+        throw new Error(errorMessage)
       }
 
-      const cacheData = await cacheResponse.json()
+      const shopifyData = await shopifyResponse.json()
 
-      if (!cacheData.success) {
-        throw new Error(cacheData.error || "Error al cargar productos")
+      if (!shopifyData.success) {
+        throw new Error(shopifyData.error || "Error al cargar productos de Shopify")
       }
 
-      const productsData = cacheData.data || []
+      const productsData = shopifyData.data || []
       setProducts(productsData)
       setFilteredProducts(productsData)
     } catch (error) {
