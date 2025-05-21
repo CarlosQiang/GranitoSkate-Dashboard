@@ -84,13 +84,12 @@ export function FileUpload({
       })
 
       clearInterval(interval)
+      setUploadProgress(100)
 
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "Error al cargar el archivo")
+        const errorData = await response.json().catch(() => ({ error: "Error desconocido" }))
+        throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`)
       }
-
-      setUploadProgress(100)
 
       const data = await response.json()
 
@@ -101,6 +100,7 @@ export function FileUpload({
       // Notificar al componente padre
       onUploadComplete(data.asset.filePath)
     } catch (err: any) {
+      console.error("Error al subir archivo:", err)
       setError(err.message || "Error al cargar el archivo")
       setPreviewUrl(currentUrl) // Restaurar la URL anterior
     } finally {

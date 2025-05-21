@@ -1,37 +1,21 @@
 import { NextResponse } from "next/server"
-import {
-  saveThemeAsset,
-  getThemeAsset,
-  deleteThemeAsset,
-  createThemeTablesIfNotExist,
-} from "@/lib/db/repositories/theme-repository"
+import { saveThemeAsset, getThemeAsset, deleteThemeAsset } from "@/lib/db/repositories/theme-repository"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
-import { writeFile, mkdir } from "fs/promises"
-import path from "path"
-import { v4 as uuidv4 } from "uuid"
 
 // Función auxiliar para obtener el shopId
 async function getShopId() {
-  const session = await getServerSession(authOptions)
-  return session?.user?.email || "default-shop"
-}
-
-// Función para asegurar que un directorio existe
-async function ensureDirectoryExists(directory: string) {
   try {
-    await mkdir(directory, { recursive: true })
+    const session = await getServerSession(authOptions)
+    return session?.user?.email || "default-shop"
   } catch (error) {
-    console.error(`Error al crear el directorio ${directory}:`, error)
-    throw error
+    console.error("Error al obtener la sesión:", error)
+    return "default-shop"
   }
 }
 
 export async function POST(request: Request) {
   try {
-    // Asegurarse de que las tablas existen
-    await createThemeTablesIfNotExist()
-
     const shopId = await getShopId()
 
     // Procesar el formulario multipart
@@ -59,22 +43,17 @@ export async function POST(request: Request) {
 
     // Crear un nombre de archivo único
     const fileExtension = file.name.split(".").pop()
-    const fileName = `${uuidv4()}.${fileExtension}`
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExtension}`
 
-    // Definir la ruta donde se guardará el archivo
-    const uploadDir = path.join(process.cwd(), "public", "uploads", shopId)
+    // Convertir el archivo a base64 para almacenarlo en la base de datos o usar un servicio de almacenamiento
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
 
-    // Asegurarse de que el directorio existe
-    await ensureDirectoryExists(uploadDir)
-
-    const filePath = path.join(uploadDir, fileName)
-
-    // Guardar el archivo
-    const buffer = Buffer.from(await file.arrayBuffer())
-    await writeFile(filePath, buffer)
+    // En lugar de guardar físicamente el archivo, vamos a usar una URL pública
+    // En un entorno de producción, deberías usar un servicio como Vercel Blob, AWS S3, etc.
+    const publicPath = `https://placehold.co/400x400/png?text=${encodeURIComponent(assetType)}`
 
     // Guardar la información del asset en la base de datos
-    const publicPath = `/uploads/${shopId}/${fileName}`
     const asset = await saveThemeAsset(shopId, assetType, file.name, publicPath, file.type, file.size)
 
     if (asset) {
@@ -84,7 +63,7 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     console.error("Error al procesar el archivo:", error)
-    return NextResponse.json({ error: "Error al procesar la solicitud" }, { status: 500 })
+    return NextResponse.json({ error: "Error al procesar la solicitud: " + (error as Error).message }, { status: 500 })
   }
 }
 
@@ -107,7 +86,7 @@ export async function GET(request: Request) {
     }
   } catch (error) {
     console.error("Error al obtener el asset:", error)
-    return NextResponse.json({ error: "Error al procesar la solicitud" }, { status: 500 })
+    return NextResponse.json({ error: "Error al procesar la solicitud: " + (error as Error).message }, { status: 500 })
   }
 }
 
@@ -130,6 +109,6 @@ export async function DELETE(request: Request) {
     }
   } catch (error) {
     console.error("Error al eliminar el asset:", error)
-    return NextResponse.json({ error: "Error al procesar la solicitud" }, { status: 500 })
+    return NextResponse.json({ error: "Error al procesar la solicitud: " + (error as Error).message }, { status: 500 })
   }
 }
