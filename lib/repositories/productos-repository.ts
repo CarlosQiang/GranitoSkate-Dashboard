@@ -1,6 +1,6 @@
 import db from "@/lib/db/vercel-postgres"
 
-export async function obtenerTodosLosProductos() {
+export async function getAllProductos() {
   try {
     return await db.findAll("productos")
   } catch (error) {
@@ -9,7 +9,7 @@ export async function obtenerTodosLosProductos() {
   }
 }
 
-export async function obtenerProductoPorId(id: number) {
+export async function getProductoById(id: number) {
   try {
     return await db.findById("productos", id)
   } catch (error) {
@@ -18,7 +18,7 @@ export async function obtenerProductoPorId(id: number) {
   }
 }
 
-export async function obtenerProductoPorShopifyId(shopifyId: string) {
+export async function getProductoByShopifyId(shopifyId: string) {
   try {
     return await db.findByShopifyId("productos", shopifyId)
   } catch (error) {
@@ -27,7 +27,7 @@ export async function obtenerProductoPorShopifyId(shopifyId: string) {
   }
 }
 
-export async function crearProducto(productoData: any) {
+export async function createProducto(productoData: any) {
   try {
     // Asegurarse de que los campos estén en el formato correcto
     const producto = {
@@ -92,7 +92,7 @@ export async function crearProducto(productoData: any) {
   }
 }
 
-export async function actualizarProducto(id: number, productoData: any) {
+export async function updateProducto(id: number, productoData: any) {
   try {
     // Asegurarse de que los campos estén en el formato correcto
     const producto = {
@@ -161,7 +161,7 @@ export async function actualizarProducto(id: number, productoData: any) {
   }
 }
 
-export async function eliminarProducto(id: number) {
+export async function deleteProducto(id: number) {
   try {
     return await db.remove("productos", id)
   } catch (error) {
@@ -170,15 +170,15 @@ export async function eliminarProducto(id: number) {
   }
 }
 
-export async function sincronizarProducto(productoData: any) {
+export async function saveProductFromShopify(productoData: any) {
   try {
     // Verificar si el producto ya existe
     const shopifyId = productoData.id || productoData.shopify_id
-    const productoExistente = await obtenerProductoPorShopifyId(shopifyId)
+    const productoExistente = await getProductoByShopifyId(shopifyId)
 
     if (productoExistente) {
       // Actualizar producto existente
-      const resultado = await actualizarProducto(productoExistente.id, productoData)
+      const resultado = await updateProducto(productoExistente.id, productoData)
       await db.logSyncEvent(
         "productos",
         shopifyId,
@@ -190,7 +190,7 @@ export async function sincronizarProducto(productoData: any) {
       return { ...resultado, accion: "actualizar" }
     } else {
       // Crear nuevo producto
-      const resultado = await crearProducto({
+      const resultado = await createProducto({
         ...productoData,
         shopify_id: shopifyId,
       })
@@ -218,12 +218,33 @@ export async function sincronizarProducto(productoData: any) {
   }
 }
 
+export async function obtenerTodosLosProductos() {
+  return getAllProductos()
+}
+
+export async function obtenerProductoPorId(id: number) {
+  return getProductoById(id)
+}
+
+export async function obtenerProductoPorShopifyId(shopifyId: string) {
+  return getProductoByShopifyId(shopifyId)
+}
+
+export async function sincronizarProducto(productoData: any) {
+  return saveProductFromShopify(productoData)
+}
+
+// Exportar todas las funciones como un objeto por defecto
 export default {
+  getAllProductos,
+  getProductoById,
+  getProductoByShopifyId,
+  createProducto,
+  updateProducto,
+  deleteProducto,
+  saveProductFromShopify,
   obtenerTodosLosProductos,
   obtenerProductoPorId,
   obtenerProductoPorShopifyId,
-  crearProducto,
-  actualizarProducto,
-  eliminarProducto,
   sincronizarProducto,
 }

@@ -1,55 +1,69 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import * as productosRepository from "@/lib/repositories/productos-repository"
-import { logSyncEvent } from "@/lib/db"
+import productosRepository from "@/lib/repositories/productos-repository"
+import db from "@/lib/db/vercel-postgres"
 
-export const dynamic = "force-dynamic"
-
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
-
     const productos = await productosRepository.getAllProductos()
-    return NextResponse.json(productos)
-  } catch (error: any) {
+    return NextResponse.json({
+      success: true,
+      message: "Productos obtenidos correctamente",
+      data: productos,
+    })
+  } catch (error) {
     console.error("Error al obtener productos:", error)
-    return NextResponse.json({ error: "Error al obtener productos" }, { status: 500 })
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Error al obtener productos",
+        error: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    )
   }
 }
 
 export async function POST(request: Request) {
   try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
-
     const data = await request.json()
 
-    // Validar datos
-    if (!data.titulo) {
-      return NextResponse.json({ error: "El título es obligatorio" }, { status: 400 })
+    // Validar datos mínimos
+    if (!data.shopify_id || !data.titulo) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Datos incompletos. Se requiere shopify_id y titulo",
+        },
+        { status: 400 },
+      )
     }
 
-    // Crear producto
     const producto = await productosRepository.createProducto(data)
 
-    // Registrar evento
-    await logSyncEvent("PRODUCT", producto.id.toString(), "CREATE", "SUCCESS", `Producto creado: ${data.titulo}`)
+    // Registrar evento de creación
+    await db.logSyncEvent(
+      "productos",
+      data.shopify_id,
+      "crear",
+      "exito",
+      `Producto creado manualmente: ${data.titulo}`,
+      { producto },
+    )
 
-    return NextResponse.json(producto, { status: 201 })
-  } catch (error: any) {
+    return NextResponse.json({
+      success: true,
+      message: "Producto creado correctamente",
+      data: producto,
+    })
+  } catch (error) {
     console.error("Error al crear producto:", error)
-
-    // Registrar error
-    await logSyncEvent("PRODUCT", "UNKNOWN", "CREATE", "ERROR", `Error al crear producto: ${error.message}`)
-
-    return NextResponse.json({ error: "Error al crear producto" }, { status: 500 })
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Error al crear producto",
+        error: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    )
   }
 }
