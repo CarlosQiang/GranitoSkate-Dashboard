@@ -1,102 +1,95 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { fetchShopifyProducts } from "@/lib/services/shopify-service"
-import { saveProductFromShopify } from "@/lib/repositories/productos-repository"
+import { obtenerProductosPorShopify } from "@/lib/services/shopify-service"
+import productosRepository from "@/lib/repositories/productos-repository"
+import db from "@/lib/db/vercel-postgres"
 
-// Marcar la ruta como dinámica para evitar errores de renderizado estático
 export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
   try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
+    const { searchParams } = new URL(request.url)
+    const shopifyId = searchParams.get("shopifyId")
 
-    // Obtener el ID del producto de la URL si existe
-    const url = new URL(request.url)
-    const productId = url.searchParams.get("id")
+    // Si se proporciona un ID de Shopify, sincronizar solo ese producto
+    if (shopifyId) {
+      const productos = await obtenerProductosPorShopify()
+      const producto = productos.find((p) => p.id === shopifyId)
 
-    // Si se proporciona un ID, sincronizar solo ese producto
-    if (productId) {
-      // Aquí implementaríamos la lógica para obtener y sincronizar un solo producto
+      if (!producto) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `No se encontró el producto con ID ${shopifyId} en Shopify`,
+          },
+          { status: 404 },
+        )
+      }
+
+      const resultado = await productosRepository.sincronizarProducto(producto)
+
       return NextResponse.json({
         success: true,
-        message: `Sincronización de producto ${productId} no implementada aún`,
+        message: `Producto sincronizado correctamente: ${producto.title}`,
+        data: resultado,
       })
     }
 
-    // Si no hay ID, obtener todos los productos pero no intentar sincronizarlos
-    const products = await fetchShopifyProducts(true, 10) // Limitamos a 10 para pruebas
+    // Si no se proporciona ID, sincronizar todos los productos
+    const productos = await obtenerProductosPorShopify()
+
+    if (!productos || productos.length === 0) {
+      return NextResponse.json({ success: false, message: "No se encontraron productos en Shopify" }, { status: 404 })
+    }
+
+    const resultados = []
+    const errores = []
+
+    // Sincronizar cada producto
+    for (const producto of productos) {
+      try {
+        const resultado = await productosRepository.sincronizarProducto(producto)
+        resultados.push(resultado)
+      } catch (error) {
+        console.error(`Error al sincronizar producto ${producto.id}:`, error)
+        errores.push({
+          id: producto.id,
+          title: producto.title,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+
+    // Registrar el evento de sincronización
+    await db.logSyncEvent(
+      "productos",
+      "BATCH",
+      "sincronizar",
+      errores.length === 0 ? "exito" : "parcial",
+      `Sincronización de productos: ${resultados.length} exitosos, ${errores.length} fallidos`,
+      { resultados, errores },
+    )
 
     return NextResponse.json({
       success: true,
-      message: "Productos obtenidos de Shopify (sin sincronizar con la base de datos)",
-      count: products.length,
-      products: products.map((p) => ({
-        id: p.id,
-        title: p.title,
-        status: p.status,
-      })),
-    })
-  } catch (error: any) {
-    console.error("Error en sincronización de productos:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Error desconocido en sincronización de productos",
+      message: `Sincronización completada: ${resultados.length} productos sincronizados, ${errores.length} errores`,
+      data: {
+        sincronizados: resultados,
+        errores: errores,
       },
-      { status: 500 },
-    )
-  }
-}
+    })
+  } catch (error) {
+    console.error("Error al sincronizar productos:", error)
 
-// Endpoint para sincronizar un solo producto
-export async function POST(request: Request) {
-  try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
+    // Registrar el error
+    await db.logSyncEvent("productos", "BATCH", "sincronizar", "error", "Error general al sincronizar productos", {
+      error: error instanceof Error ? error.message : String(error),
+    })
 
-    // Obtener datos del cuerpo de la solicitud
-    const data = await request.json()
-    const { productData } = data
-
-    if (!productData || !productData.id) {
-      return NextResponse.json(
-        { success: false, error: "Datos de producto no proporcionados o inválidos" },
-        { status: 400 },
-      )
-    }
-
-    // Intentar guardar el producto en la base de datos
-    try {
-      const result = await saveProductFromShopify(productData)
-      return NextResponse.json({
-        success: true,
-        message: `Producto ${productData.title || productData.id} sincronizado correctamente`,
-        product: result,
-      })
-    } catch (dbError: any) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Error al guardar en la base de datos: ${dbError.message}`,
-          productId: productData.id,
-        },
-        { status: 500 },
-      )
-    }
-  } catch (error: any) {
-    console.error("Error en sincronización de producto:", error)
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Error desconocido en sincronización de producto",
+        message: "Error al sincronizar productos",
+        error: error instanceof Error ? error.message : String(error),
       },
       { status: 500 },
     )

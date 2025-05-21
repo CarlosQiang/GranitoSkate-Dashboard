@@ -1,57 +1,106 @@
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { formatCurrency } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Edit, Eye, Tag } from "lucide-react"
+import Image from "next/image"
 import Link from "next/link"
 
-interface ProductCardProps {
+export interface ProductCardProps {
   product: any
 }
 
-// Cambiamos de export default a export nombrado para que coincida con la importación
 export function ProductCard({ product }: ProductCardProps) {
-  // Extraer datos de forma segura
-  const id = product.shopify_id || product.id || "unknown"
-  const title = product.title || "Sin título"
-  const price = product.price || product.variants?.[0]?.price || 0
-  const compareAtPrice = product.compare_at_price || product.variants?.[0]?.compareAtPrice
-  const imageUrl =
-    product.featured_image || product.featuredImage?.url || product.images?.[0]?.url || "/placeholder.svg"
-  const status = product.status || "DRAFT"
-  const productType = product.product_type || product.productType || ""
+  // Extraer datos del producto con manejo de diferentes formatos
+  const id = product.id || product.shopify_id
+  const title = product.titulo || product.title || "Sin título"
+  const status = product.estado || product.status || "draft"
+
+  // Manejar diferentes formatos de imagen
+  let imageUrl = null
+  if (product.imagen_url) {
+    imageUrl = product.imagen_url
+  } else if (product.featuredImage && product.featuredImage.url) {
+    imageUrl = product.featuredImage.url
+  } else if (product.image && product.image.url) {
+    imageUrl = product.image.url
+  }
+
+  // Manejar diferentes formatos de precio
+  let price = null
+  if (product.precio !== undefined) {
+    price = product.precio
+  } else if (product.variants && product.variants.edges && product.variants.edges[0]) {
+    price = product.variants.edges[0].node.price
+  } else if (product.price !== undefined) {
+    price = product.price
+  }
+
+  // Formatear precio
+  const formattedPrice =
+    price !== null
+      ? new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(price)
+      : "Precio no disponible"
+
+  // Determinar color de badge según estado
+  const getBadgeVariant = (status: string) => {
+    const statusLower = status.toLowerCase()
+    if (statusLower === "active") return "success"
+    if (statusLower === "draft") return "secondary"
+    if (statusLower === "archived") return "destructive"
+    return "outline"
+  }
+
+  // Formatear estado para mostrar
+  const getStatusText = (status: string) => {
+    const statusLower = status.toLowerCase()
+    if (statusLower === "active") return "Activo"
+    if (statusLower === "draft") return "Borrador"
+    if (statusLower === "archived") return "Archivado"
+    return status
+  }
 
   return (
-    <Link href={`/dashboard/products/${id}`}>
-      <Card className="overflow-hidden h-full transition-all hover:shadow-md">
-        <CardContent className="p-0">
-          <div className="aspect-square bg-gray-100 relative">
-            {/* Imagen del producto */}
-            <img src={imageUrl || "/placeholder.svg"} alt={title} className="w-full h-full object-cover" />
-
-            {/* Indicador de estado */}
-            {status !== "ACTIVE" && (
-              <div className="absolute top-2 right-2">
-                <Badge variant={status === "DRAFT" ? "outline" : "secondary"}>
-                  {status === "DRAFT" ? "Borrador" : status}
-                </Badge>
-              </div>
-            )}
+    <Card className="overflow-hidden">
+      <div className="relative aspect-square bg-muted">
+        {imageUrl ? (
+          <Image
+            src={imageUrl || "/placeholder.svg"}
+            alt={title}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full bg-muted">
+            <Tag className="h-12 w-12 text-muted-foreground" />
           </div>
-
-          <div className="p-4">
-            <h3 className="font-medium line-clamp-1">{title}</h3>
-
-            {productType && <p className="text-sm text-gray-500 mt-1">{productType}</p>}
-
-            <div className="mt-2 flex items-center gap-2">
-              <span className="font-semibold">{formatCurrency(price)}</span>
-
-              {compareAtPrice && compareAtPrice > price && (
-                <span className="text-sm text-gray-500 line-through">{formatCurrency(compareAtPrice)}</span>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
+        )}
+      </div>
+      <CardContent className="p-4">
+        <div className="flex justify-between items-start mb-2">
+          <h3 className="font-medium truncate flex-1" title={title}>
+            {title}
+          </h3>
+          <Badge variant={getBadgeVariant(status) as any} className="ml-2">
+            {getStatusText(status)}
+          </Badge>
+        </div>
+        <p className="text-lg font-semibold">{formattedPrice}</p>
+      </CardContent>
+      <CardFooter className="p-4 pt-0 flex gap-2">
+        <Button variant="outline" size="sm" className="flex-1" asChild>
+          <Link href={`/dashboard/products/${id}`}>
+            <Eye className="h-4 w-4 mr-1" />
+            Ver
+          </Link>
+        </Button>
+        <Button variant="outline" size="sm" className="flex-1" asChild>
+          <Link href={`/dashboard/products/${id}/edit`}>
+            <Edit className="h-4 w-4 mr-1" />
+            Editar
+          </Link>
+        </Button>
+      </CardFooter>
+    </Card>
   )
 }
