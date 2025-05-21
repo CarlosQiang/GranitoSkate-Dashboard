@@ -1,18 +1,16 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Search, Package, RefreshCw } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import ProductCard from "./product-card"
 
 export default function ProductsList() {
-  const [products, setProducts] = useState<any[]>([])
-  const [filteredProducts, setFilteredProducts] = useState<any[]>([])
+  const [products, setProducts] = useState([])
+  const [filteredProducts, setFilteredProducts] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
 
@@ -44,29 +42,14 @@ export default function ProductsList() {
     setFilteredProducts(filtered)
   }, [products, statusFilter, searchTerm])
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (useCache = true) => {
     setLoading(true)
-    setError(null)
 
     try {
-      // Intentar obtener productos de la caché
-      const response = await fetch("/api/cached/products?transform=true")
-
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`)
-      }
-
+      const response = await fetch(`/api/cached/products?transform=true${!useCache ? "&refresh=true" : ""}`)
       const data = await response.json()
-
-      if (data.success) {
-        setProducts(data.data || [])
-        setFilteredProducts(data.data || [])
-      } else {
-        throw new Error(data.error || "Error desconocido al obtener productos")
-      }
-    } catch (err) {
-      console.error("Error al cargar productos:", err)
-      setError(err instanceof Error ? err.message : "Error desconocido")
+      setProducts(data.data || [])
+      setFilteredProducts(data.data || [])
     } finally {
       setLoading(false)
     }
@@ -80,13 +63,14 @@ export default function ProductsList() {
     )
   }
 
-  if (error) {
+  if (products.length === 0) {
     return (
       <div className="text-center py-10 border rounded-md">
-        <p className="text-destructive mb-4">{error}</p>
-        <Button onClick={fetchProducts}>
+        <Package className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+        <p className="text-muted-foreground mb-4">No hay productos disponibles</p>
+        <Button onClick={() => fetchProducts(false)}>
           <RefreshCw className="mr-2 h-4 w-4" />
-          Reintentar
+          Actualizar
         </Button>
       </div>
     )
@@ -116,6 +100,10 @@ export default function ProductsList() {
             <SelectItem value="ARCHIVED">Archivados</SelectItem>
           </SelectContent>
         </Select>
+        <Button onClick={() => fetchProducts(false)} variant="outline" className="flex items-center gap-2">
+          <RefreshCw className="h-4 w-4" />
+          Actualizar
+        </Button>
       </div>
 
       {filteredProducts.length === 0 ? (
@@ -130,44 +118,8 @@ export default function ProductsList() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredProducts.map((product) => (
-            <Card key={product.shopify_id} className="overflow-hidden hover:shadow-md transition-shadow">
-              <div className="aspect-video bg-slate-100 relative">
-                {product.featured_image ? (
-                  <img
-                    src={product.featured_image || "/placeholder.svg"}
-                    alt={product.title}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <Package className="h-12 w-12 text-slate-300" />
-                  </div>
-                )}
-                <Badge
-                  className="absolute top-2 right-2"
-                  variant={
-                    product.status === "ACTIVE" ? "default" : product.status === "DRAFT" ? "secondary" : "outline"
-                  }
-                >
-                  {product.status === "ACTIVE" ? "Activo" : product.status === "DRAFT" ? "Borrador" : "Archivado"}
-                </Badge>
-              </div>
-              <div className="p-4">
-                <h3 className="font-medium truncate">{product.title}</h3>
-                <div className="flex justify-between items-center mt-2">
-                  <div>
-                    <span className="font-bold">${Number.parseFloat(product.price || 0).toFixed(2)}</span>
-                    {product.compare_at_price && (
-                      <span className="text-sm text-muted-foreground line-through ml-2">
-                        ${Number.parseFloat(product.compare_at_price || 0).toFixed(2)}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-sm text-muted-foreground">Stock: {product.inventory_quantity || 0}</span>
-                </div>
-              </div>
-            </Card>
+          {filteredProducts.map((product: any) => (
+            <ProductCard key={product.shopify_id || product.id} product={product} />
           ))}
         </div>
       )}

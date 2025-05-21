@@ -5,47 +5,82 @@
  */
 export function transformShopifyProduct(shopifyProduct: any): any {
   try {
-    // Extraer el ID numérico
-    const shopifyId = extractShopifyId(shopifyProduct.id)
+    if (!shopifyProduct || typeof shopifyProduct !== "object") {
+      throw new Error("Producto inválido o vacío")
+    }
 
-    // Extraer la primera variante (si existe)
-    const firstVariant = shopifyProduct.variants?.edges?.[0]?.node || {}
+    // Extraer el ID numérico de forma segura
+    const shopifyId = shopifyProduct.id ? extractShopifyId(shopifyProduct.id) : "unknown"
 
-    // Extraer la imagen destacada (si existe)
+    // Extraer la primera variante (si existe) de forma segura
+    const variants = shopifyProduct.variants?.edges || []
+    const firstVariant = variants.length > 0 ? variants[0]?.node || {} : {}
+
+    // Extraer la imagen destacada (si existe) de forma segura
     const featuredImage = shopifyProduct.featuredImage || {}
 
-    // Extraer todas las imágenes
-    const images =
-      shopifyProduct.images?.edges?.map((edge: any) => ({
-        id: extractShopifyId(edge.node.id),
-        url: edge.node.url,
-        alt: edge.node.altText || "",
-      })) || []
+    // Extraer todas las imágenes de forma segura
+    const images = []
+    try {
+      if (shopifyProduct.images?.edges && Array.isArray(shopifyProduct.images.edges)) {
+        shopifyProduct.images.edges.forEach((edge: any) => {
+          if (edge?.node) {
+            images.push({
+              id: extractShopifyId(edge.node.id || ""),
+              url: edge.node.url || "",
+              alt: edge.node.altText || "",
+            })
+          }
+        })
+      }
+    } catch (imageError) {
+      console.error("Error procesando imágenes:", imageError)
+    }
 
-    // Extraer todas las variantes
-    const variants =
-      shopifyProduct.variants?.edges?.map((edge: any) => ({
-        id: extractShopifyId(edge.node.id),
-        title: edge.node.title,
-        price: Number.parseFloat(edge.node.price || "0"),
-        compareAtPrice: edge.node.compareAtPrice ? Number.parseFloat(edge.node.compareAtPrice) : null,
-        sku: edge.node.sku || "",
-        barcode: edge.node.barcode || "",
-        inventoryQuantity: edge.node.inventoryQuantity || 0,
-        inventoryPolicy: edge.node.inventoryPolicy || "DENY",
-        weight: edge.node.weight || 0,
-        weightUnit: edge.node.weightUnit || "KILOGRAMS",
-      })) || []
+    // Extraer todas las variantes de forma segura
+    const variantsArray = []
+    try {
+      if (shopifyProduct.variants?.edges && Array.isArray(shopifyProduct.variants.edges)) {
+        shopifyProduct.variants.edges.forEach((edge: any) => {
+          if (edge?.node) {
+            variantsArray.push({
+              id: extractShopifyId(edge.node.id || ""),
+              title: edge.node.title || "",
+              price: Number.parseFloat(edge.node.price || "0"),
+              compareAtPrice: edge.node.compareAtPrice ? Number.parseFloat(edge.node.compareAtPrice) : null,
+              sku: edge.node.sku || "",
+              barcode: edge.node.barcode || "",
+              inventoryQuantity: edge.node.inventoryQuantity || 0,
+              inventoryPolicy: edge.node.inventoryPolicy || "DENY",
+              weight: edge.node.weight || 0,
+              weightUnit: edge.node.weightUnit || "KILOGRAMS",
+            })
+          }
+        })
+      }
+    } catch (variantError) {
+      console.error("Error procesando variantes:", variantError)
+    }
 
-    // Extraer metafields
-    const metafields =
-      shopifyProduct.metafields?.edges?.map((edge: any) => ({
-        namespace: edge.node.namespace,
-        key: edge.node.key,
-        value: edge.node.value,
-      })) || []
+    // Extraer metafields de forma segura
+    const metafields = []
+    try {
+      if (shopifyProduct.metafields?.edges && Array.isArray(shopifyProduct.metafields.edges)) {
+        shopifyProduct.metafields.edges.forEach((edge: any) => {
+          if (edge?.node) {
+            metafields.push({
+              namespace: edge.node.namespace || "",
+              key: edge.node.key || "",
+              value: edge.node.value || "",
+            })
+          }
+        })
+      }
+    } catch (metafieldError) {
+      console.error("Error procesando metafields:", metafieldError)
+    }
 
-    // Construir el objeto transformado
+    // Construir el objeto transformado con valores por defecto seguros
     return {
       shopify_id: shopifyId,
       title: shopifyProduct.title || "",
@@ -59,7 +94,7 @@ export function transformShopifyProduct(shopifyProduct: any): any {
       featured_image: featuredImage.url || null,
       featured_image_alt: featuredImage.altText || "",
       images: images,
-      variants: variants,
+      variants: variantsArray,
       metafields: metafields,
       price: Number.parseFloat(firstVariant.price || "0"),
       compare_at_price: firstVariant.compareAtPrice ? Number.parseFloat(firstVariant.compareAtPrice) : null,
@@ -71,9 +106,11 @@ export function transformShopifyProduct(shopifyProduct: any): any {
     console.error("Error al transformar producto de Shopify:", error)
     // Devolver un objeto mínimo para evitar errores
     return {
-      shopify_id: extractShopifyId(shopifyProduct.id),
-      title: shopifyProduct.title || "Error en transformación",
+      shopify_id: shopifyProduct?.id ? extractShopifyId(shopifyProduct.id) : "error",
+      title: shopifyProduct?.title || "Error en transformación",
       status: "ERROR",
+      error: true,
+      original: shopifyProduct,
     }
   }
 }
@@ -289,6 +326,11 @@ export function transformShopifyOrder(shopifyOrder: any): any {
  */
 function extractShopifyId(fullId: string): string {
   if (!fullId) return ""
-  const parts = fullId.split("/")
-  return parts[parts.length - 1]
+  try {
+    const parts = fullId.split("/")
+    return parts[parts.length - 1]
+  } catch (error) {
+    console.error("Error extrayendo ID de Shopify:", error)
+    return fullId || ""
+  }
 }
