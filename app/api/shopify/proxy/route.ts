@@ -1,91 +1,47 @@
 import { NextResponse } from "next/server"
-import config from "@/lib/config"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+
+// Marcar la ruta como dinámica para evitar errores de renderizado estático
+export const dynamic = "force-dynamic"
 
 export async function POST(request: Request) {
   try {
-    // Obtener el cuerpo de la solicitud
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
+    // Obtener las credenciales de Shopify
+    const { SHOPIFY_STORE_DOMAIN, SHOPIFY_ADMIN_API_TOKEN } = process.env
+
+    if (!SHOPIFY_STORE_DOMAIN || !SHOPIFY_ADMIN_API_TOKEN) {
+      return NextResponse.json({ error: "Faltan credenciales de Shopify en las variables de entorno" }, { status: 500 })
+    }
+
+    // Obtener el cuerpo de la petición
     const body = await request.json()
 
-    // Verificar que las variables de entorno estén configuradas
-    if (!config.shopify.shopDomain) {
-      console.error("Error: NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está configurado")
-      return NextResponse.json(
-        {
-          errors: [{ message: "NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está configurado" }],
-        },
-        { status: 500 },
-      )
-    }
-
-    if (!config.shopify.accessToken) {
-      console.error("Error: SHOPIFY_ACCESS_TOKEN no está configurado")
-      return NextResponse.json(
-        {
-          errors: [{ message: "SHOPIFY_ACCESS_TOKEN no está configurado" }],
-        },
-        { status: 500 },
-      )
-    }
-
     // Construir la URL de la API de Shopify
-    const shopifyUrl = config.shopify.apiUrl || `https://${config.shopify.shopDomain}/admin/api/2023-07/graphql.json`
+    const url = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2023-07/graphql.json`
 
-    console.log("Enviando solicitud a Shopify:", {
-      url: shopifyUrl,
+    // Realizar la petición a Shopify
+    const shopifyResponse = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Shopify-Access-Token": "***", // No mostrar el token completo por seguridad
-      },
-      body: JSON.stringify(body).substring(0, 100) + "...", // Truncar para el log
-    })
-
-    // Realizar la solicitud a Shopify
-    const shopifyResponse = await fetch(shopifyUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": config.shopify.accessToken,
+        "X-Shopify-Access-Token": SHOPIFY_ADMIN_API_TOKEN,
       },
       body: JSON.stringify(body),
     })
 
-    // Si la respuesta no es exitosa, manejar el error
+    // Verificar si la respuesta es exitosa
     if (!shopifyResponse.ok) {
-      console.error("Error en la respuesta de Shopify:", {
-        status: shopifyResponse.status,
-        statusText: shopifyResponse.statusText,
-      })
-
-      // Intentar obtener más detalles del error
-      let errorDetails = {}
-      try {
-        errorDetails = await shopifyResponse.json()
-      } catch (e) {
-        // Si no se puede analizar la respuesta como JSON, usar el texto
-        try {
-          errorDetails = { text: await shopifyResponse.text() }
-        } catch (textError) {
-          errorDetails = { message: "No se pudo leer la respuesta de error" }
-        }
-      }
-
-      // Devolver una respuesta de error con detalles
+      const errorData = await shopifyResponse.json()
+      console.error("Error en la respuesta de Shopify:", errorData)
       return NextResponse.json(
-        {
-          errors: [
-            {
-              message: `Error en la API de Shopify: ${shopifyResponse.status} ${shopifyResponse.statusText}`,
-              extensions: {
-                response: {
-                  status: shopifyResponse.status,
-                  headers: Object.fromEntries(shopifyResponse.headers.entries()),
-                },
-                details: errorDetails,
-              },
-            },
-          ],
-        },
+        { error: `Error ${shopifyResponse.status}: ${shopifyResponse.statusText}`, details: errorData },
         { status: shopifyResponse.status },
       )
     }
@@ -93,17 +49,8 @@ export async function POST(request: Request) {
     // Devolver la respuesta de Shopify
     const data = await shopifyResponse.json()
     return NextResponse.json(data)
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error en el proxy de Shopify:", error)
-    return NextResponse.json(
-      {
-        errors: [
-          {
-            message: error instanceof Error ? error.message : "Error desconocido en el proxy de Shopify",
-          },
-        ],
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: error.message || "Error desconocido en el proxy de Shopify" }, { status: 500 })
   }
 }

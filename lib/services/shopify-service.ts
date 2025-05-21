@@ -1,4 +1,5 @@
 import { shopifyFetch } from "@/lib/shopify"
+import { shopifyCache } from "@/lib/services/cache-service"
 import { Logger } from "next-axiom"
 
 const logger = new Logger({
@@ -119,6 +120,9 @@ export async function fetchShopifyProducts(forceRefresh = false, limit = 100) {
     productCache = products
     productCacheTimestamp = now
 
+    // También almacenar en el servicio de caché global
+    shopifyCache.cacheProducts(products)
+
     return products
   } catch (error) {
     logger.error("Error al obtener productos de Shopify", {
@@ -129,6 +133,14 @@ export async function fetchShopifyProducts(forceRefresh = false, limit = 100) {
     if (productCache.length > 0) {
       logger.info("Usando productos en caché como fallback después de un error", { count: productCache.length })
       return productCache
+    }
+
+    // Si hay productos en el caché global, usarlos como último recurso
+    if (shopifyCache.getProductCacheSize() > 0) {
+      logger.info("Usando productos del caché global como último recurso", {
+        count: shopifyCache.getProductCacheSize(),
+      })
+      return shopifyCache.getAllProducts()
     }
 
     throw error
@@ -211,6 +223,9 @@ export async function fetchShopifyCollections(forceRefresh = false, limit = 50) 
     collectionCache = collections
     collectionCacheTimestamp = now
 
+    // También almacenar en el servicio de caché global
+    shopifyCache.cacheCollections(collections)
+
     return collections
   } catch (error) {
     logger.error("Error al obtener colecciones de Shopify", {
@@ -221,6 +236,14 @@ export async function fetchShopifyCollections(forceRefresh = false, limit = 50) 
     if (collectionCache.length > 0) {
       logger.info("Usando colecciones en caché como fallback después de un error", { count: collectionCache.length })
       return collectionCache
+    }
+
+    // Si hay colecciones en el caché global, usarlas como último recurso
+    if (shopifyCache.getCollectionCacheSize() > 0) {
+      logger.info("Usando colecciones del caché global como último recurso", {
+        count: shopifyCache.getCollectionCacheSize(),
+      })
+      return shopifyCache.getAllCollections()
     }
 
     throw error
@@ -319,6 +342,9 @@ export async function fetchShopifyCustomers(forceRefresh = false, limit = 50) {
     customerCache = customers
     customerCacheTimestamp = now
 
+    // También almacenar en el servicio de caché global
+    shopifyCache.cacheCustomers(customers)
+
     return customers
   } catch (error) {
     logger.error("Error al obtener clientes de Shopify", {
@@ -329,6 +355,14 @@ export async function fetchShopifyCustomers(forceRefresh = false, limit = 50) {
     if (customerCache.length > 0) {
       logger.info("Usando clientes en caché como fallback después de un error", { count: customerCache.length })
       return customerCache
+    }
+
+    // Si hay clientes en el caché global, usarlos como último recurso
+    if (shopifyCache.getCustomerCacheSize() > 0) {
+      logger.info("Usando clientes del caché global como último recurso", {
+        count: shopifyCache.getCustomerCacheSize(),
+      })
+      return shopifyCache.getAllCustomers()
     }
 
     throw error
@@ -476,6 +510,9 @@ export async function fetchShopifyOrders(forceRefresh = false, limit = 50) {
     orderCache = orders
     orderCacheTimestamp = now
 
+    // También almacenar en el servicio de caché global
+    shopifyCache.cacheOrders(orders)
+
     return orders
   } catch (error) {
     logger.error("Error al obtener pedidos de Shopify", {
@@ -486,6 +523,14 @@ export async function fetchShopifyOrders(forceRefresh = false, limit = 50) {
     if (orderCache.length > 0) {
       logger.info("Usando pedidos en caché como fallback después de un error", { count: orderCache.length })
       return orderCache
+    }
+
+    // Si hay pedidos en el caché global, usarlos como último recurso
+    if (shopifyCache.getOrderCacheSize() > 0) {
+      logger.info("Usando pedidos del caché global como último recurso", {
+        count: shopifyCache.getOrderCacheSize(),
+      })
+      return shopifyCache.getAllOrders()
     }
 
     throw error
@@ -537,6 +582,9 @@ export function clearCache() {
   customerCacheTimestamp = 0
   orderCache = []
   orderCacheTimestamp = 0
+
+  // También limpiar el caché global
+  shopifyCache.clearCache()
 
   logger.info("Caché limpiada correctamente")
 

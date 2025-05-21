@@ -41,20 +41,28 @@ export default function ProductsList() {
         if (dbData.success && dbData.data && dbData.data.length > 0) {
           setProducts(dbData.data)
           setFilteredProducts(dbData.data)
+          setIsLoading(false)
           return
         }
       }
 
       // Si no hay datos en la base de datos, obtenemos de la caché
-      const cacheResponse = await fetch("/api/cached/products?transform=true")
+      const cacheResponse = await fetch("/api/cached/products")
 
       if (!cacheResponse.ok) {
-        throw new Error("Error al cargar productos")
+        const errorData = await cacheResponse.json()
+        throw new Error(errorData.error || "Error al cargar productos")
       }
 
       const cacheData = await cacheResponse.json()
-      setProducts(cacheData.data || [])
-      setFilteredProducts(cacheData.data || [])
+
+      if (!cacheData.success) {
+        throw new Error(cacheData.error || "Error al cargar productos")
+      }
+
+      const productsData = cacheData.data || []
+      setProducts(productsData)
+      setFilteredProducts(productsData)
     } catch (error) {
       console.error("Error al cargar productos:", error)
       setError(error instanceof Error ? error.message : "Error al cargar productos")
@@ -69,6 +77,11 @@ export default function ProductsList() {
   }
 
   const filterProducts = () => {
+    if (!products || products.length === 0) {
+      setFilteredProducts([])
+      return
+    }
+
     let filtered = [...products]
 
     // Filtrar por término de búsqueda
@@ -94,14 +107,6 @@ export default function ProductsList() {
     setFilteredProducts(filtered)
   }
 
-  const handleSyncSuccess = () => {
-    toast({
-      title: "Sincronización completada",
-      description: "Los productos se han sincronizado correctamente",
-    })
-    fetchProducts()
-  }
-
   const handleSearch = (e) => {
     setSearchTerm(e.target.value)
   }
@@ -111,18 +116,21 @@ export default function ProductsList() {
   }
 
   const getActiveCount = () => {
+    if (!products || products.length === 0) return 0
     return products.filter(
       (p) => p.estado === "ACTIVE" || p.estado === "active" || p.status === "ACTIVE" || p.status === "active",
     ).length
   }
 
   const getDraftCount = () => {
+    if (!products || products.length === 0) return 0
     return products.filter(
       (p) => p.estado === "DRAFT" || p.estado === "draft" || p.status === "DRAFT" || p.status === "draft",
     ).length
   }
 
   const getArchivedCount = () => {
+    if (!products || products.length === 0) return 0
     return products.filter(
       (p) => p.estado === "ARCHIVED" || p.estado === "archived" || p.status === "ARCHIVED" || p.status === "archived",
     ).length
@@ -141,7 +149,7 @@ export default function ProductsList() {
               <Tabs defaultValue="todos" value={activeTab} onValueChange={handleTabChange}>
                 <TabsList className="w-full">
                   <TabsTrigger value="todos" className="flex-1">
-                    Todos ({products.length})
+                    Todos ({products?.length || 0})
                   </TabsTrigger>
                   <TabsTrigger value="activos" className="flex-1">
                     Activos ({getActiveCount()})

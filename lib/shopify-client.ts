@@ -1,208 +1,132 @@
-import { GraphQLClient } from "graphql-request"
-import { Logger } from "next-axiom"
+/**
+ * Cliente para realizar peticiones a la API de Shopify
+ */
 
-const logger = new Logger({
-  source: "shopify-client",
-})
-
-// Función para obtener la URL base
-export function getBaseUrl() {
-  if (typeof window !== "undefined") {
-    return window.location.origin
-  }
-  return process.env.NEXT_PUBLIC_VERCEL_URL
-    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-    : process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
-}
-
-// Crear un cliente GraphQL para Shopify
-const shopifyClient = new GraphQLClient(`${getBaseUrl()}/api/shopify`, {
-  headers: {
-    "Content-Type": "application/json",
-  },
-})
-
-// Función para realizar consultas GraphQL a Shopify
+// Función para realizar peticiones a la API GraphQL de Shopify
 export async function shopifyFetch({ query, variables = {} }) {
   try {
-    if (!process.env.SHOPIFY_API_URL || !process.env.SHOPIFY_ACCESS_TOKEN) {
-      throw new Error(
-        "Faltan credenciales de Shopify. Verifica las variables de entorno SHOPIFY_API_URL y SHOPIFY_ACCESS_TOKEN.",
-      )
+    // Verificar si estamos en el servidor
+    if (typeof window !== "undefined") {
+      // Si estamos en el cliente, hacemos la petición a través de nuestra API
+      const response = await fetch("/api/shopify/proxy", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query,
+          variables,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`)
+      }
+
+      return await response.json()
+    } else {
+      // Si estamos en el servidor, necesitamos las credenciales de Shopify
+      const { SHOPIFY_STORE_DOMAIN, SHOPIFY_ADMIN_API_TOKEN } = process.env
+
+      if (!SHOPIFY_STORE_DOMAIN || !SHOPIFY_ADMIN_API_TOKEN) {
+        throw new Error("Faltan credenciales de Shopify en las variables de entorno")
+      }
+
+      // Construir la URL de la API de Shopify
+      const url = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2023-07/graphql.json`
+
+      // Realizar la petición a Shopify
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": SHOPIFY_ADMIN_API_TOKEN,
+        },
+        body: JSON.stringify({
+          query,
+          variables,
+        }),
+      })
+
+      if (!response.ok) {
+        let errorMessage = `Error ${response.status}: ${response.statusText}`
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.errors ? errorData.errors[0].message : errorMessage
+        } catch (e) {
+          // Si no podemos parsear el error, usamos el mensaje genérico
+        }
+        throw new Error(errorMessage)
+      }
+
+      return await response.json()
     }
-
-    const endpoint = process.env.SHOPIFY_API_URL
-    const key = process.env.SHOPIFY_ACCESS_TOKEN
-
-    logger.debug("Enviando consulta GraphQL a Shopify", { query: query.substring(0, 100) + "..." })
-
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": key,
-      },
-      body: JSON.stringify({
-        query,
-        variables,
-      }),
-    })
-
-    if (!response.ok) {
-      const text = await response.text()
-      logger.error(`Error en la solicitud a Shopify (${response.status})`, { text })
-      throw new Error(`Error en la solicitud a Shopify (${response.status}): ${text}`)
-    }
-
-    const json = await response.json()
-
-    if (json.errors) {
-      logger.error("Errores en la respuesta de Shopify", { errors: json.errors })
-      throw new Error(`Errores en la respuesta de Shopify: ${JSON.stringify(json.errors)}`)
-    }
-
-    return json
   } catch (error) {
-    logger.error("Error en shopifyFetch", { error: error instanceof Error ? error.message : "Error desconocido" })
+    console.error("Error en shopifyFetch:", error)
     throw error
   }
 }
 
-// Función para realizar una petición REST a Shopify
+// Función para realizar peticiones a la API REST de Shopify
 export async function shopifyRestFetch(endpoint, method = "GET", data = null) {
   try {
-    const baseUrl = `${getBaseUrl()}/api/shopify/rest`
-    const url = `${baseUrl}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`
+    // Verificar si estamos en el servidor
+    if (typeof window !== "undefined") {
+      // Si estamos en el cliente, hacemos la petición a través de nuestra API
+      const response = await fetch(`/api/shopify/rest?endpoint=${encodeURIComponent(endpoint)}`, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: data ? JSON.stringify(data) : undefined,
+      })
 
-    const options = {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: data ? JSON.stringify(data) : undefined,
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`)
+      }
+
+      return await response.json()
+    } else {
+      // Si estamos en el servidor, necesitamos las credenciales de Shopify
+      const { SHOPIFY_STORE_DOMAIN, SHOPIFY_ADMIN_API_TOKEN } = process.env
+
+      if (!SHOPIFY_STORE_DOMAIN || !SHOPIFY_ADMIN_API_TOKEN) {
+        throw new Error("Faltan credenciales de Shopify en las variables de entorno")
+      }
+
+      // Construir la URL de la API de Shopify
+      const url = `https://${SHOPIFY_STORE_DOMAIN}${endpoint}`
+
+      // Realizar la petición a Shopify
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": SHOPIFY_ADMIN_API_TOKEN,
+        },
+        body: data ? JSON.stringify(data) : undefined,
+      })
+
+      if (!response.ok) {
+        let errorMessage = `Error ${response.status}: ${response.statusText}`
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.errors ? JSON.stringify(errorData.errors) : errorMessage
+        } catch (e) {
+          // Si no podemos parsear el error, usamos el mensaje genérico
+        }
+        throw new Error(errorMessage)
+      }
+
+      return await response.json()
     }
-
-    logger.debug(`Enviando petición REST ${method} a Shopify`, { endpoint })
-
-    const response = await fetch(url, options)
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      logger.error(`Error en la respuesta REST de Shopify (${response.status})`, { errorText })
-      throw new Error(`Error en la respuesta de Shopify: ${response.status} ${response.statusText}`)
-    }
-
-    return await response.json()
   } catch (error) {
-    logger.error("Error en la petición REST a Shopify", {
-      endpoint,
-      method,
-      error: error instanceof Error ? error.message : "Error desconocido",
-    })
+    console.error("Error en shopifyRestFetch:", error)
     throw error
   }
 }
 
-// Mejorar la función formatShopifyId para manejar todos los casos posibles
-export function formatShopifyId(id: string | number | null | undefined, resourceType: string): string {
-  if (!id) {
-    logger.warn(`ID inválido proporcionado para ${resourceType}`, { id })
-    return `gid://shopify/${resourceType}/0` // ID por defecto para evitar errores
-  }
-
-  // Si el ID ya tiene el formato correcto, devolverlo tal cual
-  if (typeof id === "string" && id.startsWith(`gid://shopify/${resourceType}/`)) {
-    return id
-  }
-
-  // Si el ID es un número o una cadena que representa un número
-  const idStr = String(id)
-
-  // Si el ID ya contiene el prefijo gid://shopify/ pero no el tipo de recurso correcto
-  if (idStr.startsWith("gid://shopify/")) {
-    const parts = idStr.split("/")
-    const numericId = parts[parts.length - 1]
-    return `gid://shopify/${resourceType}/${numericId}`
-  }
-
-  // Si el ID es solo el número
-  return `gid://shopify/${resourceType}/${idStr}`
-}
-
-// Extraer el ID numérico de un ID de Shopify
-export function extractIdFromGid(gid: string): string {
-  if (!gid) return ""
-  const parts = gid.split("/")
-  return parts[parts.length - 1]
-}
-
-// Función para realizar una consulta de prueba a Shopify
-export async function testShopifyConnection() {
-  try {
-    // Verificar que las variables de entorno estén configuradas
-    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN) {
-      return {
-        success: false,
-        message: "Error de configuración: NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está definido",
-      }
-    }
-
-    if (!process.env.SHOPIFY_ACCESS_TOKEN) {
-      return {
-        success: false,
-        message: "Error de configuración: SHOPIFY_ACCESS_TOKEN no está definido",
-      }
-    }
-
-    const query = `
-      query {
-        shop {
-          name
-          id
-        }
-      }
-    `
-
-    const response = await shopifyFetch({ query })
-
-    if (response.errors) {
-      // Extraer mensaje de error más específico
-      let errorMessage = "Error desconocido al conectar con Shopify"
-
-      if (response.errors[0]) {
-        if (response.errors[0].message.includes("401")) {
-          errorMessage = "Error de autenticación: Token de acceso inválido o expirado"
-        } else if (response.errors[0].message.includes("404")) {
-          errorMessage = "Error: Tienda no encontrada. Verifique el dominio de la tienda"
-        } else {
-          errorMessage = response.errors[0].message
-        }
-      }
-
-      return {
-        success: false,
-        message: errorMessage,
-      }
-    }
-
-    return {
-      success: true,
-      data: response.data,
-      message: `Conexión exitosa con la tienda ${response.data?.shop?.name || "Shopify"}`,
-    }
-  } catch (error) {
-    logger.error("Error al probar la conexión con Shopify", {
-      error: error instanceof Error ? error.message : "Error desconocido",
-    })
-
-    return {
-      success: false,
-      message:
-        error instanceof Error
-          ? `Error al conectar con Shopify: ${error.message}`
-          : "Error desconocido al conectar con Shopify",
-    }
-  }
-}
-
-export default shopifyClient
+// Exportar las funciones
+export { shopifyFetch as default }

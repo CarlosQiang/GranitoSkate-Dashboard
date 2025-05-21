@@ -31,12 +31,23 @@ export class ShopifyDataCache {
   // ===== PRODUCTOS =====
 
   public cacheProducts(products: any[]): void {
-    products.forEach((product) => {
-      const id = this.extractShopifyId(product.id)
-      this.productCache.set(id, product)
-    })
-    this.lastUpdated.products = Date.now()
-    console.log(`Caché: ${products.length} productos almacenados en caché`)
+    if (!products || !Array.isArray(products)) {
+      console.error("Intento de cachear productos con datos inválidos:", products)
+      return
+    }
+
+    try {
+      products.forEach((product) => {
+        if (product && product.id) {
+          const id = this.extractShopifyId(product.id)
+          this.productCache.set(id, product)
+        }
+      })
+      this.lastUpdated.products = Date.now()
+      console.log(`Caché: ${products.length} productos almacenados en caché`)
+    } catch (error) {
+      console.error("Error al cachear productos:", error)
+    }
   }
 
   public getProduct(id: string): any | undefined {
@@ -58,12 +69,23 @@ export class ShopifyDataCache {
   // ===== COLECCIONES =====
 
   public cacheCollections(collections: any[]): void {
-    collections.forEach((collection) => {
-      const id = this.extractShopifyId(collection.id)
-      this.collectionCache.set(id, collection)
-    })
-    this.lastUpdated.collections = Date.now()
-    console.log(`Caché: ${collections.length} colecciones almacenadas en caché`)
+    if (!collections || !Array.isArray(collections)) {
+      console.error("Intento de cachear colecciones con datos inválidos:", collections)
+      return
+    }
+
+    try {
+      collections.forEach((collection) => {
+        if (collection && collection.id) {
+          const id = this.extractShopifyId(collection.id)
+          this.collectionCache.set(id, collection)
+        }
+      })
+      this.lastUpdated.collections = Date.now()
+      console.log(`Caché: ${collections.length} colecciones almacenadas en caché`)
+    } catch (error) {
+      console.error("Error al cachear colecciones:", error)
+    }
   }
 
   public getCollection(id: string): any | undefined {
@@ -85,12 +107,23 @@ export class ShopifyDataCache {
   // ===== CLIENTES =====
 
   public cacheCustomers(customers: any[]): void {
-    customers.forEach((customer) => {
-      const id = this.extractShopifyId(customer.id)
-      this.customerCache.set(id, customer)
-    })
-    this.lastUpdated.customers = Date.now()
-    console.log(`Caché: ${customers.length} clientes almacenados en caché`)
+    if (!customers || !Array.isArray(customers)) {
+      console.error("Intento de cachear clientes con datos inválidos:", customers)
+      return
+    }
+
+    try {
+      customers.forEach((customer) => {
+        if (customer && customer.id) {
+          const id = this.extractShopifyId(customer.id)
+          this.customerCache.set(id, customer)
+        }
+      })
+      this.lastUpdated.customers = Date.now()
+      console.log(`Caché: ${customers.length} clientes almacenados en caché`)
+    } catch (error) {
+      console.error("Error al cachear clientes:", error)
+    }
   }
 
   public getCustomer(id: string): any | undefined {
@@ -112,12 +145,23 @@ export class ShopifyDataCache {
   // ===== PEDIDOS =====
 
   public cacheOrders(orders: any[]): void {
-    orders.forEach((order) => {
-      const id = this.extractShopifyId(order.id)
-      this.orderCache.set(id, order)
-    })
-    this.lastUpdated.orders = Date.now()
-    console.log(`Caché: ${orders.length} pedidos almacenados en caché`)
+    if (!orders || !Array.isArray(orders)) {
+      console.error("Intento de cachear pedidos con datos inválidos:", orders)
+      return
+    }
+
+    try {
+      orders.forEach((order) => {
+        if (order && order.id) {
+          const id = this.extractShopifyId(order.id)
+          this.orderCache.set(id, order)
+        }
+      })
+      this.lastUpdated.orders = Date.now()
+      console.log(`Caché: ${orders.length} pedidos almacenados en caché`)
+    } catch (error) {
+      console.error("Error al cachear pedidos:", error)
+    }
   }
 
   public getOrder(id: string): any | undefined {
@@ -143,6 +187,14 @@ export class ShopifyDataCache {
     this.collectionCache.clear()
     this.customerCache.clear()
     this.orderCache.clear()
+
+    this.lastUpdated = {
+      products: 0,
+      collections: 0,
+      customers: 0,
+      orders: 0,
+    }
+
     console.log("Caché limpiada completamente")
   }
 
@@ -172,9 +224,15 @@ export class ShopifyDataCache {
   }
 
   private extractShopifyId(fullId: string): string {
-    // Extraer el ID numérico de un ID completo de Shopify (gid://shopify/Product/123456789)
-    const parts = fullId.split("/")
-    return parts[parts.length - 1]
+    try {
+      // Extraer el ID numérico de un ID completo de Shopify (gid://shopify/Product/123456789)
+      if (!fullId) return ""
+      const parts = fullId.split("/")
+      return parts[parts.length - 1]
+    } catch (error) {
+      console.error("Error al extraer ID de Shopify:", error, "ID original:", fullId)
+      return fullId || ""
+    }
   }
 }
 

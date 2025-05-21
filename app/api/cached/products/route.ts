@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { shopifyCache } from "@/lib/services/cache-service"
 import { fetchShopifyProducts } from "@/lib/services/shopify-service"
 
 // Marcar la ruta como dinámica para evitar errores de renderizado estático
@@ -20,14 +21,32 @@ export async function GET(request: Request) {
     const limit = Number.parseInt(url.searchParams.get("limit") || "100")
 
     // Obtener productos de Shopify (o de la caché)
-    const products = await fetchShopifyProducts(forceRefresh, limit)
+    try {
+      const products = await fetchShopifyProducts(forceRefresh, limit)
 
-    return NextResponse.json({
-      success: true,
-      count: products.length,
-      fromCache: !forceRefresh,
-      data: products,
-    })
+      return NextResponse.json({
+        success: true,
+        count: products.length,
+        fromCache: !forceRefresh && shopifyCache.isProductCacheValid(),
+        data: products,
+      })
+    } catch (fetchError) {
+      console.error("Error al obtener productos de Shopify:", fetchError)
+
+      // Intentar obtener productos de la caché como fallback
+      if (shopifyCache.getProductCacheSize() > 0) {
+        const cachedProducts = shopifyCache.getAllProducts()
+        return NextResponse.json({
+          success: true,
+          count: cachedProducts.length,
+          fromCache: true,
+          data: cachedProducts,
+          warning: "Usando datos en caché debido a un error en Shopify",
+        })
+      }
+
+      throw fetchError
+    }
   } catch (error: any) {
     console.error("Error al obtener productos en caché:", error)
     return NextResponse.json(
