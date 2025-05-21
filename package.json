@@ -50,6 +50,7 @@
     "date-fns": "latest",
     "dotenv": "latest",
     "embla-carousel-react": "8.5.1",
+    "fs": "latest",
     "graphql": "latest",
     "graphql-request": "latest",
     "input-otp": "1.4.1",
@@ -59,6 +60,7 @@
     "next-axiom": "latest",
     "next-themes": "latest",
     "nodemailer": "latest",
+    "path": "latest",
     "pg": "latest",
     "pg-native": "latest",
     "prisma": "latest",
@@ -72,6 +74,7 @@
     "sonner": "^1.7.1",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
+    "uuid": "latest",
     "vaul": "^0.9.6",
     "zod": "latest"
   },

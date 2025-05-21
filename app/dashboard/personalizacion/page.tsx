@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useTheme } from "@/contexts/theme-context"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,18 +9,31 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Check, Info, RefreshCw } from "lucide-react"
+import { Info, RefreshCw, Save, Undo2 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { defaultThemeConfig } from "@/types/theme-config"
 import { useToast } from "@/components/ui/use-toast"
+import { FileUpload } from "@/components/file-upload"
+import { Separator } from "@/components/ui/separator"
+import { ColorPicker } from "@/components/color-picker"
 
 export default function PersonalizacionPage() {
   const { theme, updateTheme, resetTheme, isDarkMode, toggleDarkMode, saveTheme, isSaving } = useTheme()
   const [isResetting, setIsResetting] = useState(false)
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile" | "tablet">("desktop")
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const { toast } = useToast()
 
+  // Detectar cambios no guardados
+  useEffect(() => {
+    setHasUnsavedChanges(true)
+  }, [theme])
+
   const handleReset = async () => {
+    if (!confirm("¿Estás seguro de que quieres restablecer todos los cambios? Esta acción no se puede deshacer.")) {
+      return
+    }
+
     setIsResetting(true)
 
     // Simular una operación asíncrona
@@ -28,6 +41,7 @@ export default function PersonalizacionPage() {
 
     resetTheme()
     setIsResetting(false)
+    setHasUnsavedChanges(false)
 
     toast({
       title: "Configuración restablecida",
@@ -37,19 +51,36 @@ export default function PersonalizacionPage() {
 
   const handleSave = async () => {
     const success = await saveTheme()
+    setHasUnsavedChanges(false)
 
     if (success) {
       toast({
         title: "Configuración guardada",
-        description: "Los cambios se han guardado correctamente.",
+        description: "Los cambios se han guardado correctamente en la base de datos.",
       })
     } else {
       toast({
         title: "Error al guardar",
-        description: "No se pudo guardar la configuración.",
+        description: "No se pudo guardar la configuración en la base de datos.",
         variant: "destructive",
       })
     }
+  }
+
+  const handleLogoUpload = (url: string) => {
+    updateTheme({ logoUrl: url })
+  }
+
+  const handleLogoDelete = () => {
+    updateTheme({ logoUrl: null })
+  }
+
+  const handleFaviconUpload = (url: string) => {
+    updateTheme({ favicon: url })
+  }
+
+  const handleFaviconDelete = () => {
+    updateTheme({ favicon: null })
   }
 
   return (
@@ -61,17 +92,32 @@ export default function PersonalizacionPage() {
         </div>
 
         <div className="flex items-center gap-2 mt-4 md:mt-0">
-          <Button variant="outline" onClick={handleReset} disabled={isResetting} className="flex items-center gap-2">
-            {isResetting ? <RefreshCw className="h-4 w-4 animate-spin" /> : null}
+          <Button
+            variant="outline"
+            onClick={handleReset}
+            disabled={isResetting || isSaving}
+            className="flex items-center gap-2"
+          >
+            {isResetting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Undo2 className="h-4 w-4" />}
             Restablecer
           </Button>
 
-          <Button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2">
-            {isSaving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-            Guardar cambios
+          <Button onClick={handleSave} disabled={isSaving || !hasUnsavedChanges} className="flex items-center gap-2">
+            {isSaving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {isSaving ? "Guardando..." : "Guardar cambios"}
           </Button>
         </div>
       </div>
+
+      {hasUnsavedChanges && (
+        <Alert className="mb-6">
+          <Info className="h-4 w-4" />
+          <AlertTitle>Cambios sin guardar</AlertTitle>
+          <AlertDescription>
+            Has realizado cambios en la configuración. No olvides guardarlos para que se apliquen permanentemente.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
@@ -94,22 +140,10 @@ export default function PersonalizacionPage() {
                     <div className="space-y-2">
                       <Label htmlFor="primaryColor">Color principal</Label>
                       <div className="flex items-center gap-2">
-                        <div
-                          className="w-10 h-10 rounded-md border cursor-pointer"
-                          style={{ backgroundColor: theme.primaryColor }}
-                          onClick={() => {
-                            // Aquí iría un selector de color
-                            // Por simplicidad, solo cambiamos entre algunos colores predefinidos
-                            const colors = ["#c7a04a", "#3182ce", "#38a169", "#e53e3e", "#805ad5"]
-                            const currentIndex = colors.indexOf(theme.primaryColor)
-                            const nextIndex = (currentIndex + 1) % colors.length
-                            updateTheme({ primaryColor: colors[nextIndex] })
-                          }}
-                        />
-                        <Input
-                          value={theme.primaryColor}
-                          onChange={(e) => updateTheme({ primaryColor: e.target.value })}
-                          className="font-mono"
+                        <ColorPicker
+                          color={theme.primaryColor}
+                          onChange={(color) => updateTheme({ primaryColor: color })}
+                          presets={["#c7a04a", "#3182ce", "#38a169", "#e53e3e", "#805ad5"]}
                         />
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -120,20 +154,10 @@ export default function PersonalizacionPage() {
                     <div className="space-y-2">
                       <Label htmlFor="secondaryColor">Color secundario</Label>
                       <div className="flex items-center gap-2">
-                        <div
-                          className="w-10 h-10 rounded-md border cursor-pointer"
-                          style={{ backgroundColor: theme.secondaryColor }}
-                          onClick={() => {
-                            const colors = ["#4a5568", "#2c5282", "#276749", "#9b2c2c", "#553c9a"]
-                            const currentIndex = colors.indexOf(theme.secondaryColor)
-                            const nextIndex = (currentIndex + 1) % colors.length
-                            updateTheme({ secondaryColor: colors[nextIndex] })
-                          }}
-                        />
-                        <Input
-                          value={theme.secondaryColor}
-                          onChange={(e) => updateTheme({ secondaryColor: e.target.value })}
-                          className="font-mono"
+                        <ColorPicker
+                          color={theme.secondaryColor}
+                          onChange={(color) => updateTheme({ secondaryColor: color })}
+                          presets={["#4a5568", "#2c5282", "#276749", "#9b2c2c", "#553c9a"]}
                         />
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -146,20 +170,10 @@ export default function PersonalizacionPage() {
                     <div className="space-y-2">
                       <Label htmlFor="accentColor">Color de acento</Label>
                       <div className="flex items-center gap-2">
-                        <div
-                          className="w-10 h-10 rounded-md border cursor-pointer"
-                          style={{ backgroundColor: theme.accentColor }}
-                          onClick={() => {
-                            const colors = ["#3182ce", "#c7a04a", "#38a169", "#e53e3e", "#805ad5"]
-                            const currentIndex = colors.indexOf(theme.accentColor)
-                            const nextIndex = (currentIndex + 1) % colors.length
-                            updateTheme({ accentColor: colors[nextIndex] })
-                          }}
-                        />
-                        <Input
-                          value={theme.accentColor}
-                          onChange={(e) => updateTheme({ accentColor: e.target.value })}
-                          className="font-mono"
+                        <ColorPicker
+                          color={theme.accentColor}
+                          onChange={(color) => updateTheme({ accentColor: color })}
+                          presets={["#3182ce", "#c7a04a", "#38a169", "#e53e3e", "#805ad5"]}
                         />
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -270,6 +284,24 @@ export default function PersonalizacionPage() {
                         </SelectContent>
                       </Select>
                       <p className="text-xs text-muted-foreground">Esta fuente se usa para títulos y encabezados</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="p-4 border rounded-md">
+                      <h3 className="text-lg font-semibold mb-2" style={{ fontFamily: theme.headingFontFamily }}>
+                        Vista previa de títulos
+                      </h3>
+                      <p className="mb-2" style={{ fontFamily: theme.fontFamily }}>
+                        Este es un ejemplo de texto con la fuente principal seleccionada. Puedes ver cómo se ve el texto
+                        normal en tu aplicación.
+                      </p>
+                      <h4 className="text-md font-medium mb-1" style={{ fontFamily: theme.headingFontFamily }}>
+                        Subtítulo de ejemplo
+                      </h4>
+                      <p className="text-sm" style={{ fontFamily: theme.fontFamily }}>
+                        Texto más pequeño para ver cómo se comporta la fuente en diferentes tamaños.
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -408,6 +440,31 @@ export default function PersonalizacionPage() {
                       </div>
                     )}
                   </div>
+
+                  <div className="mt-4">
+                    <div className="p-4 border rounded-md">
+                      <h3 className="text-lg font-semibold mb-2">Vista previa de elementos</h3>
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        <Button>Botón primario</Button>
+                        <Button variant="secondary">Botón secundario</Button>
+                        <Button variant="outline">Botón outline</Button>
+                        <Button variant="ghost">Botón ghost</Button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Tarjeta de ejemplo</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <p>Contenido de la tarjeta</p>
+                          </CardContent>
+                        </Card>
+                        <div className="border p-4 rounded-md">
+                          <p>Contenedor con borde</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -432,60 +489,51 @@ export default function PersonalizacionPage() {
                     </p>
                   </div>
 
+                  <Separator className="my-4" />
+
                   <div className="space-y-2">
                     <Label htmlFor="logoUpload">Logo</Label>
-                    <div className="flex items-center gap-4">
-                      <div className="h-16 w-16 border rounded flex items-center justify-center bg-muted">
-                        {theme.logoUrl ? (
-                          <img
-                            src={theme.logoUrl || "/placeholder.svg"}
-                            alt="Logo"
-                            className="max-h-14 max-w-14 object-contain"
-                          />
-                        ) : (
-                          <div className="text-2xl font-bold text-muted-foreground">{theme.shopName.charAt(0)}</div>
-                        )}
-                      </div>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Sube el logo de tu marca. Recomendado: imagen cuadrada de al menos 256x256px
+                    </p>
 
-                      <Button variant="outline" className="flex items-center gap-2">
-                        Subir logo
-                      </Button>
-
-                      {theme.logoUrl && (
-                        <Button variant="ghost" size="sm" onClick={() => updateTheme({ logoUrl: null })}>
-                          Eliminar
-                        </Button>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground">Recomendado: imagen cuadrada de al menos 256x256px</p>
+                    <FileUpload
+                      assetType="logo"
+                      currentUrl={theme.logoUrl}
+                      onUploadComplete={handleLogoUpload}
+                      onDelete={handleLogoDelete}
+                      accept="image/*"
+                      maxSize={2 * 1024 * 1024} // 2MB
+                      aspectRatio="square"
+                      width={200}
+                      height={200}
+                    />
                   </div>
+
+                  <Separator className="my-4" />
 
                   <div className="space-y-2">
                     <Label htmlFor="faviconUpload">Favicon</Label>
-                    <div className="flex items-center gap-4">
-                      <div className="h-8 w-8 border rounded flex items-center justify-center bg-muted">
-                        {theme.favicon ? (
-                          <img
-                            src={theme.favicon || "/placeholder.svg"}
-                            alt="Favicon"
-                            className="max-h-6 max-w-6 object-contain"
-                          />
-                        ) : (
-                          <div className="text-xs font-bold text-muted-foreground">{theme.shopName.charAt(0)}</div>
-                        )}
-                      </div>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Sube el favicon para tu sitio. Recomendado: imagen cuadrada de 32x32px o 64x64px
+                    </p>
 
-                      <Button variant="outline" size="sm" className="flex items-center gap-2">
-                        Subir favicon
-                      </Button>
+                    <FileUpload
+                      assetType="favicon"
+                      currentUrl={theme.favicon}
+                      onUploadComplete={handleFaviconUpload}
+                      onDelete={handleFaviconDelete}
+                      accept="image/png,image/x-icon,image/svg+xml"
+                      maxSize={500 * 1024} // 500KB
+                      aspectRatio="square"
+                      width={64}
+                      height={64}
+                    />
 
-                      {theme.favicon && (
-                        <Button variant="ghost" size="sm" onClick={() => updateTheme({ favicon: null })}>
-                          Eliminar
-                        </Button>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground">Recomendado: imagen cuadrada de 32x32px o 64x64px</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      El favicon se mostrará en la pestaña del navegador y cuando los usuarios guarden tu sitio en
+                      favoritos
+                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -538,12 +586,20 @@ export default function PersonalizacionPage() {
                 >
                   <div className="border-b bg-background flex items-center justify-between p-2">
                     <div className="flex items-center gap-2">
-                      <div
-                        className="h-6 w-6 rounded-md flex items-center justify-center"
-                        style={{ backgroundColor: theme.primaryColor }}
-                      >
-                        <span className="text-white text-xs font-bold">{theme.shopName.charAt(0)}</span>
-                      </div>
+                      {theme.logoUrl ? (
+                        <img
+                          src={theme.logoUrl || "/placeholder.svg"}
+                          alt={theme.shopName}
+                          className="h-6 w-6 rounded-md object-contain"
+                        />
+                      ) : (
+                        <div
+                          className="h-6 w-6 rounded-md flex items-center justify-center"
+                          style={{ backgroundColor: theme.primaryColor }}
+                        >
+                          <span className="text-white text-xs font-bold">{theme.shopName.charAt(0)}</span>
+                        </div>
+                      )}
                       <span className="text-sm font-medium">{theme.shopName}</span>
                     </div>
                     <Button size="sm" variant="ghost" onClick={toggleDarkMode}>

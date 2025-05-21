@@ -92,11 +92,19 @@ export async function fetchLowStockProducts(threshold = 10) {
 }
 
 // Mejorar la función fetchProducts para obtener datos reales de Shopify
-export async function fetchProducts(limit = 20) {
+export async function fetchProducts(limit = 20, status = null) {
   try {
+    // Construir la consulta GraphQL
+    let queryParams = `first: ${limit}, sortKey: UPDATED_AT, reverse: true`
+
+    // Si se especifica un estado, añadirlo a la consulta
+    if (status) {
+      queryParams += `, query: "status:${status}"`
+    }
+
     const query = `
       query {
-        products(first: ${limit}, sortKey: UPDATED_AT, reverse: true) {
+        products(${queryParams}) {
           edges {
             node {
               id
@@ -124,6 +132,8 @@ export async function fetchProducts(limit = 20) {
       }
     `
 
+    console.log("Consulta GraphQL:", query)
+
     const response = await shopifyFetch({ query })
 
     if (!response.data) {
@@ -131,7 +141,7 @@ export async function fetchProducts(limit = 20) {
       throw new Error("No se pudieron obtener los productos")
     }
 
-    return response.data.products.edges.map(({ node }) => {
+    const products = response.data.products.edges.map(({ node }) => {
       const variant = node.variants.edges[0]?.node
       return {
         id: node.id.split("/").pop(),
@@ -147,8 +157,21 @@ export async function fetchProducts(limit = 20) {
         updatedAt: node.updatedAt,
       }
     })
+
+    console.log(`Productos obtenidos (${status || "todos"}):`, products.length)
+    return products
   } catch (error) {
     console.error("Error al obtener todos los productos:", error)
+    throw error
+  }
+}
+
+// Función para obtener productos filtrados por estado
+export async function fetchProductsByStatus(status, limit = 100) {
+  try {
+    return await fetchProducts(limit, status)
+  } catch (error) {
+    console.error(`Error al obtener productos con estado ${status}:`, error)
     throw error
   }
 }

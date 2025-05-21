@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { testShopifyConnection } from "@/lib/shopify"
+import { initializeDatabase } from "@/lib/db/init-db"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -73,22 +74,48 @@ export async function GET() {
       )
     }
 
-    return NextResponse.json({
-      success: true,
-      message: "Sistema inicializado correctamente",
-      details: {
-        shopify: {
-          connected: true,
-          shopName: shopifyStatus.data?.shop?.name || "Tienda Shopify",
+    // Modificar el endpoint de inicialización para incluir la inicialización de las tablas de tema
+    const dbSuccess = await initializeDatabase()
+
+    if (dbSuccess) {
+      return NextResponse.json({
+        success: true,
+        message: "Sistema inicializado correctamente",
+        details: {
+          shopify: {
+            connected: true,
+            shopName: shopifyStatus.data?.shop?.name || "Tienda Shopify",
+          },
+          database: {
+            initialized: true,
+          },
         },
-      },
-    })
+      })
+    } else {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Error al inicializar el sistema",
+          details: {
+            shopify: {
+              connected: true,
+              shopName: shopifyStatus.data?.shop?.name || "Tienda Shopify",
+            },
+            database: {
+              initialized: false,
+            },
+          },
+        },
+        { status: 500 },
+      )
+    }
   } catch (error) {
     console.error("Error en la inicialización:", error)
     return NextResponse.json(
       {
         success: false,
         message: error instanceof Error ? error.message : "Error desconocido durante la inicialización",
+        error: error instanceof Error ? error.message : "Error desconocido durante la inicialización",
       },
       { status: 500 },
     )

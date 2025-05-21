@@ -2,46 +2,7 @@
 
 import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
-
-// Definición de la configuración del tema
-export interface ThemeConfig {
-  primaryColor: string
-  secondaryColor: string
-  accentColor: string
-  enableDarkMode: boolean
-  preferDarkMode: boolean
-  fontFamily: string
-  headingFontFamily: string
-  borderRadius: "none" | "small" | "medium" | "large" | "full"
-  buttonStyle: "solid" | "outline" | "soft" | "ghost"
-  cardStyle: "flat" | "raised" | "bordered"
-  sidebarStyle: "default" | "compact" | "expanded"
-  enableAnimations: boolean
-  animationSpeed: "slow" | "normal" | "fast"
-  shopName: string
-  logoUrl: string | null
-  favicon: string | null
-}
-
-// Valores predeterminados del tema
-export const defaultThemeConfig: ThemeConfig = {
-  primaryColor: "#c7a04a", // Color Granito dorado
-  secondaryColor: "#4a5568",
-  accentColor: "#3182ce",
-  enableDarkMode: true,
-  preferDarkMode: false,
-  fontFamily: "Inter, sans-serif",
-  headingFontFamily: "Inter, sans-serif",
-  borderRadius: "medium",
-  buttonStyle: "solid",
-  cardStyle: "raised",
-  sidebarStyle: "default",
-  enableAnimations: true,
-  animationSpeed: "normal",
-  shopName: "GranitoSkate",
-  logoUrl: null,
-  favicon: null,
-}
+import { type ThemeConfig, defaultThemeConfig } from "@/types/theme-config"
 
 interface ThemeContextType {
   theme: ThemeConfig
@@ -61,7 +22,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Cargar tema desde localStorage al iniciar
+  // Cargar tema desde la API al iniciar
   useEffect(() => {
     const loadTheme = async () => {
       try {
@@ -78,7 +39,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        // Luego intentamos cargar desde la API si está disponible
+        // Luego intentamos cargar desde la API
         try {
           const response = await fetch("/api/theme")
           if (response.ok) {
@@ -289,7 +250,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsSaving(true)
 
-      // Intentar guardar en la API si está disponible
+      // Intentar guardar en la API
       try {
         const response = await fetch("/api/theme", {
           method: "POST",
@@ -301,10 +262,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
         if (!response.ok) {
           console.error("Error al guardar el tema en la API:", await response.text())
+          return false
         }
       } catch (error) {
         console.error("Error al guardar el tema en la API:", error)
-        // No bloqueamos el guardado si la API falla
+        return false
       }
 
       // Siempre guardamos en localStorage
