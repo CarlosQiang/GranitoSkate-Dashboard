@@ -1,52 +1,53 @@
 import { NextResponse } from "next/server"
-import config from "@/lib/config"
-import { testShopifyConnection } from "@/lib/shopify"
+import { testShopifyConnection } from "@/lib/shopify-client"
+import { checkConnection } from "@/lib/db"
 import { checkDatabaseConnection } from "@/lib/prisma"
+
+export const dynamic = "force-dynamic"
 
 export async function GET() {
   try {
-    // Verificar configuración
-    const configCheck = {
-      shopify: {
-        apiUrl: config.shopify.apiUrl ? "Configurado" : "No configurado",
-        accessToken: config.shopify.accessToken ? "Configurado" : "No configurado",
-        shopDomain: config.shopify.shopDomain ? "Configurado" : "No configurado",
-      },
-      database: {
-        url: config.database.url ? "Configurado" : "No configurado",
-      },
-      auth: {
-        secret: config.auth.secret ? "Configurado" : "No configurado",
-        url: config.auth.url ? "Configurado" : "No configurado",
-      },
-      app: {
-        url: config.app.url,
-        isDevelopment: config.app.isDevelopment,
-      },
+    // Verificar conexión a la base de datos
+    const dbStatus = await checkConnection()
+    const prismaStatus = await checkDatabaseConnection()
+
+    // Verificar conexión a Shopify
+    const shopifyStatus = await testShopifyConnection()
+
+    // Verificar variables de entorno críticas
+    const envStatus = {
+      NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: !!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN,
+      SHOPIFY_STORE_DOMAIN: !!process.env.SHOPIFY_STORE_DOMAIN,
+      SHOPIFY_ACCESS_TOKEN: !!process.env.SHOPIFY_ACCESS_TOKEN,
+      POSTGRES_URL: !!process.env.POSTGRES_URL,
+      NEXTAUTH_SECRET: !!process.env.NEXTAUTH_SECRET,
+      NEXTAUTH_URL: !!process.env.NEXTAUTH_URL,
     }
 
-    // Verificar conexión con Shopify
-    const shopifyConnection = await testShopifyConnection(true).catch((err) => ({
-      success: false,
-      message: `Error al conectar con Shopify: ${err.message}`,
-    }))
-
-    // Verificar conexión con la base de datos
-    const dbConnection = await checkDatabaseConnection()
+    // Determinar el estado general del sistema
+    const allEnvVarsPresent = Object.values(envStatus).every(Boolean)
+    const systemOk = (dbStatus.connected || prismaStatus.connected) && shopifyStatus.success && allEnvVarsPresent
 
     return NextResponse.json({
-      success: shopifyConnection.success && dbConnection.connected,
-      config: configCheck,
-      shopifyConnection,
-      dbConnection,
+      success: systemOk,
+      status: {
+        database: {
+          pg: dbStatus,
+          prisma: prismaStatus,
+        },
+        shopify: shopifyStatus,
+        environment: envStatus,
+      },
+      message: systemOk
+        ? "Todos los sistemas funcionando correctamente"
+        : "Hay problemas con algunos componentes del sistema",
     })
   } catch (error) {
-    console.error("Error al verificar la configuración del sistema:", error)
+    console.error("Error al verificar el estado del sistema:", error)
     return NextResponse.json(
       {
         success: false,
-        message: "Error al verificar la configuración del sistema",
-        error: error instanceof Error ? error.message : "Error desconocido",
+        error: error.message || "Error desconocido al verificar el estado del sistema",
       },
       { status: 500 },
     )

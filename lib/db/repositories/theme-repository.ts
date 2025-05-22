@@ -1,5 +1,10 @@
-import { sql } from "@vercel/postgres"
+import { sql, query } from "@vercel/postgres"
 import { type ThemeConfig, defaultThemeConfig } from "@/types/theme-config"
+import { Logger } from "next-axiom"
+
+const logger = new Logger({
+  source: "theme-repository",
+})
 
 export interface ThemeAsset {
   id: number
@@ -15,191 +20,77 @@ export interface ThemeAsset {
   updatedAt: Date
 }
 
-export async function createThemeTablesIfNotExist() {
+// Función para crear las tablas de tema si no existen
+export async function createThemeTablesIfNotExist(): Promise<boolean> {
   try {
-    // Crear tabla theme_configs
-    await sql`
-      CREATE TABLE IF NOT EXISTS theme_configs (
-        id SERIAL PRIMARY KEY,
-        shop_id VARCHAR(255) NOT NULL,
-        config_name VARCHAR(255) NOT NULL DEFAULT 'default',
-        is_active BOOLEAN NOT NULL DEFAULT true,
-        primary_color VARCHAR(20) NOT NULL,
-        secondary_color VARCHAR(20) NOT NULL,
-        accent_color VARCHAR(20) NOT NULL,
-        font_family VARCHAR(255),
-        heading_font_family VARCHAR(255),
-        border_radius VARCHAR(20),
-        button_style VARCHAR(20),
-        card_style VARCHAR(20),
-        sidebar_style VARCHAR(20),
-        enable_animations BOOLEAN DEFAULT true,
-        animation_speed VARCHAR(20) DEFAULT 'normal',
-        enable_dark_mode BOOLEAN DEFAULT true,
-        prefer_dark_mode BOOLEAN DEFAULT false,
-        shop_name VARCHAR(255),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(shop_id, config_name)
-      );
-    `
+    // Verificar si la tabla ya existe
+    const tableExists = await query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'configuracion_tema'
+      )
+    `)
 
-    // Crear tabla theme_assets
-    await sql`
-      CREATE TABLE IF NOT EXISTS theme_assets (
-        id SERIAL PRIMARY KEY,
-        shop_id VARCHAR(255) NOT NULL,
-        asset_type VARCHAR(50) NOT NULL,
-        file_name VARCHAR(255) NOT NULL,
-        file_path VARCHAR(1000) NOT NULL,
-        mime_type VARCHAR(100) NOT NULL,
-        file_size INTEGER NOT NULL,
-        width INTEGER,
-        height INTEGER,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(shop_id, asset_type)
-      );
-    `
+    if (!tableExists.rows[0].exists) {
+      // Crear la tabla si no existe
+      await query(`
+        CREATE TABLE configuracion_tema (
+          id SERIAL PRIMARY KEY,
+          tienda_id VARCHAR(255) UNIQUE NOT NULL,
+          configuracion JSONB NOT NULL,
+          fecha_creacion TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          fecha_actualizacion TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
 
-    // Crear tabla theme_settings
-    await sql`
-      CREATE TABLE IF NOT EXISTS theme_settings (
-        id SERIAL PRIMARY KEY,
-        shop_id VARCHAR(255) NOT NULL,
-        setting_key VARCHAR(255) NOT NULL,
-        setting_value TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(shop_id, setting_key)
-      );
-    `
+      logger.info("Tabla de configuración de tema creada correctamente")
+    }
 
-    // Crear índices
-    await sql`CREATE INDEX IF NOT EXISTS idx_theme_configs_shop_id ON theme_configs(shop_id);`
-    await sql`CREATE INDEX IF NOT EXISTS idx_theme_assets_shop_id ON theme_assets(shop_id);`
-    await sql`CREATE INDEX IF NOT EXISTS idx_theme_settings_shop_id ON theme_settings(shop_id);`
-
-    console.log("Tablas de tema creadas o ya existentes")
     return true
   } catch (error) {
-    console.error("Error al crear las tablas de tema:", error)
+    logger.error("Error al crear la tabla de configuración de tema:", error)
     return false
   }
 }
 
-export async function getThemeConfig(shopId: string, configName = "default"): Promise<ThemeConfig> {
+export async function getThemeConfig(shopId: string): Promise<ThemeConfig> {
   try {
-    const result = await sql`
-      SELECT 
-        primary_color, secondary_color, accent_color, 
-        font_family, heading_font_family, border_radius,
-        button_style, card_style, sidebar_style,
-        enable_animations, animation_speed,
-        enable_dark_mode, prefer_dark_mode,
-        shop_name
-      FROM theme_configs 
-      WHERE shop_id = ${shopId} 
-        AND config_name = ${configName}
-        AND is_active = true
-      ORDER BY updated_at DESC 
-      LIMIT 1
-    `
+    // Buscar la configuración en la base de datos
+    const result = await query("SELECT configuracion FROM configuracion_tema WHERE tienda_id = $1", [shopId])
 
-    if (result.rows.length > 0) {
-      // Convertir de snake_case a camelCase
-      const dbConfig = result.rows[0]
-
-      // Obtener los assets (logo, favicon)
-      const logoAsset = await getThemeAsset(shopId, "logo")
-      const faviconAsset = await getThemeAsset(shopId, "favicon")
-
-      return {
-        primaryColor: dbConfig.primary_color,
-        secondaryColor: dbConfig.secondary_color,
-        accentColor: dbConfig.accent_color,
-        fontFamily: dbConfig.font_family || defaultThemeConfig.fontFamily,
-        headingFontFamily: dbConfig.heading_font_family || defaultThemeConfig.headingFontFamily,
-        borderRadius: (dbConfig.border_radius as any) || defaultThemeConfig.borderRadius,
-        buttonStyle: (dbConfig.button_style as any) || defaultThemeConfig.buttonStyle,
-        cardStyle: (dbConfig.card_style as any) || defaultThemeConfig.cardStyle,
-        sidebarStyle: (dbConfig.sidebar_style as any) || defaultThemeConfig.sidebarStyle,
-        enableAnimations: dbConfig.enable_animations,
-        animationSpeed: (dbConfig.animation_speed as any) || defaultThemeConfig.animationSpeed,
-        enableDarkMode: dbConfig.enable_dark_mode,
-        preferDarkMode: dbConfig.prefer_dark_mode,
-        shopName: dbConfig.shop_name || defaultThemeConfig.shopName,
-        logoUrl: logoAsset ? logoAsset.filePath : null,
-        favicon: faviconAsset ? faviconAsset.filePath : null,
-      }
+    // Si no existe, devolver la configuración por defecto
+    if (result.rows.length === 0) {
+      return defaultThemeConfig
     }
 
-    // Si no hay configuración, crear una con los valores predeterminados
-    await saveThemeConfig(shopId, defaultThemeConfig, configName)
-    return defaultThemeConfig
+    // Devolver la configuración encontrada
+    return result.rows[0].configuracion as ThemeConfig
   } catch (error) {
-    console.error("Error al obtener la configuración del tema:", error)
+    logger.error("Error al obtener la configuración del tema:", error)
     return defaultThemeConfig
   }
 }
 
-export async function saveThemeConfig(shopId: string, config: ThemeConfig, configName = "default"): Promise<boolean> {
+export async function saveThemeConfig(shopId: string, config: ThemeConfig): Promise<boolean> {
   try {
     // Verificar si ya existe una configuración para esta tienda
-    const existingConfig = await sql`
-      SELECT id FROM theme_configs 
-      WHERE shop_id = ${shopId}
-        AND config_name = ${configName}
-    `
+    const existingConfig = await query("SELECT id FROM configuracion_tema WHERE tienda_id = $1", [shopId])
 
     if (existingConfig.rows.length > 0) {
       // Actualizar la configuración existente
-      await sql`
-        UPDATE theme_configs 
-        SET 
-          primary_color = ${config.primaryColor},
-          secondary_color = ${config.secondaryColor},
-          accent_color = ${config.accentColor},
-          font_family = ${config.fontFamily},
-          heading_font_family = ${config.headingFontFamily},
-          border_radius = ${config.borderRadius},
-          button_style = ${config.buttonStyle},
-          card_style = ${config.cardStyle},
-          sidebar_style = ${config.sidebarStyle},
-          enable_animations = ${config.enableAnimations},
-          animation_speed = ${config.animationSpeed},
-          enable_dark_mode = ${config.enableDarkMode},
-          prefer_dark_mode = ${config.preferDarkMode},
-          shop_name = ${config.shopName},
-          updated_at = CURRENT_TIMESTAMP 
-        WHERE shop_id = ${shopId}
-          AND config_name = ${configName}
-      `
+      await query(
+        "UPDATE configuracion_tema SET configuracion = $1, fecha_actualizacion = CURRENT_TIMESTAMP WHERE tienda_id = $2",
+        [config, shopId],
+      )
     } else {
-      // Crear una nueva configuración
-      await sql`
-        INSERT INTO theme_configs (
-          shop_id, config_name, primary_color, secondary_color, accent_color,
-          font_family, heading_font_family, border_radius,
-          button_style, card_style, sidebar_style,
-          enable_animations, animation_speed,
-          enable_dark_mode, prefer_dark_mode,
-          shop_name
-        ) 
-        VALUES (
-          ${shopId}, ${configName}, ${config.primaryColor}, ${config.secondaryColor}, ${config.accentColor},
-          ${config.fontFamily}, ${config.headingFontFamily}, ${config.borderRadius},
-          ${config.buttonStyle}, ${config.cardStyle}, ${config.sidebarStyle},
-          ${config.enableAnimations}, ${config.animationSpeed},
-          ${config.enableDarkMode}, ${config.preferDarkMode},
-          ${config.shopName}
-        )
-      `
+      // Insertar una nueva configuración
+      await query("INSERT INTO configuracion_tema (tienda_id, configuracion) VALUES ($1, $2)", [shopId, config])
     }
 
     return true
   } catch (error) {
-    console.error("Error al guardar la configuración del tema:", error)
+    logger.error("Error al guardar la configuración del tema:", error)
     return false
   }
 }

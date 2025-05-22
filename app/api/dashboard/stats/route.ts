@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { db } from "@/lib/db"
+import { query } from "@/lib/db"
 
 // Marcar la ruta como dinámica para evitar errores de renderizado estático
 export const dynamic = "force-dynamic"
@@ -15,10 +15,10 @@ export async function GET(request: Request) {
     }
 
     // Obtener estadísticas de la base de datos
-    const productCountResult = await db.query("SELECT COUNT(*) FROM productos")
+    const productCountResult = await query("SELECT COUNT(*) FROM productos")
     const productCount = Number.parseInt(productCountResult.rows[0].count) || 0
 
-    const collectionCountResult = await db.query("SELECT COUNT(*) FROM colecciones")
+    const collectionCountResult = await query("SELECT COUNT(*) FROM colecciones")
     const collectionCount = Number.parseInt(collectionCountResult.rows[0].count) || 0
 
     // Si no hay datos en la base de datos, intentar obtener de la caché
@@ -63,7 +63,7 @@ export async function GET(request: Request) {
         success: false,
         error: error.message || "Error desconocido al obtener estadísticas del dashboard",
       },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

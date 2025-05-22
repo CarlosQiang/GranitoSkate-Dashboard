@@ -1,96 +1,152 @@
 import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
+import { shopifyFetch } from "@/lib/shopify-client"
 
-// Marcar la ruta como dinámica para evitar errores de renderizado estático
 export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
   try {
-    // Verificar que las variables de entorno estén configuradas
-    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
-      console.error("Faltan credenciales de Shopify:", {
-        hasDomain: !!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN,
-        hasToken: !!process.env.SHOPIFY_ACCESS_TOKEN,
-      })
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Faltan credenciales de Shopify en las variables de entorno",
-        },
-        { status: 500 },
-      )
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    // Construir la URL de la API de Shopify
-    const url = `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-07/custom_collections.json?limit=50`
+    // Obtener parámetros de la URL
+    const { searchParams } = new URL(request.url)
+    const limit = Number(searchParams.get("limit") || "10")
+    const cursor = searchParams.get("cursor")
+    const query = searchParams.get("query")
 
-    console.log("Enviando solicitud a Shopify para colecciones:", {
-      url,
-      method: "GET",
-    })
+    // Construir la consulta GraphQL
+    const graphqlQuery = `
+      query getCollections($limit: Int!, $cursor: String, $query: String) {
+        collections(first: $limit, after: $cursor, query: $query) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          edges {
+            node {
+              id
+              title
+              description
+              handle
+              productsCount
+              image {
+                url
+                altText
+              }
+              ruleSet {
+                rules {
+                  column
+                  relation
+                  condition
+                }
+              }
+              products(first: 5) {
+                edges {
+                  node {
+                    id
+                    title
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `
 
-    // Realizar la petición a Shopify
-    const shopifyResponse = await fetch(url, {
-      method: "GET",
-      headers: {
-        "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
+    // Realizar la consulta a Shopify
+    const response = await shopifyFetch({
+      query: graphqlQuery,
+      variables: {
+        limit,
+        cursor,
+        query,
       },
     })
 
-    // Verificar si la respuesta es exitosa
-    if (!shopifyResponse.ok) {
-      let errorText = ""
-      try {
-        const errorData = await shopifyResponse.json()
-        console.error("Error en la respuesta de Shopify (JSON):", errorData)
-        errorText = JSON.stringify(errorData)
-      } catch (e) {
-        // Si no es JSON, intentar obtener el texto
-        errorText = await shopifyResponse.text()
-        console.error("Error en la respuesta de Shopify (texto):", errorText.substring(0, 500))
-      }
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Error ${shopifyResponse.status}: ${shopifyResponse.statusText}`,
-          details: errorText.substring(0, 1000), // Limitar el tamaño para evitar respuestas muy grandes
-        },
-        { status: shopifyResponse.status },
-      )
-    }
-
-    // Devolver la respuesta de Shopify
-    const data = await shopifyResponse.json()
-
-    // Transformar los datos para que tengan el mismo formato que esperamos
-    const transformedCollections = data.custom_collections.map((collection) => ({
-      id: collection.id.toString(),
-      shopify_id: collection.id.toString(),
-      title: collection.title,
-      titulo: collection.title,
-      description: collection.body_html,
-      descripcion: collection.body_html,
-      image: collection.image?.src || null,
-      imagen_url: collection.image?.src || null,
-      handle: collection.handle,
-      url: collection.handle,
-      updated_at: collection.updated_at,
-      published_at: collection.published_at,
-      products_count: collection.products_count || 0,
-      productos_count: collection.products_count || 0,
-    }))
+    // Extraer las colecciones de la respuesta
+    const collections = response.data.collections.edges.map((edge) => edge.node)
+    const pageInfo = response.data.collections.pageInfo
 
     return NextResponse.json({
       success: true,
-      count: transformedCollections.length,
-      data: transformedCollections,
+      collections,
+      pageInfo,
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error al obtener colecciones de Shopify:", error)
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Error desconocido al obtener colecciones de Shopify",
+        error: error instanceof Error ? error.message : "Error desconocido al obtener colecciones",
+      },
+      { status: 500 },
+    )
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
+    // Obtener datos del cuerpo de la solicitud
+    const body = await request.json()
+
+    // Construir la consulta GraphQL para crear una colección
+    const graphqlQuery = `
+      mutation collectionCreate($input: CollectionInput!) {
+        collectionCreate(input: $input) {
+          collection {
+            id
+            title
+            handle
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    // Realizar la consulta a Shopify
+    const response = await shopifyFetch({
+      query: graphqlQuery,
+      variables: {
+        input: body,
+      },
+    })
+
+    // Verificar si hay errores
+    if (response.data.collectionCreate.userErrors.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          errors: response.data.collectionCreate.userErrors,
+        },
+        { status: 400 },
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      collection: response.data.collectionCreate.collection,
+    })
+  } catch (error) {
+    console.error("Error al crear colección en Shopify:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Error desconocido al crear colección",
       },
       { status: 500 },
     )

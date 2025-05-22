@@ -1,157 +1,129 @@
-import { Pool } from "pg"
-import { sql } from "@vercel/postgres"
-import { logError } from "./utils"
+import { Pool, type QueryResult } from "pg"
+import { Logger } from "next-axiom"
 
-// Obtener la URL de conexión de las variables de entorno
-const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL
-
-if (!connectionString) {
-  console.error("Error: No se ha definido la variable de entorno POSTGRES_URL o DATABASE_URL")
-}
-
-// Crear un pool de conexiones
-export const pool = new Pool({
-  connectionString: connectionString || "",
-  ssl: {
-    rejectUnauthorized: false,
-  },
-  max: 10, // Máximo número de conexiones en el pool
-  idleTimeoutMillis: 30000, // Tiempo máximo que una conexión puede estar inactiva antes de ser cerrada
-  connectionTimeoutMillis: 5000, // Tiempo máximo para establecer una conexión
+const logger = new Logger({
+  source: "db",
 })
 
-// Manejar errores de conexión
-pool.on("error", (err) => {
-  console.error("Error inesperado en el cliente de PostgreSQL:", err)
+// Configuración de la conexión a la base de datos
+const pool = new Pool({
+  connectionString: process.env.POSTGRES_URL,
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
 })
 
-// Verificar la conexión
-export async function testConnection() {
-  if (!connectionString) {
-    console.error("No hay URL de conexión definida")
-    return false
-  }
-
+// Función para ejecutar consultas SQL
+export async function query(text: string, params: any[] = []): Promise<QueryResult> {
   try {
-    const client = await pool.connect()
-    console.log("Conexión a la base de datos establecida correctamente")
-    client.release()
-    return true
+    return await pool.query(text, params)
   } catch (error) {
-    console.error("Error al conectar con la base de datos:", error)
-    return false
-  }
-}
-
-// Funciones de utilidad para operaciones comunes
-export async function findAll(table: string) {
-  const result = await sql`SELECT * FROM ${sql.identifier(table)}`
-  return result.rows
-}
-
-export async function findById(table: string, id: number) {
-  const result = await sql`SELECT * FROM ${sql.identifier(table)} WHERE id = ${id}`
-  return result.rows[0] || null
-}
-
-export async function findByField(table: string, field: string, value: any) {
-  const result = await sql`
-    SELECT * FROM ${sql.identifier(table)} 
-    WHERE ${sql.identifier(field)} = ${value}
-  `
-  return result.rows[0] || null
-}
-
-export async function insert(table: string, data: Record<string, any>) {
-  const keys = Object.keys(data)
-  const values = Object.values(data)
-
-  // Construir la consulta dinámicamente
-  let query = `INSERT INTO "${table}" (`
-  query += keys.map((key) => `"${key}"`).join(", ")
-  query += ") VALUES ("
-  query += keys.map((_, index) => `$${index + 1}`).join(", ")
-  query += ") RETURNING *"
-
-  const result = await sql.query(query, values)
-  return result.rows[0]
-}
-
-export async function update(table: string, id: number, data: Record<string, any>) {
-  const keys = Object.keys(data)
-  const values = [...Object.values(data), id]
-
-  // Construir la consulta dinámicamente
-  let query = `UPDATE "${table}" SET `
-  query += keys.map((key, index) => `"${key}" = $${index + 1}`).join(", ")
-  query += ` WHERE id = $${values.length} RETURNING *`
-
-  const result = await sql.query(query, values)
-  return result.rows[0]
-}
-
-export async function remove(table: string, id: number) {
-  await sql`DELETE FROM ${sql.identifier(table)} WHERE id = ${id}`
-  return { success: true }
-}
-
-export async function query(text: string, params: any[] = []) {
-  try {
-    const start = Date.now()
-    const res = await pool.query(text, params)
-    const duration = Date.now() - start
-    console.log("Consulta ejecutada", { text, duration, rows: res.rowCount })
-    return res
-  } catch (error) {
-    logError("Error ejecutando consulta", error)
+    logger.error("Error al ejecutar consulta SQL:", error)
     throw error
   }
 }
 
-export async function logSyncEvent(
-  tipo_entidad: string,
-  entidad_id: string | null = null,
-  accion: string,
-  resultado: string,
-  mensaje: string,
-  detalles: any = {},
-) {
-  return insert("registro_sincronizacion", {
-    tipo_entidad,
-    entidad_id,
-    accion,
-    resultado,
-    mensaje,
-    detalles: JSON.stringify(detalles),
-    fecha: new Date(),
-  })
-}
-
-// Función para cerrar la conexión
-export async function closeConnection() {
+// Función para verificar la conexión a la base de datos
+export async function checkConnection(): Promise<{ connected: boolean; error?: string }> {
   try {
-    await pool.end()
-    console.log("Conexión a la base de datos cerrada correctamente")
+    const result = await query("SELECT NOW()")
+    return { connected: true }
   } catch (error) {
-    console.error("Error al cerrar la conexión a la base de datos:", error)
+    return {
+      connected: false,
+      error: error instanceof Error ? error.message : "Error desconocido",
+    }
   }
 }
 
-// Exportar también el objeto sql para consultas personalizadas
-export { sql }
+// Funciones genéricas para operaciones CRUD
+export async function findAll(table: string, limit = 100, offset = 0): Promise<any[]> {
+  const result = await query(`SELECT * FROM ${table} ORDER BY id DESC LIMIT $1 OFFSET $2`, [limit, offset])
+  return result.rows
+}
 
-// Exportar un objeto con todas las funciones para importación por defecto
-export default {
-  pool,
-  testConnection,
+export async function findById(table: string, id: number): Promise<any> {
+  const result = await query(`SELECT * FROM ${table} WHERE id = $1`, [id])
+  return result.rows[0]
+}
+
+export async function findByField(table: string, field: string, value: any): Promise<any> {
+  const result = await query(`SELECT * FROM ${table} WHERE ${field} = $1`, [value])
+  return result.rows[0]
+}
+
+export async function insert(table: string, data: any): Promise<any> {
+  const keys = Object.keys(data)
+  const values = Object.values(data)
+  const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ")
+  const columns = keys.join(", ")
+
+  const result = await query(`INSERT INTO ${table} (${columns}) VALUES (${placeholders}) RETURNING *`, values)
+
+  return result.rows[0]
+}
+
+export async function update(table: string, id: number, data: any): Promise<any> {
+  const keys = Object.keys(data)
+  const values = Object.values(data)
+  const setClause = keys.map((key, i) => `${key} = $${i + 1}`).join(", ")
+
+  const result = await query(`UPDATE ${table} SET ${setClause} WHERE id = $${keys.length + 1} RETURNING *`, [
+    ...values,
+    id,
+  ])
+
+  return result.rows[0]
+}
+
+export async function remove(table: string, id: number): Promise<boolean> {
+  const result = await query(`DELETE FROM ${table} WHERE id = $1`, [id])
+  return result.rowCount > 0
+}
+
+// Función para registrar eventos de sincronización
+export async function logSyncEvent(data: {
+  tipo_entidad: string
+  entidad_id?: string
+  accion: string
+  resultado: string
+  mensaje: string
+  detalles?: any
+}): Promise<void> {
+  try {
+    await query(
+      `INSERT INTO registro_sincronizacion (
+        tipo, cantidad, detalles, fecha
+      ) VALUES ($1, $2, $3, $4)`,
+      [
+        data.tipo_entidad,
+        1,
+        data.detalles
+          ? JSON.stringify({
+              entidad_id: data.entidad_id,
+              accion: data.accion,
+              resultado: data.resultado,
+              mensaje: data.mensaje,
+              ...data.detalles,
+            })
+          : null,
+        new Date(),
+      ],
+    )
+  } catch (error) {
+    logger.error("Error al registrar evento de sincronización:", error)
+  }
+}
+
+// Exportar el objeto db para mantener compatibilidad con el código existente
+export const db = {
+  query,
+  checkConnection,
   findAll,
   findById,
   findByField,
   insert,
   update,
   remove,
-  query,
   logSyncEvent,
-  closeConnection,
-  sql,
 }
+
+export default db

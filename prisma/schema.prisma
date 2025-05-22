@@ -6,19 +6,144 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("POSTGRES_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
 }
 
-model administradores {
-  id                  Int       @id @default(autoincrement())
-  nombre_usuario      String    @unique
-  correo_electronico  String    @unique
-  contrasena          String
-  nombre_completo     String?
-  rol                 String    @default("admin")
-  activo              Boolean   @default(true)
-  ultimo_acceso       DateTime?
-  fecha_creacion      DateTime  @default(now())
-  fecha_actualizacion DateTime?
+// Modelo para administradores
+model Administrador {
+  id              Int      @id @default(autoincrement())
+  nombre          String
+  email           String   @unique
+  password        String
+  rol             String   @default("admin")
+  activo          Boolean  @default(true)
+  ultimo_acceso   DateTime?
+  fecha_creacion  DateTime @default(now())
+  fecha_actualizacion DateTime @updatedAt
+}
+
+// Modelo para productos
+model Producto {
+  id                   Int      @id @default(autoincrement())
+  shopify_id           String   @unique
+  titulo               String
+  descripcion          String?
+  tipo_producto        String?
+  proveedor            String?
+  estado               String   @default("active")
+  publicado            Boolean  @default(true)
+  imagen_url           String?
+  handle               String?
+  precio               Float    @default(0)
+  precio_comparacion   Float?
+  inventario           Int      @default(0)
+  sku                  String?
+  codigo_barras        String?
+  metadatos            Json?
+  fecha_creacion       DateTime @default(now())
+  fecha_actualizacion  DateTime @updatedAt
+  colecciones          ProductoColeccion[]
+}
+
+// Modelo para colecciones
+model Coleccion {
+  id                   Int      @id @default(autoincrement())
+  shopify_id           String   @unique
+  titulo               String
+  descripcion          String?
+  imagen_url           String?
+  handle               String?
+  cantidad_productos   Int      @default(0)
+  metadatos            Json?
+  fecha_creacion       DateTime @default(now())
+  fecha_actualizacion  DateTime @updatedAt
+  productos            ProductoColeccion[]
+}
+
+// Modelo para la relación entre productos y colecciones
+model ProductoColeccion {
+  id                   Int      @id @default(autoincrement())
+  producto_id          Int
+  coleccion_id         Int
+  posicion             Int      @default(0)
+  fecha_creacion       DateTime @default(now())
+  fecha_actualizacion  DateTime @updatedAt
+  producto             Producto @relation(fields: [producto_id], references: [id], onDelete: Cascade)
+  coleccion            Coleccion @relation(fields: [coleccion_id], references: [id], onDelete: Cascade)
+
+  @@unique([producto_id, coleccion_id])
+}
+
+// Modelo para clientes
+model Cliente {
+  id                   Int      @id @default(autoincrement())
+  shopify_id           String   @unique
+  nombre               String?
+  apellido             String?
+  email                String?
+  telefono             String?
+  acepta_marketing     Boolean  @default(false)
+  cantidad_pedidos     Int      @default(0)
+  total_gastado        Float    @default(0)
+  metadatos            Json?
+  fecha_creacion       DateTime @default(now())
+  fecha_actualizacion  DateTime @updatedAt
+  pedidos              Pedido[]
+}
+
+// Modelo para pedidos
+model Pedido {
+  id                   Int      @id @default(autoincrement())
+  shopify_id           String   @unique
+  numero               String?
+  cliente_id           Int?
+  email                String?
+  total                Float    @default(0)
+  subtotal             Float    @default(0)
+  impuestos            Float    @default(0)
+  estado_financiero    String?
+  estado_cumplimiento  String?
+  fecha_procesado      DateTime?
+  metadatos            Json?
+  fecha_creacion       DateTime @default(now())
+  fecha_actualizacion  DateTime @updatedAt
+  cliente              Cliente? @relation(fields: [cliente_id], references: [id])
+}
+
+// Modelo para promociones
+model Promocion {
+  id                   Int      @id @default(autoincrement())
+  shopify_id           String?  @unique
+  codigo               String   @unique
+  tipo                 String
+  valor                Float
+  minimo_compra        Float?
+  fecha_inicio         DateTime
+  fecha_fin            DateTime?
+  limite_usos          Int?
+  usos_actuales        Int      @default(0)
+  activo               Boolean  @default(true)
+  metadatos            Json?
+  fecha_creacion       DateTime @default(now())
+  fecha_actualizacion  DateTime @updatedAt
+}
+
+// Modelo para registro de sincronización
+model RegistroSincronizacion {
+  id                   Int      @id @default(autoincrement())
+  tipo                 String
+  cantidad             Int      @default(0)
+  detalles             Json?
+  fecha                DateTime @default(now())
+}
+
+// Modelo para configuración del tema
+model ConfiguracionTema {
+  id                   Int      @id @default(autoincrement())
+  tienda_id            String   @unique
+  configuracion        Json
+  fecha_creacion       DateTime @default(now())
+  fecha_actualizacion  DateTime @updatedAt
 }

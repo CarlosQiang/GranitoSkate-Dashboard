@@ -1,42 +1,36 @@
 import { PrismaClient } from "@prisma/client"
-import config from "./config"
 
-const globalForPrisma = global as unknown as { prisma: PrismaClient }
+// Evitar múltiples instancias de Prisma Client en desarrollo
+// https://www.prisma.io/docs/guides/performance-and-optimization/connection-management
 
-export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({
-    datasources: {
-      db: {
-        url: config.database.url,
-      },
-    },
-    log: config.app.isDevelopment ? ["query", "error", "warn"] : ["error"],
-  })
+let prisma: PrismaClient
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma
+if (process.env.NODE_ENV === "production") {
+  prisma = new PrismaClient()
+} else {
+  if (!global.prisma) {
+    global.prisma = new PrismaClient()
+  }
+  prisma = global.prisma
+}
+
+export default prisma
 
 // Función para verificar la conexión a la base de datos
 export async function checkDatabaseConnection() {
   try {
-    console.log("Verificando conexión a la base de datos...")
-    console.log("URL de la base de datos:", config.database.url ? "Configurada" : "No configurada")
-
-    // Intentar ejecutar una consulta simple
-    const result = await prisma.$queryRaw`SELECT 1 as connected`
-    console.log("✅ Conexión a la base de datos establecida correctamente:", result)
-
-    return {
-      connected: true,
-      result,
-    }
+    await prisma.$connect()
+    // Realizar una consulta simple para verificar la conexión
+    await prisma.$queryRaw`SELECT 1 as connected`
+    return { connected: true, message: "Conexión exitosa a la base de datos" }
   } catch (error) {
-    console.error("❌ Error al conectar con la base de datos:", error)
+    console.error("Error al conectar con la base de datos:", error)
     return {
       connected: false,
+      message: error instanceof Error ? error.message : "Error desconocido al conectar con la base de datos",
       error: error instanceof Error ? error.message : "Error desconocido",
     }
+  } finally {
+    await prisma.$disconnect()
   }
 }
-
-export default prisma

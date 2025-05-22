@@ -1,12 +1,9 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, AlertCircle } from "lucide-react"
-import { useTheme } from "@/contexts/theme-context"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -15,7 +12,6 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const { theme } = useTheme()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -53,20 +49,14 @@ export default function LoginPage() {
     setShowPassword(!showPassword)
   }
 
-  // Estilos dinámicos basados en el tema
+  // Estilos fijos en lugar de dinámicos
   const logoStyle = {
-    backgroundColor: theme.primaryColor,
+    backgroundColor: "#C9379D",
   }
 
   const buttonStyle = {
-    backgroundColor: theme.primaryColor,
+    backgroundColor: "#C9379D",
     color: "#ffffff",
-  }
-
-  const focusRingStyle = {
-    "--tw-ring-color": theme.primaryColor,
-    "--tw-border-opacity": 1,
-    borderColor: theme.primaryColor,
   }
 
   return (
@@ -76,7 +66,7 @@ export default function LoginPage() {
           <div className="mx-auto h-16 w-16 rounded-full flex items-center justify-center" style={logoStyle}>
             <span className="text-2xl font-bold text-white">G</span>
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">{theme.shopName || "GranitoSkate"}</h2>
+          <h2 className="mt-6 text-3xl font-bold text-gray-900">GranitoSkate</h2>
           <p className="mt-2 text-sm text-gray-600">Inicia sesión para acceder al panel de administración</p>
         </div>
 
@@ -107,8 +97,7 @@ export default function LoginPage() {
                   required
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent"
-                  style={{ "--tw-ring-color": theme.primaryColor } as React.CSSProperties}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
                   placeholder="Ingresa tu usuario o email"
                 />
               </div>
@@ -126,8 +115,7 @@ export default function LoginPage() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent"
-                    style={{ "--tw-ring-color": theme.primaryColor } as React.CSSProperties}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
                     placeholder="Ingresa tu contraseña"
                   />
                   <button

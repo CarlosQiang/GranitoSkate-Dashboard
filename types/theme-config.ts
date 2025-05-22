@@ -1,44 +1,47 @@
 export interface ThemeConfig {
-  // Colores principales
   primaryColor: string
   secondaryColor: string
-  backgroundColor: string
-
-  // Colores de texto
-  textColor?: string
-  textSecondaryColor?: string
-  linkColor?: string
-
-  // Tipografía
-  fontFamily?: string
-  baseFontSize?: number
-  lineHeight?: number
-  headingFontWeight?: string
-
-  // Marca
-  shopName?: string
-  logoUrl?: string
-  faviconUrl?: string
-
-  // Otros
-  borderRadius?: string
-  buttonStyle?: "rounded" | "square" | "pill"
-  cardStyle?: "flat" | "raised" | "bordered"
+  accentColor: string
+  fontFamily: string
+  headingFontFamily: string
+  borderRadius: "none" | "small" | "medium" | "large" | "full"
+  buttonStyle: "default" | "outline" | "ghost" | "link"
+  cardStyle: "default" | "flat" | "elevated"
+  sidebarStyle: "default" | "minimal" | "expanded"
+  enableAnimations: boolean
+  animationSpeed: "slow" | "normal" | "fast"
+  enableDarkMode: boolean
+  preferDarkMode: boolean
+  shopName: string
+  logoUrl: string | null
+  favicon: string | null
+  textColor: string
+  headingColor: string
+  mutedTextColor: string
+  linkColor: string
+  fontSize: "small" | "medium" | "large"
 }
 
-export const defaultTheme: ThemeConfig = {
-  primaryColor: "#D4AF37", // Color dorado para GranitoSkate
-  secondaryColor: "#4A4A4A",
-  backgroundColor: "#F9F9F9",
-  textColor: "#333333",
-  textSecondaryColor: "#666666",
-  linkColor: "#D4AF37",
-  fontFamily: "Inter",
-  baseFontSize: 16,
-  lineHeight: 1.5,
-  headingFontWeight: "600",
+export const defaultThemeConfig: ThemeConfig = {
+  primaryColor: "#C9379D",
+  secondaryColor: "#6941C6",
+  accentColor: "#E54065",
+  fontFamily: "Inter, sans-serif",
+  headingFontFamily: "Inter, sans-serif",
+  borderRadius: "medium",
+  buttonStyle: "default",
+  cardStyle: "default",
+  sidebarStyle: "default",
+  enableAnimations: true,
+  animationSpeed: "normal",
+  enableDarkMode: true,
+  preferDarkMode: false,
   shopName: "GranitoSkate",
-  borderRadius: "0.375rem",
-  buttonStyle: "rounded",
-  cardStyle: "raised",
+  logoUrl: null,
+  favicon: null,
+  textColor: "#1F2937",
+  headingColor: "#111827",
+  mutedTextColor: "#6B7280",
+  linkColor: "#C9379D",
+  fontSize: "medium",
 }
