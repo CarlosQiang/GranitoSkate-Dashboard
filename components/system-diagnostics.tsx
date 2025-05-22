@@ -1,22 +1,23 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { RefreshCw, CheckCircle, XCircle, AlertTriangle } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
+import { CheckCircle, AlertTriangle, XCircle, RefreshCw } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export function SystemDiagnostics() {
-  const [status, setStatus] = useState<"loading" | "success" | "error" | "warning">("loading")
-  const [diagnosticResults, setDiagnosticResults] = useState<any>(null)
-  const [isRunning, setIsRunning] = useState(false)
+  const [diagnosticData, setDiagnosticData] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   const runDiagnostics = async () => {
-    setIsRunning(true)
-    setStatus("loading")
-
     try {
-      const response = await fetch("/api/system/check", {
+      setIsLoading(true)
+      setError(null)
+
+      const response = await fetch("/api/system/full-diagnostic", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -25,31 +26,18 @@ export function SystemDiagnostics() {
         cache: "no-store",
       })
 
-      const data = await response.json()
-
-      setDiagnosticResults(data)
-
-      if (data.success) {
-        setStatus("success")
-      } else {
-        // Determinar si es un error o una advertencia
-        const hasShopifyConnection = data.shopifyConnection?.success
-        const hasDbConnection = data.dbConnection?.connected
-
-        if (hasShopifyConnection || hasDbConnection) {
-          setStatus("warning") // Al menos uno funciona
-        } else {
-          setStatus("error") // Nada funciona
-        }
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Error al ejecutar el diagnóstico")
       }
-    } catch (error) {
-      console.error("Error al ejecutar diagnóstico del sistema:", error)
-      setStatus("error")
-      setDiagnosticResults({
-        error: error instanceof Error ? error.message : "Error desconocido al ejecutar diagnóstico",
-      })
+
+      const data = await response.json()
+      setDiagnosticData(data)
+    } catch (err) {
+      console.error("Error al ejecutar el diagnóstico:", err)
+      setError(err.message || "Error desconocido al ejecutar el diagnóstico")
     } finally {
-      setIsRunning(false)
+      setIsLoading(false)
     }
   }
 
@@ -57,212 +45,239 @@ export function SystemDiagnostics() {
     runDiagnostics()
   }, [])
 
+  const getStatusIcon = (status) => {
+    if (status === "ok" || status === true) return <CheckCircle className="h-5 w-5 text-green-500" />
+    if (status === "warning") return <AlertTriangle className="h-5 w-5 text-yellow-500" />
+    return <XCircle className="h-5 w-5 text-red-500" />
+  }
+
+  const getStatusColor = (status) => {
+    if (status === "ok" || status === true) return "bg-green-50 border-green-200 text-green-800"
+    if (status === "warning") return "bg-yellow-50 border-yellow-200 text-yellow-800"
+    return "bg-red-50 border-red-200 text-red-800"
+  }
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <RefreshCw className="h-5 w-5 animate-spin" />
+            Ejecutando diagnóstico del sistema
+          </CardTitle>
+          <CardDescription>Verificando el estado de todos los componentes...</CardDescription>
+        </CardHeader>
+        <CardContent className="flex justify-center items-center p-8">
+          <div className="text-center">
+            <RefreshCw className="h-12 w-12 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-lg font-medium">Analizando el sistema</p>
+            <p className="text-sm text-muted-foreground">Esto puede tardar unos segundos...</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <XCircle className="h-5 w-5 text-red-500" />
+            Error en el diagnóstico
+          </CardTitle>
+          <CardDescription>No se pudo completar el diagnóstico del sistema</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+          <Button onClick={runDiagnostics} className="mt-4 w-full">
+            Intentar de nuevo
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!diagnosticData) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Diagnóstico del sistema</CardTitle>
+          <CardDescription>No hay datos disponibles</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={runDiagnostics} className="w-full">
+            Ejecutar diagnóstico
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          {status === "success" && <CheckCircle className="h-5 w-5 text-green-500" />}
-          {status === "error" && <XCircle className="h-5 w-5 text-red-500" />}
-          {status === "warning" && <AlertTriangle className="h-5 w-5 text-yellow-500" />}
-          {status === "loading" && <RefreshCw className="h-5 w-5 animate-spin" />}
-          Diagnóstico del Sistema
+          {getStatusIcon(diagnosticData.summary.status)}
+          Diagnóstico del sistema
         </CardTitle>
-        <CardDescription>Verifica el estado general del sistema</CardDescription>
+        <CardDescription>{diagnosticData.summary.message}</CardDescription>
       </CardHeader>
       <CardContent>
-        {status === "loading" ? (
-          <div className="flex items-center justify-center p-4">
-            <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
-            <span className="ml-2 text-gray-500">Ejecutando diagnóstico del sistema...</span>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {status === "error" && (
-              <Alert variant="destructive">
-                <AlertTitle>Error en el sistema</AlertTitle>
-                <AlertDescription>
-                  Se encontraron problemas críticos en el sistema. Revisa los detalles a continuación.
-                </AlertDescription>
-              </Alert>
+        <Alert className={getStatusColor(diagnosticData.summary.status)}>
+          <AlertTitle>Resumen del diagnóstico</AlertTitle>
+          <AlertDescription>
+            {diagnosticData.summary.message}
+            {diagnosticData.summary.details && diagnosticData.summary.details.length > 0 && (
+              <ul className="mt-2 list-disc pl-5 space-y-1">
+                {diagnosticData.summary.details.map((detail, index) => (
+                  <li key={index}>{detail}</li>
+                ))}
+              </ul>
             )}
+          </AlertDescription>
+        </Alert>
 
-            {status === "warning" && (
-              <Alert variant="warning" className="bg-yellow-50 border-yellow-200 text-yellow-800">
-                <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                <AlertTitle>Advertencias en el sistema</AlertTitle>
-                <AlertDescription>
-                  El sistema está funcionando parcialmente. Revisa los detalles a continuación.
-                </AlertDescription>
-              </Alert>
-            )}
+        <Tabs defaultValue="env" className="mt-6">
+          <TabsList className="grid grid-cols-3 mb-4">
+            <TabsTrigger value="env">Variables de entorno</TabsTrigger>
+            <TabsTrigger value="shopify">Conexión a Shopify</TabsTrigger>
+            <TabsTrigger value="database">Base de datos</TabsTrigger>
+          </TabsList>
 
-            {status === "success" && (
-              <Alert className="bg-green-50 border-green-200 text-green-800">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <AlertTitle>Sistema funcionando correctamente</AlertTitle>
-                <AlertDescription>Todos los componentes del sistema están funcionando correctamente.</AlertDescription>
-              </Alert>
-            )}
+          <TabsContent value="env" className="space-y-4">
+            <div className="rounded-md border p-4">
+              <h3 className="text-lg font-medium mb-2">Variables de entorno</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                {diagnosticData.env.allRequired
+                  ? "Todas las variables de entorno requeridas están configuradas"
+                  : "Faltan algunas variables de entorno requeridas"}
+              </p>
 
-            {diagnosticResults && (
-              <div className="space-y-4 mt-4">
-                {/* Conexión con Shopify */}
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium flex items-center gap-2">
-                    {diagnosticResults.shopifyConnection?.success ? (
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <XCircle className="h-4 w-4 text-red-500" />
-                    )}
-                    Conexión con Shopify
-                  </h3>
-                  <div className="rounded-md border p-3">
-                    <p className="text-sm">
-                      {diagnosticResults.shopifyConnection?.success
-                        ? diagnosticResults.shopifyConnection?.message || "Conexión exitosa"
-                        : diagnosticResults.shopifyConnection?.message || "Error de conexión"}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Conexión con la base de datos */}
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium flex items-center gap-2">
-                    {diagnosticResults.dbConnection?.connected ? (
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <XCircle className="h-4 w-4 text-red-500" />
-                    )}
-                    Conexión con la base de datos
-                  </h3>
-                  <div className="rounded-md border p-3">
-                    <p className="text-sm">
-                      {diagnosticResults.dbConnection?.connected
-                        ? "Conexión exitosa con la base de datos"
-                        : diagnosticResults.dbConnection?.error || "Error de conexión con la base de datos"}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Configuración del sistema */}
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium">Configuración del sistema</h3>
-                  <div className="rounded-md border p-3">
-                    <div className="space-y-2">
-                      <div>
-                        <h4 className="text-xs font-medium">Shopify:</h4>
-                        <ul className="text-xs space-y-1 mt-1">
-                          <li>
-                            API URL:{" "}
-                            <span
-                              className={
-                                diagnosticResults.config?.shopify?.apiUrl === "Configurado"
-                                  ? "text-green-600"
-                                  : "text-red-600"
-                              }
-                            >
-                              {diagnosticResults.config?.shopify?.apiUrl || "No configurado"}
-                            </span>
-                          </li>
-                          <li>
-                            Access Token:{" "}
-                            <span
-                              className={
-                                diagnosticResults.config?.shopify?.accessToken === "Configurado"
-                                  ? "text-green-600"
-                                  : "text-red-600"
-                              }
-                            >
-                              {diagnosticResults.config?.shopify?.accessToken || "No configurado"}
-                            </span>
-                          </li>
-                          <li>
-                            Shop Domain:{" "}
-                            <span
-                              className={
-                                diagnosticResults.config?.shopify?.shopDomain === "Configurado"
-                                  ? "text-green-600"
-                                  : "text-red-600"
-                              }
-                            >
-                              {diagnosticResults.config?.shopify?.shopDomain || "No configurado"}
-                            </span>
-                          </li>
-                        </ul>
+              <div className="space-y-3 mt-4">
+                {Object.entries(diagnosticData.env.variables).map(([name, info]) => (
+                  <div key={name} className="flex items-start justify-between p-2 border rounded-md">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        {info.exists ? (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500" />
+                        )}
+                        <span className="font-mono text-xs">{name}</span>
+                        {info.required && (
+                          <span className="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full">
+                            Requerida
+                          </span>
+                        )}
                       </div>
-
-                      <div>
-                        <h4 className="text-xs font-medium">Base de datos:</h4>
-                        <ul className="text-xs space-y-1 mt-1">
-                          <li>
-                            URL:{" "}
-                            <span
-                              className={
-                                diagnosticResults.config?.database?.url === "Configurado"
-                                  ? "text-green-600"
-                                  : "text-red-600"
-                              }
-                            >
-                              {diagnosticResults.config?.database?.url || "No configurado"}
-                            </span>
-                          </li>
-                        </ul>
-                      </div>
-
-                      <div>
-                        <h4 className="text-xs font-medium">Autenticación:</h4>
-                        <ul className="text-xs space-y-1 mt-1">
-                          <li>
-                            Secret:{" "}
-                            <span
-                              className={
-                                diagnosticResults.config?.auth?.secret === "Configurado"
-                                  ? "text-green-600"
-                                  : "text-red-600"
-                              }
-                            >
-                              {diagnosticResults.config?.auth?.secret || "No configurado"}
-                            </span>
-                          </li>
-                          <li>
-                            URL:{" "}
-                            <span
-                              className={
-                                diagnosticResults.config?.auth?.url === "Configurado"
-                                  ? "text-green-600"
-                                  : "text-red-600"
-                              }
-                            >
-                              {diagnosticResults.config?.auth?.url || "No configurado"}
-                            </span>
-                          </li>
-                        </ul>
-                      </div>
+                      {info.description && <p className="text-xs text-gray-500 mt-1">{info.description}</p>}
                     </div>
+                    <span className={`text-xs font-medium ${info.exists ? "text-green-600" : "text-red-600"}`}>
+                      {info.exists ? "Configurada" : "No configurada"}
+                    </span>
                   </div>
-                </div>
+                ))}
               </div>
-            )}
-          </div>
-        )}
-      </CardContent>
-      <CardFooter>
-        <Button onClick={runDiagnostics} disabled={isRunning} variant="outline" className="w-full">
-          {isRunning ? (
-            <>
-              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-              Ejecutando...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Ejecutar diagnóstico
-            </>
-          )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="shopify" className="space-y-4">
+            <div className="rounded-md border p-4">
+              <h3 className="text-lg font-medium mb-2">Conexión a Shopify</h3>
+              <div
+                className={`p-3 rounded-md ${
+                  diagnosticData.shopify.success ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {diagnosticData.shopify.success ? (
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                  ) : (
+                    <XCircle className="h-5 w-5 text-red-500" />
+                  )}
+                  <span className="font-medium">
+                    {diagnosticData.shopify.success ? "Conexión exitosa" : "Error de conexión"}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm">{diagnosticData.shopify.message}</p>
+
+                {diagnosticData.shopify.success && diagnosticData.shopify.data && diagnosticData.shopify.data.shop && (
+                  <div className="mt-3 p-3 bg-white rounded-md border">
+                    <h4 className="font-medium text-sm mb-2">Información de la tienda:</h4>
+                    <ul className="space-y-1 text-sm">
+                      <li>
+                        <strong>Nombre:</strong> {diagnosticData.shopify.data.shop.name}
+                      </li>
+                      {diagnosticData.shopify.data.shop.id && (
+                        <li>
+                          <strong>ID:</strong> {diagnosticData.shopify.data.shop.id}
+                        </li>
+                      )}
+                      {diagnosticData.shopify.data.shop.url && (
+                        <li>
+                          <strong>URL:</strong> {diagnosticData.shopify.data.shop.url}
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+
+                {!diagnosticData.shopify.success && diagnosticData.shopify.details && (
+                  <div className="mt-3">
+                    <h4 className="font-medium text-sm mb-1">Detalles del error:</h4>
+                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                      {Array.isArray(diagnosticData.shopify.details)
+                        ? diagnosticData.shopify.details.map((detail, index) => <li key={index}>{detail}</li>)
+                        : typeof diagnosticData.shopify.details === "string" && (
+                            <li>{diagnosticData.shopify.details}</li>
+                          )}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="database" className="space-y-4">
+            <div className="rounded-md border p-4">
+              <h3 className="text-lg font-medium mb-2">Conexión a la base de datos</h3>
+              <div
+                className={`p-3 rounded-md ${
+                  diagnosticData.database.success ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {diagnosticData.database.success ? (
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                  ) : (
+                    <XCircle className="h-5 w-5 text-red-500" />
+                  )}
+                  <span className="font-medium">
+                    {diagnosticData.database.success ? "Conexión exitosa" : "Error de conexión"}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm">{diagnosticData.database.message}</p>
+
+                {!diagnosticData.database.success && diagnosticData.database.details && (
+                  <div className="mt-3">
+                    <h4 className="font-medium text-sm mb-1">Detalles del error:</h4>
+                    <p className="text-sm">{diagnosticData.database.details}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        <Button onClick={runDiagnostics} className="mt-6 w-full">
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Actualizar diagnóstico
         </Button>
-      </CardFooter>
+      </CardContent>
     </Card>
   )
 }
-
-export default SystemDiagnostics

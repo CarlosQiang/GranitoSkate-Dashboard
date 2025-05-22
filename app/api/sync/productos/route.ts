@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { sincronizarProductos } from "@/lib/services/sync-service"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { shopifyFetch } from "@/lib/shopify"
+import { shopifyConfig } from "@/lib/config/shopify"
 import db from "@/lib/db"
 
 // Marcar la ruta como dinámica para evitar errores de renderizado estático
@@ -10,127 +10,65 @@ export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
   try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    // Verificar que las variables de entorno estén configuradas
+    if (!shopifyConfig.shopDomain || !shopifyConfig.accessToken) {
+      return NextResponse.json({ error: "Faltan credenciales de Shopify en las variables de entorno" }, { status: 500 })
     }
 
-    // Obtener productos de Shopify
-    const query = `
-      query {
-        products(first: 50) {
-          edges {
-            node {
-              id
-              title
-              description
-              descriptionHtml
-              productType
-              vendor
-              status
-              publishedAt
-              handle
-              tags
-              featuredImage {
-                url
-                altText
-              }
-              images(first: 5) {
-                edges {
-                  node {
-                    id
-                    url
-                    altText
-                  }
-                }
-              }
-              variants(first: 10) {
-                edges {
-                  node {
-                    id
-                    title
-                    price
-                    compareAtPrice
-                    sku
-                    barcode
-                    inventoryQuantity
-                    inventoryPolicy
-                    weight
-                    weightUnit
-                  }
-                }
-              }
-              metafields(first: 10) {
-                edges {
-                  node {
-                    namespace
-                    key
-                    value
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    `
+    // Construir la URL de la API de Shopify
+    const url = `https://${shopifyConfig.shopDomain}/admin/api/${shopifyConfig.apiVersion}/products.json?limit=50`
 
-    const response = await shopifyFetch({ query })
+    // Realizar la petición a Shopify
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "X-Shopify-Access-Token": shopifyConfig.accessToken,
+      },
+    })
 
-    if (response.errors) {
+    // Verificar si la respuesta es exitosa
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`Error en la respuesta de Shopify (${response.status}):`, errorText)
       return NextResponse.json(
-        {
-          success: false,
-          error: `Error en la API de Shopify: ${response.errors[0].message}`,
-        },
-        { status: 500 },
+        { error: `Error al obtener productos de Shopify: ${response.statusText}` },
+        { status: response.status },
       )
     }
 
-    // Extraer productos de la respuesta
-    const products = response.data.products.edges.map((edge) => edge.node)
+    // Obtener los datos de los productos
+    const data = await response.json()
+    const products = data.products
 
-    // Transformar los productos para guardarlos en la base de datos
-    const transformedProducts = products.map((product) => {
-      // Extraer el ID numérico
-      const idParts = product.id.split("/")
-      const shopifyId = idParts[idParts.length - 1]
-
-      // Obtener la primera variante
-      const firstVariant = product.variants.edges[0]?.node || {}
-
-      // Obtener la primera imagen
-      const featuredImage = product.featuredImage || product.images.edges[0]?.node || {}
-
-      return {
-        shopify_id: product.id,
-        id_numerico: shopifyId,
-        titulo: product.title,
-        descripcion: product.description,
-        descripcion_html: product.descriptionHtml,
-        tipo_producto: product.productType,
-        proveedor: product.vendor,
-        estado: product.status,
-        publicado_en: product.publishedAt,
-        handle: product.handle,
-        etiquetas: product.tags,
-        imagen_url: featuredImage.url || null,
-        imagen_alt: featuredImage.altText || null,
-        precio: firstVariant.price || "0.00",
-        precio_comparacion: firstVariant.compareAtPrice || null,
-        sku: firstVariant.sku || null,
-        codigo_barras: firstVariant.barcode || null,
-        inventario: firstVariant.inventoryQuantity || 0,
-        politica_inventario: firstVariant.inventoryPolicy || null,
-        peso: firstVariant.weight || null,
-        unidad_peso: firstVariant.weightUnit || null,
-        variantes: JSON.stringify(product.variants.edges.map((edge) => edge.node)),
-        imagenes: JSON.stringify(product.images.edges.map((edge) => edge.node)),
-        metadatos: JSON.stringify(product.metafields.edges.map((edge) => edge.node)),
-        actualizado_en: new Date().toISOString(),
-      }
-    })
+    // Transformar los datos para guardarlos en la base de datos
+    const transformedProducts = products.map((product) => ({
+      id: product.id.toString(),
+      shopify_id: product.id.toString(),
+      title: product.title,
+      titulo: product.title,
+      description: product.body_html,
+      descripcion: product.body_html,
+      price: product.variants[0]?.price || "0.00",
+      precio: product.variants[0]?.price || "0.00",
+      image: product.image?.src || null,
+      imagen_url: product.image?.src || null,
+      status: product.status,
+      estado: product.status,
+      created_at: product.created_at,
+      updated_at: product.updated_at,
+      vendor: product.vendor,
+      proveedor: product.vendor,
+      product_type: product.product_type,
+      tipo_producto: product.product_type,
+      tags: product.tags,
+      etiquetas: product.tags,
+      handle: product.handle,
+      url: product.handle,
+      variants: product.variants,
+      variantes: product.variants,
+      inventory: product.variants[0]?.inventory_quantity || 0,
+      inventario: product.variants[0]?.inventory_quantity || 0,
+    }))
 
     // Guardar los productos en la base de datos
     const savedProducts = []
@@ -146,54 +84,20 @@ export async function GET(request: Request) {
             UPDATE productos SET
               titulo = $1,
               descripcion = $2,
-              descripcion_html = $3,
-              tipo_producto = $4,
-              proveedor = $5,
-              estado = $6,
-              publicado_en = $7,
-              handle = $8,
-              etiquetas = $9,
-              imagen_url = $10,
-              imagen_alt = $11,
-              precio = $12,
-              precio_comparacion = $13,
-              sku = $14,
-              codigo_barras = $15,
-              inventario = $16,
-              politica_inventario = $17,
-              peso = $18,
-              unidad_peso = $19,
-              variantes = $20,
-              imagenes = $21,
-              metadatos = $22,
-              actualizado_en = $23
-            WHERE shopify_id = $24
+              imagen_url = $3,
+              estado = $4,
+              inventario = $5,
+              actualizado_en = $6
+            WHERE shopify_id = $7
             RETURNING *
             `,
             [
               product.titulo,
               product.descripcion,
-              product.descripcion_html,
-              product.tipo_producto,
-              product.proveedor,
-              product.estado,
-              product.publicado_en,
-              product.handle,
-              product.etiquetas,
               product.imagen_url,
-              product.imagen_alt,
-              product.precio,
-              product.precio_comparacion,
-              product.sku,
-              product.codigo_barras,
+              product.estado,
               product.inventario,
-              product.politica_inventario,
-              product.peso,
-              product.unidad_peso,
-              product.variantes,
-              product.imagenes,
-              product.metadatos,
-              product.actualizado_en,
+              new Date().toISOString(),
               product.shopify_id,
             ],
           )
@@ -208,60 +112,24 @@ export async function GET(request: Request) {
               id_numerico,
               titulo,
               descripcion,
-              descripcion_html,
-              tipo_producto,
-              proveedor,
-              estado,
-              publicado_en,
-              handle,
-              etiquetas,
               imagen_url,
-              imagen_alt,
-              precio,
-              precio_comparacion,
-              sku,
-              codigo_barras,
+              estado,
               inventario,
-              politica_inventario,
-              peso,
-              unidad_peso,
-              variantes,
-              imagenes,
-              metadatos,
               creado_en,
               actualizado_en
             ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-              $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-              $21, $22, $23, $24, $25, $26
+              $1, $2, $3, $4, $5, $6, $7, $8, $9
             )
             RETURNING *
             `,
             [
               product.shopify_id,
-              product.id_numerico,
+              product.id,
               product.titulo,
               product.descripcion,
-              product.descripcion_html,
-              product.tipo_producto,
-              product.proveedor,
-              product.estado,
-              product.publicado_en,
-              product.handle,
-              product.etiquetas,
               product.imagen_url,
-              product.imagen_alt,
-              product.precio,
-              product.precio_comparacion,
-              product.sku,
-              product.codigo_barras,
+              product.estado,
               product.inventario,
-              product.politica_inventario,
-              product.peso,
-              product.unidad_peso,
-              product.variantes,
-              product.imagenes,
-              product.metadatos,
               new Date().toISOString(),
               new Date().toISOString(),
             ],
@@ -297,15 +165,9 @@ export async function GET(request: Request) {
         saved: savedProducts.length,
       },
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error al sincronizar productos:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Error desconocido al sincronizar productos",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: `Error al sincronizar productos: ${error.message}` }, { status: 500 })
   }
 }
 

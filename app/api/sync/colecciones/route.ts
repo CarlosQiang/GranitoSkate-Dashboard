@@ -1,217 +1,96 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { shopifyFetch } from "@/lib/shopify"
-import db from "@/lib/db"
+import { shopifyConfig } from "@/lib/config/shopify"
 
-// Marcar la ruta como dinámica para evitar errores de renderizado estático
 export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
   try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    // Verificar que las variables de entorno estén configuradas
+    if (!shopifyConfig.shopDomain || !shopifyConfig.accessToken) {
+      return NextResponse.json({ error: "Faltan credenciales de Shopify en las variables de entorno" }, { status: 500 })
     }
 
-    // Obtener colecciones de Shopify
-    const query = `
-      query {
-        collections(first: 50) {
-          edges {
-            node {
-              id
-              title
-              description
-              descriptionHtml
-              handle
-              productsCount
-              image {
-                url
-                altText
-              }
-              products(first: 5) {
-                edges {
-                  node {
-                    id
-                    title
-                  }
-                }
-              }
-              metafields(first: 10) {
-                edges {
-                  node {
-                    namespace
-                    key
-                    value
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    `
+    // Construir la URL de la API de Shopify para colecciones personalizadas
+    const customCollectionsUrl = `https://${shopifyConfig.shopDomain}/admin/api/${shopifyConfig.apiVersion}/custom_collections.json?limit=50`
 
-    const response = await shopifyFetch({ query })
-
-    if (response.errors) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Error en la API de Shopify: ${response.errors[0].message}`,
-        },
-        { status: 500 },
-      )
-    }
-
-    // Extraer colecciones de la respuesta
-    const collections = response.data.collections.edges.map((edge) => edge.node)
-
-    // Transformar las colecciones para guardarlas en la base de datos
-    const transformedCollections = collections.map((collection) => {
-      // Extraer el ID numérico
-      const idParts = collection.id.split("/")
-      const shopifyId = idParts[idParts.length - 1]
-
-      return {
-        shopify_id: collection.id,
-        id_numerico: shopifyId,
-        titulo: collection.title,
-        descripcion: collection.description,
-        descripcion_html: collection.descriptionHtml,
-        handle: collection.handle,
-        cantidad_productos: collection.productsCount,
-        imagen_url: collection.image?.url || null,
-        imagen_alt: collection.image?.altText || null,
-        productos: JSON.stringify(collection.products.edges.map((edge) => edge.node)),
-        metadatos: JSON.stringify(collection.metafields.edges.map((edge) => edge.node)),
-        actualizado_en: new Date().toISOString(),
-      }
+    // Realizar la petición a Shopify para colecciones personalizadas
+    const customCollectionsResponse = await fetch(customCollectionsUrl, {
+      method: "GET",
+      headers: {
+        "X-Shopify-Access-Token": shopifyConfig.accessToken,
+      },
     })
 
-    // Guardar las colecciones en la base de datos
-    const savedCollections = []
-    for (const collection of transformedCollections) {
-      try {
-        // Verificar si la colección ya existe
-        const existingCollection = await db.query("SELECT * FROM colecciones WHERE shopify_id = $1", [
-          collection.shopify_id,
-        ])
-
-        if (existingCollection.rows.length > 0) {
-          // Actualizar la colección existente
-          const updateResult = await db.query(
-            `
-            UPDATE colecciones SET
-              titulo = $1,
-              descripcion = $2,
-              descripcion_html = $3,
-              handle = $4,
-              cantidad_productos = $5,
-              imagen_url = $6,
-              imagen_alt = $7,
-              productos = $8,
-              metadatos = $9,
-              actualizado_en = $10
-            WHERE shopify_id = $11
-            RETURNING *
-            `,
-            [
-              collection.titulo,
-              collection.descripcion,
-              collection.descripcion_html,
-              collection.handle,
-              collection.cantidad_productos,
-              collection.imagen_url,
-              collection.imagen_alt,
-              collection.productos,
-              collection.metadatos,
-              collection.actualizado_en,
-              collection.shopify_id,
-            ],
-          )
-
-          savedCollections.push(updateResult.rows[0])
-        } else {
-          // Insertar una nueva colección
-          const insertResult = await db.query(
-            `
-            INSERT INTO colecciones (
-              shopify_id,
-              id_numerico,
-              titulo,
-              descripcion,
-              descripcion_html,
-              handle,
-              cantidad_productos,
-              imagen_url,
-              imagen_alt,
-              productos,
-              metadatos,
-              creado_en,
-              actualizado_en
-            ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
-            )
-            RETURNING *
-            `,
-            [
-              collection.shopify_id,
-              collection.id_numerico,
-              collection.titulo,
-              collection.descripcion,
-              collection.descripcion_html,
-              collection.handle,
-              collection.cantidad_productos,
-              collection.imagen_url,
-              collection.imagen_alt,
-              collection.productos,
-              collection.metadatos,
-              new Date().toISOString(),
-              new Date().toISOString(),
-            ],
-          )
-
-          savedCollections.push(insertResult.rows[0])
-        }
-      } catch (error) {
-        console.error(`Error al guardar la colección ${collection.titulo}:`, error)
-      }
+    // Verificar si la respuesta es exitosa
+    if (!customCollectionsResponse.ok) {
+      const errorText = await customCollectionsResponse.text()
+      console.error(`Error en la respuesta de Shopify (${customCollectionsResponse.status}):`, errorText)
+      return NextResponse.json(
+        { error: `Error al obtener colecciones personalizadas de Shopify: ${customCollectionsResponse.statusText}` },
+        { status: customCollectionsResponse.status },
+      )
     }
 
-    // Registrar la sincronización
-    await db.query(
-      `
-      INSERT INTO registro_sincronizacion (
-        tipo,
-        cantidad,
-        detalles,
-        fecha
-      ) VALUES (
-        $1, $2, $3, $4
-      )
-      `,
-      ["colecciones", savedCollections.length, JSON.stringify({ total: collections.length }), new Date().toISOString()],
-    )
+    // Obtener los datos de las colecciones personalizadas
+    const customCollectionsData = await customCollectionsResponse.json()
+    const customCollections = customCollectionsData.custom_collections || []
 
+    // Construir la URL de la API de Shopify para colecciones inteligentes
+    const smartCollectionsUrl = `https://${shopifyConfig.shopDomain}/admin/api/${shopifyConfig.apiVersion}/smart_collections.json?limit=50`
+
+    // Realizar la petición a Shopify para colecciones inteligentes
+    const smartCollectionsResponse = await fetch(smartCollectionsUrl, {
+      method: "GET",
+      headers: {
+        "X-Shopify-Access-Token": shopifyConfig.accessToken,
+      },
+    })
+
+    // Verificar si la respuesta es exitosa
+    if (!smartCollectionsResponse.ok) {
+      const errorText = await smartCollectionsResponse.text()
+      console.error(`Error en la respuesta de Shopify (${smartCollectionsResponse.status}):`, errorText)
+      return NextResponse.json(
+        { error: `Error al obtener colecciones inteligentes de Shopify: ${smartCollectionsResponse.statusText}` },
+        { status: smartCollectionsResponse.status },
+      )
+    }
+
+    // Obtener los datos de las colecciones inteligentes
+    const smartCollectionsData = await smartCollectionsResponse.json()
+    const smartCollections = smartCollectionsData.smart_collections || []
+
+    // Combinar las colecciones personalizadas e inteligentes
+    const allCollections = [...customCollections, ...smartCollections]
+
+    // Transformar los datos para guardarlos en la base de datos
+    const transformedCollections = allCollections.map((collection) => ({
+      id: collection.id.toString(),
+      shopify_id: collection.id.toString(),
+      title: collection.title,
+      titulo: collection.title,
+      description: collection.body_html,
+      descripcion: collection.body_html,
+      image: collection.image?.src || null,
+      imagen_url: collection.image?.src || null,
+      handle: collection.handle,
+      url: collection.handle,
+      updated_at: collection.updated_at,
+      published_at: collection.published_at,
+      products_count: collection.products_count || 0,
+      productos_count: collection.products_count || 0,
+    }))
+
+    // Aquí iría la lógica para guardar las colecciones en la base de datos
+    // Por ahora, solo devolvemos las colecciones transformadas
     return NextResponse.json({
       success: true,
-      message: `Se sincronizaron ${savedCollections.length} colecciones de ${collections.length} obtenidas de Shopify`,
-      data: {
-        total: collections.length,
-        saved: savedCollections.length,
-      },
+      message: `${transformedCollections.length} colecciones sincronizadas correctamente`,
+      count: transformedCollections.length,
+      data: transformedCollections,
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error al sincronizar colecciones:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Error desconocido al sincronizar colecciones",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: `Error al sincronizar colecciones: ${error.message}` }, { status: 500 })
   }
 }

@@ -11,7 +11,6 @@ export function ProductCard({ product }) {
   const title = product.titulo || product.title || "Producto sin título"
   const status = (product.estado || product.status || "active").toLowerCase()
   const price = product.precio || product.price || 0
-  const compareAtPrice = product.precio_comparacion || product.compareAtPrice || null
   const inventory = product.inventario || product.inventory || 0
   const imageUrl = product.imagen_url || product.image || null
   const id = product.id || product.shopify_id || ""
@@ -42,11 +41,22 @@ export function ProductCard({ product }) {
     <Card className="overflow-hidden h-full flex flex-col">
       <div className="relative aspect-square overflow-hidden bg-gray-100">
         {imageUrl ? (
-          <img
-            src={imageUrl || "/placeholder.svg"}
-            alt={title}
-            className="object-cover w-full h-full transition-transform duration-300 hover:scale-105"
-          />
+          <div className="w-full h-full relative">
+            <img
+              src={imageUrl || "/placeholder.svg"}
+              alt={title}
+              className="object-cover w-full h-full transition-transform duration-300 hover:scale-105"
+              onError={(e) => {
+                // Si la imagen falla, mostrar un icono de paquete
+                e.currentTarget.style.display = "none"
+                e.currentTarget.parentElement.classList.add("flex", "items-center", "justify-center", "bg-gray-200")
+                const icon = document.createElement("div")
+                icon.innerHTML =
+                  '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class="text-gray-400"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><line x1="12" y1="22" x2="12" y2="12"></line></svg>'
+                e.currentTarget.parentElement.appendChild(icon)
+              }}
+            />
+          </div>
         ) : (
           <div className="flex items-center justify-center h-full bg-gray-200">
             <Package className="h-12 w-12 text-gray-400" />
@@ -64,13 +74,13 @@ export function ProductCard({ product }) {
         </div>
       </CardContent>
       <CardFooter className="p-4 pt-0 flex gap-2">
-        <Button asChild variant="outline" size="sm" className="flex-1">
+        <Button asChild variant="outline" size="sm" className="flex-1 whitespace-nowrap">
           <Link href={`/dashboard/products/${id}`}>
             <Eye className="mr-2 h-4 w-4" />
             Ver detalles
           </Link>
         </Button>
-        <Button asChild variant="outline" size="sm" className="flex-1">
+        <Button asChild variant="outline" size="sm" className="flex-1 whitespace-nowrap">
           <Link href={`/api/sync/productos/${id}`}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Sincronizar

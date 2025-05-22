@@ -1,4 +1,5 @@
 import { GraphQLClient } from "graphql-request"
+import { shopifyConfig } from "./config/shopify"
 
 // Función para obtener la URL base
 export function getBaseUrl() {
@@ -11,10 +12,9 @@ export function getBaseUrl() {
 }
 
 // Crear un cliente GraphQL para Shopify
-const shopifyClient = new GraphQLClient(process.env.SHOPIFY_API_URL || "", {
+const shopifyClient = new GraphQLClient(`${getBaseUrl()}/api/shopify/proxy`, {
   headers: {
     "Content-Type": "application/json",
-    "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN || "",
   },
 })
 
@@ -22,19 +22,18 @@ const shopifyClient = new GraphQLClient(process.env.SHOPIFY_API_URL || "", {
 export async function shopifyFetch({ query, variables = {} }) {
   try {
     // Verificar que las variables de entorno estén configuradas
-    if (!process.env.SHOPIFY_API_URL || !process.env.SHOPIFY_ACCESS_TOKEN) {
+    if (!shopifyConfig.apiUrl || !shopifyConfig.accessToken) {
       console.error("Error: Faltan credenciales de Shopify")
       throw new Error(
         "Faltan credenciales de Shopify. Verifica las variables de entorno SHOPIFY_API_URL y SHOPIFY_ACCESS_TOKEN.",
       )
     }
 
-    // Realizar la consulta a Shopify
-    const response = await fetch(process.env.SHOPIFY_API_URL, {
+    // Realizar la consulta a Shopify a través del proxy
+    const response = await fetch(`${getBaseUrl()}/api/shopify/proxy`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
       },
       body: JSON.stringify({
         query,
@@ -69,7 +68,7 @@ export async function shopifyFetch({ query, variables = {} }) {
 export async function shopifyRestFetch(endpoint, method = "GET", data = null) {
   try {
     // Verificar que las variables de entorno estén configuradas
-    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
+    if (!shopifyConfig.shopDomain || !shopifyConfig.accessToken) {
       console.error("Error: Faltan credenciales de Shopify")
       throw new Error(
         "Faltan credenciales de Shopify. Verifica las variables de entorno NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN y SHOPIFY_ACCESS_TOKEN.",
@@ -77,7 +76,7 @@ export async function shopifyRestFetch(endpoint, method = "GET", data = null) {
     }
 
     // Construir la URL de la API de Shopify
-    const url = `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-07${
+    const url = `https://${shopifyConfig.shopDomain}/admin/api/${shopifyConfig.apiVersion}${
       endpoint.startsWith("/") ? endpoint : `/${endpoint}`
     }`
 
@@ -86,7 +85,7 @@ export async function shopifyRestFetch(endpoint, method = "GET", data = null) {
       method,
       headers: {
         "Content-Type": "application/json",
-        "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
+        "X-Shopify-Access-Token": shopifyConfig.accessToken,
       },
       body: data ? JSON.stringify(data) : undefined,
     }
@@ -200,7 +199,7 @@ export async function testShopifyConnection(tolerant = false) {
           if (!altResponse.errors) {
             return {
               success: true,
-              data: { shop: { name: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN?.split(".")[0] } },
+              data: { shop: { name: shopifyConfig.shopDomain.split(".")[0] } },
               message: "Conexión alternativa exitosa",
             }
           }

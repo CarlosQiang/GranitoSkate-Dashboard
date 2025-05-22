@@ -1,107 +1,34 @@
 import { NextResponse } from "next/server"
-import { shopifyFetch } from "@/lib/shopify"
+import { testShopifyConnection } from "@/lib/shopify"
+import { shopifyConfig } from "@/lib/config/shopify"
+
+export const dynamic = "force-dynamic"
 
 export async function GET() {
   try {
-    // Verificar que las variables de entorno estén configuradas
-    const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || process.env.SHOPIFY_STORE_DOMAIN
-    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN || process.env.NEXT_PUBLIC_SHOPIFY_ACCESS_TOKEN
-    const apiUrl =
-      process.env.SHOPIFY_API_URL || (shopDomain ? `https://${shopDomain}/admin/api/2023-07/graphql.json` : null)
+    // Verificar si la configuración de Shopify es válida
+    if (!shopifyConfig.shopDomain || !shopifyConfig.accessToken) {
+      const errors = []
+      if (!shopifyConfig.shopDomain) errors.push("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está configurado")
+      if (!shopifyConfig.accessToken) errors.push("SHOPIFY_ACCESS_TOKEN no está configurado")
 
-    const missingVars = []
-    if (!shopDomain) missingVars.push("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN o SHOPIFY_STORE_DOMAIN")
-    if (!accessToken) missingVars.push("SHOPIFY_ACCESS_TOKEN")
-    if (!apiUrl) missingVars.push("SHOPIFY_API_URL")
-
-    if (missingVars.length > 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Faltan variables de entorno: ${missingVars.join(", ")}`,
-          env: {
-            SHOPIFY_API_URL: apiUrl ? "Configurado" : "No configurado",
-            SHOPIFY_ACCESS_TOKEN: accessToken ? "Configurado" : "No configurado",
-            NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: shopDomain ? "Configurado" : "No configurado",
-          },
-        },
-        { status: 400 },
-      )
+      return NextResponse.json({
+        success: false,
+        message: "Faltan credenciales de Shopify",
+        details: errors,
+      })
     }
 
-    // Consulta GraphQL simple para probar la conexión
-    const query = `
-      query {
-        shop {
-          name
-          primaryDomain {
-            url
-          }
-        }
-      }
-    `
+    // Probar la conexión con Shopify
+    const result = await testShopifyConnection()
 
-    console.log(`Verificando conexión con Shopify (${shopDomain})...`)
-
-    // Realizar la consulta a Shopify
-    const response = await shopifyFetch({ query })
-
-    if (response.errors) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Error en la API de Shopify",
-          details: response.errors,
-          env: {
-            SHOPIFY_API_URL: apiUrl ? "Configurado" : "No configurado",
-            SHOPIFY_ACCESS_TOKEN: accessToken ? "Configurado" : "No configurado",
-            NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: shopDomain ? "Configurado" : "No configurado",
-          },
-        },
-        { status: 500 },
-      )
-    }
-
-    if (!response.data || !response.data.shop) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Respuesta de Shopify inválida",
-          response,
-          env: {
-            SHOPIFY_API_URL: apiUrl ? "Configurado" : "No configurado",
-            SHOPIFY_ACCESS_TOKEN: accessToken ? "Configurado" : "No configurado",
-            NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: shopDomain ? "Configurado" : "No configurado",
-          },
-        },
-        { status: 500 },
-      )
-    }
-
-    // Conexión exitosa
-    return NextResponse.json({
-      success: true,
-      shop: response.data.shop,
-      env: {
-        SHOPIFY_API_URL: apiUrl ? "Configurado" : "No configurado",
-        SHOPIFY_ACCESS_TOKEN: accessToken ? "Configurado" : "No configurado",
-        NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: shopDomain ? "Configurado" : "No configurado",
-      },
-    })
+    return NextResponse.json(result)
   } catch (error) {
     console.error("Error al probar la conexión con Shopify:", error)
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Error desconocido",
-        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
-        env: {
-          SHOPIFY_API_URL: process.env.SHOPIFY_API_URL ? "Configurado" : "No configurado",
-          SHOPIFY_ACCESS_TOKEN: process.env.SHOPIFY_ACCESS_TOKEN ? "Configurado" : "No configurado",
-          NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
-            ? "Configurado"
-            : "No configurado",
-        },
+        message: error instanceof Error ? error.message : "Error desconocido al probar la conexión con Shopify",
       },
       { status: 500 },
     )
