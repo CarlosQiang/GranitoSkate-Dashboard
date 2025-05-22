@@ -1,57 +1,55 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 
-// Marcar la ruta como dinámica para evitar errores de renderizado estático
-export const dynamic = "force-dynamic"
-
-export async function GET(request: Request) {
+export async function GET() {
   try {
     // Verificar autenticación
     const session = await getServerSession(authOptions)
     if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 })
     }
 
-    // Lista de variables de entorno a verificar
-    const requiredVariables = [
-      "SHOPIFY_STORE_DOMAIN",
-      "SHOPIFY_ACCESS_TOKEN",
-      "SHOPIFY_API_URL",
-      "NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN",
-      "POSTGRES_URL",
-      "NEXTAUTH_URL",
-      "NEXTAUTH_SECRET",
-    ]
+    // Verificar si el usuario tiene permisos de administrador
+    if (session.user.role !== "admin") {
+      return NextResponse.json(
+        { success: false, error: "No tienes permisos para acceder a esta información" },
+        { status: 403 },
+      )
+    }
 
-    // Verificar cada variable
-    const variables: Record<string, { name: string; exists: boolean; value?: string }> = {}
+    // Verificar variables de entorno relacionadas con Shopify
+    const vars = {
+      NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: !!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN,
+      SHOPIFY_ACCESS_TOKEN: !!process.env.SHOPIFY_ACCESS_TOKEN,
+      SHOPIFY_API_URL: !!process.env.SHOPIFY_API_URL,
+      SHOPIFY_STORE_DOMAIN: !!process.env.SHOPIFY_STORE_DOMAIN,
+      NEXT_PUBLIC_SHOPIFY_ACCESS_TOKEN: !!process.env.NEXT_PUBLIC_SHOPIFY_ACCESS_TOKEN,
 
-    for (const varName of requiredVariables) {
-      const exists = !!process.env[varName]
-      variables[varName] = {
-        name: varName,
-        exists,
-        // Solo incluir el valor para variables públicas o parciales para privadas
-        value: varName.startsWith("NEXT_PUBLIC_")
-          ? process.env[varName]
-          : exists
-            ? `${process.env[varName]?.substring(0, 3)}...${process.env[varName]?.substring(process.env[varName].length - 3)}`
-            : undefined,
-      }
+      // Variables de entorno relacionadas con la base de datos
+      POSTGRES_URL: !!process.env.POSTGRES_URL,
+
+      // Variables de entorno relacionadas con NextAuth
+      NEXTAUTH_URL: !!process.env.NEXTAUTH_URL,
+      NEXTAUTH_SECRET: !!process.env.NEXTAUTH_SECRET,
+
+      // Otras variables de entorno
+      NEXT_PUBLIC_VERCEL_URL: !!process.env.NEXT_PUBLIC_VERCEL_URL,
+      NEXT_PUBLIC_API_URL: !!process.env.NEXT_PUBLIC_API_URL,
+      NEXT_PUBLIC_APP_URL: !!process.env.NEXT_PUBLIC_APP_URL,
+      VERCEL_REGION: !!process.env.VERCEL_REGION,
     }
 
     return NextResponse.json({
       success: true,
-      variables,
-      allConfigured: Object.values(variables).every((v) => v.exists),
+      vars,
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error al verificar variables de entorno:", error)
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Error desconocido al verificar variables de entorno",
+        error: error instanceof Error ? error.message : "Error desconocido",
       },
       { status: 500 },
     )

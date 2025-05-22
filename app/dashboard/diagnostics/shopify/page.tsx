@@ -24,11 +24,20 @@ export default function ShopifyDiagnosticPage() {
     accessToken: "",
   })
   const [isSaving, setIsSaving] = useState(false)
+  const [envVars, setEnvVars] = useState<{ [key: string]: boolean }>({})
 
   useEffect(() => {
     // Cargar la configuración actual
     const loadConfig = async () => {
       try {
+        // Verificar variables de entorno
+        const envResponse = await fetch("/api/system/env-check")
+        if (envResponse.ok) {
+          const envData = await envResponse.json()
+          setEnvVars(envData.vars || {})
+        }
+
+        // Cargar configuración de Shopify
         const response = await fetch("/api/shopify/config-check")
         const data = await response.json()
         if (data.success) {
@@ -60,7 +69,7 @@ export default function ShopifyDiagnosticPage() {
         setTestResults({
           status: "success",
           message: "Conexión exitosa a Shopify",
-          details: `Tienda: ${data.shopName}, Plan: ${data.shopPlan}`,
+          details: `Tienda: ${data.shopName || "Desconocida"}, Dominio: ${data.shopDomain || "Desconocido"}`,
         })
       } else {
         setTestResults({
@@ -89,7 +98,7 @@ export default function ShopifyDiagnosticPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          domain: shopifyConfig.domain,
+          shopDomain: shopifyConfig.domain,
           accessToken: shopifyConfig.accessToken === "••••••••" ? null : shopifyConfig.accessToken,
         }),
       })
@@ -127,6 +136,30 @@ export default function ShopifyDiagnosticPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              <div className="mb-6 space-y-4">
+                <h3 className="text-sm font-medium">Estado de las variables de entorno:</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                    <span className="text-sm font-mono">NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN</span>
+                    <span className={envVars.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN ? "text-green-500" : "text-red-500"}>
+                      {envVars.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN ? "✓" : "✗"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                    <span className="text-sm font-mono">SHOPIFY_ACCESS_TOKEN</span>
+                    <span className={envVars.SHOPIFY_ACCESS_TOKEN ? "text-green-500" : "text-red-500"}>
+                      {envVars.SHOPIFY_ACCESS_TOKEN ? "✓" : "✗"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                    <span className="text-sm font-mono">SHOPIFY_API_URL</span>
+                    <span className={envVars.SHOPIFY_API_URL ? "text-green-500" : "text-red-500"}>
+                      {envVars.SHOPIFY_API_URL ? "✓" : "✗"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               {testResults.status !== "pending" && (
                 <Alert
                   className={`mb-4 ${

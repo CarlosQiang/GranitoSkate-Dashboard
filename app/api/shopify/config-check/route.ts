@@ -1,37 +1,40 @@
 import { NextResponse } from "next/server"
-import { shopifyConfig, isShopifyConfigValid, getShopifyConfigErrors } from "@/lib/config/shopify"
-import { testShopifyConnection } from "@/lib/shopify"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
 
 export async function GET() {
   try {
-    const configValid = isShopifyConfigValid()
-    const configErrors = getShopifyConfigErrors()
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 })
+    }
 
-    // Intentar una conexión de prueba
-    const connectionTest = await testShopifyConnection(true)
+    // Verificar si el usuario tiene permisos de administrador
+    if (session.user.role !== "admin") {
+      return NextResponse.json(
+        { success: false, error: "No tienes permisos para acceder a esta información" },
+        { status: 403 },
+      )
+    }
+
+    // Obtener configuración de Shopify
+    const config = {
+      domain: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || process.env.SHOPIFY_STORE_DOMAIN || "",
+      accessToken: !!process.env.SHOPIFY_ACCESS_TOKEN,
+      apiUrl: process.env.SHOPIFY_API_URL || "",
+    }
 
     return NextResponse.json({
-      success: configValid && connectionTest.success,
-      configValid,
-      configErrors,
-      connectionTest,
-      config: {
-        apiUrl: shopifyConfig.apiUrl ? "Configurado" : "No configurado",
-        accessToken: shopifyConfig.accessToken ? "Configurado" : "No configurado",
-        shopDomain: shopifyConfig.shopDomain ? "Configurado" : "No configurado",
-      },
+      success: true,
+      config,
     })
   } catch (error) {
-    console.error("Error al verificar la configuración de Shopify:", error)
+    console.error("Error al verificar configuración de Shopify:", error)
     return NextResponse.json(
       {
         success: false,
-        message: error instanceof Error ? error.message : "Error desconocido",
-        config: {
-          apiUrl: shopifyConfig.apiUrl ? "Configurado" : "No configurado",
-          accessToken: shopifyConfig.accessToken ? "Configurado" : "No configurado",
-          shopDomain: shopifyConfig.shopDomain ? "Configurado" : "No configurado",
-        },
+        error: error instanceof Error ? error.message : "Error desconocido",
       },
       { status: 500 },
     )
