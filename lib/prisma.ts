@@ -3,18 +3,18 @@ import { PrismaClient } from "@prisma/client"
 // Evitar múltiples instancias de Prisma Client en desarrollo
 // https://www.prisma.io/docs/guides/performance-and-optimization/connection-management
 
-let prisma: PrismaClient
+let prismaGlobal: PrismaClient
 
 if (process.env.NODE_ENV === "production") {
-  prisma = new PrismaClient()
+  prismaGlobal = new PrismaClient()
 } else {
-  if (!global.prisma) {
-    global.prisma = new PrismaClient()
+  if (!(global as any).prisma) {
+    ;(global as any).prisma = new PrismaClient()
   }
-  prisma = global.prisma
+  prismaGlobal = (global as any).prisma
 }
 
-export default prisma
+export const prisma = prismaGlobal
 
 // Función para verificar la conexión a la base de datos
 export async function checkDatabaseConnection() {
@@ -34,3 +34,5 @@ export async function checkDatabaseConnection() {
     await prisma.$disconnect()
   }
 }
+
+export default prisma

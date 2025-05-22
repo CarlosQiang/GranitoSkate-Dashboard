@@ -1,4 +1,5 @@
-import { sql, query } from "@vercel/postgres"
+import { sql } from "@vercel/postgres"
+import { query } from "@/lib/db"
 import { type ThemeConfig, defaultThemeConfig } from "@/types/theme-config"
 import { Logger } from "next-axiom"
 

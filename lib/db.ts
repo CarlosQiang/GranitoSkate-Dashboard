@@ -22,7 +22,7 @@ export async function query(text: string, params: any[] = []): Promise<QueryResu
 }
 
 // Función para verificar la conexión a la base de datos
-export async function checkConnection(): Promise<{ connected: boolean; error?: string }> {
+export async function testConnection(): Promise<{ connected: boolean; error?: string }> {
   try {
     const result = await query("SELECT NOW()")
     return { connected: true }
@@ -32,6 +32,11 @@ export async function checkConnection(): Promise<{ connected: boolean; error?: s
       error: error instanceof Error ? error.message : "Error desconocido",
     }
   }
+}
+
+// Función para verificar la conexión a la base de datos (alias para compatibilidad)
+export async function checkConnection(): Promise<{ connected: boolean; error?: string }> {
+  return testConnection()
 }
 
 // Funciones genéricas para operaciones CRUD
@@ -117,6 +122,7 @@ export async function logSyncEvent(data: {
 export const db = {
   query,
   checkConnection,
+  testConnection,
   findAll,
   findById,
   findByField,

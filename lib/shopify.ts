@@ -1,5 +1,16 @@
 import { shopifyFetch } from "./shopify-client"
 
+// Función para formatear IDs de Shopify
+export function formatShopifyId(id: string, type: string): string {
+  if (id.includes(`gid://shopify/${type}/`)) {
+    return id
+  }
+  return `gid://shopify/${type}/${id}`
+}
+
+// Exportar shopifyFetch para que esté disponible para otros módulos
+export { shopifyFetch }
+
 // Función para obtener productos de Shopify
 export async function getShopifyProducts(limit = 10, cursor = null) {
   try {
@@ -411,4 +422,5 @@ export default {
   createShopifyProduct,
   updateShopifyProduct,
   deleteShopifyProduct,
+  formatShopifyId,
 }
