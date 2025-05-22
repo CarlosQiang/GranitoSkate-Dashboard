@@ -1,62 +1,105 @@
 import { NextResponse } from "next/server"
-import {
-  checkShopifyConnection,
-  checkSystemConfiguration,
-  checkApiAvailability,
-  checkSystemStatus,
-} from "@/lib/system-check"
+import { testShopifyConnection } from "@/lib/shopify"
+import db from "@/lib/db"
+
+export const dynamic = "force-dynamic"
 
 export async function GET() {
   try {
-    console.log("🔍 Iniciando diagnóstico completo del sistema...")
+    // Verificar variables de entorno
+    const envResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/system/env-check`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache",
+      },
+    })
 
-    // 1. Verificar conexión con Shopify
-    console.log("Verificando conexión con Shopify...")
-    const shopifyStatus = await checkShopifyConnection()
+    const envData = await envResponse.json()
+    const missingRequiredVars = envData.variables?.filter((v) => v.required && v.status === "missing") || []
 
-    // 2. Verificar configuración del sistema
-    console.log("Verificando configuración del sistema...")
-    const configStatus = await checkSystemConfiguration()
-
-    // 3. Verificar disponibilidad de la API
-    console.log("Verificando disponibilidad de la API...")
-    const apiStatus = await checkApiAvailability()
-
-    // 4. Verificar estado general del sistema
-    console.log("Verificando estado general del sistema...")
-    const systemStatus = await checkSystemStatus()
-
-    // Determinar el estado general
-    const allOk =
-      shopifyStatus.status === "ok" &&
-      configStatus.status === "ok" &&
-      apiStatus.status === "ok" &&
-      systemStatus.status === "ok"
-
-    const summary = {
-      status: allOk ? "ok" : "error",
-      message: allOk ? "Todos los sistemas funcionan correctamente" : "Se encontraron problemas en uno o más sistemas",
+    // Verificar conexión con Shopify
+    let shopifyStatus = { success: false, message: "No se pudo verificar la conexión con Shopify" }
+    try {
+      shopifyStatus = await testShopifyConnection(true)
+    } catch (error) {
+      console.error("Error al verificar conexión con Shopify:", error)
+      shopifyStatus = {
+        success: false,
+        message: error instanceof Error ? error.message : "Error desconocido al verificar conexión con Shopify",
+      }
     }
 
-    // Resultado final
-    console.log("\n✅ Diagnóstico completo finalizado")
+    // Verificar conexión con la base de datos
+    let dbStatus = { connected: false, message: "No se pudo verificar la conexión con la base de datos" }
+    try {
+      const testResult = await db.testConnection()
+      dbStatus = {
+        connected: testResult,
+        message: testResult
+          ? "Conexión exitosa con la base de datos"
+          : "Error al conectar con la base de datos. Verifica las credenciales.",
+      }
+    } catch (error) {
+      console.error("Error al verificar conexión con la base de datos:", error)
+      dbStatus = {
+        connected: false,
+        message:
+          error instanceof Error ? error.message : "Error desconocido al verificar conexión con la base de datos",
+      }
+    }
+
+    // Determinar el estado general del sistema
+    const allRequiredVarsPresent = missingRequiredVars.length === 0
+    const shopifyConnected = shopifyStatus.success
+    const dbConnected = dbStatus.connected
+
+    let systemStatus = "error"
+    let systemMessage = "Se encontraron problemas críticos en el sistema"
+
+    if (allRequiredVarsPresent && shopifyConnected && dbConnected) {
+      systemStatus = "ok"
+      systemMessage = "Todos los componentes del sistema están funcionando correctamente"
+    } else if ((shopifyConnected || dbConnected) && missingRequiredVars.length <= 2) {
+      systemStatus = "warning"
+      systemMessage = "El sistema está funcionando parcialmente. Algunos componentes requieren atención."
+    }
 
     return NextResponse.json({
-      success: true,
-      summary,
-      shopifyStatus,
-      configStatus,
-      apiStatus,
-      systemStatus,
-      timestamp: new Date().toISOString(),
+      success: systemStatus === "ok",
+      summary: {
+        status: systemStatus,
+        message: systemMessage,
+      },
+      details: {
+        environment: {
+          status: allRequiredVarsPresent ? "ok" : "error",
+          missingRequired: missingRequiredVars.map((v) => v.name),
+          allRequiredPresent: allRequiredVarsPresent,
+        },
+        shopify: {
+          status: shopifyConnected ? "ok" : "error",
+          connected: shopifyConnected,
+          message: shopifyStatus.message,
+          data: shopifyStatus.data,
+        },
+        database: {
+          status: dbConnected ? "ok" : "error",
+          connected: dbConnected,
+          message: dbStatus.message,
+        },
+      },
     })
   } catch (error) {
-    console.error("❌ Error durante el diagnóstico completo:", error)
+    console.error("Error al realizar diagnóstico completo:", error)
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Error desconocido durante el diagnóstico",
-        timestamp: new Date().toISOString(),
+        summary: {
+          status: "error",
+          message: "Error al realizar diagnóstico completo",
+        },
+        error: error instanceof Error ? error.message : "Error desconocido al realizar diagnóstico completo",
       },
       { status: 500 },
     )

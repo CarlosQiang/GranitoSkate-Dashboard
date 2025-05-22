@@ -1,93 +1,84 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { RefreshCw, CheckCircle, XCircle, Database } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { CheckCircle, AlertCircle, RefreshCw, Database } from "lucide-react"
 
 export function DbInitializer() {
-  const [loading, setLoading] = useState(false)
-  const [initialized, setInitialized] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<any>(null)
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
+  const [message, setMessage] = useState<string>("")
 
   const initializeDb = async () => {
-    try {
-      setLoading(true)
-      setError(null)
+    setStatus("loading")
+    setMessage("Inicializando base de datos...")
 
-      const response = await fetch("/api/db/init")
+    try {
+      const response = await fetch("/api/db/init", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+        },
+        cache: "no-store",
+      })
+
       const data = await response.json()
 
-      if (data.status === "error") {
-        throw new Error(data.message || "Error al inicializar la base de datos")
+      if (response.ok && data.success) {
+        setStatus("success")
+        setMessage(data.message || "Base de datos inicializada correctamente")
+      } else {
+        setStatus("error")
+        setMessage(data.error || "Error al inicializar la base de datos")
       }
-
-      setResult(data)
-      setInitialized(true)
-    } catch (err: any) {
-      console.error("Error al inicializar la base de datos:", err)
-      setError(err.message || "Error desconocido al inicializar la base de datos")
-    } finally {
-      setLoading(false)
+    } catch (error) {
+      console.error("Error al inicializar la base de datos:", error)
+      setStatus("error")
+      setMessage(error instanceof Error ? error.message : "Error desconocido al inicializar la base de datos")
     }
   }
-
-  // Verificar estado de inicialización al cargar
-  useEffect(() => {
-    const checkDbStatus = async () => {
-      try {
-        const response = await fetch("/api/db/check")
-        const data = await response.json()
-        setInitialized(data.success)
-      } catch (err) {
-        console.error("Error al verificar estado de la base de datos:", err)
-      }
-    }
-
-    checkDbStatus()
-  }, [])
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Database className="h-5 w-5" />
-          Inicialización de Base de Datos
-        </CardTitle>
-        <CardDescription>Crea las tablas necesarias para el funcionamiento de la aplicación</CardDescription>
+        <CardTitle>Inicializar Base de Datos</CardTitle>
+        <CardDescription>Crea las tablas necesarias en la base de datos</CardDescription>
       </CardHeader>
       <CardContent>
-        {error && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {initialized && !error && (
-          <Alert variant="success" className="mb-4">
-            <CheckCircle className="h-4 w-4" />
-            <AlertTitle>Base de datos inicializada</AlertTitle>
-            <AlertDescription>
-              {result?.message || "La base de datos ha sido inicializada correctamente."}
-              {result?.adminCreated && (
-                <p className="mt-2">Se ha creado el usuario administrador con las credenciales por defecto.</p>
-              )}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <p className="text-sm text-muted-foreground mb-4">
-          Esta herramienta crea las tablas necesarias para el funcionamiento de la aplicación. Si es la primera vez que
-          utilizas la aplicación, debes inicializar la base de datos.
+        <p className="text-sm text-gray-600 mb-4">
+          Esta herramienta inicializa la base de datos creando todas las tablas necesarias para el funcionamiento de la
+          aplicación. Úsala solo si es la primera vez que configuras la aplicación o si necesitas reiniciar la base de
+          datos.
         </p>
+
+        {status === "loading" && (
+          <div className="flex items-center justify-center p-4">
+            <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
+            <span className="ml-2 text-gray-500">Inicializando base de datos...</span>
+          </div>
+        )}
+
+        {status === "success" && (
+          <Alert className="bg-green-50 border-green-200">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertTitle>Inicialización exitosa</AlertTitle>
+            <AlertDescription>{message}</AlertDescription>
+          </Alert>
+        )}
+
+        {status === "error" && (
+          <Alert variant="destructive">
+            <XCircle className="h-4 w-4" />
+            <AlertTitle>Error de inicialización</AlertTitle>
+            <AlertDescription>{message}</AlertDescription>
+          </Alert>
+        )}
       </CardContent>
       <CardFooter>
-        <Button onClick={initializeDb} disabled={loading || initialized} className="w-full">
-          {loading ? (
+        <Button onClick={initializeDb} disabled={status === "loading"} variant="outline" className="w-full">
+          {status === "loading" ? (
             <>
               <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
               Inicializando...
@@ -95,7 +86,7 @@ export function DbInitializer() {
           ) : (
             <>
               <Database className="mr-2 h-4 w-4" />
-              {initialized ? "Base de datos ya inicializada" : "Inicializar Base de Datos"}
+              Inicializar Base de Datos
             </>
           )}
         </Button>
@@ -103,3 +94,5 @@ export function DbInitializer() {
     </Card>
   )
 }
+
+export default DbInitializer

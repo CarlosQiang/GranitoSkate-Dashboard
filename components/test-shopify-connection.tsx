@@ -3,18 +3,18 @@
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, CheckCircle, XCircle, AlertTriangle, ExternalLink } from "lucide-react"
+import { RefreshCw, CheckCircle, XCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import Link from "next/link"
 
 export function TestShopifyConnection() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
-  const [result, setResult] = useState<any>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string>("")
+  const [shopInfo, setShopInfo] = useState<any>(null)
 
   const testConnection = async () => {
     setStatus("loading")
-    setError(null)
+    setMessage("Probando conexión con Shopify...")
+    setShopInfo(null)
 
     try {
       const response = await fetch("/api/shopify/test-connection", {
@@ -27,94 +27,83 @@ export function TestShopifyConnection() {
       })
 
       const data = await response.json()
-      setResult(data)
 
-      if (data.success) {
+      if (response.ok && data.success) {
         setStatus("success")
+        setMessage(data.message || "Conexión exitosa con Shopify")
+        setShopInfo(data.data || null)
       } else {
         setStatus("error")
-        setError(data.error || "Error desconocido al conectar con Shopify")
+        setMessage(data.message || "Error al conectar con Shopify")
       }
     } catch (error) {
-      console.error("Error al probar la conexión con Shopify:", error)
+      console.error("Error al probar conexión con Shopify:", error)
       setStatus("error")
-      setError((error as Error).message || "Error de conexión")
+      setMessage(error instanceof Error ? error.message : "Error desconocido al probar conexión con Shopify")
     }
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          {status === "success" && <CheckCircle className="h-5 w-5 text-green-500" />}
-          {status === "error" && <XCircle className="h-5 w-5 text-red-500" />}
-          {status === "loading" && <RefreshCw className="h-5 w-5 animate-spin" />}
-          {status === "idle" && <AlertTriangle className="h-5 w-5 text-yellow-500" />}
-          Prueba de Conexión a Shopify
-        </CardTitle>
-        <CardDescription>Realiza una prueba completa de conexión a la API de Shopify</CardDescription>
+        <CardTitle>Prueba de Conexión a Shopify</CardTitle>
+        <CardDescription>Realiza una prueba de conexión a la API de Shopify</CardDescription>
       </CardHeader>
       <CardContent>
-        {status === "idle" && (
-          <Alert className="bg-blue-50 border-blue-200 text-blue-800">
-            <AlertTriangle className="h-4 w-4 text-blue-600" />
-            <AlertTitle>Prueba no iniciada</AlertTitle>
-            <AlertDescription>Haz clic en el botón para probar la conexión con Shopify.</AlertDescription>
-          </Alert>
-        )}
-
         {status === "loading" && (
           <div className="flex items-center justify-center p-4">
             <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
-            <span className="ml-2 text-gray-500">Probando conexión con Shopify...</span>
+            <span className="ml-2 text-gray-500">Probando conexión...</span>
           </div>
+        )}
+
+        {status === "success" && (
+          <Alert className="bg-green-50 border-green-200">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertTitle>Conexión exitosa</AlertTitle>
+            <AlertDescription>{message}</AlertDescription>
+          </Alert>
         )}
 
         {status === "error" && (
           <Alert variant="destructive">
             <XCircle className="h-4 w-4" />
             <AlertTitle>Error de conexión</AlertTitle>
-            <AlertDescription>
-              <p>{error}</p>
-              {result && result.env && (
-                <div className="mt-2">
-                  <p className="font-semibold">Estado de las variables de entorno:</p>
-                  <ul className="list-disc pl-5 mt-1 space-y-1 text-xs">
-                    <li>SHOPIFY_API_URL: {result.env.SHOPIFY_API_URL}</li>
-                    <li>SHOPIFY_ACCESS_TOKEN: {result.env.SHOPIFY_ACCESS_TOKEN}</li>
-                    <li>NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: {result.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}</li>
-                  </ul>
-                </div>
-              )}
-            </AlertDescription>
+            <AlertDescription>{message}</AlertDescription>
           </Alert>
         )}
 
-        {status === "success" && (
-          <Alert className="bg-green-50 border-green-200 text-green-800">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertTitle>Conexión exitosa</AlertTitle>
-            <AlertDescription>
-              <p>Se ha establecido conexión correctamente con la tienda Shopify.</p>
-              {result && result.shop && (
-                <div className="mt-2">
-                  <p>
-                    <strong>Nombre de la tienda:</strong> {result.shop.name}
-                  </p>
-                  {result.shop.primaryDomain && (
-                    <Link
-                      href={result.shop.primaryDomain.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline flex items-center gap-1 mt-1"
-                    >
-                      Visitar tienda <ExternalLink className="h-3 w-3" />
-                    </Link>
-                  )}
-                </div>
-              )}
-            </AlertDescription>
-          </Alert>
+        {shopInfo && (
+          <div className="mt-4 space-y-2">
+            <h3 className="text-sm font-medium">Información de la tienda:</h3>
+            <div className="rounded-md border p-3">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="font-medium">Nombre:</div>
+                <div>{shopInfo.shop?.name || "No disponible"}</div>
+                {shopInfo.shop?.id && (
+                  <>
+                    <div className="font-medium">ID:</div>
+                    <div className="font-mono text-xs">{shopInfo.shop.id}</div>
+                  </>
+                )}
+                {shopInfo.shop?.url && (
+                  <>
+                    <div className="font-medium">URL:</div>
+                    <div>
+                      <a
+                        href={shopInfo.shop.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        {shopInfo.shop.url}
+                      </a>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
         )}
       </CardContent>
       <CardFooter>
@@ -135,3 +124,5 @@ export function TestShopifyConnection() {
     </Card>
   )
 }
+
+export default TestShopifyConnection
