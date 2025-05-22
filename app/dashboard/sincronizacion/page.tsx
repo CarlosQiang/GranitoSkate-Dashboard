@@ -1,54 +1,87 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { SincronizacionIndividual } from "@/components/sincronizacion-individual"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { SincronizacionProductos } from "@/components/sincronizacion-productos"
+import { SincronizacionColecciones } from "@/components/sincronizacion-colecciones"
+import { SincronizacionClientes } from "@/components/sincronizacion-clientes"
+import { SincronizacionPedidos } from "@/components/sincronizacion-pedidos"
+import { RegistroSincronizacion } from "@/components/registro-sincronizacion"
 
 export default function SincronizacionPage() {
   return (
-    <div className="container mx-auto py-6">
-      <h1 className="text-3xl font-bold mb-6">Sincronización con Shopify</h1>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Sincronización con Shopify</h1>
+        <p className="text-muted-foreground">
+          Sincroniza tus productos, colecciones, clientes y pedidos con tu tienda Shopify
+        </p>
+      </div>
 
-      <p className="text-muted-foreground mb-6">
-        Esta página te permite sincronizar datos entre tu tienda Shopify y la base de datos local. Selecciona el tipo de
-        datos que deseas sincronizar y haz clic en el botón correspondiente.
-      </p>
-
-      <Tabs defaultValue="productos" className="w-full">
-        <TabsList className="grid grid-cols-4 mb-8">
+      <Tabs defaultValue="productos" className="space-y-4">
+        <TabsList>
           <TabsTrigger value="productos">Productos</TabsTrigger>
           <TabsTrigger value="colecciones">Colecciones</TabsTrigger>
           <TabsTrigger value="clientes">Clientes</TabsTrigger>
           <TabsTrigger value="pedidos">Pedidos</TabsTrigger>
+          <TabsTrigger value="registro">Registro</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="productos">
-          <SincronizacionIndividual
-            tipo="productos"
-            titulo="Sincronización de Productos"
-            descripcion="Sincroniza productos individuales desde Shopify a la base de datos local."
-          />
+        <TabsContent value="productos" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Sincronización de Productos</CardTitle>
+              <CardDescription>
+                Sincroniza los productos de tu tienda Shopify con la base de datos local
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SincronizacionProductos />
+            </CardContent>
+          </Card>
         </TabsContent>
-
-        <TabsContent value="colecciones">
-          <SincronizacionIndividual
-            tipo="colecciones"
-            titulo="Sincronización de Colecciones"
-            descripcion="Sincroniza colecciones individuales desde Shopify a la base de datos local."
-          />
+        <TabsContent value="colecciones" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Sincronización de Colecciones</CardTitle>
+              <CardDescription>
+                Sincroniza las colecciones de tu tienda Shopify con la base de datos local
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SincronizacionColecciones />
+            </CardContent>
+          </Card>
         </TabsContent>
-
-        <TabsContent value="clientes">
-          <SincronizacionIndividual
-            tipo="clientes"
-            titulo="Sincronización de Clientes"
-            descripcion="Sincroniza clientes individuales desde Shopify a la base de datos local."
-          />
+        <TabsContent value="clientes" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Sincronización de Clientes</CardTitle>
+              <CardDescription>Sincroniza los clientes de tu tienda Shopify con la base de datos local</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SincronizacionClientes />
+            </CardContent>
+          </Card>
         </TabsContent>
-
-        <TabsContent value="pedidos">
-          <SincronizacionIndividual
-            tipo="pedidos"
-            titulo="Sincronización de Pedidos"
-            descripcion="Sincroniza pedidos individuales desde Shopify a la base de datos local."
-          />
+        <TabsContent value="pedidos" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Sincronización de Pedidos</CardTitle>
+              <CardDescription>Sincroniza los pedidos de tu tienda Shopify con la base de datos local</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SincronizacionPedidos />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="registro" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Registro de Sincronización</CardTitle>
+              <CardDescription>Consulta el historial de sincronizaciones realizadas y sus resultados</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RegistroSincronizacion />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

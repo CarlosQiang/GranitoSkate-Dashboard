@@ -1,92 +1,93 @@
 import { NextResponse } from "next/server"
-
-export const dynamic = "force-dynamic"
+import { envConfig, getConfigErrors } from "@/lib/config/env"
 
 export async function GET() {
   try {
     // Definir las variables de entorno requeridas y opcionales
-    const envVariables = {
-      // Variables de Shopify
-      NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: {
-        exists: !!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN,
+    const requiredVariables = [
+      {
+        name: "SHOPIFY_ACCESS_TOKEN",
+        exists: Boolean(envConfig.shopifyAccessToken),
         required: true,
-        description: "Dominio de la tienda Shopify (ej: mi-tienda.myshopify.com)",
+        description: "Token de acceso para la API de Shopify",
       },
-      SHOPIFY_ACCESS_TOKEN: {
-        exists: !!process.env.SHOPIFY_ACCESS_TOKEN,
+      {
+        name: "NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN",
+        exists: Boolean(envConfig.shopifyShopDomain),
         required: true,
-        description: "Token de acceso a la API de Shopify",
+        description: "Dominio de la tienda Shopify (sin https://)",
       },
-      SHOPIFY_API_URL: {
-        exists: !!process.env.SHOPIFY_API_URL,
-        required: false,
-        description: "URL de la API de Shopify (se genera automáticamente si no se proporciona)",
+      {
+        name: "SHOPIFY_API_URL",
+        exists: Boolean(envConfig.shopifyApiUrl),
+        required: true,
+        description: "URL de la API de Shopify",
       },
-
-      // Variables de la base de datos
-      POSTGRES_URL: {
-        exists: !!process.env.POSTGRES_URL,
+      {
+        name: "POSTGRES_URL",
+        exists: Boolean(envConfig.databaseUrl),
         required: true,
         description: "URL de conexión a la base de datos PostgreSQL",
       },
-      DATABASE_URL: {
-        exists: !!process.env.DATABASE_URL,
-        required: false,
-        description: "URL alternativa de conexión a la base de datos",
-      },
-
-      // Variables de autenticación
-      NEXTAUTH_URL: {
-        exists: !!process.env.NEXTAUTH_URL,
+      {
+        name: "NEXTAUTH_SECRET",
+        exists: Boolean(envConfig.nextAuthSecret),
         required: true,
-        description: "URL base de la aplicación para NextAuth",
+        description: "Secreto para NextAuth",
       },
-      NEXTAUTH_SECRET: {
-        exists: !!process.env.NEXTAUTH_SECRET,
+      {
+        name: "NEXTAUTH_URL",
+        exists: Boolean(envConfig.nextAuthUrl),
         required: true,
-        description: "Secreto para firmar las cookies de sesión",
+        description: "URL de la aplicación para NextAuth",
       },
+    ]
 
-      // Variables de la aplicación
-      NEXT_PUBLIC_API_URL: {
-        exists: !!process.env.NEXT_PUBLIC_API_URL,
+    const optionalVariables = [
+      {
+        name: "NEXT_PUBLIC_APP_URL",
+        exists: Boolean(process.env.NEXT_PUBLIC_APP_URL),
         required: false,
-        description: "URL base de la API (se usa VERCEL_URL si no se proporciona)",
+        description: "URL pública de la aplicación",
       },
-      NEXT_PUBLIC_VERCEL_URL: {
-        exists: !!process.env.NEXT_PUBLIC_VERCEL_URL,
+      {
+        name: "NEXT_PUBLIC_VERCEL_URL",
+        exists: Boolean(process.env.NEXT_PUBLIC_VERCEL_URL),
         required: false,
-        description: "URL de Vercel (proporcionada automáticamente en Vercel)",
+        description: "URL de Vercel para la aplicación",
       },
-      VERCEL_REGION: {
-        exists: !!process.env.VERCEL_REGION,
+      {
+        name: "VERCEL_REGION",
+        exists: Boolean(process.env.VERCEL_REGION),
         required: false,
-        description: "Región de Vercel (proporcionada automáticamente en Vercel)",
+        description: "Región de Vercel donde se despliega la aplicación",
       },
-    }
+    ]
+
+    // Combinar todas las variables
+    const allVariables = [...requiredVariables, ...optionalVariables]
 
     // Verificar si todas las variables requeridas están configuradas
-    const allRequired = Object.values(envVariables).every((variable) => !variable.required || variable.exists)
+    const allRequired = requiredVariables.every((variable) => variable.exists)
 
-    // Contar variables configuradas y requeridas
-    const configuredCount = Object.values(envVariables).filter((variable) => variable.exists).length
-    const requiredCount = Object.values(envVariables).filter((variable) => variable.required).length
-    const configuredRequiredCount = Object.values(envVariables).filter(
-      (variable) => variable.required && variable.exists,
-    ).length
+    // Obtener errores de configuración
+    const configErrors = getConfigErrors()
 
     return NextResponse.json({
-      variables: envVariables,
+      success: true,
       allRequired,
-      configuredCount,
-      requiredCount,
-      configuredRequiredCount,
-      message: allRequired
-        ? "Todas las variables de entorno requeridas están configuradas"
-        : "Faltan algunas variables de entorno requeridas",
+      variables: Object.fromEntries(allVariables.map((variable) => [variable.name, variable])),
+      configErrors: configErrors.length > 0 ? configErrors : null,
     })
   } catch (error) {
-    console.error("Error al verificar las variables de entorno:", error)
-    return NextResponse.json({ error: "Error al verificar las variables de entorno" }, { status: 500 })
+    console.error("Error al verificar variables de entorno:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        message: `Error al verificar variables de entorno: ${error.message}`,
+        error: error.message,
+      },
+      { status: 500 },
+    )
   }
 }

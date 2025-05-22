@@ -145,21 +145,21 @@ export async function testShopifyConnection(tolerant = false) {
     // que podría funcionar incluso con tokens con permisos limitados
     const query = tolerant
       ? `
-        query {
-          shop {
-            name
-          }
-        }
-      `
+       query {
+         shop {
+           name
+         }
+       }
+     `
       : `
-        query {
-          shop {
-            name
-            id
-            url
-          }
-        }
-      `
+       query {
+         shop {
+           name
+           id
+           url
+         }
+       }
+     `
 
     const response = await shopifyFetch({ query })
 
@@ -183,16 +183,16 @@ export async function testShopifyConnection(tolerant = false) {
         try {
           // Intentar una consulta a productos que podría funcionar con diferentes permisos
           const altQuery = `
-            query {
-              products(first: 1) {
-                edges {
-                  node {
-                    id
-                  }
-                }
-              }
-            }
-          `
+           query {
+             products(first: 1) {
+               edges {
+                 node {
+                   id
+                 }
+               }
+             }
+           }
+         `
 
           const altResponse = await shopifyFetch({ query: altQuery })
 
