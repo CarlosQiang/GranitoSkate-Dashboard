@@ -8,42 +8,56 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    domains: [
-      'cdn.shopify.com',
-      'burst.shopifycdn.com',
-      'images.unsplash.com',
-      'plus.unsplash.com',
-      'tailwindui.com'
-    ],
+    domains: ['cdn.shopify.com', 'via.placeholder.com'],
     unoptimized: true,
   },
-  experimental: {
-    // En Next.js 15, serverActions es un objeto, no un booleano
-    serverActions: {
-      bodySizeLimit: '2mb',
-    },
+  async rewrites() {
+    return [
+      {
+        source: '/api/sync/products',
+        destination: '/api/sync/productos',
+      },
+      {
+        source: '/api/products',
+        destination: '/api/shopify/products',
+      },
+    ]
   },
-  // serverComponentsExternalPackages ha sido movido a serverExternalPackages
-  serverExternalPackages: ['@prisma/client', 'pg'],
   async headers() {
     return [
       {
-        source: '/api/:path*',
+        source: '/site.webmanifest',
         headers: [
-          { key: 'Access-Control-Allow-Credentials', value: 'true' },
-          { key: 'Access-Control-Allow-Origin', value: '*' },
-          { key: 'Access-Control-Allow-Methods', value: 'GET,OPTIONS,PATCH,DELETE,POST,PUT' },
-          { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version' },
+          {
+            key: 'Content-Type',
+            value: 'application/manifest+json',
+          },
+        ],
+      },
+      {
+        source: '/android-chrome-192x192.png',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'image/png',
+          },
+        ],
+      },
+      {
+        source: '/android-chrome-512x512.png',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'image/png',
+          },
         ],
       },
     ]
   },
-  // Configuración para manejar errores de Shopify API
-  onDemandEntries: {
-    // Período en ms en el que la página se mantendrá en memoria
-    maxInactiveAge: 25 * 1000,
-    // Número de páginas que se mantendrán en memoria
-    pagesBufferLength: 2,
+  experimental: {
+    serverActions: {
+      allowedOrigins: ['localhost:3000', '*.vercel.app'],
+    },
   },
 }
 

@@ -1,157 +1,108 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
-import { shopifyFetch } from "@/lib/shopify-client"
 
+// Marcar la ruta como dinámica para evitar errores de renderizado estático
 export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
   try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    // Verificar que las variables de entorno estén configuradas
+    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
+      console.error("Faltan credenciales de Shopify:", {
+        hasDomain: !!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN,
+        hasToken: !!process.env.SHOPIFY_ACCESS_TOKEN,
+      })
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Faltan credenciales de Shopify en las variables de entorno",
+        },
+        { status: 500 },
+      )
     }
 
-    // Obtener parámetros de la URL
-    const { searchParams } = new URL(request.url)
-    const limit = Number(searchParams.get("limit") || "10")
-    const cursor = searchParams.get("cursor")
-    const query = searchParams.get("query")
+    // Construir la URL de la API de Shopify
+    const url = `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-07/products.json?limit=50`
 
-    // Construir la consulta GraphQL
-    const graphqlQuery = `
-      query getProducts($limit: Int!, $cursor: String, $query: String) {
-        products(first: $limit, after: $cursor, query: $query) {
-          pageInfo {
-            hasNextPage
-            endCursor
-          }
-          edges {
-            node {
-              id
-              title
-              description
-              handle
-              productType
-              vendor
-              status
-              publishedAt
-              tags
-              featuredImage {
-                url
-                altText
-              }
-              variants(first: 10) {
-                edges {
-                  node {
-                    id
-                    title
-                    price
-                    compareAtPrice
-                    sku
-                    barcode
-                    inventoryQuantity
-                    inventoryPolicy
-                    weight
-                    weightUnit
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    `
+    console.log("Enviando solicitud a Shopify:", {
+      url,
+      method: "GET",
+    })
 
-    // Realizar la consulta a Shopify
-    const response = await shopifyFetch({
-      query: graphqlQuery,
-      variables: {
-        limit,
-        cursor,
-        query,
+    // Realizar la petición a Shopify
+    const shopifyResponse = await fetch(url, {
+      method: "GET",
+      headers: {
+        "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
       },
     })
 
-    // Extraer los productos de la respuesta
-    const products = response.data.products.edges.map((edge) => edge.node)
-    const pageInfo = response.data.products.pageInfo
+    // Verificar si la respuesta es exitosa
+    if (!shopifyResponse.ok) {
+      let errorText = ""
+      try {
+        const errorData = await shopifyResponse.json()
+        console.error("Error en la respuesta de Shopify (JSON):", errorData)
+        errorText = JSON.stringify(errorData)
+      } catch (e) {
+        // Si no es JSON, intentar obtener el texto
+        errorText = await shopifyResponse.text()
+        console.error("Error en la respuesta de Shopify (texto):", errorText.substring(0, 500))
+      }
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Error ${shopifyResponse.status}: ${shopifyResponse.statusText}`,
+          details: errorText.substring(0, 1000), // Limitar el tamaño para evitar respuestas muy grandes
+        },
+        { status: shopifyResponse.status },
+      )
+    }
+
+    // Devolver la respuesta de Shopify
+    const data = await shopifyResponse.json()
+
+    // Transformar los datos para que tengan el mismo formato que esperamos
+    const transformedProducts = data.products.map((product) => ({
+      id: product.id.toString(),
+      shopify_id: product.id.toString(),
+      title: product.title,
+      titulo: product.title,
+      description: product.body_html,
+      descripcion: product.body_html,
+      price: product.variants[0]?.price || "0.00",
+      precio: product.variants[0]?.price || "0.00",
+      image: product.image?.src || null,
+      imagen_url: product.image?.src || null,
+      status: product.status,
+      estado: product.status,
+      created_at: product.created_at,
+      updated_at: product.updated_at,
+      vendor: product.vendor,
+      proveedor: product.vendor,
+      product_type: product.product_type,
+      tipo_producto: product.product_type,
+      tags: product.tags,
+      etiquetas: product.tags,
+      handle: product.handle,
+      url: product.handle,
+      variants: product.variants,
+      variantes: product.variants,
+      inventory: product.variants[0]?.inventory_quantity || 0,
+      inventario: product.variants[0]?.inventory_quantity || 0,
+    }))
 
     return NextResponse.json({
       success: true,
-      products,
-      pageInfo,
+      count: transformedProducts.length,
+      data: transformedProducts,
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error al obtener productos de Shopify:", error)
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Error desconocido al obtener productos",
-      },
-      { status: 500 },
-    )
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
-
-    // Obtener datos del cuerpo de la solicitud
-    const body = await request.json()
-
-    // Construir la consulta GraphQL para crear un producto
-    const graphqlQuery = `
-      mutation productCreate($input: ProductInput!) {
-        productCreate(input: $input) {
-          product {
-            id
-            title
-            handle
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    // Realizar la consulta a Shopify
-    const response = await shopifyFetch({
-      query: graphqlQuery,
-      variables: {
-        input: body,
-      },
-    })
-
-    // Verificar si hay errores
-    if (response.data.productCreate.userErrors.length > 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          errors: response.data.productCreate.userErrors,
-        },
-        { status: 400 },
-      )
-    }
-
-    return NextResponse.json({
-      success: true,
-      product: response.data.productCreate.product,
-    })
-  } catch (error) {
-    console.error("Error al crear producto en Shopify:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Error desconocido al crear producto",
+        error: error.message || "Error desconocido al obtener productos de Shopify",
       },
       { status: 500 },
     )

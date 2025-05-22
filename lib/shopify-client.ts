@@ -1,3 +1,4 @@
+import { GraphQLClient } from "graphql-request"
 import { Logger } from "next-axiom"
 
 const logger = new Logger({
@@ -9,40 +10,37 @@ export function getBaseUrl() {
   if (typeof window !== "undefined") {
     return window.location.origin
   }
-  // Usar NEXT_PUBLIC_APP_URL como primera opción si está disponible
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL
-  }
   return process.env.NEXT_PUBLIC_VERCEL_URL
     ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
     : process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
 }
 
+// Crear un cliente GraphQL para Shopify
+const shopifyClient = new GraphQLClient(`${getBaseUrl()}/api/shopify`, {
+  headers: {
+    "Content-Type": "application/json",
+  },
+})
+
 // Función para realizar consultas GraphQL a Shopify
 export async function shopifyFetch({ query, variables = {} }) {
   try {
-    const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || process.env.SHOPIFY_STORE_DOMAIN
-    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
-
-    if (!shopDomain || !accessToken) {
+    if (!process.env.SHOPIFY_API_URL || !process.env.SHOPIFY_ACCESS_TOKEN) {
       throw new Error(
-        "Faltan credenciales de Shopify. Verifica las variables de entorno NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN y SHOPIFY_ACCESS_TOKEN.",
+        "Faltan credenciales de Shopify. Verifica las variables de entorno SHOPIFY_API_URL y SHOPIFY_ACCESS_TOKEN.",
       )
     }
 
-    // Construir la URL de la API directamente
-    const endpoint = `https://${shopDomain}/admin/api/2023-10/graphql.json`
+    const endpoint = process.env.SHOPIFY_API_URL
+    const key = process.env.SHOPIFY_ACCESS_TOKEN
 
-    logger.debug("Enviando consulta GraphQL a Shopify", {
-      endpoint,
-      queryPreview: query.substring(0, 100) + "...",
-    })
+    logger.debug("Enviando consulta GraphQL a Shopify", { query: query.substring(0, 100) + "..." })
 
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Shopify-Access-Token": accessToken,
+        "X-Shopify-Access-Token": key,
       },
       body: JSON.stringify({
         query,
@@ -73,24 +71,13 @@ export async function shopifyFetch({ query, variables = {} }) {
 // Función para realizar una petición REST a Shopify
 export async function shopifyRestFetch(endpoint, method = "GET", data = null) {
   try {
-    const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || process.env.SHOPIFY_STORE_DOMAIN
-    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
-
-    if (!shopDomain || !accessToken) {
-      throw new Error(
-        "Faltan credenciales de Shopify. Verifica las variables de entorno NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN y SHOPIFY_ACCESS_TOKEN.",
-      )
-    }
-
-    // Construir la URL de la API REST directamente
-    const apiVersion = "2023-10"
-    const url = `https://${shopDomain}/admin/api/${apiVersion}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`
+    const baseUrl = `${getBaseUrl()}/api/shopify/rest`
+    const url = `${baseUrl}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`
 
     const options = {
       method,
       headers: {
         "Content-Type": "application/json",
-        "X-Shopify-Access-Token": accessToken,
       },
       body: data ? JSON.stringify(data) : undefined,
     }
@@ -153,17 +140,14 @@ export function formatShopifyId(id: string | number | null | undefined, resource
 export async function testShopifyConnection() {
   try {
     // Verificar que las variables de entorno estén configuradas
-    const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || process.env.SHOPIFY_STORE_DOMAIN
-    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
-
-    if (!shopDomain) {
+    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN) {
       return {
         success: false,
-        message: "Error de configuración: NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN o SHOPIFY_STORE_DOMAIN no está definido",
+        message: "Error de configuración: NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está definido",
       }
     }
 
-    if (!accessToken) {
+    if (!process.env.SHOPIFY_ACCESS_TOKEN) {
       return {
         success: false,
         message: "Error de configuración: SHOPIFY_ACCESS_TOKEN no está definido",
@@ -175,15 +159,31 @@ export async function testShopifyConnection() {
         shop {
           name
           id
-          myshopifyDomain
-          plan {
-            displayName
-          }
         }
       }
     `
 
     const response = await shopifyFetch({ query })
+
+    if (response.errors) {
+      // Extraer mensaje de error más específico
+      let errorMessage = "Error desconocido al conectar con Shopify"
+
+      if (response.errors[0]) {
+        if (response.errors[0].message.includes("401")) {
+          errorMessage = "Error de autenticación: Token de acceso inválido o expirado"
+        } else if (response.errors[0].message.includes("404")) {
+          errorMessage = "Error: Tienda no encontrada. Verifique el dominio de la tienda"
+        } else {
+          errorMessage = response.errors[0].message
+        }
+      }
+
+      return {
+        success: false,
+        message: errorMessage,
+      }
+    }
 
     return {
       success: true,
@@ -203,16 +203,6 @@ export async function testShopifyConnection() {
           : "Error desconocido al conectar con Shopify",
     }
   }
-}
-
-// Exportar un cliente por defecto
-const shopifyClient = {
-  shopifyFetch,
-  shopifyRestFetch,
-  extractIdFromGid,
-  formatShopifyId,
-  testShopifyConnection,
-  getBaseUrl,
 }
 
 export default shopifyClient

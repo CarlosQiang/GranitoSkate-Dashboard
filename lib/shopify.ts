@@ -1,426 +1,132 @@
-import { shopifyFetch } from "./shopify-client"
+import { GraphQLClient } from "graphql-request"
 
-// Función para formatear IDs de Shopify
-export function formatShopifyId(id: string, type: string): string {
-  if (id.includes(`gid://shopify/${type}/`)) {
-    return id
-  }
-  return `gid://shopify/${type}/${id}`
-}
+// Crear un cliente GraphQL para Shopify
+const shopifyClient = new GraphQLClient(process.env.SHOPIFY_API_URL || "", {
+  headers: {
+    "Content-Type": "application/json",
+    "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN || "",
+  },
+})
 
-// Exportar shopifyFetch para que esté disponible para otros módulos
-export { shopifyFetch }
-
-// Función para obtener productos de Shopify
-export async function getShopifyProducts(limit = 10, cursor = null) {
+// Función para realizar consultas GraphQL a Shopify
+export async function shopifyFetch({ query, variables = {} }) {
   try {
-    const query = `
-      query getProducts($limit: Int!, $cursor: String) {
-        products(first: $limit, after: $cursor) {
-          pageInfo {
-            hasNextPage
-            endCursor
-          }
-          edges {
-            node {
-              id
-              title
-              description
-              handle
-              productType
-              vendor
-              status
-              publishedAt
-              tags
-              featuredImage {
-                url
-                altText
-              }
-              variants(first: 10) {
-                edges {
-                  node {
-                    id
-                    title
-                    price
-                    compareAtPrice
-                    sku
-                    barcode
-                    inventoryQuantity
-                    inventoryPolicy
-                    weight
-                    weightUnit
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    `
-
-    const variables = {
-      limit,
-      cursor,
+    // Verificar que las variables de entorno estén configuradas
+    if (!process.env.SHOPIFY_API_URL || !process.env.SHOPIFY_ACCESS_TOKEN) {
+      console.error("Error: Faltan credenciales de Shopify")
+      throw new Error(
+        "Faltan credenciales de Shopify. Verifica las variables de entorno SHOPIFY_API_URL y SHOPIFY_ACCESS_TOKEN.",
+      )
     }
 
-    const response = await shopifyFetch({ query, variables })
-
-    return {
-      products: response.data.products.edges.map((edge) => edge.node),
-      pageInfo: response.data.products.pageInfo,
-    }
-  } catch (error) {
-    console.error("Error al obtener productos de Shopify:", error)
-    throw error
-  }
-}
-
-// Función para obtener colecciones de Shopify
-export async function getShopifyCollections(limit = 10, cursor = null) {
-  try {
-    const query = `
-      query getCollections($limit: Int!, $cursor: String) {
-        collections(first: $limit, after: $cursor) {
-          pageInfo {
-            hasNextPage
-            endCursor
-          }
-          edges {
-            node {
-              id
-              title
-              description
-              handle
-              productsCount
-              image {
-                url
-                altText
-              }
-              products(first: 5) {
-                edges {
-                  node {
-                    id
-                    title
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    `
-
-    const variables = {
-      limit,
-      cursor,
-    }
-
-    const response = await shopifyFetch({ query, variables })
-
-    return {
-      collections: response.data.collections.edges.map((edge) => edge.node),
-      pageInfo: response.data.collections.pageInfo,
-    }
-  } catch (error) {
-    console.error("Error al obtener colecciones de Shopify:", error)
-    throw error
-  }
-}
-
-// Función para obtener clientes de Shopify
-export async function getShopifyCustomers(limit = 10, cursor = null) {
-  try {
-    const query = `
-      query getCustomers($limit: Int!, $cursor: String) {
-        customers(first: $limit, after: $cursor) {
-          pageInfo {
-            hasNextPage
-            endCursor
-          }
-          edges {
-            node {
-              id
-              firstName
-              lastName
-              email
-              phone
-              tags
-              acceptsMarketing
-              ordersCount
-              totalSpent
-              defaultAddress {
-                address1
-                address2
-                city
-                province
-                country
-                zip
-                phone
-              }
-            }
-          }
-        }
-      }
-    `
-
-    const variables = {
-      limit,
-      cursor,
-    }
-
-    const response = await shopifyFetch({ query, variables })
-
-    return {
-      customers: response.data.customers.edges.map((edge) => edge.node),
-      pageInfo: response.data.customers.pageInfo,
-    }
-  } catch (error) {
-    console.error("Error al obtener clientes de Shopify:", error)
-    throw error
-  }
-}
-
-// Función para obtener pedidos de Shopify
-export async function getShopifyOrders(limit = 10, cursor = null) {
-  try {
-    const query = `
-      query getOrders($limit: Int!, $cursor: String) {
-        orders(first: $limit, after: $cursor) {
-          pageInfo {
-            hasNextPage
-            endCursor
-          }
-          edges {
-            node {
-              id
-              name
-              email
-              phone
-              totalPrice
-              subtotalPrice
-              totalShippingPrice
-              totalTax
-              financialStatus
-              fulfillmentStatus
-              processedAt
-              customer {
-                id
-                firstName
-                lastName
-                email
-              }
-              lineItems(first: 10) {
-                edges {
-                  node {
-                    id
-                    title
-                    quantity
-                    variant {
-                      id
-                      title
-                      price
-                      sku
-                      product {
-                        id
-                        title
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    `
-
-    const variables = {
-      limit,
-      cursor,
-    }
-
-    const response = await shopifyFetch({ query, variables })
-
-    return {
-      orders: response.data.orders.edges.map((edge) => edge.node),
-      pageInfo: response.data.orders.pageInfo,
-    }
-  } catch (error) {
-    console.error("Error al obtener pedidos de Shopify:", error)
-    throw error
-  }
-}
-
-// Función para probar la conexión con Shopify
-export async function testShopifyConnection() {
-  try {
-    const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || process.env.SHOPIFY_STORE_DOMAIN
-    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
-
-    if (!shopDomain || !accessToken) {
-      return {
-        success: false,
-        message: "Faltan credenciales de Shopify",
-      }
-    }
-
-    // Intentar obtener información de la tienda para verificar la conexión
-    const response = await fetch(`https://${shopDomain}/admin/api/2023-10/shop.json`, {
+    // Realizar la consulta a Shopify
+    const response = await fetch(process.env.SHOPIFY_API_URL, {
+      method: "POST",
       headers: {
-        "X-Shopify-Access-Token": accessToken,
         "Content-Type": "application/json",
+        "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
       },
+      body: JSON.stringify({
+        query,
+        variables,
+      }),
     })
 
+    // Verificar si la respuesta es exitosa
     if (!response.ok) {
-      const errorText = await response.text()
-      return {
-        success: false,
-        message: `Error al conectar con Shopify: ${response.status} ${response.statusText}`,
-        details: errorText,
-      }
+      const text = await response.text()
+      console.error(`Error en la solicitud a Shopify (${response.status})`, { text })
+      throw new Error(`Error en la solicitud a Shopify (${response.status}): ${text}`)
     }
 
-    const data = await response.json()
+    // Parsear la respuesta como JSON
+    const json = await response.json()
 
-    return {
-      success: true,
-      message: "Conexión exitosa a Shopify",
-      shop: {
-        name: data.shop.name,
-        email: data.shop.email,
-        domain: data.shop.domain,
-        country: data.shop.country_name,
-        plan: data.shop.plan_name,
-      },
+    // Verificar si hay errores en la respuesta
+    if (json.errors) {
+      console.error("Errores en la respuesta de Shopify", { errors: json.errors })
+      throw new Error(`Errores en la respuesta de Shopify: ${JSON.stringify(json.errors)}`)
     }
+
+    return json
   } catch (error) {
-    console.error("Error al probar la conexión a Shopify:", error)
-    return {
-      success: false,
-      message: error.message || "Error desconocido al conectar con Shopify",
-    }
-  }
-}
-
-// Función para crear un producto en Shopify
-export async function createShopifyProduct(productData) {
-  try {
-    const mutation = `
-      mutation productCreate($input: ProductInput!) {
-        productCreate(input: $input) {
-          product {
-            id
-            title
-            handle
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const variables = {
-      input: productData,
-    }
-
-    const response = await shopifyFetch({ query: mutation, variables })
-
-    if (response.data.productCreate.userErrors.length > 0) {
-      throw new Error(`Error al crear producto: ${response.data.productCreate.userErrors[0].message}`)
-    }
-
-    return response.data.productCreate.product
-  } catch (error) {
-    console.error("Error al crear producto en Shopify:", error)
+    console.error("Error en shopifyFetch", { error })
     throw error
   }
 }
 
-// Función para actualizar un producto en Shopify
-export async function updateShopifyProduct(id, productData) {
+// Función para realizar una petición REST a Shopify
+export async function shopifyRestFetch(endpoint, method = "GET", data = null) {
   try {
-    const mutation = `
-      mutation productUpdate($input: ProductInput!) {
-        productUpdate(input: $input) {
-          product {
-            id
-            title
-            handle
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
+    // Verificar que las variables de entorno estén configuradas
+    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
+      console.error("Error: Faltan credenciales de Shopify")
+      throw new Error(
+        "Faltan credenciales de Shopify. Verifica las variables de entorno NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN y SHOPIFY_ACCESS_TOKEN.",
+      )
+    }
 
-    const variables = {
-      input: {
-        id: `gid://shopify/Product/${id}`,
-        ...productData,
+    // Construir la URL de la API de Shopify
+    const url = `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-07${
+      endpoint.startsWith("/") ? endpoint : `/${endpoint}`
+    }`
+
+    // Configurar las opciones de la petición
+    const options = {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
       },
+      body: data ? JSON.stringify(data) : undefined,
     }
 
-    const response = await shopifyFetch({ query: mutation, variables })
+    // Realizar la petición a Shopify
+    const response = await fetch(url, options)
 
-    if (response.data.productUpdate.userErrors.length > 0) {
-      throw new Error(`Error al actualizar producto: ${response.data.productUpdate.userErrors[0].message}`)
+    // Verificar si la respuesta es exitosa
+    if (!response.ok) {
+      const text = await response.text()
+      console.error(`Error en la respuesta REST de Shopify (${response.status})`, { text })
+      throw new Error(`Error en la respuesta de Shopify: ${response.status} ${response.statusText}`)
     }
 
-    return response.data.productUpdate.product
+    // Parsear la respuesta como JSON
+    return await response.json()
   } catch (error) {
-    console.error("Error al actualizar producto en Shopify:", error)
+    console.error("Error en la petición REST a Shopify", { error })
     throw error
   }
 }
 
-// Función para eliminar un producto en Shopify
-export async function deleteShopifyProduct(id) {
-  try {
-    const mutation = `
-      mutation productDelete($input: ProductDeleteInput!) {
-        productDelete(input: $input) {
-          deletedProductId
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
+// Extraer el ID numérico de un ID de Shopify
+export function extractIdFromGid(gid) {
+  if (!gid) return ""
+  const parts = gid.split("/")
+  return parts[parts.length - 1]
+}
 
-    const variables = {
-      input: {
-        id: `gid://shopify/Product/${id}`,
-      },
-    }
+// Formatear un ID para Shopify
+export function formatShopifyId(id, resourceType) {
+  if (!id) return `gid://shopify/${resourceType}/0`
 
-    const response = await shopifyFetch({ query: mutation, variables })
-
-    if (response.data.productDelete.userErrors.length > 0) {
-      throw new Error(`Error al eliminar producto: ${response.data.productDelete.userErrors[0].message}`)
-    }
-
-    return response.data.productDelete.deletedProductId
-  } catch (error) {
-    console.error("Error al eliminar producto en Shopify:", error)
-    throw error
+  // Si el ID ya tiene el formato correcto, devolverlo tal cual
+  if (typeof id === "string" && id.startsWith(`gid://shopify/${resourceType}/`)) {
+    return id
   }
+
+  // Si el ID es un número o una cadena que representa un número
+  const idStr = String(id)
+
+  // Si el ID ya contiene el prefijo gid://shopify/ pero no el tipo de recurso correcto
+  if (idStr.startsWith("gid://shopify/")) {
+    const parts = idStr.split("/")
+    const numericId = parts[parts.length - 1]
+    return `gid://shopify/${resourceType}/${numericId}`
+  }
+
+  // Si el ID es solo el número
+  return `gid://shopify/${resourceType}/${idStr}`
 }
 
-// Exportar todas las funciones
-export default {
-  getShopifyProducts,
-  getShopifyCollections,
-  getShopifyCustomers,
-  getShopifyOrders,
-  testShopifyConnection,
-  createShopifyProduct,
-  updateShopifyProduct,
-  deleteShopifyProduct,
-  formatShopifyId,
-}
+export default shopifyClient

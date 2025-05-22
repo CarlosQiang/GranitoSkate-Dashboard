@@ -1,55 +1,99 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
 
 export async function GET() {
   try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 })
-    }
+    // Lista de variables de entorno a verificar
+    const variables = [
+      {
+        name: "NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN",
+        status: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN ? "ok" : "missing",
+        required: true,
+        description: "Dominio de la tienda Shopify (ej: mi-tienda.myshopify.com)",
+      },
+      {
+        name: "SHOPIFY_ACCESS_TOKEN",
+        status: process.env.SHOPIFY_ACCESS_TOKEN ? "ok" : "missing",
+        required: true,
+        description: "Token de acceso a la API de Shopify",
+      },
+      {
+        name: "SHOPIFY_API_URL",
+        status: process.env.SHOPIFY_API_URL ? "ok" : "missing",
+        required: true,
+        description: "URL de la API de Shopify (ej: https://mi-tienda.myshopify.com/admin/api/2023-07/graphql.json)",
+      },
+      {
+        name: "POSTGRES_URL",
+        status: process.env.POSTGRES_URL ? "ok" : "missing",
+        required: true,
+        description: "URL de conexión a la base de datos PostgreSQL",
+      },
+      {
+        name: "DATABASE_URL",
+        status: process.env.DATABASE_URL ? "ok" : "missing",
+        required: false,
+        description: "URL alternativa de conexión a la base de datos (se usa si POSTGRES_URL no está configurado)",
+      },
+      {
+        name: "NEXTAUTH_SECRET",
+        status: process.env.NEXTAUTH_SECRET ? "ok" : "missing",
+        required: true,
+        description: "Secreto para NextAuth (autenticación)",
+      },
+      {
+        name: "NEXTAUTH_URL",
+        status: process.env.NEXTAUTH_URL ? "ok" : "missing",
+        required: false,
+        description: "URL base para NextAuth (se usa en producción)",
+      },
+      {
+        name: "NEXT_PUBLIC_VERCEL_URL",
+        status: process.env.NEXT_PUBLIC_VERCEL_URL ? "ok" : "missing",
+        required: false,
+        description: "URL de Vercel (se configura automáticamente en Vercel)",
+      },
+      {
+        name: "NEXT_PUBLIC_API_URL",
+        status: process.env.NEXT_PUBLIC_API_URL ? "ok" : "missing",
+        required: false,
+        description: "URL base de la API (opcional)",
+      },
+      {
+        name: "SHOPIFY_STORE_DOMAIN",
+        status: process.env.SHOPIFY_STORE_DOMAIN ? "ok" : "missing",
+        required: false,
+        description:
+          "Dominio alternativo de la tienda Shopify (se usa si NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está configurado)",
+      },
+      {
+        name: "NEXT_PUBLIC_SHOPIFY_ACCESS_TOKEN",
+        status: process.env.NEXT_PUBLIC_SHOPIFY_ACCESS_TOKEN ? "ok" : "missing",
+        required: false,
+        description: "Token de acceso público a la API de Shopify (opcional)",
+      },
+      {
+        name: "NEXT_PUBLIC_APP_URL",
+        status: process.env.NEXT_PUBLIC_APP_URL ? "ok" : "missing",
+        required: false,
+        description: "URL base de la aplicación (opcional)",
+      },
+    ]
 
-    // Verificar si el usuario tiene permisos de administrador
-    if (session.user.role !== "admin") {
-      return NextResponse.json(
-        { success: false, error: "No tienes permisos para acceder a esta información" },
-        { status: 403 },
-      )
-    }
-
-    // Verificar variables de entorno relacionadas con Shopify
-    const vars = {
-      NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: !!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN,
-      SHOPIFY_ACCESS_TOKEN: !!process.env.SHOPIFY_ACCESS_TOKEN,
-      SHOPIFY_API_URL: !!process.env.SHOPIFY_API_URL,
-      SHOPIFY_STORE_DOMAIN: !!process.env.SHOPIFY_STORE_DOMAIN,
-      NEXT_PUBLIC_SHOPIFY_ACCESS_TOKEN: !!process.env.NEXT_PUBLIC_SHOPIFY_ACCESS_TOKEN,
-
-      // Variables de entorno relacionadas con la base de datos
-      POSTGRES_URL: !!process.env.POSTGRES_URL,
-
-      // Variables de entorno relacionadas con NextAuth
-      NEXTAUTH_URL: !!process.env.NEXTAUTH_URL,
-      NEXTAUTH_SECRET: !!process.env.NEXTAUTH_SECRET,
-
-      // Otras variables de entorno
-      NEXT_PUBLIC_VERCEL_URL: !!process.env.NEXT_PUBLIC_VERCEL_URL,
-      NEXT_PUBLIC_API_URL: !!process.env.NEXT_PUBLIC_API_URL,
-      NEXT_PUBLIC_APP_URL: !!process.env.NEXT_PUBLIC_APP_URL,
-      VERCEL_REGION: !!process.env.VERCEL_REGION,
-    }
+    // Verificar si todas las variables requeridas están configuradas
+    const missingRequired = variables.filter((v) => v.required && v.status === "missing")
 
     return NextResponse.json({
       success: true,
-      vars,
+      variables,
+      missingRequired: missingRequired.length > 0 ? missingRequired.map((v) => v.name) : null,
+      allRequiredConfigured: missingRequired.length === 0,
     })
   } catch (error) {
     console.error("Error al verificar variables de entorno:", error)
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Error desconocido",
+        error: error.message || "Error desconocido al verificar variables de entorno",
       },
       { status: 500 },
     )

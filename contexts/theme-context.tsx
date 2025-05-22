@@ -170,32 +170,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.style.setProperty("--color-primary-lightest", primaryLightest)
     root.style.setProperty("--color-primary-darkest", primaryDarkest)
 
-    // Aplicar colores de texto
-    root.style.setProperty("--text-color", theme.textColor || defaultThemeConfig.textColor)
-    root.style.setProperty("--heading-color", theme.headingColor || defaultThemeConfig.headingColor)
-    root.style.setProperty("--muted-text-color", theme.mutedTextColor || defaultThemeConfig.mutedTextColor)
-    root.style.setProperty("--link-color", theme.linkColor || theme.primaryColor)
-
-    // Aplicar tamaño de fuente base
-    const fontSizeMap = {
-      small: "0.875rem",
-      medium: "1rem",
-      large: "1.125rem",
-    }
-    root.style.setProperty("--font-size-base", fontSizeMap[theme.fontSize || "medium"])
-
-    // Añadir clases CSS para los tamaños de fuente
-    if (theme.fontSize === "small") {
-      document.documentElement.classList.add("text-size-small")
-      document.documentElement.classList.remove("text-size-medium", "text-size-large")
-    } else if (theme.fontSize === "large") {
-      document.documentElement.classList.add("text-size-large")
-      document.documentElement.classList.remove("text-size-small", "text-size-medium")
-    } else {
-      document.documentElement.classList.add("text-size-medium")
-      document.documentElement.classList.remove("text-size-small", "text-size-large")
-    }
-
     // Actualizar colores de Granito en CSS
     root.style.setProperty("--granito-500", hexToHSL(theme.primaryColor))
     root.style.setProperty("--granito-600", hexToHSL(primaryDark))

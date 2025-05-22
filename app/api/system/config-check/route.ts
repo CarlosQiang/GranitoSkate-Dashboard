@@ -1,61 +1,67 @@
 import { NextResponse } from "next/server"
+import { envConfig, getConfigErrors, isConfigValid } from "@/lib/config/env"
 import { testShopifyConnection } from "@/lib/shopify"
-
-export const dynamic = "force-dynamic"
+import { PrismaClient } from "@prisma/client"
 
 export async function GET() {
   try {
-    // Verificar variables de entorno
-    const envVars = {
-      // Variables de Shopify
-      NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || process.env.SHOPIFY_STORE_DOMAIN,
-      SHOPIFY_ACCESS_TOKEN: process.env.SHOPIFY_ACCESS_TOKEN,
-      SHOPIFY_API_URL: process.env.SHOPIFY_API_URL,
+    const errors = getConfigErrors()
+    const isValid = isConfigValid()
 
-      // Variables de NextAuth
-      NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-      NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+    // Verificar conexión con Shopify
+    const shopifyConnection = await testShopifyConnection(true).catch((err) => ({
+      success: false,
+      message: `Error al conectar con Shopify: ${err.message}`,
+    }))
 
-      // Variables de base de datos
-      POSTGRES_URL: process.env.POSTGRES_URL,
+    // Verificar conexión con la base de datos
+    let dbConnection = { success: false, message: "No se pudo verificar la conexión con la base de datos" }
 
-      // Variables de Vercel
-      NEXT_PUBLIC_VERCEL_URL: process.env.NEXT_PUBLIC_VERCEL_URL,
-      VERCEL_REGION: process.env.VERCEL_REGION,
+    try {
+      const prisma = new PrismaClient()
+      await prisma.$connect()
 
-      // Otras variables
-      NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
-      NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+      // Intentar una consulta simple
+      const result = await prisma.$queryRaw`SELECT 1 as test`
+
+      dbConnection = {
+        success: true,
+        message: "Conexión exitosa con la base de datos",
+      }
+
+      await prisma.$disconnect()
+    } catch (dbError) {
+      console.error("Error al conectar con la base de datos:", dbError)
+      dbConnection = {
+        success: false,
+        message: `Error al conectar con la base de datos: ${dbError instanceof Error ? dbError.message : "Error desconocido"}`,
+      }
     }
 
-    // Verificar conexión a Shopify
-    const shopifyStatus = await testShopifyConnection()
-
-    // Determinar el estado general de la configuración
-    const requiredVars = ["NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN", "SHOPIFY_ACCESS_TOKEN", "NEXTAUTH_SECRET", "POSTGRES_URL"]
-    const missingRequiredVars = requiredVars.filter((key) => !envVars[key])
-
-    const configOk = missingRequiredVars.length === 0 && shopifyStatus.success
-
     return NextResponse.json({
-      success: configOk,
+      success: isValid && shopifyConnection.success && dbConnection.success,
+      message: isValid ? "Configuración del sistema correcta" : "Hay errores en la configuración del sistema",
+      errors,
       config: {
-        environment: {
-          variables: Object.fromEntries(Object.entries(envVars).map(([key, value]) => [key, !!value])),
-          missingRequired: missingRequiredVars,
-        },
-        shopify: shopifyStatus,
+        shopifyApiUrl: envConfig.shopifyApiUrl ? "Configurado" : "No configurado",
+        shopifyAccessToken: envConfig.shopifyAccessToken ? "Configurado" : "No configurado",
+        shopifyShopDomain: envConfig.shopifyShopDomain ? "Configurado" : "No configurado",
+        databaseUrl: envConfig.databaseUrl ? "Configurado" : "No configurado",
+        nextAuthSecret: envConfig.nextAuthSecret ? "Configurado" : "No configurado",
+        nextAuthUrl: envConfig.nextAuthUrl ? "Configurado" : "No configurado",
+        appUrl: envConfig.appUrl,
+        isDevelopment: envConfig.isDevelopment,
       },
-      message: configOk
-        ? "Configuración correcta"
-        : `Problemas de configuración: ${missingRequiredVars.length > 0 ? `Faltan variables requeridas: ${missingRequiredVars.join(", ")}` : ""} ${!shopifyStatus.success ? `Error de conexión a Shopify: ${shopifyStatus.message}` : ""}`,
+      shopifyConnection,
+      dbConnection,
     })
   } catch (error) {
     console.error("Error al verificar la configuración del sistema:", error)
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Error desconocido al verificar la configuración del sistema",
+        message: "Error al verificar la configuración del sistema",
+        error: error instanceof Error ? error.message : "Error desconocido",
       },
       { status: 500 },
     )

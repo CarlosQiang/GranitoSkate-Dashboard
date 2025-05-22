@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
+import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { shopifyFetch, extractIdFromGid } from "@/lib/shopify-client"
-import { query, logSyncEvent } from "@/lib/db"
+import { shopifyFetch } from "@/lib/shopify"
+import { db } from "@/lib/db"
 
+// Marcar la ruta como dinámica para evitar errores de renderizado estático
 export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
@@ -14,42 +15,36 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    // Obtener parámetros de la URL
-    const { searchParams } = new URL(request.url)
-    const limit = Number(searchParams.get("limit") || "50")
-    const cursor = searchParams.get("cursor")
-
-    // Consulta GraphQL para obtener colecciones
-    const graphqlQuery = `
-      query getCollections($limit: Int!, $cursor: String) {
-        collections(first: $limit, after: $cursor) {
-          pageInfo {
-            hasNextPage
-            endCursor
-          }
+    // Obtener colecciones de Shopify
+    const query = `
+      query {
+        collections(first: 50) {
           edges {
             node {
               id
               title
               description
+              descriptionHtml
               handle
               productsCount
               image {
                 url
                 altText
               }
-              ruleSet {
-                rules {
-                  column
-                  relation
-                  condition
-                }
-              }
-              products(first: 10) {
+              products(first: 5) {
                 edges {
                   node {
                     id
                     title
+                  }
+                }
+              }
+              metafields(first: 10) {
+                edges {
+                  node {
+                    namespace
+                    key
+                    value
                   }
                 }
               }
@@ -59,75 +54,158 @@ export async function GET(request: Request) {
       }
     `
 
-    // Realizar la consulta a Shopify
-    const response = await shopifyFetch({
-      query: graphqlQuery,
-      variables: {
-        limit,
-        cursor,
-      },
-    })
+    const response = await shopifyFetch({ query })
 
-    // Procesar las colecciones
+    if (response.errors) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Error en la API de Shopify: ${response.errors[0].message}`,
+        },
+        { status: 500 },
+      )
+    }
+
+    // Extraer colecciones de la respuesta
     const collections = response.data.collections.edges.map((edge) => edge.node)
-    const pageInfo = response.data.collections.pageInfo
 
-    // Sincronizar colecciones con la base de datos
-    const syncResults = await Promise.allSettled(
-      collections.map(async (collection) => {
-        try {
-          await syncCollectionToDatabase(collection)
-          return { id: collection.id, success: true }
-        } catch (error) {
-          console.error(`Error al sincronizar colección ${collection.id}:`, error)
-          return { id: collection.id, success: false, error: error.message }
-        }
-      }),
-    )
+    // Transformar las colecciones para guardarlas en la base de datos
+    const transformedCollections = collections.map((collection) => {
+      // Extraer el ID numérico
+      const idParts = collection.id.split("/")
+      const shopifyId = idParts[idParts.length - 1]
 
-    // Contar éxitos y errores
-    const successCount = syncResults.filter((result) => result.status === "fulfilled" && result.value.success).length
-    const errorCount = syncResults.filter(
-      (result) => result.status === "rejected" || (result.status === "fulfilled" && !result.value.success),
-    ).length
-
-    // Registrar evento de sincronización
-    await logSyncEvent({
-      tipo_entidad: "colecciones",
-      accion: "sincronizar",
-      resultado: errorCount === 0 ? "completado" : "parcial",
-      mensaje: `Sincronización de colecciones: ${successCount} éxitos, ${errorCount} errores`,
-      detalles: {
-        total: collections.length,
-        exitos: successCount,
-        errores: errorCount,
-      },
+      return {
+        shopify_id: collection.id,
+        id_numerico: shopifyId,
+        titulo: collection.title,
+        descripcion: collection.description,
+        descripcion_html: collection.descriptionHtml,
+        handle: collection.handle,
+        cantidad_productos: collection.productsCount,
+        imagen_url: collection.image?.url || null,
+        imagen_alt: collection.image?.altText || null,
+        productos: JSON.stringify(collection.products.edges.map((edge) => edge.node)),
+        metadatos: JSON.stringify(collection.metafields.edges.map((edge) => edge.node)),
+        actualizado_en: new Date().toISOString(),
+      }
     })
+
+    // Guardar las colecciones en la base de datos
+    const savedCollections = []
+    for (const collection of transformedCollections) {
+      try {
+        // Verificar si la colección ya existe
+        const existingCollection = await db.query("SELECT * FROM colecciones WHERE shopify_id = $1", [
+          collection.shopify_id,
+        ])
+
+        if (existingCollection.rows.length > 0) {
+          // Actualizar la colección existente
+          const updateResult = await db.query(
+            `
+            UPDATE colecciones SET
+              titulo = $1,
+              descripcion = $2,
+              descripcion_html = $3,
+              handle = $4,
+              cantidad_productos = $5,
+              imagen_url = $6,
+              imagen_alt = $7,
+              productos = $8,
+              metadatos = $9,
+              actualizado_en = $10
+            WHERE shopify_id = $11
+            RETURNING *
+            `,
+            [
+              collection.titulo,
+              collection.descripcion,
+              collection.descripcion_html,
+              collection.handle,
+              collection.cantidad_productos,
+              collection.imagen_url,
+              collection.imagen_alt,
+              collection.productos,
+              collection.metadatos,
+              collection.actualizado_en,
+              collection.shopify_id,
+            ],
+          )
+
+          savedCollections.push(updateResult.rows[0])
+        } else {
+          // Insertar una nueva colección
+          const insertResult = await db.query(
+            `
+            INSERT INTO colecciones (
+              shopify_id,
+              id_numerico,
+              titulo,
+              descripcion,
+              descripcion_html,
+              handle,
+              cantidad_productos,
+              imagen_url,
+              imagen_alt,
+              productos,
+              metadatos,
+              creado_en,
+              actualizado_en
+            ) VALUES (
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+            )
+            RETURNING *
+            `,
+            [
+              collection.shopify_id,
+              collection.id_numerico,
+              collection.titulo,
+              collection.descripcion,
+              collection.descripcion_html,
+              collection.handle,
+              collection.cantidad_productos,
+              collection.imagen_url,
+              collection.imagen_alt,
+              collection.productos,
+              collection.metadatos,
+              new Date().toISOString(),
+              new Date().toISOString(),
+            ],
+          )
+
+          savedCollections.push(insertResult.rows[0])
+        }
+      } catch (error) {
+        console.error(`Error al guardar la colección ${collection.titulo}:`, error)
+      }
+    }
+
+    // Registrar la sincronización
+    await db.query(
+      `
+      INSERT INTO registro_sincronizacion (
+        tipo,
+        cantidad,
+        detalles,
+        fecha
+      ) VALUES (
+        $1, $2, $3, $4
+      )
+      `,
+      ["colecciones", savedCollections.length, JSON.stringify({ total: collections.length }), new Date().toISOString()],
+    )
 
     return NextResponse.json({
       success: true,
+      message: `Se sincronizaron ${savedCollections.length} colecciones de ${collections.length} obtenidas de Shopify`,
       data: {
-        collections,
-        pageInfo,
-        syncResults: {
-          total: collections.length,
-          success: successCount,
-          error: errorCount,
-        },
+        total: collections.length,
+        saved: savedCollections.length,
       },
     })
   } catch (error) {
     console.error("Error al sincronizar colecciones:", error)
-
-    // Registrar evento de error
-    await logSyncEvent({
-      tipo_entidad: "colecciones",
-      accion: "sincronizar",
-      resultado: "error",
-      mensaje: `Error al sincronizar colecciones: ${error.message || "Error desconocido"}`,
-      detalles: { error: error.message },
-    })
-
     return NextResponse.json(
       {
         success: false,
@@ -135,120 +213,5 @@ export async function GET(request: Request) {
       },
       { status: 500 },
     )
-  }
-}
-
-// Función para sincronizar una colección con la base de datos
-async function syncCollectionToDatabase(collection) {
-  // Extraer el ID numérico de Shopify
-  const shopifyId = extractIdFromGid(collection.id)
-
-  // Verificar si la colección ya existe en la base de datos
-  const existingCollection = await query("SELECT * FROM colecciones WHERE shopify_id = $1", [shopifyId])
-
-  // Preparar los datos de la colección
-  const collectionData = {
-    shopify_id: shopifyId,
-    titulo: collection.title,
-    descripcion: collection.description || null,
-    handle: collection.handle || null,
-    imagen_url: collection.image?.url || null,
-    cantidad_productos: collection.productsCount || 0,
-    metadatos: JSON.stringify({
-      ruleSet: collection.ruleSet || null,
-      products:
-        collection.products?.edges?.map((edge) => ({
-          id: edge.node.id,
-          title: edge.node.title,
-        })) || [],
-    }),
-  }
-
-  // Si la colección ya existe, actualizarla
-  if (existingCollection.rows.length > 0) {
-    const collectionId = existingCollection.rows[0].id
-
-    await query(
-      `UPDATE colecciones SET
-        titulo = $1,
-        descripcion = $2,
-        handle = $3,
-        imagen_url = $4,
-        cantidad_productos = $5,
-        metadatos = $6,
-        fecha_actualizacion = NOW()
-      WHERE id = $7`,
-      [
-        collectionData.titulo,
-        collectionData.descripcion,
-        collectionData.handle,
-        collectionData.imagen_url,
-        collectionData.cantidad_productos,
-        collectionData.metadatos,
-        collectionId,
-      ],
-    )
-
-    // Actualizar relaciones con productos
-    await syncCollectionProducts(collectionId, collection)
-
-    return { id: collectionId, updated: true }
-  } else {
-    // Crear nueva colección
-    const result = await query(
-      `INSERT INTO colecciones (
-        shopify_id, titulo, descripcion, handle, imagen_url,
-        cantidad_productos, metadatos, fecha_creacion, fecha_actualizacion
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, NOW(), NOW()
-      ) RETURNING id`,
-      [
-        collectionData.shopify_id,
-        collectionData.titulo,
-        collectionData.descripcion,
-        collectionData.handle,
-        collectionData.imagen_url,
-        collectionData.cantidad_productos,
-        collectionData.metadatos,
-      ],
-    )
-
-    const collectionId = result.rows[0].id
-
-    // Sincronizar productos de la colección
-    await syncCollectionProducts(collectionId, collection)
-
-    return { id: collectionId, created: true }
-  }
-}
-
-// Función para sincronizar los productos de una colección
-async function syncCollectionProducts(collectionId, collection) {
-  // Eliminar relaciones existentes
-  await query("DELETE FROM productos_colecciones WHERE coleccion_id = $1", [collectionId])
-
-  // Si la colección tiene productos, insertarlos
-  if (collection.products?.edges?.length > 0) {
-    for (let i = 0; i < collection.products.edges.length; i++) {
-      const product = collection.products.edges[i].node
-      const productShopifyId = extractIdFromGid(product.id)
-
-      // Buscar el producto en la base de datos
-      const productResult = await query("SELECT id FROM productos WHERE shopify_id = $1", [productShopifyId])
-
-      // Si el producto existe, crear la relación
-      if (productResult.rows.length > 0) {
-        const productId = productResult.rows[0].id
-
-        await query(
-          `INSERT INTO productos_colecciones (
-            producto_id, coleccion_id, posicion, fecha_creacion, fecha_actualizacion
-          ) VALUES (
-            $1, $2, $3, NOW(), NOW()
-          )`,
-          [productId, collectionId, i],
-        )
-      }
-    }
   }
 }

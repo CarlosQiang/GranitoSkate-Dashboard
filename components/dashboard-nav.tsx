@@ -1,24 +1,14 @@
 "use client"
+
+import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
-import {
-  Menu,
-  X,
-  LogOut,
-  ChevronRight,
-  Settings,
-  Home,
-  Package,
-  Users,
-  ShoppingCart,
-  AlertTriangle,
-  ShoppingBag,
-} from "lucide-react"
+import { Menu, X, LogOut, ChevronRight, Settings } from "lucide-react"
 import { signOut } from "next-auth/react"
 import { cn } from "@/lib/utils"
+import { navigationItems } from "@/config/navigation"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/contexts/theme-context"
-import { NavItem } from "@/components/nav-item"
 
 export function DashboardNav() {
   const { theme } = useTheme()
@@ -92,6 +82,18 @@ export function DashboardNav() {
     }
   }, [isMenuOpen])
 
+  // Estilo dinámico para el color de fondo del elemento activo
+  const activeItemStyle = {
+    backgroundColor: theme.primaryColor,
+    color: "#ffffff",
+  }
+
+  // Estilo para el botón de cerrar sesión
+  const logoutButtonStyle = {
+    color: "#ef4444", // Color rojo para el botón de cerrar sesión
+    borderColor: "#ef4444",
+  }
+
   return (
     <>
       {/* Botón de menú móvil con animación mejorada */}
@@ -139,51 +141,30 @@ export function DashboardNav() {
             />
           </button>
 
-          <NavItem href="/dashboard" title="Dashboard" icon={<Home className="h-5 w-5" />} isCollapsed={isCollapsed} />
-
-          <NavItem
-            href="/dashboard/products"
-            title="Productos"
-            icon={<Package className="h-5 w-5" />}
-            isCollapsed={isCollapsed}
-          />
-
-          <NavItem
-            href="/dashboard/customers"
-            title="Clientes"
-            icon={<Users className="h-5 w-5" />}
-            isCollapsed={isCollapsed}
-          />
-
-          <NavItem
-            href="/dashboard/orders"
-            title="Pedidos"
-            icon={<ShoppingCart className="h-5 w-5" />}
-            isCollapsed={isCollapsed}
-          />
-
-          <NavItem
-            href="/dashboard/diagnostics"
-            title="Diagnóstico"
-            icon={<AlertTriangle className="h-5 w-5" />}
-            isCollapsed={isCollapsed}
-            variant="ghost"
-          />
-
-          <NavItem
-            href="/dashboard/diagnostics/shopify"
-            title="Diagnóstico Shopify"
-            icon={<ShoppingBag className="h-5 w-5" />}
-            isCollapsed={isCollapsed}
-            variant="ghost"
-          />
-
-          <NavItem
-            href="/dashboard/settings"
-            title="Configuración"
-            icon={<Settings className="h-5 w-5" />}
-            isCollapsed={isCollapsed}
-          />
+          {navigationItems
+            .concat({
+              title: "Configuración",
+              href: "/dashboard/configuracion",
+              icon: Settings,
+            })
+            .map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-all",
+                    "hover:bg-gray-100 dark:hover:bg-gray-800",
+                    isCollapsed && "md:justify-center md:px-2",
+                  )}
+                  style={isActive ? activeItemStyle : {}}
+                >
+                  <item.icon className={cn("h-5 w-5 flex-shrink-0", isCollapsed && "md:h-6 md:w-6")} />
+                  {!isCollapsed && <span className="truncate">{item.title}</span>}
+                </Link>
+              )
+            })}
         </div>
 
         {/* Botón de logout con estilo mejorado */}
@@ -194,7 +175,7 @@ export function DashboardNav() {
               "w-full flex items-center justify-center gap-2 hover:bg-red-50 dark:hover:bg-red-950/20",
               isCollapsed && "md:p-2",
             )}
-            style={{ color: "#ef4444", borderColor: "#ef4444" }}
+            style={logoutButtonStyle}
             onClick={handleLogout}
           >
             <LogOut className="h-4 w-4" />

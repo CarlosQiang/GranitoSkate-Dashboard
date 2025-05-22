@@ -1,95 +1,134 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { RefreshCw, CheckCircle, XCircle, AlertTriangle, ExternalLink } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { CheckCircle, AlertCircle, RefreshCw } from "lucide-react"
+import Link from "next/link"
 
 export function TestShopifyConnection() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [result, setResult] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const testConnection = async () => {
+    setStatus("loading")
+    setError(null)
+
     try {
-      setStatus("loading")
+      const response = await fetch("/api/shopify/test-connection", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+        },
+        cache: "no-store",
+      })
 
-      // Probar la conexión con el proxy
-      const proxyResponse = await fetch("/api/shopify/products?limit=1")
-
-      if (!proxyResponse.ok) {
-        const errorText = await proxyResponse.text()
-        throw new Error(`Error en la respuesta del proxy: ${proxyResponse.status} ${errorText}`)
-      }
-
-      const data = await proxyResponse.json()
-
-      if (data.errors) {
-        throw new Error(`Error en la respuesta de Shopify: ${JSON.stringify(data.errors)}`)
-      }
-
+      const data = await response.json()
       setResult(data)
-      setStatus("success")
+
+      if (data.success) {
+        setStatus("success")
+      } else {
+        setStatus("error")
+        setError(data.error || "Error desconocido al conectar con Shopify")
+      }
     } catch (error) {
       console.error("Error al probar la conexión con Shopify:", error)
-      setResult(error instanceof Error ? error.message : "Error desconocido")
       setStatus("error")
+      setError((error as Error).message || "Error de conexión")
     }
   }
 
   return (
-    <Card className="bg-white border-granito">
-      <CardHeader className="bg-granito/10">
-        <CardTitle className="text-granito-dark">Prueba de conexión con Shopify</CardTitle>
-        <CardDescription>Verifica la conexión con la API de Shopify a través del proxy</CardDescription>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          {status === "success" && <CheckCircle className="h-5 w-5 text-green-500" />}
+          {status === "error" && <XCircle className="h-5 w-5 text-red-500" />}
+          {status === "loading" && <RefreshCw className="h-5 w-5 animate-spin" />}
+          {status === "idle" && <AlertTriangle className="h-5 w-5 text-yellow-500" />}
+          Prueba de Conexión a Shopify
+        </CardTitle>
+        <CardDescription>Realiza una prueba completa de conexión a la API de Shopify</CardDescription>
       </CardHeader>
-      <CardContent className="pt-6">
+      <CardContent>
+        {status === "idle" && (
+          <Alert className="bg-blue-50 border-blue-200 text-blue-800">
+            <AlertTriangle className="h-4 w-4 text-blue-600" />
+            <AlertTitle>Prueba no iniciada</AlertTitle>
+            <AlertDescription>Haz clic en el botón para probar la conexión con Shopify.</AlertDescription>
+          </Alert>
+        )}
+
         {status === "loading" && (
-          <div className="flex items-center space-x-2">
-            <RefreshCw className="h-4 w-4 animate-spin text-granito" />
-            <p>Probando conexión...</p>
+          <div className="flex items-center justify-center p-4">
+            <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
+            <span className="ml-2 text-gray-500">Probando conexión con Shopify...</span>
           </div>
         )}
 
-        {status === "success" && (
-          <Alert className="bg-green-50 border-green-200 text-green-800">
-            <CheckCircle className="h-4 w-4 text-green-500" />
-            <AlertTitle>Conexión exitosa</AlertTitle>
+        {status === "error" && (
+          <Alert variant="destructive">
+            <XCircle className="h-4 w-4" />
+            <AlertTitle>Error de conexión</AlertTitle>
             <AlertDescription>
-              <p>La conexión con Shopify a través del proxy funciona correctamente.</p>
-              {result && (
+              <p>{error}</p>
+              {result && result.env && (
                 <div className="mt-2">
-                  <p className="font-semibold">Productos encontrados: {result.data?.products?.edges?.length || 0}</p>
+                  <p className="font-semibold">Estado de las variables de entorno:</p>
+                  <ul className="list-disc pl-5 mt-1 space-y-1 text-xs">
+                    <li>SHOPIFY_API_URL: {result.env.SHOPIFY_API_URL}</li>
+                    <li>SHOPIFY_ACCESS_TOKEN: {result.env.SHOPIFY_ACCESS_TOKEN}</li>
+                    <li>NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: {result.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}</li>
+                  </ul>
                 </div>
               )}
             </AlertDescription>
           </Alert>
         )}
 
-        {status === "error" && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error de conexión</AlertTitle>
+        {status === "success" && (
+          <Alert className="bg-green-50 border-green-200 text-green-800">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertTitle>Conexión exitosa</AlertTitle>
             <AlertDescription>
-              <p>No se pudo conectar con Shopify a través del proxy.</p>
-              {result && <p className="mt-2 text-sm">{result}</p>}
+              <p>Se ha establecido conexión correctamente con la tienda Shopify.</p>
+              {result && result.shop && (
+                <div className="mt-2">
+                  <p>
+                    <strong>Nombre de la tienda:</strong> {result.shop.name}
+                  </p>
+                  {result.shop.primaryDomain && (
+                    <Link
+                      href={result.shop.primaryDomain.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline flex items-center gap-1 mt-1"
+                    >
+                      Visitar tienda <ExternalLink className="h-3 w-3" />
+                    </Link>
+                  )}
+                </div>
+              )}
             </AlertDescription>
           </Alert>
         )}
       </CardContent>
       <CardFooter>
-        <Button
-          onClick={testConnection}
-          disabled={status === "loading"}
-          className="bg-granito hover:bg-granito-dark text-white"
-        >
+        <Button onClick={testConnection} disabled={status === "loading"} variant="outline" className="w-full">
           {status === "loading" ? (
             <>
               <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
               Probando...
             </>
           ) : (
-            "Probar conexión"
+            <>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Probar conexión
+            </>
           )}
         </Button>
       </CardFooter>

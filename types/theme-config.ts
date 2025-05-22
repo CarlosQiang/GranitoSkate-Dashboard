@@ -2,46 +2,36 @@ export interface ThemeConfig {
   primaryColor: string
   secondaryColor: string
   accentColor: string
+  enableDarkMode: boolean
+  preferDarkMode: boolean
   fontFamily: string
   headingFontFamily: string
   borderRadius: "none" | "small" | "medium" | "large" | "full"
-  buttonStyle: "default" | "outline" | "ghost" | "link"
-  cardStyle: "default" | "flat" | "elevated"
-  sidebarStyle: "default" | "minimal" | "expanded"
+  buttonStyle: "solid" | "outline" | "soft" | "ghost"
+  cardStyle: "flat" | "raised" | "bordered"
+  sidebarStyle: "default" | "compact" | "expanded"
   enableAnimations: boolean
   animationSpeed: "slow" | "normal" | "fast"
-  enableDarkMode: boolean
-  preferDarkMode: boolean
   shopName: string
   logoUrl: string | null
   favicon: string | null
-  textColor: string
-  headingColor: string
-  mutedTextColor: string
-  linkColor: string
-  fontSize: "small" | "medium" | "large"
 }
 
 export const defaultThemeConfig: ThemeConfig = {
-  primaryColor: "#C9379D",
-  secondaryColor: "#6941C6",
-  accentColor: "#E54065",
+  primaryColor: "#c7a04a", // Color Granito dorado
+  secondaryColor: "#4a5568",
+  accentColor: "#3182ce",
+  enableDarkMode: true,
+  preferDarkMode: false,
   fontFamily: "Inter, sans-serif",
   headingFontFamily: "Inter, sans-serif",
   borderRadius: "medium",
-  buttonStyle: "default",
-  cardStyle: "default",
+  buttonStyle: "solid",
+  cardStyle: "raised",
   sidebarStyle: "default",
   enableAnimations: true,
   animationSpeed: "normal",
-  enableDarkMode: true,
-  preferDarkMode: false,
   shopName: "GranitoSkate",
   logoUrl: null,
   favicon: null,
-  textColor: "#1F2937",
-  headingColor: "#111827",
-  mutedTextColor: "#6B7280",
-  linkColor: "#C9379D",
-  fontSize: "medium",
 }
