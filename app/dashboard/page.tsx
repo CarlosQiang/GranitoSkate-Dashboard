@@ -1,9 +1,9 @@
 import type { Metadata } from "next"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Package, FolderOpen, Users, ShoppingCart, BarChart } from "lucide-react"
+import { Package, BarChart } from "lucide-react"
 import CacheStatus from "@/components/cache-status"
 import ProductsList from "@/components/products-list"
+import { DashboardStats } from "@/components/dashboard-stats"
 
 export const metadata: Metadata = {
   title: "Dashboard | GestionGranito",
@@ -19,46 +19,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Productos</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">+10</div>
-            <p className="text-xs text-muted-foreground">Productos en caché</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Colecciones</CardTitle>
-            <FolderOpen className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">+5</div>
-            <p className="text-xs text-muted-foreground">Colecciones en caché</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Clientes</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">+0</div>
-            <p className="text-xs text-muted-foreground">Clientes en caché</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pedidos</CardTitle>
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">+0</div>
-            <p className="text-xs text-muted-foreground">Pedidos en caché</p>
-          </CardContent>
-        </Card>
+        <DashboardStats />
       </div>
 
       <Tabs defaultValue="products" className="space-y-4">

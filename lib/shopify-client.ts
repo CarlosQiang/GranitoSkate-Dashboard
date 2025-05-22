@@ -5,10 +5,14 @@ const logger = new Logger({
   source: "shopify-client",
 })
 
-// Función para obtener la URL base
+// Modificar la función getBaseUrl para asegurar que siempre devuelva una URL válida
 export function getBaseUrl() {
   if (typeof window !== "undefined") {
     return window.location.origin
+  }
+  // Usar NEXT_PUBLIC_APP_URL como primera opción si está disponible
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL
   }
   return process.env.NEXT_PUBLIC_VERCEL_URL
     ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
@@ -22,25 +26,36 @@ const shopifyClient = new GraphQLClient(`${getBaseUrl()}/api/shopify`, {
   },
 })
 
-// Función para realizar consultas GraphQL a Shopify
+// Modificar la función shopifyFetch para mejorar el manejo de errores y logging
 export async function shopifyFetch({ query, variables = {} }) {
   try {
-    if (!process.env.SHOPIFY_API_URL || !process.env.SHOPIFY_ACCESS_TOKEN) {
+    // Verificar si estamos usando las variables de entorno correctas
+    const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
+    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
+
+    if (!shopDomain || !accessToken) {
+      console.error("Faltan credenciales de Shopify:", {
+        shopDomain: !!shopDomain,
+        accessToken: !!accessToken,
+      })
       throw new Error(
-        "Faltan credenciales de Shopify. Verifica las variables de entorno SHOPIFY_API_URL y SHOPIFY_ACCESS_TOKEN.",
+        "Faltan credenciales de Shopify. Verifica las variables de entorno NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN y SHOPIFY_ACCESS_TOKEN.",
       )
     }
 
-    const endpoint = process.env.SHOPIFY_API_URL
-    const key = process.env.SHOPIFY_ACCESS_TOKEN
+    // Construir la URL de la API directamente
+    const endpoint = `https://${shopDomain}/admin/api/2023-10/graphql.json`
 
-    logger.debug("Enviando consulta GraphQL a Shopify", { query: query.substring(0, 100) + "..." })
+    logger.debug("Enviando consulta GraphQL a Shopify", {
+      endpoint,
+      queryPreview: query.substring(0, 100) + "...",
+    })
 
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Shopify-Access-Token": key,
+        "X-Shopify-Access-Token": accessToken,
       },
       body: JSON.stringify({
         query,

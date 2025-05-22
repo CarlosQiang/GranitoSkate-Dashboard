@@ -304,6 +304,138 @@ export default function PersonalizacionPage() {
                       </p>
                     </div>
                   </div>
+
+                  <div className="mt-6 space-y-4">
+                    <h3 className="text-lg font-semibold">Personalización de texto</h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="headingColor">Color de títulos</Label>
+                        <div className="flex items-center gap-2">
+                          <ColorPicker
+                            color={theme.headingColor || "#000000"}
+                            onChange={(color) => updateTheme({ headingColor: color })}
+                            presets={["#000000", "#1a202c", "#2d3748", "#4a5568", "#718096"]}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Este color se aplica a los títulos y encabezados
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="textColor">Color de texto principal</Label>
+                        <div className="flex items-center gap-2">
+                          <ColorPicker
+                            color={theme.textColor || "#4b5563"}
+                            onChange={(color) => updateTheme({ textColor: color })}
+                            presets={["#4b5563", "#6b7280", "#9ca3af", "#111827", "#374151"]}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Este color se aplica al texto general de la aplicación
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="mutedTextColor">Color de texto secundario</Label>
+                        <div className="flex items-center gap-2">
+                          <ColorPicker
+                            color={theme.mutedTextColor || "#6b7280"}
+                            onChange={(color) => updateTheme({ mutedTextColor: color })}
+                            presets={["#6b7280", "#9ca3af", "#d1d5db", "#4b5563", "#374151"]}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Este color se aplica a textos secundarios y descripciones
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="linkColor">Color de enlaces</Label>
+                        <div className="flex items-center gap-2">
+                          <ColorPicker
+                            color={theme.linkColor || theme.primaryColor}
+                            onChange={(color) => updateTheme({ linkColor: color })}
+                            presets={["#3182ce", "#2b6cb0", "#4299e1", "#2c5282", "#63b3ed"]}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Este color se aplica a los enlaces y textos interactivos
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="fontSize">Tamaño de fuente base</Label>
+                      <Select
+                        value={theme.fontSize || "medium"}
+                        onValueChange={(value: any) => updateTheme({ fontSize: value })}
+                      >
+                        <SelectTrigger id="fontSize">
+                          <SelectValue placeholder="Selecciona un tamaño" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="small">Pequeño</SelectItem>
+                          <SelectItem value="medium">Medio (Predeterminado)</SelectItem>
+                          <SelectItem value="large">Grande</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Define el tamaño base de la fuente para toda la aplicación
+                      </p>
+                    </div>
+
+                    <div className="mt-4">
+                      <div className="p-4 border rounded-md">
+                        <h3
+                          className="text-lg font-semibold mb-2"
+                          style={{
+                            fontFamily: theme.headingFontFamily,
+                            color: theme.headingColor || "#000000",
+                          }}
+                        >
+                          Vista previa de texto personalizado
+                        </h3>
+                        <p
+                          className="mb-2"
+                          style={{
+                            fontFamily: theme.fontFamily,
+                            color: theme.textColor || "#4b5563",
+                            fontSize:
+                              theme.fontSize === "small"
+                                ? "0.875rem"
+                                : theme.fontSize === "large"
+                                  ? "1.125rem"
+                                  : "1rem",
+                          }}
+                        >
+                          Este es un ejemplo de texto con la fuente principal y color seleccionados. Puedes ver cómo se
+                          ve el texto normal en tu aplicación.
+                        </p>
+                        <p
+                          className="text-sm mb-2"
+                          style={{
+                            fontFamily: theme.fontFamily,
+                            color: theme.mutedTextColor || "#6b7280",
+                          }}
+                        >
+                          Este es un texto secundario con el color muted seleccionado.
+                        </p>
+                        <a
+                          href="#"
+                          style={{
+                            fontFamily: theme.fontFamily,
+                            color: theme.linkColor || theme.primaryColor,
+                          }}
+                        >
+                          Este es un ejemplo de enlace con el color seleccionado
+                        </a>
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>

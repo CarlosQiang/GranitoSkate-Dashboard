@@ -7,9 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ProductCard } from "@/components/product-card"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2, Search, RefreshCw, AlertTriangle, ExternalLink } from "lucide-react"
+import { Loader2, Search, RefreshCw, AlertTriangle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import Link from "next/link"
 
 export default function ProductsList() {
   const [products, setProducts] = useState([])
@@ -18,7 +17,6 @@ export default function ProductsList() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("todos")
   const [error, setError] = useState(null)
-  const [errorDetails, setErrorDetails] = useState(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -26,7 +24,7 @@ export default function ProductsList() {
   }, [])
 
   useEffect(() => {
-    if (products.length > 0) {
+    if (products && products.length > 0) {
       filterProducts()
     }
   }, [searchTerm, activeTab, products])
@@ -34,7 +32,6 @@ export default function ProductsList() {
   const fetchProducts = async () => {
     setIsLoading(true)
     setError(null)
-    setErrorDetails(null)
 
     try {
       // Primero intentamos obtener de la base de datos
@@ -43,6 +40,7 @@ export default function ProductsList() {
       if (dbResponse.ok) {
         const dbData = await dbResponse.json()
         if (dbData.success && dbData.data && dbData.data.length > 0) {
+          console.log("Productos cargados desde la base de datos:", dbData.data.length)
           setProducts(dbData.data)
           setFilteredProducts(dbData.data)
           setIsLoading(false)
@@ -54,18 +52,7 @@ export default function ProductsList() {
       const shopifyResponse = await fetch("/api/shopify/products")
 
       if (!shopifyResponse.ok) {
-        let errorMessage = `Error ${shopifyResponse.status}: ${shopifyResponse.statusText}`
-        let errorDetailsData = null
-
-        try {
-          const errorData = await shopifyResponse.json()
-          errorMessage = errorData.error || errorMessage
-          errorDetailsData = errorData.details || null
-        } catch (e) {
-          // Si no podemos parsear el error, usamos el mensaje genérico
-        }
-
-        throw new Error(errorMessage, { cause: errorDetailsData })
+        throw new Error(`Error ${shopifyResponse.status}: ${shopifyResponse.statusText}`)
       }
 
       const shopifyData = await shopifyResponse.json()
@@ -88,7 +75,6 @@ export default function ProductsList() {
     } catch (error) {
       console.error("Error al cargar productos:", error)
       setError(error instanceof Error ? error.message : "Error al cargar productos")
-      setErrorDetails(error instanceof Error ? error.cause : null)
 
       toast({
         title: "Error",
@@ -112,18 +98,18 @@ export default function ProductsList() {
     if (searchTerm) {
       filtered = filtered.filter(
         (product) =>
-          product.titulo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          product.title?.toLowerCase().includes(searchTerm.toLowerCase()),
+          (product.titulo || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (product.title || "").toLowerCase().includes(searchTerm.toLowerCase()),
       )
     }
 
     // Filtrar por estado
     if (activeTab !== "todos") {
       filtered = filtered.filter((product) => {
-        const status = product.estado || product.status
-        if (activeTab === "activos") return status === "ACTIVE" || status === "active"
-        if (activeTab === "borradores") return status === "DRAFT" || status === "draft"
-        if (activeTab === "archivados") return status === "ARCHIVED" || status === "archived"
+        const status = (product.estado || product.status || "").toLowerCase()
+        if (activeTab === "activos") return status === "active"
+        if (activeTab === "borradores") return status === "draft"
+        if (activeTab === "archivados") return status === "archived"
         return true
       })
     }
@@ -141,26 +127,18 @@ export default function ProductsList() {
 
   const getActiveCount = () => {
     if (!products || products.length === 0) return 0
-    return products.filter(
-      (p) => p.estado === "ACTIVE" || p.estado === "active" || p.status === "ACTIVE" || p.status === "active",
-    ).length
+    return products.filter((p) => (p.estado || p.status || "").toLowerCase() === "active").length
   }
 
   const getDraftCount = () => {
     if (!products || products.length === 0) return 0
-    return products.filter(
-      (p) => p.estado === "DRAFT" || p.estado === "draft" || p.status === "DRAFT" || p.status === "draft",
-    ).length
+    return products.filter((p) => (p.estado || p.status || "").toLowerCase() === "draft").length
   }
 
   const getArchivedCount = () => {
     if (!products || products.length === 0) return 0
-    return products.filter(
-      (p) => p.estado === "ARCHIVED" || p.estado === "archived" || p.status === "ARCHIVED" || p.status === "archived",
-    ).length
+    return products.filter((p) => (p.estado || p.status || "").toLowerCase() === "archived").length
   }
-
-  const isShopifyCredentialsError = error && error.includes("Faltan credenciales de Shopify")
 
   return (
     <div className="space-y-4">
@@ -205,29 +183,6 @@ export default function ProductsList() {
             <AlertTitle>Error al cargar productos</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
-
-          {isShopifyCredentialsError && (
-            <Alert variant="warning" className="mt-4">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Configuración de Shopify incompleta</AlertTitle>
-              <AlertDescription className="space-y-2">
-                <p>Faltan variables de entorno necesarias para conectar con Shopify.</p>
-                <Link href="/dashboard/configuracion" className="flex items-center gap-1 text-primary hover:underline">
-                  <span>Ir a la página de configuración</span>
-                  <ExternalLink className="h-3 w-3" />
-                </Link>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {errorDetails && (
-            <div className="mt-4 text-left">
-              <h3 className="text-sm font-medium mb-2">Detalles del error:</h3>
-              <pre className="bg-muted p-3 rounded text-xs overflow-auto max-h-40">
-                {typeof errorDetails === "string" ? errorDetails : JSON.stringify(errorDetails, null, 2)}
-              </pre>
-            </div>
-          )}
 
           <Button variant="outline" onClick={fetchProducts} className="flex items-center gap-2 mt-4">
             <RefreshCw className="h-4 w-4" />

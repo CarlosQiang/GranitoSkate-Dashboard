@@ -1,59 +1,50 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { getCacheStats, clearCache } from "@/lib/services/shopify-service"
+import { getCacheStats } from "@/lib/services/shopify-service"
+import { shopifyCache } from "@/lib/services/cache-service"
 
 // Marcar la ruta como dinámica para evitar errores de renderizado estático
 export const dynamic = "force-dynamic"
 
 export async function GET() {
   try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
-
     // Obtener estadísticas de la caché
     const stats = getCacheStats()
+    const cacheStats = shopifyCache.getCacheStats()
+
+    // Combinar estadísticas
+    const combinedStats = {
+      productos: {
+        count: Math.max(stats.productos.cantidad, cacheStats.products.count),
+        lastUpdated: stats.productos.ultimaActualizacion,
+        isValid: stats.productos.valido,
+      },
+      colecciones: {
+        count: Math.max(stats.colecciones.cantidad, cacheStats.collections.count),
+        lastUpdated: stats.colecciones.ultimaActualizacion,
+        isValid: stats.colecciones.valido,
+      },
+      clientes: {
+        count: Math.max(stats.clientes.cantidad, cacheStats.customers.count),
+        lastUpdated: stats.clientes.ultimaActualizacion,
+        isValid: stats.clientes.valido,
+      },
+      pedidos: {
+        count: Math.max(stats.pedidos.cantidad, cacheStats.orders.count),
+        lastUpdated: stats.pedidos.ultimaActualizacion,
+        isValid: stats.pedidos.valido,
+      },
+    }
 
     return NextResponse.json({
       success: true,
-      stats,
+      data: combinedStats,
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error al obtener estadísticas de caché:", error)
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Error desconocido al obtener estadísticas de caché",
-      },
-      { status: 500 },
-    )
-  }
-}
-
-export async function DELETE() {
-  try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
-
-    // Limpiar la caché
-    clearCache()
-
-    return NextResponse.json({
-      success: true,
-      message: "Caché limpiada correctamente",
-    })
-  } catch (error: any) {
-    console.error("Error al limpiar caché:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Error desconocido al limpiar caché",
+        error: "Error al obtener estadísticas de caché",
       },
       { status: 500 },
     )

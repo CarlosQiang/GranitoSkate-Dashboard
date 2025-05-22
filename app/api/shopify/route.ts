@@ -41,8 +41,8 @@ export async function POST(request: Request) {
     const { query, variables } = body
 
     logger.debug("Enviando consulta a Shopify", {
-      query: query.substring(0, 100) + "...",
-      variables,
+      shopDomain,
+      queryPreview: query.substring(0, 100) + "...",
     })
 
     // Hacer la solicitud a la API de Shopify
@@ -121,5 +121,78 @@ export async function POST(request: Request) {
 
 // Añadir soporte para GET para el endpoint de verificación
 export async function GET() {
-  return NextResponse.json({ error: "Método no permitido. Use POST para consultas GraphQL." }, { status: 405 })
+  try {
+    // Verificar variables de entorno
+    const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
+    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
+
+    if (!shopDomain || !accessToken) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Configuración de Shopify incompleta",
+          missingVars: {
+            shopDomain: !shopDomain,
+            accessToken: !accessToken,
+          },
+        },
+        { status: 500 },
+      )
+    }
+
+    // Realizar una consulta simple para verificar la conexión
+    const response = await fetch(`https://${shopDomain}/admin/api/2023-10/graphql.json`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": accessToken,
+      },
+      body: JSON.stringify({
+        query: `{
+          shop {
+            name
+            id
+          }
+        }`,
+      }),
+    })
+
+    if (!response.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Error de conexión: ${response.status} ${response.statusText}`,
+        },
+        { status: response.status },
+      )
+    }
+
+    const data = await response.json()
+
+    if (data.errors) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Error en la consulta GraphQL",
+          details: data.errors,
+        },
+        { status: 400 },
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Conexión a Shopify establecida correctamente",
+      shop: data.data.shop,
+    })
+  } catch (error) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Error al verificar la conexión",
+        details: error instanceof Error ? error.message : "Error desconocido",
+      },
+      { status: 500 },
+    )
+  }
 }

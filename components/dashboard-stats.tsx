@@ -1,27 +1,68 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { fetchDashboardStats } from "@/lib/api/dashboard"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AlertCircle, DollarSign, Package, ShoppingCart, Users } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export function DashboardStats() {
-  const [stats, setStats] = useState<any>(null)
+  const [stats, setStats] = useState({
+    totalSales: 0,
+    totalOrders: 0,
+    totalCustomers: 0,
+    totalProducts: 0,
+    salesChange: 0,
+    ordersChange: 0,
+    customersChange: 0,
+    productsChange: 0,
+    currency: "EUR",
+  })
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     const loadStats = async () => {
       try {
         setLoading(true)
-        const data = await fetchDashboardStats()
-        setStats(data)
+        const response = await fetch("/api/dashboard/stats")
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${response.statusText}`)
+        }
+        const data = await response.json()
+        if (data.success) {
+          setStats(
+            data.data || {
+              totalSales: 0,
+              totalOrders: 0,
+              totalCustomers: 0,
+              totalProducts: 0,
+              salesChange: 0,
+              ordersChange: 0,
+              customersChange: 0,
+              productsChange: 0,
+              currency: "EUR",
+            },
+          )
+        } else {
+          throw new Error(data.error || "Error al cargar estadísticas")
+        }
         setError(null)
       } catch (err) {
         console.error("Error al cargar estadísticas del dashboard:", err)
         setError("Error al cargar estadísticas")
+        // No usar datos de fallback, mostrar ceros
+        setStats({
+          totalSales: 0,
+          totalOrders: 0,
+          totalCustomers: 0,
+          totalProducts: 0,
+          salesChange: 0,
+          ordersChange: 0,
+          customersChange: 0,
+          productsChange: 0,
+          currency: "EUR",
+        })
       } finally {
         setLoading(false)
       }
@@ -30,7 +71,7 @@ export function DashboardStats() {
     loadStats()
   }, [])
 
-  const formatCurrency = (value: number, currency = "EUR") => {
+  const formatCurrency = (value, currency = "EUR") => {
     try {
       // Asegurarse de que siempre haya un código de moneda válido
       const currencyCode = currency || "EUR"
@@ -71,7 +112,7 @@ export function DashboardStats() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         </div>
-      ) : stats ? (
+      ) : (
         <>
           <Card className="w-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -126,7 +167,7 @@ export function DashboardStats() {
             </CardContent>
           </Card>
         </>
-      ) : null}
+      )}
     </>
   )
 }

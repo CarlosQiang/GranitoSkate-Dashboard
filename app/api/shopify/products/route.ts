@@ -1,41 +1,38 @@
 import { NextResponse } from "next/server"
-import { shopifyConfig, isShopifyConfigValid, getShopifyConfigErrors } from "@/lib/config/shopify"
 
 // Marcar la ruta como dinámica para evitar errores de renderizado estático
 export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
   try {
-    // Verificar si la configuración de Shopify es válida
-    if (!isShopifyConfigValid()) {
-      const errors = getShopifyConfigErrors()
-      console.error("Configuración de Shopify inválida:", errors)
+    // Verificar que las variables de entorno estén configuradas
+    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
+      console.error("Faltan credenciales de Shopify:", {
+        hasDomain: !!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN,
+        hasToken: !!process.env.SHOPIFY_ACCESS_TOKEN,
+      })
       return NextResponse.json(
         {
           success: false,
           error: "Faltan credenciales de Shopify en las variables de entorno",
-          details: errors,
         },
         { status: 500 },
       )
     }
 
     // Construir la URL de la API de Shopify
-    const url = `https://${shopifyConfig.shopDomain}/admin/api/${shopifyConfig.apiVersion}/products.json?limit=50`
+    const url = `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-07/products.json?limit=50`
 
     console.log("Enviando solicitud a Shopify:", {
       url,
       method: "GET",
-      headers: {
-        "X-Shopify-Access-Token": "***", // No mostrar el token completo por seguridad
-      },
     })
 
     // Realizar la petición a Shopify
     const shopifyResponse = await fetch(url, {
       method: "GET",
       headers: {
-        "X-Shopify-Access-Token": shopifyConfig.accessToken,
+        "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
       },
     })
 
@@ -91,6 +88,8 @@ export async function GET(request: Request) {
       url: product.handle,
       variants: product.variants,
       variantes: product.variants,
+      inventory: product.variants[0]?.inventory_quantity || 0,
+      inventario: product.variants[0]?.inventory_quantity || 0,
     }))
 
     return NextResponse.json({
@@ -104,7 +103,6 @@ export async function GET(request: Request) {
       {
         success: false,
         error: error.message || "Error desconocido al obtener productos de Shopify",
-        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
       },
       { status: 500 },
     )
