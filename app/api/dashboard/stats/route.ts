@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { db } from "@/lib/db"
+import db from "@/lib/db"
 
 // Marcar la ruta como dinámica para evitar errores de renderizado estático
 export const dynamic = "force-dynamic"
@@ -61,7 +61,7 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Error desconocido al obtener estadísticas del dashboard",
+        error: error instanceof Error ? error.message : "Error desconocido al obtener estadísticas del dashboard",
       },
       { status: 500 },
     )

@@ -3,7 +3,7 @@ import { sincronizarProductos } from "@/lib/services/sync-service"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { shopifyFetch } from "@/lib/shopify"
-import { db } from "@/lib/db"
+import db from "@/lib/db"
 
 // Marcar la ruta como dinámica para evitar errores de renderizado estático
 export const dynamic = "force-dynamic"
@@ -302,7 +302,7 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Error desconocido al sincronizar productos",
+        error: error instanceof Error ? error.message : "Error desconocido al sincronizar productos",
       },
       { status: 500 },
     )
@@ -334,7 +334,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Error desconocido",
+        error: error instanceof Error ? error.message : "Error desconocido",
         stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
       },
       { status: 500 },

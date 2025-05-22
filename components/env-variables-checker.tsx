@@ -6,10 +6,16 @@ import { Button } from "@/components/ui/button"
 import { RefreshCw, CheckCircle, XCircle, AlertTriangle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
-export function EnvVariablesChecker() {
+export default function EnvVariablesChecker() {
   const [status, setStatus] = useState<"loading" | "success" | "error" | "warning">("loading")
   const [variables, setVariables] = useState<
-    Array<{ name: string; status: "ok" | "missing" | "error"; value?: string }>
+    Array<{
+      name: string
+      status: "ok" | "missing" | "error"
+      value?: string
+      description?: string
+      required?: boolean
+    }>
   >([])
   const [isChecking, setIsChecking] = useState(false)
 
@@ -30,12 +36,11 @@ export function EnvVariablesChecker() {
       const data = await response.json()
 
       if (response.ok) {
-        setVariables(data.variables)
+        setVariables(data.variables || [])
 
         // Determinar el estado general
-        const missingRequired = data.variables.some((v) => v.required && v.status === "missing")
-
-        const missingOptional = data.variables.some((v) => !v.required && v.status === "missing")
+        const missingRequired = data.variables?.some((v) => v.required && v.status === "missing") || false
+        const missingOptional = data.variables?.some((v) => !v.required && v.status === "missing") || false
 
         if (missingRequired) {
           setStatus("error")

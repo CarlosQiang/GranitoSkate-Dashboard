@@ -141,7 +141,7 @@ export async function closeConnection() {
 export { sql }
 
 // Exportar un objeto con todas las funciones para importación por defecto
-export default {
+const db = {
   pool,
   testConnection,
   findAll,
@@ -155,3 +155,6 @@ export default {
   closeConnection,
   sql,
 }
+
+export { db }
+export default db

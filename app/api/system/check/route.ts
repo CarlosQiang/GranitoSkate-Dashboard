@@ -3,6 +3,8 @@ import config from "@/lib/config"
 import { testShopifyConnection } from "@/lib/shopify"
 import { checkDatabaseConnection } from "@/lib/prisma"
 
+export const dynamic = "force-dynamic"
+
 export async function GET() {
   try {
     // Verificar configuración

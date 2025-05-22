@@ -1,5 +1,15 @@
 import { GraphQLClient } from "graphql-request"
 
+// Función para obtener la URL base
+export function getBaseUrl() {
+  if (typeof window !== "undefined") {
+    return window.location.origin
+  }
+  return process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_VERCEL_URL
+    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+    : "http://localhost:3000"
+}
+
 // Crear un cliente GraphQL para Shopify
 const shopifyClient = new GraphQLClient(process.env.SHOPIFY_API_URL || "", {
   headers: {
@@ -127,6 +137,101 @@ export function formatShopifyId(id, resourceType) {
 
   // Si el ID es solo el número
   return `gid://shopify/${resourceType}/${idStr}`
+}
+
+// Función para realizar una consulta de prueba a Shopify
+export async function testShopifyConnection(tolerant = false) {
+  try {
+    // Si estamos en modo tolerante, intentamos una consulta más simple
+    // que podría funcionar incluso con tokens con permisos limitados
+    const query = tolerant
+      ? `
+        query {
+          shop {
+            name
+          }
+        }
+      `
+      : `
+        query {
+          shop {
+            name
+            id
+            url
+          }
+        }
+      `
+
+    const response = await shopifyFetch({ query })
+
+    if (response.errors) {
+      // Extraer mensaje de error más específico
+      let errorMessage = "Error desconocido al conectar con Shopify"
+
+      if (response.errors[0]) {
+        if (response.errors[0].message.includes("401")) {
+          errorMessage = "Error de autenticación: Token de acceso inválido o expirado"
+        } else if (response.errors[0].message.includes("404")) {
+          errorMessage = "Error: Tienda no encontrada. Verifique el dominio de la tienda"
+        } else {
+          errorMessage = response.errors[0].message
+        }
+      }
+
+      // Si estamos en modo tolerante, intentamos una consulta alternativa
+      // que podría funcionar con diferentes permisos
+      if (tolerant) {
+        try {
+          // Intentar una consulta a productos que podría funcionar con diferentes permisos
+          const altQuery = `
+            query {
+              products(first: 1) {
+                edges {
+                  node {
+                    id
+                  }
+                }
+              }
+            }
+          `
+
+          const altResponse = await shopifyFetch({ query: altQuery })
+
+          if (!altResponse.errors) {
+            return {
+              success: true,
+              data: { shop: { name: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN?.split(".")[0] } },
+              message: "Conexión alternativa exitosa",
+            }
+          }
+        } catch (e) {
+          console.warn("Error en consulta alternativa:", e)
+        }
+      }
+
+      return {
+        success: false,
+        data: null,
+        message: errorMessage,
+      }
+    }
+
+    return {
+      success: true,
+      data: response.data,
+      message: `Conexión exitosa con la tienda ${response.data?.shop?.name || "Shopify"}`,
+    }
+  } catch (error) {
+    console.error("Error al probar la conexión con Shopify:", error)
+    return {
+      success: false,
+      data: null,
+      message:
+        error instanceof Error
+          ? `Error al conectar con Shopify: ${error.message}`
+          : "Error desconocido al conectar con Shopify",
+    }
+  }
 }
 
 export default shopifyClient
