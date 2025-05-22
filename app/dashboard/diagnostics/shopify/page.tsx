@@ -1,303 +1,278 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
+import { AlertCircle, CheckCircle, RefreshCw } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CheckCircle, AlertTriangle, XCircle, RefreshCw, ArrowRight, Info } from "lucide-react"
-import ShopifyConfigChecker from "@/components/shopify-config-checker"
-import { useToast } from "@/components/ui/use-toast"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
-export default function ShopifyDiagnosticsPage() {
-  const [isChecking, setIsChecking] = useState(false)
-  const [shopifyStatus, setShopifyStatus] = useState<"idle" | "checking" | "success" | "error">("idle")
-  const [shopInfo, setShopInfo] = useState<any>(null)
-  const [errorDetails, setErrorDetails] = useState<string | null>(null)
-  const [envVars, setEnvVars] = useState<{ [key: string]: boolean }>({})
-  const [testResults, setTestResults] = useState<any[]>([])
-  const { toast } = useToast()
+export default function ShopifyDiagnosticPage() {
+  const [isLoading, setIsLoading] = useState(false)
+  const [testResults, setTestResults] = useState<{
+    status: "success" | "error" | "pending"
+    message: string
+    details?: string
+  }>({
+    status: "pending",
+    message: "No se ha ejecutado ninguna prueba",
+  })
+  const [shopifyConfig, setShopifyConfig] = useState({
+    domain: "",
+    accessToken: "",
+  })
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
-    checkEnvVars()
+    // Cargar la configuración actual
+    const loadConfig = async () => {
+      try {
+        const response = await fetch("/api/shopify/config-check")
+        const data = await response.json()
+        if (data.success) {
+          setShopifyConfig({
+            domain: data.config.domain || "",
+            accessToken: data.config.accessToken ? "••••••••" : "",
+          })
+        }
+      } catch (error) {
+        console.error("Error al cargar la configuración:", error)
+      }
+    }
+
+    loadConfig()
   }, [])
 
-  const checkEnvVars = async () => {
+  const testConnection = async () => {
+    setIsLoading(true)
+    setTestResults({
+      status: "pending",
+      message: "Probando conexión...",
+    })
+
     try {
-      const response = await fetch("/api/system/env-check")
+      const response = await fetch("/api/shopify/test-connection")
       const data = await response.json()
 
-      if (response.ok) {
-        setEnvVars(data.vars || {})
-      }
-    } catch (error) {
-      console.error("Error al verificar variables de entorno:", error)
-    }
-  }
-
-  const runShopifyTest = async () => {
-    setIsChecking(true)
-    setShopifyStatus("checking")
-    setErrorDetails(null)
-    setTestResults([])
-
-    try {
-      // Paso 1: Verificar variables de entorno
-      await checkEnvVars()
-      setTestResults((prev) => [
-        ...prev,
-        {
-          name: "Variables de entorno",
-          status: envVars.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN && envVars.SHOPIFY_ACCESS_TOKEN ? "success" : "error",
-          message:
-            envVars.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN && envVars.SHOPIFY_ACCESS_TOKEN
-              ? "Variables de entorno configuradas correctamente"
-              : "Faltan variables de entorno necesarias",
-        },
-      ])
-
-      if (!envVars.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !envVars.SHOPIFY_ACCESS_TOKEN) {
-        setShopifyStatus("error")
-        setErrorDetails("Faltan variables de entorno necesarias para la conexión con Shopify")
-        setIsChecking(false)
-        return
-      }
-
-      // Paso 2: Verificar conexión básica
-      const basicResponse = await fetch("/api/shopify")
-      const basicData = await basicResponse.json()
-
-      setTestResults((prev) => [
-        ...prev,
-        {
-          name: "Conexión básica",
-          status: basicResponse.ok ? "success" : "error",
-          message: basicResponse.ok
-            ? "Conexión básica establecida correctamente"
-            : `Error en la conexión básica: ${basicData.error || basicResponse.statusText}`,
-        },
-      ])
-
-      if (!basicResponse.ok) {
-        setShopifyStatus("error")
-        setErrorDetails(basicData.error || "Error en la conexión básica con Shopify")
-        setIsChecking(false)
-        return
-      }
-
-      // Paso 3: Probar consulta GraphQL
-      const graphqlResponse = await fetch("/api/shopify/test-connection")
-      const graphqlData = await graphqlResponse.json()
-
-      setTestResults((prev) => [
-        ...prev,
-        {
-          name: "Consulta GraphQL",
-          status: graphqlResponse.ok && graphqlData.success ? "success" : "error",
-          message:
-            graphqlResponse.ok && graphqlData.success
-              ? "Consulta GraphQL ejecutada correctamente"
-              : `Error en la consulta GraphQL: ${graphqlData.error || "Error desconocido"}`,
-        },
-      ])
-
-      if (!graphqlResponse.ok || !graphqlData.success) {
-        setShopifyStatus("error")
-        setErrorDetails(graphqlData.error || "Error en la consulta GraphQL a Shopify")
-        setIsChecking(false)
-        return
-      }
-
-      // Paso 4: Probar obtención de productos
-      const productsResponse = await fetch("/api/shopify/products?limit=1")
-      const productsData = await productsResponse.json()
-
-      setTestResults((prev) => [
-        ...prev,
-        {
-          name: "Obtención de productos",
-          status: productsResponse.ok && productsData.success ? "success" : "error",
-          message:
-            productsResponse.ok && productsData.success
-              ? `Se obtuvieron ${productsData.data?.length || 0} productos correctamente`
-              : `Error al obtener productos: ${productsData.error || "Error desconocido"}`,
-        },
-      ])
-
-      // Paso 5: Probar obtención de colecciones
-      const collectionsResponse = await fetch("/api/shopify/collections?limit=1")
-      const collectionsData = await collectionsResponse.json()
-
-      setTestResults((prev) => [
-        ...prev,
-        {
-          name: "Obtención de colecciones",
-          status: collectionsResponse.ok && collectionsData.success ? "success" : "error",
-          message:
-            collectionsResponse.ok && collectionsData.success
-              ? `Se obtuvieron ${collectionsData.data?.length || 0} colecciones correctamente`
-              : `Error al obtener colecciones: ${collectionsData.error || "Error desconocido"}`,
-        },
-      ])
-
-      // Determinar estado general
-      const hasErrors = testResults.some((test) => test.status === "error")
-
-      if (hasErrors) {
-        setShopifyStatus("error")
-        setErrorDetails("Se encontraron errores en algunas pruebas")
+      if (data.success) {
+        setTestResults({
+          status: "success",
+          message: "Conexión exitosa a Shopify",
+          details: `Tienda: ${data.shopName}, Plan: ${data.shopPlan}`,
+        })
       } else {
-        setShopifyStatus("success")
-        setShopInfo(graphqlData.data?.shop)
-        toast({
-          title: "Diagnóstico completado",
-          description: "Todas las pruebas se completaron correctamente",
+        setTestResults({
+          status: "error",
+          message: "Error al conectar con Shopify",
+          details: data.error || "No se pudo establecer conexión con la API de Shopify",
         })
       }
     } catch (error) {
-      setShopifyStatus("error")
-      setErrorDetails(error instanceof Error ? error.message : "Error desconocido")
-      toast({
-        variant: "destructive",
-        title: "Error en el diagnóstico",
-        description: "Ocurrió un error al realizar las pruebas",
+      setTestResults({
+        status: "error",
+        message: "Error en la prueba de conexión",
+        details: error instanceof Error ? error.message : "Error desconocido",
       })
     } finally {
-      setIsChecking(false)
+      setIsLoading(false)
+    }
+  }
+
+  const saveConfig = async () => {
+    setIsSaving(true)
+    try {
+      const response = await fetch("/api/shopify/update-credentials", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          domain: shopifyConfig.domain,
+          accessToken: shopifyConfig.accessToken === "••••••••" ? null : shopifyConfig.accessToken,
+        }),
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        alert("Configuración guardada correctamente")
+      } else {
+        alert(`Error al guardar: ${data.error || "Error desconocido"}`)
+      }
+    } catch (error) {
+      alert(`Error al guardar: ${error instanceof Error ? error.message : "Error desconocido"}`)
+    } finally {
+      setIsSaving(false)
     }
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Diagnóstico de Shopify</h1>
-        <p className="text-muted-foreground">Verifica y soluciona problemas de conexión con Shopify</p>
-      </div>
+    <div className="container mx-auto py-6">
+      <h1 className="text-3xl font-bold mb-6">Diagnóstico de Conexión a Shopify</h1>
 
-      <Tabs defaultValue="diagnostico">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="diagnostico">Diagnóstico</TabsTrigger>
-          <TabsTrigger value="configuracion">Configuración</TabsTrigger>
+      <Tabs defaultValue="test">
+        <TabsList className="mb-4">
+          <TabsTrigger value="test">Prueba de Conexión</TabsTrigger>
+          <TabsTrigger value="config">Configuración</TabsTrigger>
+          <TabsTrigger value="troubleshoot">Solución de Problemas</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="diagnostico" className="space-y-6">
+        <TabsContent value="test">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                Estado de la conexión
-                {shopifyStatus === "success" && <CheckCircle className="h-5 w-5 text-green-500" />}
-                {shopifyStatus === "error" && <XCircle className="h-5 w-5 text-red-500" />}
-              </CardTitle>
-              <CardDescription>Ejecuta un diagnóstico completo de la conexión con Shopify</CardDescription>
+              <CardTitle>Prueba de Conexión a Shopify</CardTitle>
+              <CardDescription>
+                Verifica si la aplicación puede conectarse correctamente a tu tienda Shopify
+              </CardDescription>
             </CardHeader>
-
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium">Variables de entorno:</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <div className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
-                    <span className="text-sm font-mono">NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN</span>
-                    <Badge variant={envVars.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN ? "default" : "destructive"}>
-                      {envVars.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN ? "✓" : "✗"}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
-                    <span className="text-sm font-mono">SHOPIFY_ACCESS_TOKEN</span>
-                    <Badge variant={envVars.SHOPIFY_ACCESS_TOKEN ? "default" : "destructive"}>
-                      {envVars.SHOPIFY_ACCESS_TOKEN ? "✓" : "✗"}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-
-              {shopifyStatus === "error" && (
-                <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>Error de conexión</AlertTitle>
+            <CardContent>
+              {testResults.status !== "pending" && (
+                <Alert
+                  className={`mb-4 ${
+                    testResults.status === "success" ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
+                  }`}
+                >
+                  {testResults.status === "success" ? (
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                  )}
+                  <AlertTitle>{testResults.status === "success" ? "Conexión exitosa" : "Error de conexión"}</AlertTitle>
                   <AlertDescription>
-                    {errorDetails || "No se pudo conectar con Shopify. Verifica tus credenciales."}
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {shopifyStatus === "success" && (
-                <Alert variant="default" className="bg-green-50 border-green-200">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <AlertTitle className="text-green-700">Conexión exitosa</AlertTitle>
-                  <AlertDescription className="text-green-600">
-                    Conectado correctamente a la tienda {shopInfo?.name || "Shopify"}
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {testResults.length > 0 && (
-                <div className="space-y-3 mt-4">
-                  <h3 className="text-sm font-medium">Resultados de las pruebas:</h3>
-                  {testResults.map((test, index) => (
-                    <div key={index} className="flex items-start gap-2 p-3 bg-gray-50 rounded-md">
-                      {test.status === "success" ? (
-                        <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-red-500 mt-0.5" />
-                      )}
-                      <div>
-                        <h4 className="text-sm font-medium">{test.name}</h4>
-                        <p className="text-sm text-muted-foreground">{test.message}</p>
+                    {testResults.message}
+                    {testResults.details && (
+                      <div className="mt-2 text-sm">
+                        <strong>Detalles:</strong> {testResults.details}
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    )}
+                  </AlertDescription>
+                </Alert>
               )}
 
-              <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
-                <div className="flex gap-2">
-                  <Info className="h-5 w-5 text-amber-500" />
-                  <div>
-                    <h3 className="text-sm font-medium text-amber-800">Solución de problemas comunes</h3>
-                    <ul className="mt-2 space-y-2 text-sm text-amber-700">
-                      <li className="flex gap-2">
-                        <ArrowRight className="h-4 w-4 shrink-0 mt-0.5" />
-                        <span>Verifica que el dominio de la tienda sea correcto y no incluya "https://"</span>
-                      </li>
-                      <li className="flex gap-2">
-                        <ArrowRight className="h-4 w-4 shrink-0 mt-0.5" />
-                        <span>Asegúrate de que el token de acceso tenga los permisos necesarios</span>
-                      </li>
-                      <li className="flex gap-2">
-                        <ArrowRight className="h-4 w-4 shrink-0 mt-0.5" />
-                        <span>Verifica que el token de acceso no haya expirado</span>
-                      </li>
-                      <li className="flex gap-2">
-                        <ArrowRight className="h-4 w-4 shrink-0 mt-0.5" />
-                        <span>Comprueba que las variables de entorno estén correctamente configuradas</span>
-                      </li>
-                    </ul>
-                  </div>
+              <div className="flex items-center gap-4">
+                <Button onClick={testConnection} disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Probando...
+                    </>
+                  ) : (
+                    "Probar Conexión"
+                  )}
+                </Button>
+                <div className="text-sm text-gray-500">
+                  Esta prueba verifica la conexión a la API de Shopify usando las credenciales configuradas.
                 </div>
               </div>
             </CardContent>
+          </Card>
+        </TabsContent>
 
+        <TabsContent value="config">
+          <Card>
+            <CardHeader>
+              <CardTitle>Configuración de Shopify</CardTitle>
+              <CardDescription>Actualiza las credenciales de conexión a tu tienda Shopify</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="domain">Dominio de la Tienda</Label>
+                  <Input
+                    id="domain"
+                    placeholder="tu-tienda.myshopify.com"
+                    value={shopifyConfig.domain}
+                    onChange={(e) => setShopifyConfig({ ...shopifyConfig, domain: e.target.value })}
+                  />
+                  <p className="text-sm text-gray-500">
+                    Ejemplo: tu-tienda.myshopify.com (sin https:// ni otros prefijos)
+                  </p>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="token">Token de Acceso</Label>
+                  <Input
+                    id="token"
+                    type="password"
+                    placeholder="shpat_..."
+                    value={shopifyConfig.accessToken}
+                    onChange={(e) => setShopifyConfig({ ...shopifyConfig, accessToken: e.target.value })}
+                  />
+                  <p className="text-sm text-gray-500">
+                    Token de acceso de la API de Shopify. Debe comenzar con &quot;shpat_&quot;
+                  </p>
+                </div>
+              </div>
+            </CardContent>
             <CardFooter>
-              <Button onClick={runShopifyTest} disabled={isChecking} className="w-full">
-                {isChecking ? (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    Ejecutando diagnóstico...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Ejecutar diagnóstico completo
-                  </>
-                )}
+              <Button onClick={saveConfig} disabled={isSaving}>
+                {isSaving ? "Guardando..." : "Guardar Configuración"}
               </Button>
             </CardFooter>
           </Card>
         </TabsContent>
 
-        <TabsContent value="configuracion">
-          <ShopifyConfigChecker />
+        <TabsContent value="troubleshoot">
+          <Card>
+            <CardHeader>
+              <CardTitle>Solución de Problemas Comunes</CardTitle>
+              <CardDescription>Guía para resolver problemas frecuentes de conexión</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div>
+                  <h3 className="font-medium mb-2">Error 401 - No autorizado</h3>
+                  <p className="text-sm text-gray-600 mb-2">
+                    Este error indica que el token de acceso no es válido o ha expirado.
+                  </p>
+                  <ul className="list-disc pl-5 text-sm text-gray-600">
+                    <li>Verifica que el token de acceso sea correcto</li>
+                    <li>Genera un nuevo token en tu panel de administración de Shopify</li>
+                    <li>Asegúrate de que el token tenga los permisos necesarios</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-medium mb-2">Error 404 - No encontrado</h3>
+                  <p className="text-sm text-gray-600 mb-2">
+                    Este error indica que la URL de la tienda no es correcta o no existe.
+                  </p>
+                  <ul className="list-disc pl-5 text-sm text-gray-600">
+                    <li>Verifica que el dominio de la tienda sea correcto</li>
+                    <li>Asegúrate de usar solo el nombre de la tienda (sin https:// ni otros prefijos)</li>
+                    <li>Comprueba que la tienda esté activa y no suspendida</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-medium mb-2">Error 500 - Error del servidor</h3>
+                  <p className="text-sm text-gray-600 mb-2">
+                    Este error indica un problema en el servidor de Shopify o en la consulta.
+                  </p>
+                  <ul className="list-disc pl-5 text-sm text-gray-600">
+                    <li>Verifica que las consultas GraphQL sean correctas</li>
+                    <li>Comprueba si hay límites de tasa (rate limits) excedidos</li>
+                    <li>Intenta nuevamente más tarde si el problema persiste</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-medium mb-2">Variables de entorno</h3>
+                  <p className="text-sm text-gray-600 mb-2">
+                    Asegúrate de que las siguientes variables de entorno estén configuradas correctamente:
+                  </p>
+                  <ul className="list-disc pl-5 text-sm text-gray-600">
+                    <li>NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN</li>
+                    <li>SHOPIFY_ACCESS_TOKEN</li>
+                    <li>
+                      SHOPIFY_API_URL (normalmente https://tu-tienda.myshopify.com/admin/api/2023-07/graphql.json)
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

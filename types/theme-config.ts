@@ -2,72 +2,43 @@ export interface ThemeConfig {
   // Colores principales
   primaryColor: string
   secondaryColor: string
-  accentColor: string
-
-  // Nuevos colores de texto
-  textColor: string
-  headingColor: string
-  mutedTextColor: string
-  linkColor: string
-
-  // Fuentes
-  fontFamily: string
-  headingFontFamily: string
-  fontSize: "small" | "medium" | "large"
-
-  // Estilos de interfaz
-  borderRadius: "none" | "small" | "medium" | "large" | "full"
-  buttonStyle: "solid" | "outline" | "soft" | "ghost"
-  cardStyle: "flat" | "raised" | "bordered"
-  sidebarStyle: "default" | "compact" | "expanded"
-
-  // Animaciones
-  enableAnimations: boolean
-  animationSpeed: "slow" | "normal" | "fast"
-
-  // Modo oscuro
-  enableDarkMode: boolean
-  preferDarkMode: boolean
-
-  // Branding
-  shopName: string
-  logoUrl: string | null
-  favicon: string | null
-}
-
-export const defaultThemeConfig: ThemeConfig = {
-  // Colores principales
-  primaryColor: "#c7a04a", // Color dorado de Granito
-  secondaryColor: "#4b5563",
-  accentColor: "#3182ce",
+  backgroundColor: string
 
   // Colores de texto
-  textColor: "#4b5563",
-  headingColor: "#111827",
-  mutedTextColor: "#6b7280",
-  linkColor: "#c7a04a", // Mismo que primaryColor por defecto
+  textColor?: string
+  textSecondaryColor?: string
+  linkColor?: string
 
-  // Fuentes
-  fontFamily: "Inter, sans-serif",
-  headingFontFamily: "Inter, sans-serif",
-  fontSize: "medium",
+  // Tipografía
+  fontFamily?: string
+  baseFontSize?: number
+  lineHeight?: number
+  headingFontWeight?: string
 
-  // Estilos de interfaz
-  borderRadius: "medium",
-  buttonStyle: "solid",
-  cardStyle: "raised",
-  sidebarStyle: "default",
+  // Marca
+  shopName?: string
+  logoUrl?: string
+  faviconUrl?: string
 
-  // Animaciones
-  enableAnimations: true,
-  animationSpeed: "normal",
+  // Otros
+  borderRadius?: string
+  buttonStyle?: "rounded" | "square" | "pill"
+  cardStyle?: "flat" | "raised" | "bordered"
+}
 
-  // Modo oscuro
-  enableDarkMode: true,
-  preferDarkMode: false,
-
-  // Branding
+export const defaultTheme: ThemeConfig = {
+  primaryColor: "#D4AF37", // Color dorado para GranitoSkate
+  secondaryColor: "#4A4A4A",
+  backgroundColor: "#F9F9F9",
+  textColor: "#333333",
+  textSecondaryColor: "#666666",
+  linkColor: "#D4AF37",
+  fontFamily: "Inter",
+  baseFontSize: 16,
+  lineHeight: 1.5,
+  headingFontWeight: "600",
   shopName: "GranitoSkate",
-  logoUrl: null,
-  favicon: null,
+  borderRadius: "0.375rem",
+  buttonStyle: "rounded",
+  cardStyle: "raised",
 }

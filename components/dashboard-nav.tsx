@@ -35,12 +35,13 @@ export function DashboardNav({ isCollapsed }: DashboardNavProps) {
             icon={<AlertTriangle className="h-4 w-4" />}
             variant="ghost"
           />
-          {{
-            href: "/dashboard/diagnostics/shopify",
-            title: "Diagnóstico Shopify",
-            icon: <ShoppingBag className="h-4 w-4" />,
-            variant: "ghost",
-          }}
+          <NavItem
+            isCollapsed={isCollapsed}
+            href="/dashboard/diagnostics/shopify"
+            title="Diagnóstico Shopify"
+            icon={<ShoppingBag className="h-4 w-4" />}
+            variant="ghost"
+          />
         </div>
       </div>
     </div>
