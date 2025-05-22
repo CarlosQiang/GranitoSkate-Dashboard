@@ -18,9 +18,13 @@ const nextConfig = {
     unoptimized: true,
   },
   experimental: {
-    serverActions: true,
-    serverComponentsExternalPackages: ['@prisma/client', 'pg'],
+    // En Next.js 15, serverActions es un objeto, no un booleano
+    serverActions: {
+      bodySizeLimit: '2mb',
+    },
   },
+  // serverComponentsExternalPackages ha sido movido a serverExternalPackages
+  serverExternalPackages: ['@prisma/client', 'pg'],
   async headers() {
     return [
       {
