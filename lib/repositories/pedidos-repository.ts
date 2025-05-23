@@ -1,4 +1,4 @@
-import { query, findAll, findById, findByField, insert, update, remove } from "@/lib/db"
+import { query, insert, update, findById, findAll, findByField, remove } from "@/lib/db"
 
 export type Pedido = {
   id?: number

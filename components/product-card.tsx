@@ -1,92 +1,172 @@
+"use client"
+
 import Link from "next/link"
+import Image from "next/image"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Eye, RefreshCw, Package } from "lucide-react"
+import { formatCurrency } from "@/lib/utils"
+import { useState } from "react"
+import { Package, Tag, Calendar, Eye } from "lucide-react"
 
 export function ProductCard({ product }) {
-  if (!product) return null
+  const [imageError, setImageError] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
 
-  // Normalizar los datos del producto (puede venir de Shopify o de la base de datos)
-  const title = product.titulo || product.title || "Producto sin título"
-  const status = (product.estado || product.status || "active").toLowerCase()
-  const price = product.precio || product.price || 0
-  const inventory = product.inventario || product.inventory || 0
-  const imageUrl = product.imagen_url || product.image || null
-  const id = product.id || product.shopify_id || ""
+  // Asegurarse de que el producto tiene todas las propiedades necesarias
+  const {
+    id,
+    title = "Producto sin título",
+    titulo = title, // Soporte para ambos nombres de propiedad
+    price = 0,
+    precio = price, // Soporte para ambos nombres de propiedad
+    compareAtPrice,
+    currencyCode = "EUR",
+    status = "ACTIVE",
+    estado = status, // Soporte para ambos nombres de propiedad
+    productType,
+    createdAt,
+  } = product || {}
 
-  // Formatear el precio
-  const formattedPrice = new Intl.NumberFormat("es-ES", {
-    style: "currency",
-    currency: "EUR",
-  }).format(Number(price))
+  // Intentar obtener la URL de la imagen de diferentes propiedades
+  const imageUrl = getImageUrl(product)
 
-  // Determinar el color del badge según el estado
-  const getBadgeVariant = (status) => {
-    if (status === "active") return "success"
-    if (status === "draft") return "secondary"
-    if (status === "archived") return "destructive"
-    return "outline"
+  // Función para extraer el ID limpio
+  const cleanId = (id) => {
+    if (!id) return ""
+    if (typeof id === "string" && id.includes("/")) {
+      return id.split("/").pop()
+    }
+    return id
   }
 
-  // Traducir el estado
-  const getStatusText = (status) => {
-    if (status === "active") return "Activo"
-    if (status === "draft") return "Borrador"
-    if (status === "archived") return "Archivado"
-    return status
-  }
+  // Determinar si hay un descuento
+  const hasDiscount = compareAtPrice && Number(compareAtPrice) > Number(price)
+
+  // Calcular el porcentaje de descuento
+  const discountPercentage = hasDiscount ? Math.round((1 - Number(price) / Number(compareAtPrice)) * 100) : 0
+
+  // Formatear la fecha de creación
+  const formattedDate = createdAt
+    ? new Date(createdAt).toLocaleDateString("es-ES", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : null
 
   return (
-    <Card className="overflow-hidden h-full flex flex-col">
-      <div className="relative aspect-square overflow-hidden bg-gray-100">
-        {imageUrl ? (
-          <div className="w-full h-full relative">
-            <img
+    <Link
+      href={`/dashboard/products/${cleanId(id)}`}
+      className="block h-full transition-transform duration-200 hover:-translate-y-1"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <Card className="overflow-hidden h-full flex flex-col border-gray-200 dark:border-gray-800 transition-all duration-200 hover:shadow-md">
+        <div className="aspect-square relative bg-gray-100 dark:bg-gray-800 overflow-hidden">
+          {!imageError && imageUrl ? (
+            <Image
               src={imageUrl || "/placeholder.svg"}
-              alt={title}
-              className="object-cover w-full h-full transition-transform duration-300 hover:scale-105"
-              onError={(e) => {
-                // Si la imagen falla, mostrar un icono de paquete
-                e.currentTarget.style.display = "none"
-                e.currentTarget.parentElement.classList.add("flex", "items-center", "justify-center", "bg-gray-200")
-                const icon = document.createElement("div")
-                icon.innerHTML =
-                  '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class="text-gray-400"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><line x1="12" y1="22" x2="12" y2="12"></line></svg>'
-                e.currentTarget.parentElement.appendChild(icon)
-              }}
+              alt={titulo || title}
+              fill
+              className="object-cover transition-transform duration-500 ease-in-out"
+              style={{ transform: isHovered ? "scale(1.05)" : "scale(1)" }}
+              sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              onError={() => setImageError(true)}
             />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
+              <Package className="h-12 w-12 text-gray-400" />
+            </div>
+          )}
+
+          {/* Etiquetas superpuestas */}
+          <div className="absolute top-2 left-2 flex flex-col gap-1">
+            {(estado || status) !== "ACTIVE" && (
+              <Badge variant="secondary" className="bg-gray-800 text-white dark:bg-gray-700">
+                {(estado || status) === "DRAFT" ? "Borrador" : "Archivado"}
+              </Badge>
+            )}
+
+            {hasDiscount && <Badge className="bg-red-500 text-white">-{discountPercentage}%</Badge>}
           </div>
-        ) : (
-          <div className="flex items-center justify-center h-full bg-gray-200">
-            <Package className="h-12 w-12 text-gray-400" />
+
+          {/* Overlay con botón de vista rápida al hacer hover */}
+          <div
+            className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity duration-200 ${
+              isHovered ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            <Badge variant="secondary" className="bg-white text-gray-800 flex items-center gap-1 px-3 py-1">
+              <Eye className="h-3.5 w-3.5" />
+              Ver detalles
+            </Badge>
           </div>
-        )}
-        <Badge variant={getBadgeVariant(status)} className="absolute top-2 right-2">
-          {getStatusText(status)}
-        </Badge>
-      </div>
-      <CardContent className="p-4 flex-grow">
-        <h3 className="font-semibold text-lg line-clamp-2">{title}</h3>
-        <div className="mt-2 text-lg font-bold">{formattedPrice}</div>
-        <div className="mt-1 text-sm text-muted-foreground">
-          {inventory > 0 ? `${inventory} en stock` : "Sin stock"}
         </div>
-      </CardContent>
-      <CardFooter className="p-4 pt-0 flex gap-2">
-        <Button asChild variant="outline" size="sm" className="flex-1 whitespace-nowrap">
-          <Link href={`/dashboard/products/${id}`}>
-            <Eye className="mr-2 h-4 w-4" />
-            Ver detalles
-          </Link>
-        </Button>
-        <Button asChild variant="outline" size="sm" className="flex-1 whitespace-nowrap">
-          <Link href={`/api/sync/productos/${id}`}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Sincronizar
-          </Link>
-        </Button>
-      </CardFooter>
-    </Card>
+
+        <CardContent className="p-4 flex-grow">
+          <div className="space-y-2">
+            <h3 className="font-medium line-clamp-2 h-12">{titulo || title}</h3>
+
+            {productType && (
+              <div className="flex items-center text-xs text-muted-foreground">
+                <Tag className="h-3.5 w-3.5 mr-1" />
+                {productType}
+              </div>
+            )}
+
+            {formattedDate && (
+              <div className="flex items-center text-xs text-muted-foreground">
+                <Calendar className="h-3.5 w-3.5 mr-1" />
+                {formattedDate}
+              </div>
+            )}
+          </div>
+        </CardContent>
+
+        <CardFooter className="p-4 pt-0 border-t mt-auto">
+          <div className="w-full flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="font-bold text-granito-700">{formatCurrency(precio || price, currencyCode)}</span>
+              {hasDiscount && (
+                <span className="text-sm line-through text-gray-500">
+                  {formatCurrency(compareAtPrice, currencyCode)}
+                </span>
+              )}
+            </div>
+            {(estado || status) === "ACTIVE" && (
+              <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                Activo
+              </Badge>
+            )}
+          </div>
+        </CardFooter>
+      </Card>
+    </Link>
   )
+}
+
+// Función auxiliar para obtener la URL de la imagen
+function getImageUrl(product) {
+  if (!product) return null
+
+  // Intentar obtener la imagen de diferentes propiedades
+  if (product.imagen) return product.imagen
+  if (product.image) return typeof product.image === "string" ? product.image : product.image?.url || product.image?.src
+
+  if (product.featuredImage) return product.featuredImage.url || product.featuredImage.src
+
+  if (product.imagenes && product.imagenes.length > 0) {
+    return product.imagenes[0].src || product.imagenes[0].url
+  }
+
+  if (product.images && product.images.length > 0) {
+    return typeof product.images[0] === "string" ? product.images[0] : product.images[0]?.url || product.images[0]?.src
+  }
+
+  // Si hay edges en las imágenes (formato GraphQL)
+  if (product.images && product.images.edges && product.images.edges.length > 0) {
+    return product.images.edges[0].node.url || product.images.edges[0].node.src
+  }
+
+  return null
 }

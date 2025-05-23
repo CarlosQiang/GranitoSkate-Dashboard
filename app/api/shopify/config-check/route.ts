@@ -2,8 +2,6 @@ import { NextResponse } from "next/server"
 import { shopifyConfig, isShopifyConfigValid, getShopifyConfigErrors } from "@/lib/config/shopify"
 import { testShopifyConnection } from "@/lib/shopify"
 
-export const dynamic = "force-dynamic"
-
 export async function GET() {
   try {
     const configValid = isShopifyConfigValid()

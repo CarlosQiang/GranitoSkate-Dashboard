@@ -3,69 +3,12 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
-import {
-  Menu,
-  X,
-  LogOut,
-  ChevronRight,
-  Settings,
-  Home,
-  Package,
-  FolderOpen,
-  Users,
-  ShoppingCart,
-  Tag,
-  BarChart2,
-  Zap,
-} from "lucide-react"
+import { Menu, X, LogOut, ChevronRight } from "lucide-react"
 import { signOut } from "next-auth/react"
 import { cn } from "@/lib/utils"
+import { navigationItems } from "@/config/navigation"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/contexts/theme-context"
-
-// Definir los elementos de navegación
-const navigationItems = [
-  {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: Home,
-  },
-  {
-    title: "Productos",
-    href: "/dashboard/products",
-    icon: Package,
-  },
-  {
-    title: "Colecciones",
-    href: "/dashboard/collections",
-    icon: FolderOpen,
-  },
-  {
-    title: "Clientes",
-    href: "/dashboard/customers",
-    icon: Users,
-  },
-  {
-    title: "Pedidos",
-    href: "/dashboard/orders",
-    icon: ShoppingCart,
-  },
-  {
-    title: "Promociones",
-    href: "/dashboard/promociones",
-    icon: Tag,
-  },
-  {
-    title: "Analítica",
-    href: "/dashboard/analytics",
-    icon: BarChart2,
-  },
-  {
-    title: "Sincronización",
-    href: "/dashboard/sincronizacion",
-    icon: Zap,
-  },
-]
 
 export function DashboardNav() {
   const { theme } = useTheme()
@@ -114,9 +57,9 @@ export function DashboardNav() {
 
   // Cerrar el menú cuando se hace clic fuera de él
   useEffect(() => {
-    const handleClickOutside = (event) => {
+    const handleClickOutside = (event: MouseEvent) => {
       const nav = document.getElementById("mobile-nav")
-      if (nav && !nav.contains(event.target) && isMenuOpen) {
+      if (nav && !nav.contains(event.target as Node) && isMenuOpen) {
         setIsMenuOpen(false)
       }
     }
@@ -141,7 +84,7 @@ export function DashboardNav() {
 
   // Estilo dinámico para el color de fondo del elemento activo
   const activeItemStyle = {
-    backgroundColor: theme?.primaryColor || "#d4a74a",
+    backgroundColor: theme.primaryColor,
     color: "#ffffff",
   }
 
@@ -169,10 +112,10 @@ export function DashboardNav() {
         className={cn(
           "sidebar",
           "flex flex-col border-r bg-white dark:bg-gray-900 shadow-sm",
-          "fixed top-0 left-0 h-full z-40 w-64",
+          "fixed top-0 left-0 h-full z-40",
           "transform transition-all duration-300 ease-in-out",
           isMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
-          isCollapsed && "md:w-20 sidebar-collapsed",
+          isCollapsed && "sidebar-collapsed",
         )}
       >
         <div className="flex flex-col gap-1 p-4 pt-16 md:pt-4 overflow-y-auto hide-scrollbar h-full">
@@ -180,11 +123,11 @@ export function DashboardNav() {
           <div className="mb-6 flex items-center justify-center md:justify-start">
             <div
               className="h-10 w-10 rounded-md flex items-center justify-center mr-2 flex-shrink-0"
-              style={{ backgroundColor: theme?.primaryColor || "#d4a74a" }}
+              style={{ backgroundColor: theme.primaryColor }}
             >
               <span className="text-white font-bold text-lg">G</span>
             </div>
-            {!isCollapsed && <span className="font-bold text-lg">{theme?.shopName || "GranitoSkate"}</span>}
+            {!isCollapsed && <span className="font-bold text-lg">{theme.shopName || "GranitoSkate"}</span>}
           </div>
 
           {/* Botón para colapsar/expandir el menú (solo en escritorio) */}
@@ -198,30 +141,24 @@ export function DashboardNav() {
             />
           </button>
 
-          {navigationItems
-            .concat({
-              title: "Configuración",
-              href: "/dashboard/configuracion",
-              icon: Settings,
-            })
-            .map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-all",
-                    "hover:bg-gray-100 dark:hover:bg-gray-800",
-                    isCollapsed && "md:justify-center md:px-2",
-                  )}
-                  style={isActive ? activeItemStyle : {}}
-                >
-                  <item.icon className={cn("h-5 w-5 flex-shrink-0", isCollapsed && "md:h-6 md:w-6")} />
-                  {(!isCollapsed || window.innerWidth < 768) && <span className="truncate">{item.title}</span>}
-                </Link>
-              )
-            })}
+          {navigationItems.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-all",
+                  "hover:bg-gray-100 dark:hover:bg-gray-800",
+                  isCollapsed && "md:justify-center md:px-2",
+                )}
+                style={isActive ? activeItemStyle : {}}
+              >
+                <item.icon className={cn("h-5 w-5 flex-shrink-0", isCollapsed && "md:h-6 md:w-6")} />
+                {!isCollapsed && <span className="truncate">{item.name}</span>}
+              </Link>
+            )
+          })}
         </div>
 
         {/* Botón de logout con estilo mejorado */}
@@ -236,7 +173,7 @@ export function DashboardNav() {
             onClick={handleLogout}
           >
             <LogOut className="h-4 w-4" />
-            {(!isCollapsed || window.innerWidth < 768) && <span>Cerrar sesión</span>}
+            {!isCollapsed && <span>Cerrar sesión</span>}
           </Button>
         </div>
       </nav>

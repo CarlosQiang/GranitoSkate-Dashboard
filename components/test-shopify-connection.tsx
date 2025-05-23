@@ -1,78 +1,54 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, CheckCircle, RefreshCw } from "lucide-react"
+import { CheckCircle, AlertCircle, RefreshCw } from "lucide-react"
 
 export function TestShopifyConnection() {
-  const [status, setStatus] = useState<"loading" | "success" | "error" | "idle">("idle")
-  const [connectionData, setConnectionData] = useState<any>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
+  const [result, setResult] = useState<any>(null)
 
   const testConnection = async () => {
     try {
       setStatus("loading")
-      setError(null)
 
-      const response = await fetch("/api/shopify/test-connection")
-      const data = await response.json()
+      // Probar la conexión con el proxy
+      const proxyResponse = await fetch("/api/shopify/products?limit=1")
 
-      if (!response.ok) {
-        throw new Error(data.message || "Error al probar la conexión con Shopify")
+      if (!proxyResponse.ok) {
+        const errorText = await proxyResponse.text()
+        throw new Error(`Error en la respuesta del proxy: ${proxyResponse.status} ${errorText}`)
       }
 
-      setConnectionData(data)
-      setStatus(data.success ? "success" : "error")
+      const data = await proxyResponse.json()
 
-      if (!data.success && data.message) {
-        setError(data.message)
+      if (data.errors) {
+        throw new Error(`Error en la respuesta de Shopify: ${JSON.stringify(data.errors)}`)
       }
-    } catch (err) {
-      console.error("Error al probar la conexión con Shopify:", err)
+
+      setResult(data)
+      setStatus("success")
+    } catch (error) {
+      console.error("Error al probar la conexión con Shopify:", error)
+      setResult(error instanceof Error ? error.message : "Error desconocido")
       setStatus("error")
-      setError(err instanceof Error ? err.message : "Error desconocido al probar la conexión con Shopify")
     }
   }
 
-  useEffect(() => {
-    testConnection()
-  }, [])
-
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Conexión a Shopify</CardTitle>
-        <CardDescription>Verifica la conexión con la API de Shopify</CardDescription>
+    <Card className="bg-white border-granito">
+      <CardHeader className="bg-granito/10">
+        <CardTitle className="text-granito-dark">Prueba de conexión con Shopify</CardTitle>
+        <CardDescription>Verifica la conexión con la API de Shopify a través del proxy</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-6">
         {status === "loading" && (
           <div className="flex items-center space-x-2">
-            <RefreshCw className="h-4 w-4 animate-spin text-primary" />
-            <p>Probando conexión con Shopify...</p>
+            <RefreshCw className="h-4 w-4 animate-spin text-granito" />
+            <p>Probando conexión...</p>
           </div>
-        )}
-
-        {status === "error" && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error de conexión</AlertTitle>
-            <AlertDescription>
-              {error || "No se pudo conectar con Shopify"}
-
-              {connectionData && connectionData.details && (
-                <div className="mt-2 text-sm">
-                  <p>Detalles del error:</p>
-                  <pre className="mt-1 p-2 bg-gray-800 text-white rounded text-xs overflow-auto">
-                    {typeof connectionData.details === "string"
-                      ? connectionData.details
-                      : JSON.stringify(connectionData.details, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </AlertDescription>
-          </Alert>
         )}
 
         {status === "success" && (
@@ -80,33 +56,33 @@ export function TestShopifyConnection() {
             <CheckCircle className="h-4 w-4 text-green-500" />
             <AlertTitle>Conexión exitosa</AlertTitle>
             <AlertDescription>
-              {connectionData.message || "Conexión exitosa con Shopify"}
-              {connectionData.data && connectionData.data.shop && (
-                <div className="mt-2 text-sm">
-                  <p>Información de la tienda:</p>
-                  <ul className="mt-1 space-y-1">
-                    <li>
-                      <strong>Nombre:</strong> {connectionData.data.shop.name}
-                    </li>
-                    {connectionData.data.shop.id && (
-                      <li>
-                        <strong>ID:</strong> {connectionData.data.shop.id}
-                      </li>
-                    )}
-                    {connectionData.data.shop.url && (
-                      <li>
-                        <strong>URL:</strong> {connectionData.data.shop.url}
-                      </li>
-                    )}
-                  </ul>
+              <p>La conexión con Shopify a través del proxy funciona correctamente.</p>
+              {result && (
+                <div className="mt-2">
+                  <p className="font-semibold">Productos encontrados: {result.data?.products?.edges?.length || 0}</p>
                 </div>
               )}
             </AlertDescription>
           </Alert>
         )}
+
+        {status === "error" && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error de conexión</AlertTitle>
+            <AlertDescription>
+              <p>No se pudo conectar con Shopify a través del proxy.</p>
+              {result && <p className="mt-2 text-sm">{result}</p>}
+            </AlertDescription>
+          </Alert>
+        )}
       </CardContent>
       <CardFooter>
-        <Button onClick={testConnection} disabled={status === "loading"} className="w-full">
+        <Button
+          onClick={testConnection}
+          disabled={status === "loading"}
+          className="bg-granito hover:bg-granito-dark text-white"
+        >
           {status === "loading" ? (
             <>
               <RefreshCw className="mr-2 h-4 w-4 animate-spin" />

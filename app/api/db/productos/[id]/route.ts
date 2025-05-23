@@ -1,176 +1,111 @@
 import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 import * as productosRepository from "@/lib/repositories/productos-repository"
-import { Logger } from "next-axiom"
-
-const logger = new Logger({
-  source: "api-db-productos-id",
-})
+import { logSyncEvent } from "@/lib/db"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
     const id = Number.parseInt(params.id)
-
     if (isNaN(id)) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "ID de producto inválido",
-        },
-        { status: 400 },
-      )
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
     }
 
-    logger.debug(`Obteniendo producto con ID ${id}`)
-
-    const producto = await productosRepository.getProductById(id)
-
+    const producto = await productosRepository.getProductoById(id)
     if (!producto) {
-      logger.warn(`Producto con ID ${id} no encontrado`)
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Producto no encontrado",
-        },
-        { status: 404 },
-      )
+      return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 })
     }
 
-    logger.debug(`Producto encontrado: ${producto.titulo}`)
-
-    return NextResponse.json({
-      success: true,
-      data: producto,
-    })
-  } catch (error) {
-    logger.error(`Error al obtener producto con ID ${params.id}`, {
-      error: error instanceof Error ? error.message : "Error desconocido",
-    })
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Error al obtener producto",
-        error: error instanceof Error ? error.message : "Error desconocido",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json(producto)
+  } catch (error: any) {
+    console.error(`Error al obtener producto ${params.id}:`, error)
+    return NextResponse.json({ error: "Error al obtener producto" }, { status: 500 })
   }
 }
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
-    const id = Number.parseInt(params.id)
-
-    if (isNaN(id)) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "ID de producto inválido",
-        },
-        { status: 400 },
-      )
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    logger.debug(`Actualizando producto con ID ${id}`)
-
-    // Verificar si el producto existe
-    const existingProduct = await productosRepository.getProductById(id)
-
-    if (!existingProduct) {
-      logger.warn(`Producto con ID ${id} no encontrado para actualizar`)
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Producto no encontrado",
-        },
-        { status: 404 },
-      )
+    const id = Number.parseInt(params.id)
+    if (isNaN(id)) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
     }
 
     const data = await request.json()
 
-    // Actualizar el producto
-    const updatedProduct = await productosRepository.updateProduct(id, {
-      ...data,
-      fecha_actualizacion: new Date(),
-    })
+    // Validar datos
+    if (!data.titulo) {
+      return NextResponse.json({ error: "El título es obligatorio" }, { status: 400 })
+    }
 
-    logger.info(`Producto actualizado: ${updatedProduct.id}`)
+    // Verificar si el producto existe
+    const existingProducto = await productosRepository.getProductoById(id)
+    if (!existingProducto) {
+      return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 })
+    }
 
-    return NextResponse.json({
-      success: true,
-      message: "Producto actualizado correctamente",
-      data: updatedProduct,
-    })
-  } catch (error) {
-    logger.error(`Error al actualizar producto con ID ${params.id}`, {
-      error: error instanceof Error ? error.message : "Error desconocido",
-    })
+    // Actualizar producto
+    const producto = await productosRepository.updateProducto(id, data)
 
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Error al actualizar producto",
-        error: error instanceof Error ? error.message : "Error desconocido",
-      },
-      { status: 500 },
-    )
+    // Registrar evento
+    await logSyncEvent("PRODUCT", id.toString(), "UPDATE", "SUCCESS", `Producto actualizado: ${data.titulo}`)
+
+    return NextResponse.json(producto)
+  } catch (error: any) {
+    console.error(`Error al actualizar producto ${params.id}:`, error)
+
+    // Registrar error
+    await logSyncEvent("PRODUCT", params.id, "UPDATE", "ERROR", `Error al actualizar producto: ${error.message}`)
+
+    return NextResponse.json({ error: "Error al actualizar producto" }, { status: 500 })
   }
 }
 
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   try {
-    const id = Number.parseInt(params.id)
-
-    if (isNaN(id)) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "ID de producto inválido",
-        },
-        { status: 400 },
-      )
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    logger.debug(`Eliminando producto con ID ${id}`)
+    const id = Number.parseInt(params.id)
+    if (isNaN(id)) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
+    }
 
     // Verificar si el producto existe
-    const existingProduct = await productosRepository.getProductById(id)
-
-    if (!existingProduct) {
-      logger.warn(`Producto con ID ${id} no encontrado para eliminar`)
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Producto no encontrado",
-        },
-        { status: 404 },
-      )
+    const existingProducto = await productosRepository.getProductoById(id)
+    if (!existingProducto) {
+      return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 })
     }
 
-    // Eliminar el producto
-    await productosRepository.deleteProduct(id)
+    // Eliminar producto
+    await productosRepository.deleteProducto(id)
 
-    logger.info(`Producto eliminado: ${id}`)
+    // Registrar evento
+    await logSyncEvent("PRODUCT", id.toString(), "DELETE", "SUCCESS", `Producto eliminado: ${existingProducto.titulo}`)
 
-    return NextResponse.json({
-      success: true,
-      message: "Producto eliminado correctamente",
-    })
-  } catch (error) {
-    logger.error(`Error al eliminar producto con ID ${params.id}`, {
-      error: error instanceof Error ? error.message : "Error desconocido",
-    })
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error(`Error al eliminar producto ${params.id}:`, error)
 
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Error al eliminar producto",
-        error: error instanceof Error ? error.message : "Error desconocido",
-      },
-      { status: 500 },
-    )
+    // Registrar error
+    await logSyncEvent("PRODUCT", params.id, "DELETE", "ERROR", `Error al eliminar producto: ${error.message}`)
+
+    return NextResponse.json({ error: "Error al eliminar producto" }, { status: 500 })
   }
 }

@@ -1,87 +1,77 @@
+import type { Metadata } from "next"
+import SincronizacionProductos from "@/components/sincronizacion-productos"
+import SincronizacionColecciones from "@/components/sincronizacion-colecciones"
+import SincronizacionClientes from "@/components/sincronizacion-clientes"
+import SincronizacionPedidos from "@/components/sincronizacion-pedidos"
+import RegistroSincronizacion from "@/components/registro-sincronizacion"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { SincronizacionProductos } from "@/components/sincronizacion-productos"
-import { SincronizacionColecciones } from "@/components/sincronizacion-colecciones"
-import { SincronizacionClientes } from "@/components/sincronizacion-clientes"
-import { SincronizacionPedidos } from "@/components/sincronizacion-pedidos"
-import { RegistroSincronizacion } from "@/components/registro-sincronizacion"
+import { Package, FolderOpen, Users, ShoppingCart, ClipboardList } from "lucide-react"
+
+export const metadata: Metadata = {
+  title: "Sincronización con Shopify | GestionGranito",
+  description: "Sincroniza tus productos, colecciones, clientes y pedidos con Shopify",
+}
 
 export default function SincronizacionPage() {
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto py-6 space-y-8">
       <div>
-        <h1 className="text-2xl font-bold">Sincronización con Shopify</h1>
-        <p className="text-muted-foreground">
-          Sincroniza tus productos, colecciones, clientes y pedidos con tu tienda Shopify
-        </p>
+        <h1 className="text-3xl font-bold tracking-tight">Sincronización con Shopify</h1>
+        <p className="text-muted-foreground mt-2">Sincroniza tus datos entre Shopify y GestionGranito</p>
       </div>
 
-      <Tabs defaultValue="productos" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="productos">Productos</TabsTrigger>
-          <TabsTrigger value="colecciones">Colecciones</TabsTrigger>
-          <TabsTrigger value="clientes">Clientes</TabsTrigger>
-          <TabsTrigger value="pedidos">Pedidos</TabsTrigger>
-          <TabsTrigger value="registro">Registro</TabsTrigger>
+      <Tabs defaultValue="productos" className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="productos" className="flex items-center gap-2">
+            <Package className="h-4 w-4" />
+            Productos
+          </TabsTrigger>
+          <TabsTrigger value="colecciones" className="flex items-center gap-2">
+            <FolderOpen className="h-4 w-4" />
+            Colecciones
+          </TabsTrigger>
+          <TabsTrigger value="clientes" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Clientes
+          </TabsTrigger>
+          <TabsTrigger value="pedidos" className="flex items-center gap-2">
+            <ShoppingCart className="h-4 w-4" />
+            Pedidos
+          </TabsTrigger>
+          <TabsTrigger value="registro" className="flex items-center gap-2">
+            <ClipboardList className="h-4 w-4" />
+            Registro
+          </TabsTrigger>
         </TabsList>
-        <TabsContent value="productos" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Sincronización de Productos</CardTitle>
-              <CardDescription>
-                Sincroniza los productos de tu tienda Shopify con la base de datos local
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <SincronizacionProductos />
-            </CardContent>
-          </Card>
+
+        <TabsContent value="productos">
+          <div className="grid gap-6">
+            <SincronizacionProductos />
+          </div>
         </TabsContent>
-        <TabsContent value="colecciones" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Sincronización de Colecciones</CardTitle>
-              <CardDescription>
-                Sincroniza las colecciones de tu tienda Shopify con la base de datos local
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <SincronizacionColecciones />
-            </CardContent>
-          </Card>
+
+        <TabsContent value="colecciones">
+          <div className="grid gap-6">
+            <SincronizacionColecciones />
+          </div>
         </TabsContent>
-        <TabsContent value="clientes" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Sincronización de Clientes</CardTitle>
-              <CardDescription>Sincroniza los clientes de tu tienda Shopify con la base de datos local</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <SincronizacionClientes />
-            </CardContent>
-          </Card>
+
+        <TabsContent value="clientes">
+          <div className="grid gap-6">
+            <SincronizacionClientes />
+          </div>
         </TabsContent>
-        <TabsContent value="pedidos" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Sincronización de Pedidos</CardTitle>
-              <CardDescription>Sincroniza los pedidos de tu tienda Shopify con la base de datos local</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <SincronizacionPedidos />
-            </CardContent>
-          </Card>
+
+        <TabsContent value="pedidos">
+          <div className="grid gap-6">
+            <SincronizacionPedidos />
+          </div>
         </TabsContent>
-        <TabsContent value="registro" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Registro de Sincronización</CardTitle>
-              <CardDescription>Consulta el historial de sincronizaciones realizadas y sus resultados</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <RegistroSincronizacion />
-            </CardContent>
-          </Card>
+
+        <TabsContent value="registro">
+          <div className="grid gap-6">
+            <RegistroSincronizacion />
+          </div>
         </TabsContent>
       </Tabs>
     </div>

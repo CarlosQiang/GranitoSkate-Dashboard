@@ -1,209 +1,264 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { useEffect, useState } from "react"
+import { RefreshCw, Package, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card } from "@/components/ui/card"
 import { ProductCard } from "@/components/product-card"
-import { useToast } from "@/components/ui/use-toast"
-import { Loader2, Search, RefreshCw, AlertTriangle } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { fetchProducts, fetchProductsByStatus } from "@/lib/api/products"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 
-export default function ProductsList() {
+export function ProductsList() {
   const [products, setProducts] = useState([])
   const [filteredProducts, setFilteredProducts] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState("all")
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
-  const [activeTab, setActiveTab] = useState("todos")
-  const [error, setError] = useState(null)
-  const { toast } = useToast()
+  const [counts, setCounts] = useState({
+    all: 0,
+    active: 0,
+    draft: 0,
+    archived: 0,
+  })
 
-  useEffect(() => {
-    fetchProducts()
-  }, [])
-
-  useEffect(() => {
-    if (products && products.length > 0) {
-      filterProducts()
-    }
-  }, [searchTerm, activeTab, products])
-
-  const fetchProducts = async () => {
-    setIsLoading(true)
+  // Cargar productos según la pestaña activa
+  const loadProducts = async (tab = activeTab) => {
+    setLoading(true)
     setError(null)
-
     try {
-      // Primero intentamos obtener de la base de datos
-      const dbResponse = await fetch("/api/db/productos")
+      let data
 
-      if (dbResponse.ok) {
-        const dbData = await dbResponse.json()
-        if (dbData.success && dbData.data && dbData.data.length > 0) {
-          console.log("Productos cargados desde la base de datos:", dbData.data.length)
-          setProducts(dbData.data)
-          setFilteredProducts(dbData.data)
-          setIsLoading(false)
-          return
-        }
-      }
-
-      // Si no hay datos en la base de datos, obtenemos directamente de Shopify
-      const shopifyResponse = await fetch("/api/shopify/products")
-
-      if (!shopifyResponse.ok) {
-        throw new Error(`Error ${shopifyResponse.status}: ${shopifyResponse.statusText}`)
-      }
-
-      const shopifyData = await shopifyResponse.json()
-
-      if (!shopifyData.success) {
-        throw new Error(shopifyData.error || "Error al cargar productos de Shopify")
-      }
-
-      const productsData = shopifyData.data || []
-
-      // Verificar si hay productos
-      if (productsData.length === 0) {
-        console.log("No se encontraron productos en Shopify")
+      // Cargar productos según la pestaña seleccionada
+      if (tab === "all") {
+        data = await fetchProducts(100)
       } else {
-        console.log(`Se encontraron ${productsData.length} productos en Shopify`)
+        // Convertir el nombre de la pestaña al formato que espera la API
+        const status = tab.toUpperCase()
+        data = await fetchProductsByStatus(status, 100)
       }
 
-      setProducts(productsData)
-      setFilteredProducts(productsData)
-    } catch (error) {
-      console.error("Error al cargar productos:", error)
-      setError(error instanceof Error ? error.message : "Error al cargar productos")
+      // Actualizar los productos y aplicar filtro de búsqueda
+      setProducts(data || [])
+      filterProductsBySearch(data, searchTerm)
 
-      toast({
-        title: "Error",
-        description: "No se pudieron cargar los productos. Intente nuevamente más tarde.",
-        variant: "destructive",
-      })
+      // Actualizar contadores solo si estamos en la pestaña "all"
+      if (tab === "all") {
+        updateCounts(data)
+      }
+    } catch (err) {
+      console.error("Error al cargar productos:", err)
+      setError("No se pudieron cargar los productos")
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
-  const filterProducts = () => {
-    if (!products || products.length === 0) {
-      setFilteredProducts([])
+  // Actualizar contadores de productos por estado
+  const updateCounts = (data) => {
+    const newCounts = {
+      all: data.length,
+      active: data.filter((p) => p.status === "ACTIVE").length,
+      draft: data.filter((p) => p.status === "DRAFT").length,
+      archived: data.filter((p) => p.status === "ARCHIVED").length,
+    }
+    setCounts(newCounts)
+  }
+
+  // Filtrar productos por término de búsqueda
+  const filterProductsBySearch = (productsData, term) => {
+    if (!term) {
+      setFilteredProducts(productsData)
       return
     }
 
-    let filtered = [...products]
-
-    // Filtrar por término de búsqueda
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (product) =>
-          (product.titulo || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (product.title || "").toLowerCase().includes(searchTerm.toLowerCase()),
-      )
-    }
-
-    // Filtrar por estado
-    if (activeTab !== "todos") {
-      filtered = filtered.filter((product) => {
-        const status = (product.estado || product.status || "").toLowerCase()
-        if (activeTab === "activos") return status === "active"
-        if (activeTab === "borradores") return status === "draft"
-        if (activeTab === "archivados") return status === "archived"
-        return true
-      })
-    }
+    const filtered = productsData.filter(
+      (product) =>
+        product.title?.toLowerCase().includes(term.toLowerCase()) ||
+        product.productType?.toLowerCase().includes(term.toLowerCase()) ||
+        product.vendor?.toLowerCase().includes(term.toLowerCase()),
+    )
 
     setFilteredProducts(filtered)
   }
 
-  const handleSearch = (e) => {
-    setSearchTerm(e.target.value)
-  }
-
+  // Manejar cambio de pestaña
   const handleTabChange = (value) => {
     setActiveTab(value)
+    loadProducts(value)
   }
 
-  const getActiveCount = () => {
-    if (!products || products.length === 0) return 0
-    return products.filter((p) => (p.estado || p.status || "").toLowerCase() === "active").length
+  // Manejar cambio en la búsqueda
+  const handleSearchChange = (e) => {
+    const term = e.target.value
+    setSearchTerm(term)
+    filterProductsBySearch(products, term)
   }
 
-  const getDraftCount = () => {
-    if (!products || products.length === 0) return 0
-    return products.filter((p) => (p.estado || p.status || "").toLowerCase() === "draft").length
+  // Cargar productos al montar el componente
+  useEffect(() => {
+    loadProducts()
+  }, [])
+
+  // Renderizar estado de carga
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="w-full max-w-md">
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+
+        <Tabs defaultValue="all" className="w-full">
+          <TabsList className="mb-4">
+            <Skeleton className="h-10 w-20" />
+            <Skeleton className="h-10 w-20 ml-1" />
+            <Skeleton className="h-10 w-20 ml-1" />
+            <Skeleton className="h-10 w-20 ml-1" />
+          </TabsList>
+
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {Array(8)
+              .fill(0)
+              .map((_, i) => (
+                <div key={i} className="border rounded-md overflow-hidden">
+                  <Skeleton className="h-48 w-full" />
+                  <div className="p-4 space-y-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </div>
+                </div>
+              ))}
+          </div>
+        </Tabs>
+      </div>
+    )
   }
 
-  const getArchivedCount = () => {
-    if (!products || products.length === 0) return 0
-    return products.filter((p) => (p.estado || p.status || "").toLowerCase() === "archived").length
+  // Renderizar estado de error
+  if (error) {
+    return (
+      <Card className="p-6 text-center">
+        <p className="text-red-500 mb-4">{error}</p>
+        <Button variant="outline" onClick={() => loadProducts()}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Reintentar
+        </Button>
+      </Card>
+    )
   }
 
+  // Renderizar estado vacío
+  if (products.length === 0 && !loading && !error) {
+    return (
+      <Card className="p-6 text-center">
+        <Package className="h-12 w-12 mx-auto text-granito-500 mb-4" />
+        <p className="text-muted-foreground mb-4">No hay productos disponibles en tu tienda Shopify</p>
+        <Button asChild className="bg-granito-500 hover:bg-granito-600">
+          <a href="/dashboard/products/new">Crear primer producto</a>
+        </Button>
+      </Card>
+    )
+  }
+
+  // Renderizar lista de productos
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4 items-center">
-            <div className="relative w-full md:w-96">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar productos..." className="pl-8" value={searchTerm} onChange={handleSearch} />
-            </div>
-            <div className="flex-1 w-full md:w-auto">
-              <Tabs defaultValue="todos" value={activeTab} onValueChange={handleTabChange}>
-                <TabsList className="w-full">
-                  <TabsTrigger value="todos" className="flex-1">
-                    Todos ({products?.length || 0})
-                  </TabsTrigger>
-                  <TabsTrigger value="activos" className="flex-1">
-                    Activos ({getActiveCount()})
-                  </TabsTrigger>
-                  <TabsTrigger value="borradores" className="flex-1">
-                    Borradores ({getDraftCount()})
-                  </TabsTrigger>
-                  <TabsTrigger value="archivados" className="flex-1">
-                    Archivados ({getArchivedCount()})
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Buscar productos..."
+            className="pl-8"
+            value={searchTerm}
+            onChange={handleSearchChange}
+          />
+        </div>
 
-      {isLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-2">Cargando productos...</span>
-        </div>
-      ) : error ? (
-        <div className="text-center p-8 border rounded-lg bg-background space-y-4">
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Error al cargar productos</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
+        <Button variant="outline" onClick={() => loadProducts()} className="border-granito-300 hover:bg-granito-50">
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Actualizar
+        </Button>
+      </div>
 
-          <Button variant="outline" onClick={fetchProducts} className="flex items-center gap-2 mt-4">
-            <RefreshCw className="h-4 w-4" />
-            Reintentar
-          </Button>
-        </div>
-      ) : filteredProducts.length === 0 ? (
-        <div className="text-center p-8 border rounded-lg bg-background">
-          <p className="text-muted-foreground mb-4">No se encontraron productos</p>
-          <Button variant="outline" onClick={fetchProducts} className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4" />
-            Recargar
-          </Button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredProducts.map((product) => (
-            <ProductCard key={product.id || product.shopify_id} product={product} />
-          ))}
-        </div>
-      )}
+      <Tabs defaultValue="all" value={activeTab} onValueChange={handleTabChange} className="w-full">
+        <TabsList className="bg-muted/60 w-full justify-start mb-4">
+          <TabsTrigger value="all" className="data-[state=active]:bg-granito-500 data-[state=active]:text-white">
+            Todos
+            <Badge variant="outline" className="ml-2 bg-white/20">
+              {counts.all}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="active" className="data-[state=active]:bg-granito-500 data-[state=active]:text-white">
+            Activos
+            <Badge variant="outline" className="ml-2 bg-white/20">
+              {counts.active}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="draft" className="data-[state=active]:bg-granito-500 data-[state=active]:text-white">
+            Borradores
+            <Badge variant="outline" className="ml-2 bg-white/20">
+              {counts.draft}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="archived" className="data-[state=active]:bg-granito-500 data-[state=active]:text-white">
+            Archivados
+            <Badge variant="outline" className="ml-2 bg-white/20">
+              {counts.archived}
+            </Badge>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value={activeTab} className="mt-0">
+          {filteredProducts.length === 0 ? (
+            <div className="text-center py-12 border rounded-md bg-gray-50 dark:bg-gray-900">
+              <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
+                <Search className="h-6 w-6 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium">No se encontraron productos</h3>
+              <p className="text-muted-foreground mt-1 mb-4">
+                {searchTerm
+                  ? `No hay resultados para "${searchTerm}"`
+                  : `No hay productos ${
+                      activeTab === "all"
+                        ? ""
+                        : activeTab === "active"
+                          ? "activos"
+                          : activeTab === "draft"
+                            ? "en borrador"
+                            : "archivados"
+                    }`}
+              </p>
+              <Button
+                onClick={() => {
+                  setSearchTerm("")
+                  loadProducts()
+                }}
+                variant="outline"
+                className="mr-2"
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Actualizar
+              </Button>
+              <Button asChild className="bg-granito-500 hover:bg-granito-600">
+                <a href="/dashboard/products/new">Crear nuevo producto</a>
+              </Button>
+            </div>
+          ) : (
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

@@ -1,24 +1,25 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { RefreshCw, CheckCircle, XCircle, AlertTriangle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
+import { AlertCircle, RefreshCw, CheckCircle } from "lucide-react"
+import { LoadingState } from "@/components/loading-state"
 
 export function ShopifyConnectionStatus() {
-  const [status, setStatus] = useState<"loading" | "success" | "error" | "warning">("loading")
-  const [message, setMessage] = useState<string>("")
-  const [details, setDetails] = useState<any>(null)
-  const [isChecking, setIsChecking] = useState(false)
+  const [status, setStatus] = useState<"loading" | "connected" | "error" | "hidden">("loading")
+  const [errorDetails, setErrorDetails] = useState<string | null>(null)
+  const [shopName, setShopName] = useState<string | null>(null)
 
-  const checkShopifyConnection = async () => {
-    setIsChecking(true)
-    setStatus("loading")
-    setMessage("Verificando conexión con Shopify...")
+  async function checkConnection() {
+    // Si no necesitas la integración con Shopify, simplemente oculta el componente
+    setStatus("hidden")
+    return
 
+    // El código original se mantiene pero no se ejecutará
     try {
-      const response = await fetch("/api/shopify/test-connection", {
+      setStatus("loading")
+      const response = await fetch("/api/shopify/check", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -29,128 +30,70 @@ export function ShopifyConnectionStatus() {
 
       const data = await response.json()
 
-      if (response.ok && data.success) {
-        setStatus("success")
-        setMessage(data.message || "Conexión exitosa con Shopify")
-        setDetails(data.data || null)
-      } else if (response.ok && data.warning) {
-        setStatus("warning")
-        setMessage(data.message || "Conexión con advertencias")
-        setDetails(data.data || null)
+      if (data.success) {
+        setStatus("connected")
+        setShopName(data.shopName)
+        setErrorDetails(null)
       } else {
-        setStatus("error")
-        setMessage(data.message || "Error al conectar con Shopify")
-        setDetails(data.error || null)
+        throw new Error(data.error || "Error desconocido al conectar con Shopify")
       }
     } catch (error) {
-      console.error("Error al verificar conexión con Shopify:", error)
+      console.error("Error al verificar la conexión con Shopify:", error)
       setStatus("error")
-      setMessage(error instanceof Error ? error.message : "Error desconocido al verificar conexión con Shopify")
-      setDetails(null)
-    } finally {
-      setIsChecking(false)
+      setErrorDetails((error as Error).message)
     }
   }
 
   useEffect(() => {
-    checkShopifyConnection()
+    checkConnection()
   }, [])
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          {status === "success" && <CheckCircle className="h-5 w-5 text-green-500" />}
-          {status === "error" && <XCircle className="h-5 w-5 text-red-500" />}
-          {status === "warning" && <AlertTriangle className="h-5 w-5 text-yellow-500" />}
-          {status === "loading" && <RefreshCw className="h-5 w-5 animate-spin" />}
-          Conexión con Shopify
-        </CardTitle>
-        <CardDescription>Verifica la conexión con la API de Shopify</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {status === "loading" ? (
-          <div className="flex items-center justify-center p-4">
-            <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
-            <span className="ml-2 text-gray-500">Verificando conexión con Shopify...</span>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {status === "error" && (
-              <Alert variant="destructive">
-                <AlertTitle>Error de conexión</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
+  if (status === "loading") {
+    return (
+      <div className="mb-4">
+        <LoadingState message="Verificando conexión con Shopify..." />
+      </div>
+    )
+  }
 
-            {status === "warning" && (
-              <Alert variant="warning" className="bg-yellow-50 border-yellow-200 text-yellow-800">
-                <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                <AlertTitle>Conexión con advertencias</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
-
-            {status === "success" && (
-              <Alert className="bg-green-50 border-green-200 text-green-800">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <AlertTitle>Conexión exitosa</AlertTitle>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
-
-            {details && status === "success" && (
-              <div className="mt-4 space-y-2">
-                <h3 className="text-sm font-medium">Detalles de la tienda:</h3>
-                <div className="rounded-md border p-3">
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="font-medium">Nombre:</div>
-                    <div>{details.shop?.name || "No disponible"}</div>
-                    {details.shop?.id && (
-                      <>
-                        <div className="font-medium">ID:</div>
-                        <div className="font-mono text-xs">{details.shop.id}</div>
-                      </>
-                    )}
-                    {details.shop?.url && (
-                      <>
-                        <div className="font-medium">URL:</div>
-                        <div>
-                          <a
-                            href={details.shop.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
-                          >
-                            {details.shop.url}
-                          </a>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </CardContent>
-      <CardFooter>
-        <Button onClick={checkShopifyConnection} disabled={isChecking} variant="outline" className="w-full">
-          {isChecking ? (
-            <>
-              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-              Verificando...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Verificar conexión
-            </>
+  if (status === "error") {
+    return (
+      <Alert variant="destructive" className="my-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle className="text-sm sm:text-base">Error de conexión con Shopify</AlertTitle>
+        <AlertDescription className="text-xs sm:text-sm">
+          <p>No se pudo conectar con la API de Shopify. Por favor, verifica:</p>
+          <ul className="list-disc pl-5 mt-2 mb-4 space-y-1">
+            <li>Que el dominio de la tienda (NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN) sea correcto</li>
+            <li>Que el token de acceso (SHOPIFY_ACCESS_TOKEN) sea válido y tenga los permisos necesarios</li>
+            <li>Que la tienda esté activa y accesible</li>
+          </ul>
+          {errorDetails && (
+            <div className="mt-2 p-2 bg-destructive/10 rounded text-xs sm:text-sm font-mono overflow-auto max-h-32">
+              {errorDetails}
+            </div>
           )}
-        </Button>
-      </CardFooter>
-    </Card>
-  )
-}
+          <Button onClick={checkConnection} className="mt-4 w-full sm:w-auto" variant="outline" size="sm">
+            <RefreshCw className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Reintentar conexión
+          </Button>
+        </AlertDescription>
+      </Alert>
+    )
+  }
 
-export default ShopifyConnectionStatus
+  if (status === "connected") {
+    return (
+      <div className="mb-4">
+        <Alert className="bg-green-50 border-green-200 text-green-800">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertTitle className="text-sm sm:text-base">Conectado a Shopify</AlertTitle>
+          <AlertDescription className="text-xs sm:text-sm">
+            Conexión establecida correctamente con la tienda: <strong>{shopName}</strong>
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
+  return null
+}

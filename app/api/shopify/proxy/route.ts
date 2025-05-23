@@ -1,79 +1,107 @@
 import { NextResponse } from "next/server"
-import { shopifyConfig } from "@/lib/config/shopify"
-
-// Marcar la ruta como dinámica para evitar errores de renderizado estático
-export const dynamic = "force-dynamic"
+import config from "@/lib/config"
 
 export async function POST(request: Request) {
   try {
-    // Verificar si la configuración de Shopify es válida
-    if (!shopifyConfig.shopDomain || !shopifyConfig.accessToken) {
-      const errors = []
-      if (!shopifyConfig.shopDomain) errors.push("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está configurado")
-      if (!shopifyConfig.accessToken) errors.push("SHOPIFY_ACCESS_TOKEN no está configurado")
+    // Obtener el cuerpo de la solicitud
+    const body = await request.json()
 
-      console.error("Configuración de Shopify inválida:", errors)
+    // Verificar que las variables de entorno estén configuradas
+    if (!config.shopify.shopDomain) {
+      console.error("Error: NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está configurado")
       return NextResponse.json(
         {
-          error: "Configuración de Shopify incompleta",
-          details: errors,
+          errors: [{ message: "NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está configurado" }],
         },
         { status: 500 },
       )
     }
 
-    // Obtener el cuerpo de la solicitud
-    const body = await request.json()
-    const { query, variables } = body
+    if (!config.shopify.accessToken) {
+      console.error("Error: SHOPIFY_ACCESS_TOKEN no está configurado")
+      return NextResponse.json(
+        {
+          errors: [{ message: "SHOPIFY_ACCESS_TOKEN no está configurado" }],
+        },
+        { status: 500 },
+      )
+    }
 
     // Construir la URL de la API de Shopify
-    const apiUrl =
-      shopifyConfig.apiUrl || `https://${shopifyConfig.shopDomain}/admin/api/${shopifyConfig.apiVersion}/graphql.json`
+    const shopifyUrl = config.shopify.apiUrl || `https://${config.shopify.shopDomain}/admin/api/2023-07/graphql.json`
 
-    // Hacer la solicitud a la API de Shopify
-    const response = await fetch(apiUrl, {
+    console.log("Enviando solicitud a Shopify:", {
+      url: shopifyUrl,
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Shopify-Access-Token": shopifyConfig.accessToken,
+        "X-Shopify-Access-Token": "***", // No mostrar el token completo por seguridad
       },
-      body: JSON.stringify({
-        query,
-        variables,
-      }),
+      body: JSON.stringify(body).substring(0, 100) + "...", // Truncar para el log
     })
 
-    // Verificar si la respuesta es exitosa
-    if (!response.ok) {
-      let errorText = ""
+    // Realizar la solicitud a Shopify
+    const shopifyResponse = await fetch(shopifyUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": config.shopify.accessToken,
+      },
+      body: JSON.stringify(body),
+    })
+
+    // Si la respuesta no es exitosa, manejar el error
+    if (!shopifyResponse.ok) {
+      console.error("Error en la respuesta de Shopify:", {
+        status: shopifyResponse.status,
+        statusText: shopifyResponse.statusText,
+      })
+
+      // Intentar obtener más detalles del error
+      let errorDetails = {}
       try {
-        const errorData = await response.json()
-        console.error("Error en la respuesta de Shopify (JSON):", errorData)
-        errorText = JSON.stringify(errorData)
+        errorDetails = await shopifyResponse.json()
       } catch (e) {
-        // Si no es JSON, intentar obtener el texto
-        errorText = await response.text()
-        console.error("Error en la respuesta de Shopify (texto):", errorText.substring(0, 500))
+        // Si no se puede analizar la respuesta como JSON, usar el texto
+        try {
+          errorDetails = { text: await shopifyResponse.text() }
+        } catch (textError) {
+          errorDetails = { message: "No se pudo leer la respuesta de error" }
+        }
       }
 
+      // Devolver una respuesta de error con detalles
       return NextResponse.json(
         {
-          error: `Error ${response.status}: ${response.statusText}`,
-          details: errorText.substring(0, 1000), // Limitar el tamaño para evitar respuestas muy grandes
+          errors: [
+            {
+              message: `Error en la API de Shopify: ${shopifyResponse.status} ${shopifyResponse.statusText}`,
+              extensions: {
+                response: {
+                  status: shopifyResponse.status,
+                  headers: Object.fromEntries(shopifyResponse.headers.entries()),
+                },
+                details: errorDetails,
+              },
+            },
+          ],
         },
-        { status: response.status },
+        { status: shopifyResponse.status },
       )
     }
 
     // Devolver la respuesta de Shopify
-    const data = await response.json()
+    const data = await shopifyResponse.json()
     return NextResponse.json(data)
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error en el proxy de Shopify:", error)
     return NextResponse.json(
       {
-        error: "Error interno del servidor",
-        details: error.message || "Error desconocido",
+        errors: [
+          {
+            message: error instanceof Error ? error.message : "Error desconocido en el proxy de Shopify",
+          },
+        ],
       },
       { status: 500 },
     )
