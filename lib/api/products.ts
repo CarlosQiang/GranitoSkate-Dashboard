@@ -1,5 +1,41 @@
-// API para gestionar productos
-export async function fetchProducts(limit = 50, cursor?: string) {
+export interface Product {
+  id: string
+  title: string
+  description: string
+  descriptionHtml: string
+  status: string
+  vendor: string
+  productType: string
+  handle: string
+  tags: string[]
+  featuredImage?: {
+    id: string
+    url: string
+    altText: string
+  }
+  images: Array<{
+    id: string
+    url: string
+    altText: string
+  }>
+  variants: Array<{
+    id: string
+    title: string
+    price: string
+    compareAtPrice: string
+    sku: string
+    barcode: string
+    inventoryQuantity: number
+    weight: number
+    weightUnit: string
+  }>
+  createdAt: string
+  updatedAt: string
+  publishedAt: string
+}
+
+// Función para obtener productos desde la API
+export async function fetchProducts(limit = 50, cursor?: string): Promise<Product[]> {
   try {
     const params = new URLSearchParams()
     params.append("limit", limit.toString())
@@ -12,7 +48,7 @@ export async function fetchProducts(limit = 50, cursor?: string) {
       headers: {
         "Content-Type": "application/json",
       },
-      cache: "no-store", // Siempre obtener datos frescos
+      cache: "no-store",
     })
 
     if (!response.ok) {
@@ -32,9 +68,13 @@ export async function fetchProducts(limit = 50, cursor?: string) {
   }
 }
 
-export async function fetchProduct(id: string) {
+// Función para obtener un producto por ID
+export async function fetchProductById(id: string): Promise<Product | null> {
   try {
-    const response = await fetch(`/api/shopify/products/${id}`, {
+    // Limpiar el ID si viene con el prefijo gid://
+    const cleanId = id.replace("gid://shopify/Product/", "")
+
+    const response = await fetch(`/api/shopify/products/${cleanId}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -54,12 +94,13 @@ export async function fetchProduct(id: string) {
 
     return result.data
   } catch (error) {
-    console.error("Error en fetchProduct:", error)
+    console.error("Error en fetchProductById:", error)
     throw error
   }
 }
 
-export async function createProduct(productData: any) {
+// Función para crear un producto
+export async function createProduct(productData: any): Promise<Product | null> {
   try {
     const response = await fetch("/api/shopify/products", {
       method: "POST",
@@ -86,9 +127,12 @@ export async function createProduct(productData: any) {
   }
 }
 
-export async function updateProduct(id: string, productData: any) {
+// Función para actualizar un producto
+export async function updateProduct(id: string, productData: any): Promise<Product | null> {
   try {
-    const response = await fetch(`/api/shopify/products/${id}`, {
+    const cleanId = id.replace("gid://shopify/Product/", "")
+
+    const response = await fetch(`/api/shopify/products/${cleanId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -113,9 +157,12 @@ export async function updateProduct(id: string, productData: any) {
   }
 }
 
-export async function deleteProduct(id: string) {
+// Función para eliminar un producto
+export async function deleteProduct(id: string): Promise<boolean> {
   try {
-    const response = await fetch(`/api/shopify/products/${id}`, {
+    const cleanId = id.replace("gid://shopify/Product/", "")
+
+    const response = await fetch(`/api/shopify/products/${cleanId}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
@@ -132,9 +179,24 @@ export async function deleteProduct(id: string) {
       throw new Error(result.error || result.message || "Error al eliminar producto")
     }
 
-    return result.data
+    return true
   } catch (error) {
     console.error("Error en deleteProduct:", error)
     throw error
+  }
+}
+
+// Funciones adicionales para compatibilidad
+export async function fetchRecentProducts(limit = 5): Promise<Product[]> {
+  return fetchProducts(limit)
+}
+
+export async function fetchLowStockProducts(threshold = 10): Promise<Product[]> {
+  try {
+    const products = await fetchProducts(50)
+    return products.filter((product) => product.variants.some((variant) => variant.inventoryQuantity <= threshold))
+  } catch (error) {
+    console.error("Error fetching low stock products:", error)
+    return []
   }
 }

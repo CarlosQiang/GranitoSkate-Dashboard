@@ -2,23 +2,23 @@ import { NextResponse } from "next/server"
 
 export async function POST(request: Request) {
   try {
-    const { shopDomain, accessToken } = await request.json()
+    const body = await request.json()
+    const { shopDomain, accessToken } = body
 
     if (!shopDomain || !accessToken) {
       return NextResponse.json(
         {
           success: false,
-          message: "Dominio de tienda y token de acceso son requeridos",
+          message: "Faltan parámetros: shopDomain y accessToken son requeridos",
         },
         { status: 400 },
       )
     }
 
     // Construir la URL del endpoint
-    const fullDomain = shopDomain.includes(".myshopify.com") ? shopDomain : `${shopDomain}.myshopify.com`
-    const endpoint = `https://${fullDomain}/admin/api/2024-01/graphql.json`
+    const domain = shopDomain.includes(".myshopify.com") ? shopDomain : `${shopDomain}.myshopify.com`
+    const endpoint = `https://${domain}/admin/api/2024-01/graphql.json`
 
-    // Consulta simple para verificar la conexión
     const query = `
       query {
         shop {
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Error en la API de Shopify",
+          message: `Error de GraphQL: ${result.errors.map((e: any) => e.message).join(", ")}`,
           details: result.errors,
         },
         { status: 400 },
