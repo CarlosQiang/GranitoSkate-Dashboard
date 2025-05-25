@@ -1,162 +1,108 @@
 import { query } from "@/lib/db"
 
+export interface ActivityLogEntry {
+  usuarioId?: number
+  usuarioNombre?: string
+  accion: string
+  entidad?: string
+  entidadId?: string
+  descripcion?: string
+  metadatos?: any
+  ipAddress?: string
+  userAgent?: string
+  resultado?: "SUCCESS" | "ERROR" | "WARNING"
+  errorMensaje?: string
+  duracionMs?: number
+}
+
 export class ActivityLogger {
   /**
-   * Registra una actividad y mantiene solo los últimos 10 registros
+   * Registra una actividad en la base de datos
    */
-  static async log(params: {
-    usuarioId?: number
-    usuarioNombre?: string
-    accion: string
-    entidad?: string
-    entidadId?: string
-    descripcion?: string
-    metadatos?: any
-    ipAddress?: string
-    userAgent?: string
-    resultado?: "SUCCESS" | "ERROR" | "WARNING"
-    errorMensaje?: string
-    duracionMs?: number
-  }) {
+  static async log(entry: ActivityLogEntry) {
     try {
-      const {
-        usuarioId,
-        usuarioNombre,
-        accion,
-        entidad,
-        entidadId,
-        descripcion,
-        metadatos,
-        ipAddress,
-        userAgent,
-        resultado = "SUCCESS",
-        errorMensaje,
-        duracionMs,
-      } = params
+      // Limpiar registros antiguos (mantener solo los últimos 10)
+      await this.cleanOldRecords()
 
-      // Insertar nuevo registro
-      const result = await query(
-        `INSERT INTO registros_actividad (
-          usuario_id, usuario_nombre, accion, entidad, entidad_id,
-          descripcion, metadatos, ip_address, user_agent, resultado,
+      const sql = `
+        INSERT INTO registros_actividad (
+          usuario_id, usuario_nombre, accion, entidad, entidad_id, 
+          descripcion, metadatos, ip_address, user_agent, resultado, 
           error_mensaje, duracion_ms
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-        RETURNING id`,
-        [
-          usuarioId,
-          usuarioNombre,
-          accion,
-          entidad,
-          entidadId,
-          descripcion,
-          metadatos ? JSON.stringify(metadatos) : null,
-          ipAddress,
-          userAgent,
-          resultado,
-          errorMensaje,
-          duracionMs,
-        ],
-      )
+      `
 
-      // Limpiar registros antiguos - mantener solo los últimos 10
-      await query(
-        `DELETE FROM registros_actividad 
-         WHERE id NOT IN (
-           SELECT id FROM registros_actividad 
-           ORDER BY fecha_creacion DESC 
-           LIMIT 10
-         )`,
-      )
+      const values = [
+        entry.usuarioId || null,
+        entry.usuarioNombre || null,
+        entry.accion,
+        entry.entidad || null,
+        entry.entidadId || null,
+        entry.descripcion || null,
+        entry.metadatos ? JSON.stringify(entry.metadatos) : null,
+        entry.ipAddress || null,
+        entry.userAgent || null,
+        entry.resultado || "SUCCESS",
+        entry.errorMensaje || null,
+        entry.duracionMs || null,
+      ]
 
-      return result.rows[0].id
+      await query(sql, values)
     } catch (error) {
       console.error("Error al registrar actividad:", error)
-      return null
+      // No lanzamos el error para evitar interrumpir el flujo principal
     }
   }
 
   /**
-   * Registra login de usuario
+   * Registra un login exitoso
    */
-  static async logLogin(usuarioId: number, usuarioNombre: string, ipAddress?: string, userAgent?: string) {
-    return this.log({
-      usuarioId,
-      usuarioNombre,
+  static async logLogin(userId: number, userName: string, ipAddress?: string, userAgent?: string) {
+    await this.log({
+      usuarioId: userId,
+      usuarioNombre: userName,
       accion: "LOGIN",
-      entidad: "ADMIN",
-      entidadId: usuarioId.toString(),
-      descripcion: `Usuario ${usuarioNombre} inició sesión`,
+      entidad: "AUTH",
+      descripcion: `Usuario ${userName} inició sesión`,
       ipAddress,
       userAgent,
     })
   }
 
   /**
-   * Registra logout de usuario
+   * Registra un logout
    */
-  static async logLogout(usuarioId: number, usuarioNombre: string, ipAddress?: string) {
-    return this.log({
-      usuarioId,
-      usuarioNombre,
+  static async logLogout(userId: number, userName: string) {
+    await this.log({
+      usuarioId: userId,
+      usuarioNombre: userName,
       accion: "LOGOUT",
-      entidad: "ADMIN",
-      entidadId: usuarioId.toString(),
-      descripcion: `Usuario ${usuarioNombre} cerró sesión`,
-      ipAddress,
+      entidad: "AUTH",
+      descripcion: `Usuario ${userName} cerró sesión`,
     })
   }
 
   /**
-   * Registra cambio en administradores
-   */
-  static async logAdminChange(
-    usuarioId: number,
-    usuarioNombre: string,
-    accion: "CREATE" | "UPDATE" | "DELETE",
-    adminAfectadoId: string,
-    adminAfectadoNombre: string,
-  ) {
-    const acciones = {
-      CREATE: "creó",
-      UPDATE: "modificó",
-      DELETE: "eliminó",
-    }
-
-    return this.log({
-      usuarioId,
-      usuarioNombre,
-      accion: `ADMIN_${accion}`,
-      entidad: "ADMIN",
-      entidadId: adminAfectadoId,
-      descripcion: `${usuarioNombre} ${acciones[accion]} al administrador ${adminAfectadoNombre}`,
-    })
-  }
-
-  /**
-   * Registra llamada a API de Shopify
+   * Registra una llamada a la API de Shopify
    */
   static async logShopifyCall(
-    usuarioId: number,
-    usuarioNombre: string,
+    userId: number,
+    userName: string,
     endpoint: string,
-    metodo: string,
+    method: string,
     resultado: "SUCCESS" | "ERROR",
-    duracionMs?: number,
+    duracionMs: number,
     errorMensaje?: string,
     metadatos?: any,
   ) {
-    return this.log({
-      usuarioId,
-      usuarioNombre,
+    await this.log({
+      usuarioId: userId,
+      usuarioNombre: userName,
       accion: "SHOPIFY_API_CALL",
       entidad: "SHOPIFY",
       entidadId: endpoint,
-      descripcion: `${metodo} ${endpoint}`,
-      metadatos: {
-        endpoint,
-        metodo,
-        ...metadatos,
-      },
+      descripcion: `${method} ${endpoint}`,
+      metadatos,
       resultado,
       errorMensaje,
       duracionMs,
@@ -164,119 +110,91 @@ export class ActivityLogger {
   }
 
   /**
-   * Registra error del sistema
+   * Registra un error del sistema
    */
-  static async logSystemError(error: Error, contexto?: string, usuarioId?: number) {
-    return this.log({
-      usuarioId,
+  static async logSystemError(error: Error, context?: string, userId?: number) {
+    await this.log({
+      usuarioId: userId,
       accion: "SYSTEM_ERROR",
       entidad: "SYSTEM",
-      descripcion: contexto || "Error del sistema",
-      resultado: "ERROR",
+      descripcion: context || "Error del sistema",
       errorMensaje: error.message,
+      resultado: "ERROR",
       metadatos: {
         stack: error.stack,
-        contexto,
+        name: error.name,
       },
     })
   }
 
   /**
-   * Obtiene los últimos registros (máximo 10)
+   * Obtiene los registros de actividad más recientes
    */
-  static async getRegistros(
-    filtros: {
-      usuarioId?: number
-      accion?: string
-      entidad?: string
-      resultado?: string
-      limite?: number
-    } = {},
-  ) {
+  static async getRecentActivity(limit = 10) {
     try {
-      const { usuarioId, accion, entidad, resultado, limite = 10 } = filtros
-
-      let whereClause = "WHERE 1=1"
-      const params: any[] = []
-      let paramIndex = 1
-
-      if (usuarioId) {
-        whereClause += ` AND usuario_id = $${paramIndex}`
-        params.push(usuarioId)
-        paramIndex++
-      }
-
-      if (accion) {
-        whereClause += ` AND accion = $${paramIndex}`
-        params.push(accion)
-        paramIndex++
-      }
-
-      if (entidad) {
-        whereClause += ` AND entidad = $${paramIndex}`
-        params.push(entidad)
-        paramIndex++
-      }
-
-      if (resultado) {
-        whereClause += ` AND resultado = $${paramIndex}`
-        params.push(resultado)
-        paramIndex++
-      }
-
-      params.push(Math.min(limite, 10)) // Máximo 10 registros
-
-      const result = await query(
-        `SELECT r.*, a.nombre_completo as admin_nombre_completo
-         FROM registros_actividad r
-         LEFT JOIN administradores a ON r.usuario_id = a.id
-         ${whereClause}
-         ORDER BY r.fecha_creacion DESC
-         LIMIT $${paramIndex}`,
-        params,
-      )
-
+      const sql = `
+        SELECT * FROM registros_actividad 
+        ORDER BY fecha_creacion DESC 
+        LIMIT $1
+      `
+      const result = await query(sql, [limit])
       return result.rows
     } catch (error) {
-      console.error("Error al obtener registros:", error)
+      console.error("Error al obtener registros de actividad:", error)
       return []
     }
   }
 
   /**
-   * Obtiene estadísticas de los registros actuales
+   * Limpia registros antiguos manteniendo solo los últimos 10
    */
-  static async getEstadisticas() {
+  static async cleanOldRecords() {
     try {
-      const result = await query(
-        `SELECT 
-          COUNT(*) as total_registros,
-          COUNT(CASE WHEN resultado = 'SUCCESS' THEN 1 END) as exitosos,
-          COUNT(CASE WHEN resultado = 'ERROR' THEN 1 END) as errores,
-          COUNT(CASE WHEN resultado = 'WARNING' THEN 1 END) as advertencias,
-          COUNT(DISTINCT usuario_id) as usuarios_activos,
-          COUNT(CASE WHEN accion = 'LOGIN' THEN 1 END) as total_logins,
-          COUNT(CASE WHEN accion LIKE 'SHOPIFY%' THEN 1 END) as llamadas_shopify
-         FROM registros_actividad`,
-      )
-
-      return result.rows[0]
+      const sql = `
+        DELETE FROM registros_actividad 
+        WHERE id NOT IN (
+          SELECT id FROM registros_actividad 
+          ORDER BY fecha_creacion DESC 
+          LIMIT 10
+        )
+      `
+      await query(sql)
     } catch (error) {
-      console.error("Error al obtener estadísticas:", error)
-      return null
+      console.error("Error al limpiar registros antiguos:", error)
     }
   }
 
   /**
-   * Obtiene el conteo actual de registros
+   * Obtiene estadísticas de actividad
    */
-  static async getConteoRegistros() {
+  static async getActivityStats() {
     try {
-      const result = await query("SELECT COUNT(*) as total FROM registros_actividad")
-      return Number.parseInt(result.rows[0].total)
+      const sql = `
+        SELECT 
+          COUNT(*) as total_registros,
+          COUNT(CASE WHEN resultado = 'SUCCESS' THEN 1 END) as exitosos,
+          COUNT(CASE WHEN resultado = 'ERROR' THEN 1 END) as errores,
+          COUNT(DISTINCT usuario_id) as usuarios_activos
+        FROM registros_actividad
+        WHERE fecha_creacion >= NOW() - INTERVAL '24 hours'
+      `
+      const result = await query(sql)
+      return (
+        result.rows[0] || {
+          total_registros: 0,
+          exitosos: 0,
+          errores: 0,
+          usuarios_activos: 0,
+        }
+      )
     } catch (error) {
-      console.error("Error al obtener conteo:", error)
-      return 0
+      console.error("Error al obtener estadísticas:", error)
+      return {
+        total_registros: 0,
+        exitosos: 0,
+        errores: 0,
+        usuarios_activos: 0,
+      }
     }
   }
 }

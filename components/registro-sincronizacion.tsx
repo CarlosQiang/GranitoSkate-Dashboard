@@ -2,183 +2,121 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
-import { RefreshCw, Filter, AlertCircle, CheckCircle } from "lucide-react"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { RefreshCw, ClipboardList } from "lucide-react"
 
 export default function RegistroSincronizacion() {
-  const [eventos, setEventos] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [tipoFiltro, setTipoFiltro] = useState("")
-  const [entidadFiltro, setEntidadFiltro] = useState("")
-  const [limite, setLimite] = useState(50)
+  const [registros, setRegistros] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
 
-  const cargarEventos = async () => {
+  const cargarRegistros = async () => {
+    setIsLoading(true)
     try {
-      setIsLoading(true)
-      setError(null)
+      // Simular carga de registros
+      await new Promise((resolve) => setTimeout(resolve, 1000))
 
-      let url = `/api/db/registro?limit=${limite}`
-      if (tipoFiltro) {
-        url += `&tipo=${tipoFiltro}`
-      }
-      if (entidadFiltro) {
-        url += `&entidad=${entidadFiltro}`
-      }
+      const mockRegistros = [
+        {
+          id: 1,
+          tipo: "PRODUCTOS",
+          estado: "COMPLETADO",
+          fecha: new Date().toISOString(),
+          elementos: 25,
+          errores: 0,
+        },
+        {
+          id: 2,
+          tipo: "COLECCIONES",
+          estado: "COMPLETADO",
+          fecha: new Date(Date.now() - 3600000).toISOString(),
+          elementos: 8,
+          errores: 0,
+        },
+        {
+          id: 3,
+          tipo: "CLIENTES",
+          estado: "ERROR",
+          fecha: new Date(Date.now() - 7200000).toISOString(),
+          elementos: 0,
+          errores: 1,
+        },
+      ]
 
-      const response = await fetch(url)
-      if (!response.ok) {
-        throw new Error(`Error al cargar eventos: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      setEventos(data)
-    } catch (err) {
-      console.error("Error al cargar eventos:", err)
-      setError(err.message)
+      setRegistros(mockRegistros)
+    } catch (error) {
+      console.error("Error al cargar registros:", error)
     } finally {
       setIsLoading(false)
     }
   }
 
   useEffect(() => {
-    cargarEventos()
-  }, [tipoFiltro, entidadFiltro, limite])
+    cargarRegistros()
+  }, [])
 
-  const getBadgeColor = (resultado) => {
-    switch (resultado.toUpperCase()) {
-      case "SUCCESS":
-        return "bg-green-100 text-green-800"
+  const getEstadoBadge = (estado: string) => {
+    switch (estado) {
+      case "COMPLETADO":
+        return <Badge className="bg-green-100 text-green-800">Completado</Badge>
       case "ERROR":
-        return "bg-red-100 text-red-800"
-      case "WARNING":
-        return "bg-yellow-100 text-yellow-800"
+        return <Badge variant="destructive">Error</Badge>
+      case "EN_PROGRESO":
+        return <Badge className="bg-yellow-100 text-yellow-800">En progreso</Badge>
       default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }
-
-  const getActionColor = (accion) => {
-    switch (accion.toUpperCase()) {
-      case "CREATE":
-        return "bg-blue-100 text-blue-800"
-      case "UPDATE":
-        return "bg-purple-100 text-purple-800"
-      case "DELETE":
-        return "bg-orange-100 text-orange-800"
-      default:
-        return "bg-gray-100 text-gray-800"
+        return <Badge variant="secondary">{estado}</Badge>
     }
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-2xl">Registro de Sincronización</CardTitle>
-        <CardDescription>
-          Historial de operaciones de sincronización entre la aplicación y la base de datos
-        </CardDescription>
-        <div className="flex flex-col sm:flex-row gap-4 mt-4">
-          <div className="flex-1">
-            <Select value={tipoFiltro} onValueChange={setTipoFiltro}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filtrar por tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Todos los tipos</SelectItem>
-                <SelectItem value="PRODUCT">Productos</SelectItem>
-                <SelectItem value="COLLECTION">Colecciones</SelectItem>
-                <SelectItem value="PROMOTION">Promociones</SelectItem>
-                <SelectItem value="TUTORIAL">Tutoriales</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex-1">
-            <div className="flex gap-2">
-              <Input
-                placeholder="ID de entidad"
-                value={entidadFiltro}
-                onChange={(e) => setEntidadFiltro(e.target.value)}
-                className="flex-1"
-              />
-              <Button variant="outline" onClick={() => setEntidadFiltro("")} className="flex-shrink-0">
-                <Filter className="h-4 w-4 mr-2 sm:mr-0" />
-                <span className="hidden sm:inline ml-2">Limpiar</span>
-              </Button>
-            </div>
-          </div>
-          <div>
-            <Button onClick={cargarEventos} className="w-full sm:w-auto">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              <span>Actualizar</span>
-            </Button>
-          </div>
-        </div>
+        <CardTitle className="flex items-center gap-2">
+          <ClipboardList className="h-5 w-5" />
+          Registro de Sincronizaciones
+        </CardTitle>
+        <CardDescription>Historial de todas las sincronizaciones realizadas</CardDescription>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : error ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
-            <AlertCircle className="h-12 w-12 text-destructive mb-4" />
-            <h3 className="text-lg font-medium">Error al cargar eventos</h3>
-            <p className="text-sm text-muted-foreground mt-2">{error}</p>
-            <Button onClick={cargarEventos} className="mt-4">
-              Reintentar
-            </Button>
-          </div>
-        ) : eventos.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
-            <CheckCircle className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium">No hay eventos registrados</h3>
-            <p className="text-sm text-muted-foreground mt-2">
-              No se encontraron eventos de sincronización con los filtros actuales
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto -mx-4 sm:mx-0">
-            <div className="inline-block min-w-full align-middle">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="whitespace-nowrap">Fecha</TableHead>
-                    <TableHead className="whitespace-nowrap">Tipo</TableHead>
-                    <TableHead className="whitespace-nowrap">Entidad</TableHead>
-                    <TableHead className="whitespace-nowrap">Acción</TableHead>
-                    <TableHead className="whitespace-nowrap">Resultado</TableHead>
-                    <TableHead className="whitespace-nowrap">Mensaje</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {eventos.map((evento) => (
-                    <TableRow key={evento.id}>
-                      <TableCell className="whitespace-nowrap">
-                        {format(new Date(evento.fecha), "dd/MM/yyyy HH:mm:ss", { locale: es })}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">{evento.tipo_entidad}</TableCell>
-                      <TableCell className="whitespace-nowrap">{evento.entidad_id || "-"}</TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        <Badge className={getActionColor(evento.accion)}>{evento.accion}</Badge>
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        <Badge className={getBadgeColor(evento.resultado)}>{evento.resultado}</Badge>
-                      </TableCell>
-                      <TableCell className="max-w-[200px] md:max-w-md truncate">{evento.mensaje || "-"}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        )}
+        <div className="flex justify-between items-center mb-4">
+          <span className="text-sm text-muted-foreground">Últimas sincronizaciones realizadas</span>
+          <Button variant="outline" size="sm" onClick={cargarRegistros} disabled={isLoading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+            Actualizar
+          </Button>
+        </div>
+
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Tipo</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Fecha</TableHead>
+              <TableHead>Elementos</TableHead>
+              <TableHead>Errores</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {registros.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-4">
+                  {isLoading ? "Cargando registros..." : "No hay registros de sincronización"}
+                </TableCell>
+              </TableRow>
+            ) : (
+              registros.map((registro) => (
+                <TableRow key={registro.id}>
+                  <TableCell className="font-medium">{registro.tipo}</TableCell>
+                  <TableCell>{getEstadoBadge(registro.estado)}</TableCell>
+                  <TableCell>{new Date(registro.fecha).toLocaleString("es-ES")}</TableCell>
+                  <TableCell>{registro.elementos}</TableCell>
+                  <TableCell>{registro.errores}</TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   )

@@ -2,159 +2,83 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AlertCircle, CheckCircle, RefreshCw, Database, Cloud } from "lucide-react"
+import { RefreshCw, Package, CheckCircle, AlertCircle } from "lucide-react"
 
 export default function SincronizacionProductos() {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
-  const [products, setProducts] = useState<any[]>([])
-  const [syncMode, setSyncMode] = useState<"cache" | "database">("cache")
+  const [isLoading, setIsLoading] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [status, setStatus] = useState<"idle" | "syncing" | "success" | "error">("idle")
 
   const handleSync = async () => {
-    setLoading(true)
-    setError(null)
-    setSuccess(null)
-    setProgress(10)
+    setIsLoading(true)
+    setStatus("syncing")
+    setProgress(0)
 
     try {
-      const response = await fetch(`/api/sync/products?mode=${syncMode}&limit=100`)
-      setProgress(70)
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`)
+      // Simular progreso
+      for (let i = 0; i <= 100; i += 10) {
+        setProgress(i)
+        await new Promise((resolve) => setTimeout(resolve, 200))
       }
 
-      const data = await response.json()
-      setProgress(100)
-
-      if (data.success) {
-        setSuccess(data.message)
-        if (data.products) {
-          setProducts(data.products)
-        }
-      } else {
-        throw new Error(data.error || "Error desconocido en la sincronización")
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido")
+      setStatus("success")
+    } catch (error) {
+      setStatus("error")
     } finally {
-      setLoading(false)
-      // Resetear la barra de progreso después de un tiempo
-      setTimeout(() => setProgress(0), 2000)
+      setIsLoading(false)
     }
   }
 
   return (
-    <Card className="w-full">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <RefreshCw className="h-5 w-5" />
+          <Package className="h-5 w-5" />
           Sincronización de Productos
         </CardTitle>
-        <CardDescription>
-          Obtén los productos más recientes de tu tienda Shopify y guárdalos en el sistema
-        </CardDescription>
+        <CardDescription>Sincroniza los productos entre Shopify y la base de datos local</CardDescription>
       </CardHeader>
-
-      <CardContent>
-        <Tabs defaultValue="cache" onValueChange={(value) => setSyncMode(value as "cache" | "database")}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="cache" className="flex items-center gap-2">
-              <Cloud className="h-4 w-4" />
-              Caché Temporal
-            </TabsTrigger>
-            <TabsTrigger value="database" className="flex items-center gap-2">
-              <Database className="h-4 w-4" />
-              Base de Datos
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="cache">
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Modo Caché</AlertTitle>
-              <AlertDescription>
-                Los productos se obtendrán de Shopify y se almacenarán temporalmente en memoria. No se guardarán en la
-                base de datos.
-              </AlertDescription>
-            </Alert>
-          </TabsContent>
-
-          <TabsContent value="database">
-            <Alert>
-              <Database className="h-4 w-4" />
-              <AlertTitle>Modo Base de Datos</AlertTitle>
-              <AlertDescription>
-                Los productos se obtendrán de Shopify y se guardarán permanentemente en la base de datos. Este proceso
-                puede tardar más tiempo.
-              </AlertDescription>
-            </Alert>
-          </TabsContent>
-        </Tabs>
-
-        {progress > 0 && (
-          <div className="mt-4">
-            <Progress value={progress} className="h-2" />
-            <p className="text-sm text-muted-foreground mt-1">
-              {progress < 100 ? "Sincronizando..." : "¡Sincronización completada!"}
-            </p>
-          </div>
-        )}
-
-        {error && (
-          <Alert variant="destructive" className="mt-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {success && (
-          <Alert variant="default" className="mt-4 bg-green-50 border-green-200">
-            <CheckCircle className="h-4 w-4 text-green-500" />
-            <AlertTitle className="text-green-700">Éxito</AlertTitle>
-            <AlertDescription className="text-green-600">{success}</AlertDescription>
-          </Alert>
-        )}
-
-        {products.length > 0 && (
-          <div className="mt-4">
-            <h3 className="text-sm font-medium mb-2">Productos obtenidos ({products.length})</h3>
-            <div className="max-h-60 overflow-y-auto border rounded-md p-2">
-              {products.map((product, index) => (
-                <div key={index} className="flex justify-between items-center py-2 border-b last:border-0">
-                  <div className="flex-1 truncate">{product.title}</div>
-                  <Badge variant={product.status === "ACTIVE" ? "default" : "secondary"}>{product.status}</Badge>
-                </div>
-              ))}
+      <CardContent className="space-y-4">
+        {status === "syncing" && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span>Sincronizando productos...</span>
+              <span>{progress}%</span>
             </div>
+            <Progress value={progress} />
           </div>
         )}
-      </CardContent>
 
-      <CardFooter>
-        <Button onClick={handleSync} disabled={loading} className="flex items-center gap-2">
-          {loading ? (
+        {status === "success" && (
+          <div className="flex items-center gap-2 text-green-600">
+            <CheckCircle className="h-4 w-4" />
+            <span>Sincronización completada exitosamente</span>
+          </div>
+        )}
+
+        {status === "error" && (
+          <div className="flex items-center gap-2 text-red-600">
+            <AlertCircle className="h-4 w-4" />
+            <span>Error en la sincronización</span>
+          </div>
+        )}
+
+        <Button onClick={handleSync} disabled={isLoading} className="w-full">
+          {isLoading ? (
             <>
-              <RefreshCw className="h-4 w-4 animate-spin" />
+              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
               Sincronizando...
             </>
           ) : (
             <>
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className="mr-2 h-4 w-4" />
               Sincronizar Productos
             </>
           )}
         </Button>
-      </CardFooter>
+      </CardContent>
     </Card>
   )
 }

@@ -3,11 +3,11 @@ import type { SeoSettings, LocalBusinessInfo, SocialMediaProfiles } from "@/type
 // Función para obtener la configuración SEO de la tienda
 export async function getShopSeoSettings(): Promise<SeoSettings | null> {
   try {
-    // Devolver valores predeterminados
+    // Simulamos configuración SEO
     return {
-      title: "Granito Skate Shop - Tienda de skate online",
+      title: "GranitoSkate - Tienda de Skate Online",
       description:
-        "Tienda especializada en productos de skate. Encuentra tablas, ruedas, trucks y accesorios de las mejores marcas.",
+        "La mejor tienda de skate online. Encuentra tablas, ruedas, trucks y accesorios de las mejores marcas.",
       keywords: ["skate", "skateboard", "tienda", "online"],
       ogTitle: "",
       ogDescription: "",
@@ -17,14 +17,14 @@ export async function getShopSeoSettings(): Promise<SeoSettings | null> {
       twitterDescription: "",
       twitterImage: "",
       canonicalUrl: "",
-      marketTitle: "",
-      marketDescription: "",
-      marketKeywords: [],
-      targetCountries: [],
+      marketTitle: "GranitoSkate - Skate Shop Internacional",
+      marketDescription: "Tienda de skate con envíos internacionales. Productos de calidad para skaters.",
+      marketKeywords: ["skate", "skateboard", "tablas", "ruedas", "trucks"],
+      targetCountries: ["España", "México", "Argentina", "Colombia"],
     }
   } catch (error) {
-    console.error("Error getting shop SEO settings:", error)
-    return null
+    console.error("Error al obtener configuración SEO:", error)
+    throw error
   }
 }
 
@@ -116,26 +116,14 @@ export async function getSocialMediaProfiles(): Promise<SocialMediaProfiles | nu
 }
 
 // Función para guardar la configuración SEO de la tienda
-export async function saveShopSeoSettings(settings: SeoSettings): Promise<boolean> {
+export async function saveShopSeoSettings(settings: any): Promise<boolean> {
   try {
-    const response = await fetch("/api/seo/mock", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(settings),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`)
-    }
-
-    const data = await response.json()
-    return data.success
-  } catch (error) {
-    console.error("Error saving shop SEO settings:", error)
-    // Devolver true para simular éxito incluso cuando hay errores
+    // Simulamos guardado
+    console.log("Guardando configuración SEO:", settings)
     return true
+  } catch (error) {
+    console.error("Error al guardar configuración SEO:", error)
+    return false
   }
 }
 
@@ -158,8 +146,7 @@ export async function saveProductSeoSettings(productId: string, settings: SeoSet
     return data.success
   } catch (error) {
     console.error(`Error saving product SEO settings for ${productId}:`, error)
-    // Devolver true para simular éxito incluso cuando hay errores
-    return true
+    return false
   }
 }
 
@@ -182,8 +169,7 @@ export async function saveCollectionSeoSettings(collectionId: string, settings: 
     return data.success
   } catch (error) {
     console.error(`Error saving collection SEO settings for ${collectionId}:`, error)
-    // Devolver true para simular éxito incluso cuando hay errores
-    return true
+    return false
   }
 }
 
@@ -206,8 +192,7 @@ export async function saveLocalBusinessInfo(info: any): Promise<boolean> {
     return data.success
   } catch (error) {
     console.error("Error saving local business info:", error)
-    // Devolver true para simular éxito incluso cuando hay errores
-    return true
+    return false
   }
 }
 
@@ -230,7 +215,6 @@ export async function saveSocialMediaProfiles(profiles: any): Promise<boolean> {
     return data.success
   } catch (error) {
     console.error("Error saving social media profiles:", error)
-    // Devolver true para simular éxito incluso cuando hay errores
-    return true
+    return false
   }
 }

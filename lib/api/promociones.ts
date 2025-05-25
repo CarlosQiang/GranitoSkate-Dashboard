@@ -1,6 +1,36 @@
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 
+// API mock para promociones hasta que se implemente la integración completa
+export async function fetchPromociones() {
+  try {
+    // Simulamos datos de promociones
+    return [
+      {
+        id: "promo_1",
+        titulo: "Descuento de Verano",
+        tipo: "PORCENTAJE_DESCUENTO",
+        valor: 20,
+        estado: "activa",
+        fechaInicio: "2024-06-01",
+        fechaFin: "2024-08-31",
+      },
+      {
+        id: "promo_2",
+        titulo: "Envío Gratis",
+        tipo: "ENVIO_GRATIS",
+        valor: 0,
+        estado: "activa",
+        fechaInicio: "2024-01-01",
+        fechaFin: null,
+      },
+    ]
+  } catch (error) {
+    console.error("Error al obtener promociones:", error)
+    throw error
+  }
+}
+
 // Función para obtener todas las promociones
 export async function obtenerPromociones() {
   try {
@@ -47,7 +77,7 @@ export async function obtenerPromociones() {
 }
 
 // Alias para mantener compatibilidad con el código existente
-export const fetchPromociones = obtenerPromociones
+export const fetchPromocionesOriginal = obtenerPromociones
 
 // Modificar la función fetchPriceListById para manejar mejor los errores de ID
 export async function obtenerPromocionPorId(id: string): Promise<any> {

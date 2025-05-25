@@ -1,24 +1,28 @@
-import { RefreshCw } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Card, CardContent } from "@/components/ui/card"
 
 interface LoadingStateProps {
   message?: string
-  size?: "sm" | "md" | "lg"
+  count?: number
 }
 
-export function LoadingState({ message = "Cargando...", size = "md" }: LoadingStateProps) {
-  const sizeClasses = {
-    sm: "h-4 w-4",
-    md: "h-6 w-6",
-    lg: "h-8 w-8",
-  }
-
+export function LoadingState({ message = "Cargando...", count = 3 }: LoadingStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center p-8 text-center">
-      <RefreshCw className={`${sizeClasses[size]} animate-spin text-primary mb-2`} />
-      <p className="text-muted-foreground">{message}</p>
+    <div className="space-y-4">
+      <div className="text-center text-muted-foreground">{message}</div>
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        {Array(count)
+          .fill(0)
+          .map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-4">
+                <Skeleton className="h-48 w-full mb-4" />
+                <Skeleton className="h-4 w-3/4 mb-2" />
+                <Skeleton className="h-4 w-1/2" />
+              </CardContent>
+            </Card>
+          ))}
+      </div>
     </div>
   )
 }
-
-// Añadir exportación por defecto para compatibilidad
-export default LoadingState

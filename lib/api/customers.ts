@@ -1,122 +1,98 @@
 import shopifyClient from "@/lib/shopify"
 import { gql } from "graphql-request"
 
+const SHOPIFY_GRAPHQL_ENDPOINT = "/api/shopify"
+
 export interface CustomerFilters {
   query?: string
   sortKey?: string
   reverse?: boolean
   first?: number
-  after?: string
+  after?: string | null
 }
 
+// Consulta GraphQL para obtener clientes
+const GET_CUSTOMERS_QUERY = `
+  query getCustomers($first: Int!, $after: String, $query: String, $sortKey: CustomerSortKeys, $reverse: Boolean) {
+    customers(first: $first, after: $after, query: $query, sortKey: $sortKey, reverse: $reverse) {
+      edges {
+        node {
+          id
+          firstName
+          lastName
+          email
+          phone
+          ordersCount
+          totalSpent {
+            amount
+            currencyCode
+          }
+          createdAt
+          updatedAt
+          verifiedEmail
+          defaultAddress {
+            id
+            address1
+            city
+            country
+          }
+          addresses {
+            id
+            address1
+            city
+            country
+          }
+          tags
+        }
+        cursor
+      }
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+      }
+    }
+  }
+`
+
+// Función principal para obtener clientes
 export async function fetchCustomers(filters: CustomerFilters = {}) {
   try {
-    const { query = "", sortKey = "CREATED_AT", reverse = false, first = 20, after = null } = filters
+    const response = await fetch(SHOPIFY_GRAPHQL_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query: GET_CUSTOMERS_QUERY,
+        variables: {
+          first: filters.first || 20,
+          after: filters.after,
+          query: filters.query,
+          sortKey: filters.sortKey || "CREATED_AT",
+          reverse: filters.reverse || false,
+        },
+      }),
+    })
 
-    const graphqlQuery = gql`
-      query GetCustomers($query: String, $sortKey: CustomerSortKeys, $reverse: Boolean, $first: Int, $after: String) {
-        customers(query: $query, sortKey: $sortKey, reverse: $reverse, first: $first, after: $after) {
-          pageInfo {
-            hasNextPage
-            endCursor
-          }
-          edges {
-            cursor
-            node {
-              id
-              firstName
-              lastName
-              email
-              phone
-              numberOfOrders
-              amountSpent {
-                amount
-                currencyCode
-              }
-              createdAt
-              updatedAt
-              verifiedEmail
-              defaultAddress {
-                id
-                address1
-                address2
-                city
-                province
-                zip
-                country
-                phone
-              }
-              addresses {
-                id
-                address1
-                address2
-                city
-                province
-                zip
-                country
-                phone
-              }
-              tags
-              metafields(first: 10) {
-                edges {
-                  node {
-                    id
-                    namespace
-                    key
-                    value
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    `
-
-    const variables = {
-      query,
-      sortKey,
-      reverse,
-      first,
-      after,
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status}`)
     }
 
-    const data = await shopifyClient.request(graphqlQuery, variables)
+    const data = await response.json()
 
-    if (!data || !data.customers || !data.customers.edges) {
-      console.warn("No se encontraron clientes o la respuesta está incompleta")
-      return { customers: [], pageInfo: { hasNextPage: false, endCursor: null } }
+    if (data.errors) {
+      throw new Error(`GraphQL Error: ${JSON.stringify(data.errors)}`)
     }
 
     return {
-      customers: data.customers.edges.map((edge: any) => ({
-        id: edge.node.id.split("/").pop(),
-        firstName: edge.node.firstName || "",
-        lastName: edge.node.lastName || "",
-        email: edge.node.email || "",
-        phone: edge.node.phone || "",
-        ordersCount: edge.node.numberOfOrders || 0,
-        totalSpent: edge.node.amountSpent || { amount: "0", currencyCode: "EUR" },
-        createdAt: edge.node.createdAt,
-        updatedAt: edge.node.updatedAt,
-        verifiedEmail: edge.node.verifiedEmail || false,
-        defaultAddress: edge.node.defaultAddress || null,
-        addresses: edge.node.addresses || [],
-        tags: edge.node.tags || [],
-        metafields:
-          edge.node.metafields?.edges.map((metaEdge: any) => ({
-            id: metaEdge.node.id,
-            namespace: metaEdge.node.namespace,
-            key: metaEdge.node.key,
-            value: metaEdge.node.value,
-          })) || [],
-        cursor: edge.cursor,
-      })),
-      pageInfo: data.customers.pageInfo,
+      customers: data.data.customers.edges.map((edge: any) => edge.node),
+      pageInfo: data.data.customers.pageInfo,
     }
   } catch (error) {
-    console.error("Error fetching customers:", error)
-    throw new Error(`Error al obtener clientes: ${(error as Error).message}`)
+    console.error("Error al obtener clientes:", error)
+    throw error
   }
 }
 

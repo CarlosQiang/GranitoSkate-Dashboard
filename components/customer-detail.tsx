@@ -1,16 +1,19 @@
 "use client"
 
+import { CardDescription } from "@/components/ui/card"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/components/ui/use-toast"
 import { saveCustomerDNI } from "@/lib/api/customers"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, formatDate } from "@/lib/utils"
 import { Pencil, Save, User, MapPin, Tag, FileText, ShoppingBag } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 
 interface CustomerDetailProps {
   customer: any
@@ -80,7 +83,9 @@ export function CustomerDetail({ customer, onUpdate }: CustomerDetailProps) {
                 <div className="font-medium flex items-center gap-2">
                   {customer.email}
                   {customer.verifiedEmail && (
-                    <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Verificado</span>
+                    <Badge variant="outline" className="ml-2">
+                      Verificado
+                    </Badge>
                   )}
                 </div>
               </div>
@@ -88,6 +93,11 @@ export function CustomerDetail({ customer, onUpdate }: CustomerDetailProps) {
               <div className="space-y-2">
                 <Label>Teléfono</Label>
                 <div className="font-medium">{customer.phone || "No disponible"}</div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Fecha de registro</Label>
+                <div className="font-medium">{formatDate(customer.createdAt)}</div>
               </div>
 
               <div className="space-y-2">
