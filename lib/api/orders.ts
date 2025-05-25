@@ -4,12 +4,14 @@ export interface Order {
   id: string
   name: string
   email: string
-  phone: string
+  createdAt: string
+  updatedAt: string
   totalPrice: string
+  subtotalPrice: string
+  totalTax: string
   currencyCode: string
-  financialStatus: string
-  fulfillmentStatus: string
-  processedAt: string
+  displayFinancialStatus: string
+  displayFulfillmentStatus: string
   customer?: {
     id: string
     firstName: string
@@ -20,34 +22,38 @@ export interface Order {
     id: string
     title: string
     quantity: number
-    variant?: {
+    price: string
+    product?: {
       id: string
       title: string
-      price: string
     }
   }>
+  shippingAddress?: {
+    address1: string
+    city: string
+    country: string
+    zip: string
+  }
 }
 
-export async function fetchOrders(limit = 10): Promise<Order[]> {
+export async function fetchOrders(limit = 50): Promise<Order[]> {
   try {
     const query = `
       query {
-        orders(first: ${limit}) {
+        orders(first: ${limit}, sortKey: UPDATED_AT, reverse: true) {
           edges {
             node {
               id
               name
               email
-              phone
-              processedAt
-              financialStatus
-              fulfillmentStatus
-              totalPriceSet {
-                shopMoney {
-                  amount
-                  currencyCode
-                }
-              }
+              createdAt
+              updatedAt
+              totalPrice
+              subtotalPrice
+              totalTax
+              currencyCode
+              displayFinancialStatus
+              displayFulfillmentStatus
               customer {
                 id
                 firstName
@@ -60,13 +66,19 @@ export async function fetchOrders(limit = 10): Promise<Order[]> {
                     id
                     title
                     quantity
-                    variant {
+                    price
+                    product {
                       id
                       title
-                      price
                     }
                   }
                 }
+              }
+              shippingAddress {
+                address1
+                city
+                country
+                zip
               }
             }
           }
@@ -77,15 +89,14 @@ export async function fetchOrders(limit = 10): Promise<Order[]> {
     const response = await shopifyFetch({ query })
 
     if (response.errors) {
-      throw new Error(response.errors.map((e: any) => e.message).join(", "))
+      console.error("Error fetching orders:", response.errors)
+      return []
     }
 
     return (
       response.data?.orders?.edges?.map((edge: any) => ({
         ...edge.node,
-        totalPrice: edge.node.totalPriceSet?.shopMoney?.amount || "0",
-        currencyCode: edge.node.totalPriceSet?.shopMoney?.currencyCode || "USD",
-        lineItems: edge.node.lineItems?.edges?.map((itemEdge: any) => itemEdge.node) || [],
+        lineItems: edge.node.lineItems?.edges?.map((lineEdge: any) => lineEdge.node) || [],
       })) || []
     )
   } catch (error) {
@@ -96,22 +107,22 @@ export async function fetchOrders(limit = 10): Promise<Order[]> {
 
 export async function fetchOrderById(id: string): Promise<Order | null> {
   try {
+    const formattedId = id.includes("gid://") ? id : `gid://shopify/Order/${id}`
+
     const query = `
       query {
-        order(id: "gid://shopify/Order/${id}") {
+        order(id: "${formattedId}") {
           id
           name
           email
-          phone
-          processedAt
-          financialStatus
-          fulfillmentStatus
-          totalPriceSet {
-            shopMoney {
-              amount
-              currencyCode
-            }
-          }
+          createdAt
+          updatedAt
+          totalPrice
+          subtotalPrice
+          totalTax
+          currencyCode
+          displayFinancialStatus
+          displayFulfillmentStatus
           customer {
             id
             firstName
@@ -124,13 +135,19 @@ export async function fetchOrderById(id: string): Promise<Order | null> {
                 id
                 title
                 quantity
-                variant {
+                price
+                product {
                   id
                   title
-                  price
                 }
               }
             }
+          }
+          shippingAddress {
+            address1
+            city
+            country
+            zip
           }
         }
       }
@@ -145,8 +162,6 @@ export async function fetchOrderById(id: string): Promise<Order | null> {
     const order = response.data.order
     return {
       ...order,
-      totalPrice: order.totalPriceSet?.shopMoney?.amount || "0",
-      currencyCode: order.totalPriceSet?.shopMoney?.currencyCode || "USD",
       lineItems: order.lineItems?.edges?.map((edge: any) => edge.node) || [],
     }
   } catch (error) {
@@ -159,64 +174,27 @@ export async function fetchRecentOrders(limit = 5): Promise<Order[]> {
   return fetchOrders(limit)
 }
 
-export async function fetchCustomerOrders(customerId: string): Promise<Order[]> {
+export async function getOrdersAnalytics() {
   try {
-    const query = `
-      query {
-        customer(id: "gid://shopify/Customer/${customerId}") {
-          orders(first: 50) {
-            edges {
-              node {
-                id
-                name
-                email
-                phone
-                processedAt
-                financialStatus
-                fulfillmentStatus
-                totalPriceSet {
-                  shopMoney {
-                    amount
-                    currencyCode
-                  }
-                }
-                lineItems(first: 10) {
-                  edges {
-                    node {
-                      id
-                      title
-                      quantity
-                      variant {
-                        id
-                        title
-                        price
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    `
+    const orders = await fetchOrders(100)
 
-    const response = await shopifyFetch({ query })
+    const totalRevenue = orders.reduce((sum, order) => sum + Number.parseFloat(order.totalPrice), 0)
+    const totalOrders = orders.length
+    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
 
-    if (response.errors || !response.data?.customer) {
-      return []
+    return {
+      totalRevenue,
+      totalOrders,
+      averageOrderValue,
+      orders,
     }
-
-    return (
-      response.data.customer.orders?.edges?.map((edge: any) => ({
-        ...edge.node,
-        totalPrice: edge.node.totalPriceSet?.shopMoney?.amount || "0",
-        currencyCode: edge.node.totalPriceSet?.shopMoney?.currencyCode || "USD",
-        lineItems: edge.node.lineItems?.edges?.map((itemEdge: any) => itemEdge.node) || [],
-      })) || []
-    )
   } catch (error) {
-    console.error("Error fetching customer orders:", error)
-    return []
+    console.error("Error getting orders analytics:", error)
+    return {
+      totalRevenue: 0,
+      totalOrders: 0,
+      averageOrderValue: 0,
+      orders: [],
+    }
   }
 }

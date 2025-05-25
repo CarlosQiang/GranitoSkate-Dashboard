@@ -4,11 +4,17 @@ export interface Product {
   id: string
   title: string
   description: string
+  descriptionHtml: string
   status: string
   vendor: string
   productType: string
   handle: string
   tags: string[]
+  featuredImage?: {
+    id: string
+    url: string
+    altText: string
+  }
   images: Array<{
     id: string
     url: string
@@ -25,24 +31,36 @@ export interface Product {
     weight: number
     weightUnit: string
   }>
+  createdAt: string
+  updatedAt: string
+  publishedAt: string
 }
 
-export async function fetchProducts(limit = 10): Promise<Product[]> {
+export async function fetchProducts(limit = 50): Promise<Product[]> {
   try {
     const query = `
       query {
-        products(first: ${limit}) {
+        products(first: ${limit}, sortKey: UPDATED_AT, reverse: true) {
           edges {
             node {
               id
               title
               description
+              descriptionHtml
               status
               vendor
               productType
               handle
               tags
-              images(first: 5) {
+              createdAt
+              updatedAt
+              publishedAt
+              featuredImage {
+                id
+                url
+                altText
+              }
+              images(first: 10) {
                 edges {
                   node {
                     id
@@ -51,7 +69,7 @@ export async function fetchProducts(limit = 10): Promise<Product[]> {
                   }
                 }
               }
-              variants(first: 5) {
+              variants(first: 10) {
                 edges {
                   node {
                     id
@@ -75,7 +93,8 @@ export async function fetchProducts(limit = 10): Promise<Product[]> {
     const response = await shopifyFetch({ query })
 
     if (response.errors) {
-      throw new Error(response.errors.map((e: any) => e.message).join(", "))
+      console.error("Error fetching products:", response.errors)
+      return []
     }
 
     return (
@@ -93,18 +112,29 @@ export async function fetchProducts(limit = 10): Promise<Product[]> {
 
 export async function fetchProductById(id: string): Promise<Product | null> {
   try {
+    const formattedId = id.includes("gid://") ? id : `gid://shopify/Product/${id}`
+
     const query = `
       query {
-        product(id: "gid://shopify/Product/${id}") {
+        product(id: "${formattedId}") {
           id
           title
           description
+          descriptionHtml
           status
           vendor
           productType
           handle
           tags
-          images(first: 10) {
+          createdAt
+          updatedAt
+          publishedAt
+          featuredImage {
+            id
+            url
+            altText
+          }
+          images(first: 20) {
             edges {
               node {
                 id
@@ -113,7 +143,7 @@ export async function fetchProductById(id: string): Promise<Product | null> {
               }
             }
           }
-          variants(first: 10) {
+          variants(first: 20) {
             edges {
               node {
                 id
@@ -150,20 +180,6 @@ export async function fetchProductById(id: string): Promise<Product | null> {
   }
 }
 
-export async function fetchRecentProducts(limit = 5): Promise<Product[]> {
-  return fetchProducts(limit)
-}
-
-export async function fetchLowStockProducts(threshold = 10): Promise<Product[]> {
-  try {
-    const products = await fetchProducts(50)
-    return products.filter((product) => product.variants.some((variant) => variant.inventoryQuantity <= threshold))
-  } catch (error) {
-    console.error("Error fetching low stock products:", error)
-    return []
-  }
-}
-
 export async function createProduct(productData: any): Promise<Product | null> {
   try {
     const mutation = `
@@ -174,6 +190,9 @@ export async function createProduct(productData: any): Promise<Product | null> {
             title
             description
             status
+            vendor
+            productType
+            handle
           }
           userErrors {
             field
@@ -183,15 +202,33 @@ export async function createProduct(productData: any): Promise<Product | null> {
       }
     `
 
+    const input = {
+      title: productData.title,
+      descriptionHtml: productData.description,
+      vendor: productData.vendor,
+      productType: productData.productType,
+      status: productData.status || "ACTIVE",
+      handle: productData.handle,
+      variants: productData.variants || [
+        {
+          price: productData.price || "0.00",
+          compareAtPrice: productData.compareAtPrice,
+          sku: productData.sku,
+          inventoryQuantity: Number.parseInt(productData.inventoryQuantity) || 0,
+          inventoryPolicy: "DENY",
+          requiresShipping: true,
+        },
+      ],
+    }
+
     const response = await shopifyFetch({
       query: mutation,
-      variables: {
-        input: productData,
-      },
+      variables: { input },
     })
 
     if (response.errors || response.data?.productCreate?.userErrors?.length > 0) {
-      throw new Error(response.errors?.[0]?.message || response.data?.productCreate?.userErrors?.[0]?.message)
+      const errorMessage = response.errors?.[0]?.message || response.data?.productCreate?.userErrors?.[0]?.message
+      throw new Error(errorMessage)
     }
 
     return response.data?.productCreate?.product || null
@@ -203,6 +240,8 @@ export async function createProduct(productData: any): Promise<Product | null> {
 
 export async function updateProduct(id: string, productData: any): Promise<Product | null> {
   try {
+    const formattedId = id.includes("gid://") ? id : `gid://shopify/Product/${id}`
+
     const mutation = `
       mutation productUpdate($input: ProductInput!) {
         productUpdate(input: $input) {
@@ -211,6 +250,8 @@ export async function updateProduct(id: string, productData: any): Promise<Produ
             title
             description
             status
+            vendor
+            productType
           }
           userErrors {
             field
@@ -220,18 +261,23 @@ export async function updateProduct(id: string, productData: any): Promise<Produ
       }
     `
 
+    const input = {
+      id: formattedId,
+      title: productData.title,
+      descriptionHtml: productData.description,
+      vendor: productData.vendor,
+      productType: productData.productType,
+      status: productData.status,
+    }
+
     const response = await shopifyFetch({
       query: mutation,
-      variables: {
-        input: {
-          id: `gid://shopify/Product/${id}`,
-          ...productData,
-        },
-      },
+      variables: { input },
     })
 
     if (response.errors || response.data?.productUpdate?.userErrors?.length > 0) {
-      throw new Error(response.errors?.[0]?.message || response.data?.productUpdate?.userErrors?.[0]?.message)
+      const errorMessage = response.errors?.[0]?.message || response.data?.productUpdate?.userErrors?.[0]?.message
+      throw new Error(errorMessage)
     }
 
     return response.data?.productUpdate?.product || null
@@ -243,6 +289,8 @@ export async function updateProduct(id: string, productData: any): Promise<Produ
 
 export async function deleteProduct(id: string): Promise<boolean> {
   try {
+    const formattedId = id.includes("gid://") ? id : `gid://shopify/Product/${id}`
+
     const mutation = `
       mutation productDelete($input: ProductDeleteInput!) {
         productDelete(input: $input) {
@@ -258,14 +306,13 @@ export async function deleteProduct(id: string): Promise<boolean> {
     const response = await shopifyFetch({
       query: mutation,
       variables: {
-        input: {
-          id: `gid://shopify/Product/${id}`,
-        },
+        input: { id: formattedId },
       },
     })
 
     if (response.errors || response.data?.productDelete?.userErrors?.length > 0) {
-      throw new Error(response.errors?.[0]?.message || response.data?.productDelete?.userErrors?.[0]?.message)
+      const errorMessage = response.errors?.[0]?.message || response.data?.productDelete?.userErrors?.[0]?.message
+      throw new Error(errorMessage)
     }
 
     return !!response.data?.productDelete?.deletedProductId
@@ -275,62 +322,16 @@ export async function deleteProduct(id: string): Promise<boolean> {
   }
 }
 
-export async function getInventoryLevel(variantId: string): Promise<number> {
-  try {
-    const query = `
-      query {
-        productVariant(id: "gid://shopify/ProductVariant/${variantId}") {
-          inventoryQuantity
-        }
-      }
-    `
-
-    const response = await shopifyFetch({ query })
-
-    if (response.errors || !response.data?.productVariant) {
-      return 0
-    }
-
-    return response.data.productVariant.inventoryQuantity || 0
-  } catch (error) {
-    console.error("Error getting inventory level:", error)
-    return 0
-  }
+export async function fetchRecentProducts(limit = 5): Promise<Product[]> {
+  return fetchProducts(limit)
 }
 
-export async function updateInventoryLevel(variantId: string, quantity: number): Promise<boolean> {
+export async function fetchLowStockProducts(threshold = 10): Promise<Product[]> {
   try {
-    const mutation = `
-      mutation inventoryAdjustQuantity($input: InventoryAdjustQuantityInput!) {
-        inventoryAdjustQuantity(input: $input) {
-          inventoryLevel {
-            available
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `
-
-    const response = await shopifyFetch({
-      query: mutation,
-      variables: {
-        input: {
-          inventoryLevelId: `gid://shopify/InventoryLevel/${variantId}`,
-          availableDelta: quantity,
-        },
-      },
-    })
-
-    if (response.errors || response.data?.inventoryAdjustQuantity?.userErrors?.length > 0) {
-      throw new Error(response.errors?.[0]?.message || response.data?.inventoryAdjustQuantity?.userErrors?.[0]?.message)
-    }
-
-    return true
+    const products = await fetchProducts(50)
+    return products.filter((product) => product.variants.some((variant) => variant.inventoryQuantity <= threshold))
   } catch (error) {
-    console.error("Error updating inventory level:", error)
-    throw error
+    console.error("Error fetching low stock products:", error)
+    return []
   }
 }
