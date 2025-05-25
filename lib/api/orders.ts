@@ -1,7 +1,34 @@
 import { shopifyFetch } from "@/lib/shopify"
 
-// Función para obtener todos los pedidos
-export async function fetchOrders(limit = 50) {
+export interface Order {
+  id: string
+  name: string
+  email: string
+  phone: string
+  totalPrice: string
+  currencyCode: string
+  financialStatus: string
+  fulfillmentStatus: string
+  processedAt: string
+  customer?: {
+    id: string
+    firstName: string
+    lastName: string
+    email: string
+  }
+  lineItems: Array<{
+    id: string
+    title: string
+    quantity: number
+    variant?: {
+      id: string
+      title: string
+      price: string
+    }
+  }>
+}
+
+export async function fetchOrders(limit = 10): Promise<Order[]> {
   try {
     const query = `
       query {
@@ -13,8 +40,8 @@ export async function fetchOrders(limit = 50) {
               email
               phone
               processedAt
-              displayFulfillmentStatus
-              displayFinancialStatus
+              financialStatus
+              fulfillmentStatus
               totalPriceSet {
                 shopMoney {
                   amount
@@ -27,6 +54,20 @@ export async function fetchOrders(limit = 50) {
                 lastName
                 email
               }
+              lineItems(first: 10) {
+                edges {
+                  node {
+                    id
+                    title
+                    quantity
+                    variant {
+                      id
+                      title
+                      price
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -36,58 +77,35 @@ export async function fetchOrders(limit = 50) {
     const response = await shopifyFetch({ query })
 
     if (response.errors) {
-      throw new Error(`Error de Shopify: ${response.errors.map((e) => e.message).join(", ")}`)
+      throw new Error(response.errors.map((e: any) => e.message).join(", "))
     }
 
     return (
-      response.data?.orders?.edges?.map((edge) => {
-        const node = edge.node
-        return {
-          ...node,
-          totalPrice: node.totalPriceSet?.shopMoney?.amount || "0",
-          currencyCode: node.totalPriceSet?.shopMoney?.currencyCode || "EUR",
-        }
-      }) || []
+      response.data?.orders?.edges?.map((edge: any) => ({
+        ...edge.node,
+        totalPrice: edge.node.totalPriceSet?.shopMoney?.amount || "0",
+        currencyCode: edge.node.totalPriceSet?.shopMoney?.currencyCode || "USD",
+        lineItems: edge.node.lineItems?.edges?.map((itemEdge: any) => itemEdge.node) || [],
+      })) || []
     )
   } catch (error) {
-    console.error("Error al obtener pedidos:", error)
-    throw error
+    console.error("Error fetching orders:", error)
+    return []
   }
 }
 
-// Función para obtener un pedido por ID
-export async function fetchOrderById(id: string) {
+export async function fetchOrderById(id: string): Promise<Order | null> {
   try {
-    const formattedId = id.includes("gid://") ? id : `gid://shopify/Order/${id}`
-
     const query = `
       query {
-        order(id: "${formattedId}") {
+        order(id: "gid://shopify/Order/${id}") {
           id
           name
           email
           phone
           processedAt
-          displayFulfillmentStatus
-          displayFinancialStatus
-          subtotalPriceSet {
-            shopMoney {
-              amount
-              currencyCode
-            }
-          }
-          totalShippingPriceSet {
-            shopMoney {
-              amount
-              currencyCode
-            }
-          }
-          totalTaxSet {
-            shopMoney {
-              amount
-              currencyCode
-            }
-          }
+          financialStatus
+          fulfillmentStatus
           totalPriceSet {
             shopMoney {
               amount
@@ -99,18 +117,6 @@ export async function fetchOrderById(id: string) {
             firstName
             lastName
             email
-            phone
-          }
-          shippingAddress {
-            firstName
-            lastName
-            address1
-            address2
-            city
-            province
-            zip
-            country
-            phone
           }
           lineItems(first: 50) {
             edges {
@@ -121,17 +127,7 @@ export async function fetchOrderById(id: string) {
                 variant {
                   id
                   title
-                  sku
                   price
-                  product {
-                    id
-                  }
-                }
-                originalUnitPriceSet {
-                  shopMoney {
-                    amount
-                    currencyCode
-                  }
                 }
               }
             }
@@ -142,61 +138,62 @@ export async function fetchOrderById(id: string) {
 
     const response = await shopifyFetch({ query })
 
-    if (response.errors) {
-      throw new Error(`Error de Shopify: ${response.errors.map((e) => e.message).join(", ")}`)
+    if (response.errors || !response.data?.order) {
+      return null
     }
 
-    const order = response.data?.order
-    if (!order) {
-      throw new Error("Pedido no encontrado")
-    }
-
-    // Formatear los datos del pedido
-    const formattedOrder = {
+    const order = response.data.order
+    return {
       ...order,
-      subtotalPrice: order.subtotalPriceSet?.shopMoney?.amount || "0",
-      shippingPrice: order.totalShippingPriceSet?.shopMoney?.amount || "0",
-      taxPrice: order.totalTaxSet?.shopMoney?.amount || "0",
       totalPrice: order.totalPriceSet?.shopMoney?.amount || "0",
-      currencyCode: order.totalPriceSet?.shopMoney?.currencyCode || "EUR",
-      items:
-        order.lineItems?.edges?.map((edge) => ({
-          ...edge.node,
-          price: edge.node.originalUnitPriceSet?.shopMoney?.amount || "0",
-          currencyCode: edge.node.originalUnitPriceSet?.shopMoney?.currencyCode || "EUR",
-          productId: edge.node.variant?.product?.id?.split("/").pop() || "",
-        })) || [],
+      currencyCode: order.totalPriceSet?.shopMoney?.currencyCode || "USD",
+      lineItems: order.lineItems?.edges?.map((edge: any) => edge.node) || [],
     }
-
-    return formattedOrder
   } catch (error) {
-    console.error("Error al obtener pedido:", error)
-    throw error
+    console.error("Error fetching order by ID:", error)
+    return null
   }
 }
 
-// Función para obtener pedidos de un cliente
-export async function fetchCustomerOrders(customerId: string) {
-  try {
-    const formattedId = customerId.includes("gid://") ? customerId : `gid://shopify/Customer/${customerId}`
+export async function fetchRecentOrders(limit = 5): Promise<Order[]> {
+  return fetchOrders(limit)
+}
 
+export async function fetchCustomerOrders(customerId: string): Promise<Order[]> {
+  try {
     const query = `
       query {
-        customer(id: "${formattedId}") {
+        customer(id: "gid://shopify/Customer/${customerId}") {
           orders(first: 50) {
             edges {
               node {
                 id
                 name
+                email
+                phone
                 processedAt
-                displayFulfillmentStatus
-                displayFinancialStatus
+                financialStatus
+                fulfillmentStatus
                 totalPriceSet {
                   shopMoney {
                     amount
                     currencyCode
                   }
                 }
+                lineItems(first: 10) {
+                  edges {
+                    node {
+                      id
+                      title
+                      quantity
+                      variant {
+                        id
+                        title
+                        price
+                      }
+                    }
+                  }
+                }
               }
             }
           }
@@ -206,32 +203,20 @@ export async function fetchCustomerOrders(customerId: string) {
 
     const response = await shopifyFetch({ query })
 
-    if (response.errors) {
-      throw new Error(`Error de Shopify: ${response.errors.map((e) => e.message).join(", ")}`)
+    if (response.errors || !response.data?.customer) {
+      return []
     }
 
     return (
-      response.data?.customer?.orders?.edges?.map((edge) => {
-        const node = edge.node
-        return {
-          ...node,
-          totalPrice: node.totalPriceSet?.shopMoney?.amount || "0",
-          currencyCode: node.totalPriceSet?.shopMoney?.currencyCode || "EUR",
-        }
-      }) || []
+      response.data.customer.orders?.edges?.map((edge: any) => ({
+        ...edge.node,
+        totalPrice: edge.node.totalPriceSet?.shopMoney?.amount || "0",
+        currencyCode: edge.node.totalPriceSet?.shopMoney?.currencyCode || "USD",
+        lineItems: edge.node.lineItems?.edges?.map((itemEdge: any) => itemEdge.node) || [],
+      })) || []
     )
   } catch (error) {
-    console.error("Error al obtener pedidos del cliente:", error)
-    throw error
-  }
-}
-
-// Función para obtener pedidos recientes
-export async function fetchRecentOrders(limit = 5) {
-  try {
-    return await fetchOrders(limit)
-  } catch (error) {
-    console.error("Error al obtener pedidos recientes:", error)
+    console.error("Error fetching customer orders:", error)
     return []
   }
 }

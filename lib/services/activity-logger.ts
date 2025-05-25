@@ -1,6 +1,5 @@
-import { query } from "@/lib/db"
-
-export interface ActivityLogEntry {
+interface ActivityLogEntry {
+  id: string
   usuarioId?: number
   usuarioNombre?: string
   accion: string
@@ -13,44 +12,36 @@ export interface ActivityLogEntry {
   resultado?: "SUCCESS" | "ERROR" | "WARNING"
   errorMensaje?: string
   duracionMs?: number
+  fecha_creacion: Date
 }
+
+// Almacenamiento en memoria (máximo 10 registros)
+let activityLogs: ActivityLogEntry[] = []
 
 export class ActivityLogger {
   /**
-   * Registra una actividad en la base de datos
+   * Registra una actividad
    */
-  static async log(entry: ActivityLogEntry) {
+  static async log(entry: Omit<ActivityLogEntry, "id" | "fecha_creacion">) {
     try {
-      // Limpiar registros antiguos (mantener solo los últimos 10)
-      await this.cleanOldRecords()
+      const newEntry: ActivityLogEntry = {
+        id: Date.now().toString(),
+        ...entry,
+        resultado: entry.resultado || "SUCCESS",
+        fecha_creacion: new Date(),
+      }
 
-      const sql = `
-        INSERT INTO registros_actividad (
-          usuario_id, usuario_nombre, accion, entidad, entidad_id, 
-          descripcion, metadatos, ip_address, user_agent, resultado, 
-          error_mensaje, duracion_ms
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      `
+      // Agregar al inicio del array
+      activityLogs.unshift(newEntry)
 
-      const values = [
-        entry.usuarioId || null,
-        entry.usuarioNombre || null,
-        entry.accion,
-        entry.entidad || null,
-        entry.entidadId || null,
-        entry.descripcion || null,
-        entry.metadatos ? JSON.stringify(entry.metadatos) : null,
-        entry.ipAddress || null,
-        entry.userAgent || null,
-        entry.resultado || "SUCCESS",
-        entry.errorMensaje || null,
-        entry.duracionMs || null,
-      ]
+      // Mantener solo los últimos 10 registros
+      if (activityLogs.length > 10) {
+        activityLogs = activityLogs.slice(0, 10)
+      }
 
-      await query(sql, values)
+      console.log("Actividad registrada:", newEntry)
     } catch (error) {
       console.error("Error al registrar actividad:", error)
-      // No lanzamos el error para evitar interrumpir el flujo principal
     }
   }
 
@@ -131,70 +122,58 @@ export class ActivityLogger {
    * Obtiene los registros de actividad más recientes
    */
   static async getRecentActivity(limit = 10) {
-    try {
-      const sql = `
-        SELECT * FROM registros_actividad 
-        ORDER BY fecha_creacion DESC 
-        LIMIT $1
-      `
-      const result = await query(sql, [limit])
-      return result.rows
-    } catch (error) {
-      console.error("Error al obtener registros de actividad:", error)
-      return []
-    }
-  }
-
-  /**
-   * Limpia registros antiguos manteniendo solo los últimos 10
-   */
-  static async cleanOldRecords() {
-    try {
-      const sql = `
-        DELETE FROM registros_actividad 
-        WHERE id NOT IN (
-          SELECT id FROM registros_actividad 
-          ORDER BY fecha_creacion DESC 
-          LIMIT 10
-        )
-      `
-      await query(sql)
-    } catch (error) {
-      console.error("Error al limpiar registros antiguos:", error)
-    }
+    return activityLogs.slice(0, Math.min(limit, activityLogs.length))
   }
 
   /**
    * Obtiene estadísticas de actividad
    */
   static async getActivityStats() {
-    try {
-      const sql = `
-        SELECT 
-          COUNT(*) as total_registros,
-          COUNT(CASE WHEN resultado = 'SUCCESS' THEN 1 END) as exitosos,
-          COUNT(CASE WHEN resultado = 'ERROR' THEN 1 END) as errores,
-          COUNT(DISTINCT usuario_id) as usuarios_activos
-        FROM registros_actividad
-        WHERE fecha_creacion >= NOW() - INTERVAL '24 hours'
-      `
-      const result = await query(sql)
-      return (
-        result.rows[0] || {
-          total_registros: 0,
-          exitosos: 0,
-          errores: 0,
-          usuarios_activos: 0,
-        }
-      )
-    } catch (error) {
-      console.error("Error al obtener estadísticas:", error)
-      return {
-        total_registros: 0,
-        exitosos: 0,
-        errores: 0,
-        usuarios_activos: 0,
-      }
+    const total = activityLogs.length
+    const exitosos = activityLogs.filter((log) => log.resultado === "SUCCESS").length
+    const errores = activityLogs.filter((log) => log.resultado === "ERROR").length
+    const usuariosActivos = new Set(activityLogs.map((log) => log.usuarioId).filter(Boolean)).size
+
+    return {
+      total_registros: total,
+      exitosos,
+      errores,
+      usuarios_activos: usuariosActivos,
     }
+  }
+
+  /**
+   * Obtiene el conteo de registros
+   */
+  static async getConteoRegistros() {
+    return activityLogs.length
+  }
+
+  /**
+   * Obtiene registros con filtros
+   */
+  static async getRegistros(filtros: any = {}) {
+    let registrosFiltrados = [...activityLogs]
+
+    if (filtros.accion) {
+      registrosFiltrados = registrosFiltrados.filter((log) => log.accion === filtros.accion)
+    }
+
+    if (filtros.entidad) {
+      registrosFiltrados = registrosFiltrados.filter((log) => log.entidad === filtros.entidad)
+    }
+
+    if (filtros.resultado) {
+      registrosFiltrados = registrosFiltrados.filter((log) => log.resultado === filtros.resultado)
+    }
+
+    if (filtros.usuarioId) {
+      registrosFiltrados = registrosFiltrados.filter((log) => log.usuarioId === filtros.usuarioId)
+    }
+
+    return registrosFiltrados.slice(0, filtros.limite || 10).map((log) => ({
+      ...log,
+      admin_nombre_completo: log.usuarioNombre || "Sistema",
+    }))
   }
 }

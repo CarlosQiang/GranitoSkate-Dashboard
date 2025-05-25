@@ -1,7 +1,21 @@
 import { shopifyFetch } from "@/lib/shopify"
 
-// Función para obtener todas las colecciones
-export async function fetchCollections(limit = 50) {
+export interface Collection {
+  id: string
+  title: string
+  description: string
+  handle: string
+  image?: {
+    url: string
+    altText: string
+  }
+  products: Array<{
+    id: string
+    title: string
+  }>
+}
+
+export async function fetchCollections(limit = 10): Promise<Collection[]> {
   try {
     const query = `
       query {
@@ -16,52 +30,12 @@ export async function fetchCollections(limit = 50) {
                 url
                 altText
               }
-              productsCount
-            }
-          }
-        }
-      }
-    `
-
-    const response = await shopifyFetch({ query })
-
-    if (response.errors) {
-      throw new Error(`Error de Shopify: ${response.errors.map((e) => e.message).join(", ")}`)
-    }
-
-    return response.data?.collections?.edges?.map((edge) => edge.node) || []
-  } catch (error) {
-    console.error("Error al obtener colecciones:", error)
-    throw error
-  }
-}
-
-// Función para obtener una colección por ID
-export async function fetchCollectionById(id: string) {
-  try {
-    const formattedId = id.includes("gid://") ? id : `gid://shopify/Collection/${id}`
-
-    const query = `
-      query {
-        collection(id: "${formattedId}") {
-          id
-          title
-          description
-          handle
-          image {
-            url
-            altText
-          }
-          productsCount
-          products(first: 50) {
-            edges {
-              node {
-                id
-                title
-                status
-                featuredImage {
-                  url
-                  altText
+              products(first: 10) {
+                edges {
+                  node {
+                    id
+                    title
+                  }
                 }
               }
             }
@@ -73,26 +47,64 @@ export async function fetchCollectionById(id: string) {
     const response = await shopifyFetch({ query })
 
     if (response.errors) {
-      throw new Error(`Error de Shopify: ${response.errors.map((e) => e.message).join(", ")}`)
+      throw new Error(response.errors.map((e: any) => e.message).join(", "))
     }
 
-    const collection = response.data?.collection
-    if (!collection) {
-      throw new Error("Colección no encontrada")
-    }
-
-    // Formatear los productos
-    collection.products = collection.products?.edges?.map((edge) => edge.node) || []
-
-    return collection
+    return (
+      response.data?.collections?.edges?.map((edge: any) => ({
+        ...edge.node,
+        products: edge.node.products?.edges?.map((prodEdge: any) => prodEdge.node) || [],
+      })) || []
+    )
   } catch (error) {
-    console.error("Error al obtener colección:", error)
-    throw error
+    console.error("Error fetching collections:", error)
+    return []
   }
 }
 
-// Función para crear una colección
-export async function createCollection(collectionData: any) {
+export async function fetchCollectionById(id: string): Promise<Collection | null> {
+  try {
+    const query = `
+      query {
+        collection(id: "gid://shopify/Collection/${id}") {
+          id
+          title
+          description
+          handle
+          image {
+            url
+            altText
+          }
+          products(first: 50) {
+            edges {
+              node {
+                id
+                title
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const response = await shopifyFetch({ query })
+
+    if (response.errors || !response.data?.collection) {
+      return null
+    }
+
+    const collection = response.data.collection
+    return {
+      ...collection,
+      products: collection.products?.edges?.map((edge: any) => edge.node) || [],
+    }
+  } catch (error) {
+    console.error("Error fetching collection by ID:", error)
+    return null
+  }
+}
+
+export async function createCollection(collectionData: any): Promise<Collection | null> {
   try {
     const mutation = `
       mutation collectionCreate($input: CollectionInput!) {
@@ -100,6 +112,7 @@ export async function createCollection(collectionData: any) {
           collection {
             id
             title
+            description
             handle
           }
           userErrors {
@@ -110,42 +123,34 @@ export async function createCollection(collectionData: any) {
       }
     `
 
-    const variables = {
-      input: {
-        title: collectionData.title,
-        descriptionHtml: collectionData.description || "",
-        handle: collectionData.handle || "",
+    const response = await shopifyFetch({
+      query: mutation,
+      variables: {
+        input: collectionData,
       },
+    })
+
+    if (response.errors || response.data?.collectionCreate?.userErrors?.length > 0) {
+      throw new Error(response.errors?.[0]?.message || response.data?.collectionCreate?.userErrors?.[0]?.message)
     }
 
-    const response = await shopifyFetch({ query: mutation, variables })
-
-    if (response.errors) {
-      throw new Error(`Error de Shopify: ${response.errors.map((e) => e.message).join(", ")}`)
-    }
-
-    if (response.data?.collectionCreate?.userErrors?.length > 0) {
-      throw new Error(response.data.collectionCreate.userErrors.map((e) => e.message).join(", "))
-    }
-
-    return response.data?.collectionCreate?.collection
+    return response.data?.collectionCreate?.collection || null
   } catch (error) {
-    console.error("Error al crear colección:", error)
+    console.error("Error creating collection:", error)
     throw error
   }
 }
 
-// Función para actualizar una colección
-export async function updateCollection(id: string, collectionData: any) {
+export async function updateCollection(id: string, collectionData: any): Promise<Collection | null> {
   try {
-    const formattedId = id.includes("gid://") ? id : `gid://shopify/Collection/${id}`
-
     const mutation = `
       mutation collectionUpdate($input: CollectionInput!) {
         collectionUpdate(input: $input) {
           collection {
             id
             title
+            description
+            handle
           }
           userErrors {
             field
@@ -155,36 +160,29 @@ export async function updateCollection(id: string, collectionData: any) {
       }
     `
 
-    const variables = {
-      input: {
-        id: formattedId,
-        title: collectionData.title,
-        descriptionHtml: collectionData.description || "",
+    const response = await shopifyFetch({
+      query: mutation,
+      variables: {
+        input: {
+          id: `gid://shopify/Collection/${id}`,
+          ...collectionData,
+        },
       },
+    })
+
+    if (response.errors || response.data?.collectionUpdate?.userErrors?.length > 0) {
+      throw new Error(response.errors?.[0]?.message || response.data?.collectionUpdate?.userErrors?.[0]?.message)
     }
 
-    const response = await shopifyFetch({ query: mutation, variables })
-
-    if (response.errors) {
-      throw new Error(`Error de Shopify: ${response.errors.map((e) => e.message).join(", ")}`)
-    }
-
-    if (response.data?.collectionUpdate?.userErrors?.length > 0) {
-      throw new Error(response.data.collectionUpdate.userErrors.map((e) => e.message).join(", "))
-    }
-
-    return response.data?.collectionUpdate?.collection
+    return response.data?.collectionUpdate?.collection || null
   } catch (error) {
-    console.error("Error al actualizar colección:", error)
+    console.error("Error updating collection:", error)
     throw error
   }
 }
 
-// Función para eliminar una colección
-export async function deleteCollection(id: string) {
+export async function deleteCollection(id: string): Promise<boolean> {
   try {
-    const formattedId = id.includes("gid://") ? id : `gid://shopify/Collection/${id}`
-
     const mutation = `
       mutation collectionDelete($input: CollectionDeleteInput!) {
         collectionDelete(input: $input) {
@@ -197,25 +195,22 @@ export async function deleteCollection(id: string) {
       }
     `
 
-    const variables = {
-      input: {
-        id: formattedId,
+    const response = await shopifyFetch({
+      query: mutation,
+      variables: {
+        input: {
+          id: `gid://shopify/Collection/${id}`,
+        },
       },
+    })
+
+    if (response.errors || response.data?.collectionDelete?.userErrors?.length > 0) {
+      throw new Error(response.errors?.[0]?.message || response.data?.collectionDelete?.userErrors?.[0]?.message)
     }
 
-    const response = await shopifyFetch({ query: mutation, variables })
-
-    if (response.errors) {
-      throw new Error(`Error de Shopify: ${response.errors.map((e) => e.message).join(", ")}`)
-    }
-
-    if (response.data?.collectionDelete?.userErrors?.length > 0) {
-      throw new Error(response.data.collectionDelete.userErrors.map((e) => e.message).join(", "))
-    }
-
-    return response.data?.collectionDelete?.deletedCollectionId
+    return !!response.data?.collectionDelete?.deletedCollectionId
   } catch (error) {
-    console.error("Error al eliminar colección:", error)
+    console.error("Error deleting collection:", error)
     throw error
   }
 }
