@@ -1,194 +1,107 @@
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Activity, Users, Settings, Database, CheckCircle, AlertTriangle } from "lucide-react"
-import Link from "next/link"
+import { Activity, Users, Database, Shield } from "lucide-react"
+import RegistrosRecientes from "@/components/registros-recientes"
+import { testConnection, getDatabaseInfo } from "@/lib/db"
+import { ActivityLogger } from "@/lib/services/activity-logger"
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const session = await getServerSession(authOptions)
+
+  // Obtener información del sistema
+  const dbConnection = await testConnection()
+  const dbInfo = await getDatabaseInfo()
+  const estadisticas = await ActivityLogger.getEstadisticas()
+  const conteoRegistros = await ActivityLogger.getConteoRegistros()
+
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground mt-2">Bienvenido al sistema de gestión GranitoSkate</p>
+        <p className="text-muted-foreground">Bienvenido de vuelta, {session?.user?.name}</p>
       </div>
 
-      {/* Estado del sistema */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      {/* Estadísticas principales */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Sistema</CardTitle>
+            <CardTitle className="text-sm font-medium">Estado de la Base de Datos</CardTitle>
             <Database className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="h-4 w-4 text-green-500" />
-              <span className="text-sm text-green-600">Operativo</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Base de datos conectada</p>
+            <div className="text-2xl font-bold">{dbConnection.success ? "Conectada" : "Error"}</div>
+            <p className="text-xs text-muted-foreground">
+              {dbConnection.success ? "Funcionando correctamente" : "Revisar conexión"}
+            </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Administradores</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">1</div>
-            <p className="text-xs text-muted-foreground">Usuario admin activo</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Registros</CardTitle>
+            <CardTitle className="text-sm font-medium">Registros de Actividad</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">-</div>
-            <p className="text-xs text-muted-foreground">Sistema de logging activo</p>
+            <div className="text-2xl font-bold">{conteoRegistros}</div>
+            <p className="text-xs text-muted-foreground">Máximo 10 registros mantenidos</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Configuración</CardTitle>
-            <Settings className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Operaciones Exitosas</CardTitle>
+            <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="h-4 w-4 text-green-500" />
-              <span className="text-sm text-green-600">Listo</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Sistema configurado</p>
+            <div className="text-2xl font-bold">{estadisticas?.exitosos || 0}</div>
+            <p className="text-xs text-muted-foreground">De {estadisticas?.total_registros || 0} operaciones</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Usuarios Activos</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{estadisticas?.usuarios_activos || 0}</div>
+            <p className="text-xs text-muted-foreground">En los últimos registros</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Acciones rápidas */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Acciones Rápidas</CardTitle>
-            <CardDescription>Tareas comunes del sistema</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Link
-                href="/dashboard/registros"
-                className="block p-3 rounded-lg border hover:bg-muted transition-colors"
-              >
-                <div className="flex items-center space-x-3">
-                  <Activity className="h-5 w-5 text-green-500" />
-                  <div>
-                    <p className="font-medium">Ver Registros</p>
-                    <p className="text-sm text-muted-foreground">Revisar actividad del sistema</p>
-                  </div>
-                </div>
-              </Link>
-
-              <Link
-                href="/dashboard/administradores"
-                className="block p-3 rounded-lg border hover:bg-muted transition-colors"
-              >
-                <div className="flex items-center space-x-3">
-                  <Users className="h-5 w-5 text-blue-500" />
-                  <div>
-                    <p className="font-medium">Gestionar Administradores</p>
-                    <p className="text-sm text-muted-foreground">Crear y editar usuarios admin</p>
-                  </div>
-                </div>
-              </Link>
-
-              <Link href="/dashboard/setup" className="block p-3 rounded-lg border hover:bg-muted transition-colors">
-                <div className="flex items-center space-x-3">
-                  <Settings className="h-5 w-5 text-purple-500" />
-                  <div>
-                    <p className="font-medium">Configuración Inicial</p>
-                    <p className="text-sm text-muted-foreground">Verificar configuración del sistema</p>
-                  </div>
-                </div>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-
+      {/* Información del sistema */}
+      <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Estado del Sistema</CardTitle>
-            <CardDescription>Información sobre el funcionamiento actual</CardDescription>
+            <CardDescription>Información de la base de datos y conexiones</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Base de datos</span>
-                <span className="flex items-center text-sm text-green-600">
-                  <CheckCircle className="h-4 w-4 mr-1" />
-                  Conectada
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Autenticación</span>
-                <span className="flex items-center text-sm text-green-600">
-                  <CheckCircle className="h-4 w-4 mr-1" />
-                  Funcionando
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Sistema de logs</span>
-                <span className="flex items-center text-sm text-green-600">
-                  <CheckCircle className="h-4 w-4 mr-1" />
-                  Activo
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Shopify (próximamente)</span>
-                <span className="flex items-center text-sm text-yellow-600">
-                  <AlertTriangle className="h-4 w-4 mr-1" />
-                  Pendiente
-                </span>
-              </div>
+          <CardContent className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-sm font-medium">Base de Datos:</span>
+              <span className={`text-sm ${dbConnection.success ? "text-green-600" : "text-red-600"}`}>
+                {dbConnection.success ? "✓ Conectada" : "✗ Error"}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm font-medium">Tablas:</span>
+              <span className="text-sm">{dbInfo.success ? dbInfo.tables?.length || 0 : "Error"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm font-medium">Sesión:</span>
+              <span className="text-sm text-green-600">✓ Activa</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm font-medium">Usuario:</span>
+              <span className="text-sm">{session?.user?.name}</span>
             </div>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Próximos pasos */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Próximos Pasos</CardTitle>
-          <CardDescription>Funcionalidades que se implementarán próximamente</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <h4 className="font-medium text-sm">Gestión de Productos</h4>
-              <p className="text-xs text-muted-foreground">
-                Sistema completo para gestionar productos de Shopify con sincronización automática
-              </p>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-medium text-sm">Gestión de Colecciones</h4>
-              <p className="text-xs text-muted-foreground">
-                Organización y gestión de colecciones de productos con metadatos SEO
-              </p>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-medium text-sm">Sistema de Promociones</h4>
-              <p className="text-xs text-muted-foreground">
-                Creación y gestión de códigos de descuento y promociones especiales
-              </p>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-medium text-sm">Gestión de Clientes</h4>
-              <p className="text-xs text-muted-foreground">
-                Base de datos de clientes con historial de pedidos y segmentación
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        <RegistrosRecientes />
+      </div>
     </div>
   )
 }

@@ -15,20 +15,14 @@ export async function GET(request: NextRequest) {
     const accion = searchParams.get("accion")
     const entidad = searchParams.get("entidad")
     const resultado = searchParams.get("resultado")
-    const fechaDesde = searchParams.get("fechaDesde")
-    const fechaHasta = searchParams.get("fechaHasta")
-    const limite = Number.parseInt(searchParams.get("limite") || "50")
-    const offset = Number.parseInt(searchParams.get("offset") || "0")
+    const limite = Number.parseInt(searchParams.get("limite") || "10")
 
     const filtros = {
       usuarioId: usuarioId ? Number.parseInt(usuarioId) : undefined,
       accion: accion || undefined,
       entidad: entidad || undefined,
       resultado: resultado || undefined,
-      fechaDesde: fechaDesde ? new Date(fechaDesde) : undefined,
-      fechaHasta: fechaHasta ? new Date(fechaHasta) : undefined,
-      limite,
-      offset,
+      limite: Math.min(limite, 10), // Máximo 10 registros
     }
 
     const registros = await ActivityLogger.getRegistros(filtros)

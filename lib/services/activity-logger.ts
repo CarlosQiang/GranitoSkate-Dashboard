@@ -2,7 +2,7 @@ import { query } from "@/lib/db"
 
 export class ActivityLogger {
   /**
-   * Registra una actividad en la base de datos
+   * Registra una actividad y mantiene solo los últimos 10 registros
    */
   static async log(params: {
     usuarioId?: number
@@ -34,6 +34,7 @@ export class ActivityLogger {
         duracionMs,
       } = params
 
+      // Insertar nuevo registro
       const result = await query(
         `INSERT INTO registros_actividad (
           usuario_id, usuario_nombre, accion, entidad, entidad_id,
@@ -55,6 +56,16 @@ export class ActivityLogger {
           errorMensaje,
           duracionMs,
         ],
+      )
+
+      // Limpiar registros antiguos - mantener solo los últimos 10
+      await query(
+        `DELETE FROM registros_actividad 
+         WHERE id NOT IN (
+           SELECT id FROM registros_actividad 
+           ORDER BY fecha_creacion DESC 
+           LIMIT 10
+         )`,
       )
 
       return result.rows[0].id
@@ -96,6 +107,63 @@ export class ActivityLogger {
   }
 
   /**
+   * Registra cambio en administradores
+   */
+  static async logAdminChange(
+    usuarioId: number,
+    usuarioNombre: string,
+    accion: "CREATE" | "UPDATE" | "DELETE",
+    adminAfectadoId: string,
+    adminAfectadoNombre: string,
+  ) {
+    const acciones = {
+      CREATE: "creó",
+      UPDATE: "modificó",
+      DELETE: "eliminó",
+    }
+
+    return this.log({
+      usuarioId,
+      usuarioNombre,
+      accion: `ADMIN_${accion}`,
+      entidad: "ADMIN",
+      entidadId: adminAfectadoId,
+      descripcion: `${usuarioNombre} ${acciones[accion]} al administrador ${adminAfectadoNombre}`,
+    })
+  }
+
+  /**
+   * Registra llamada a API de Shopify
+   */
+  static async logShopifyCall(
+    usuarioId: number,
+    usuarioNombre: string,
+    endpoint: string,
+    metodo: string,
+    resultado: "SUCCESS" | "ERROR",
+    duracionMs?: number,
+    errorMensaje?: string,
+    metadatos?: any,
+  ) {
+    return this.log({
+      usuarioId,
+      usuarioNombre,
+      accion: "SHOPIFY_API_CALL",
+      entidad: "SHOPIFY",
+      entidadId: endpoint,
+      descripcion: `${metodo} ${endpoint}`,
+      metadatos: {
+        endpoint,
+        metodo,
+        ...metadatos,
+      },
+      resultado,
+      errorMensaje,
+      duracionMs,
+    })
+  }
+
+  /**
    * Registra error del sistema
    */
   static async logSystemError(error: Error, contexto?: string, usuarioId?: number) {
@@ -114,7 +182,7 @@ export class ActivityLogger {
   }
 
   /**
-   * Obtiene registros de actividad con filtros
+   * Obtiene los últimos registros (máximo 10)
    */
   static async getRegistros(
     filtros: {
@@ -122,14 +190,11 @@ export class ActivityLogger {
       accion?: string
       entidad?: string
       resultado?: string
-      fechaDesde?: Date
-      fechaHasta?: Date
       limite?: number
-      offset?: number
     } = {},
   ) {
     try {
-      const { usuarioId, accion, entidad, resultado, fechaDesde, fechaHasta, limite = 50, offset = 0 } = filtros
+      const { usuarioId, accion, entidad, resultado, limite = 10 } = filtros
 
       let whereClause = "WHERE 1=1"
       const params: any[] = []
@@ -159,19 +224,7 @@ export class ActivityLogger {
         paramIndex++
       }
 
-      if (fechaDesde) {
-        whereClause += ` AND fecha_creacion >= $${paramIndex}`
-        params.push(fechaDesde)
-        paramIndex++
-      }
-
-      if (fechaHasta) {
-        whereClause += ` AND fecha_creacion <= $${paramIndex}`
-        params.push(fechaHasta)
-        paramIndex++
-      }
-
-      params.push(limite, offset)
+      params.push(Math.min(limite, 10)) // Máximo 10 registros
 
       const result = await query(
         `SELECT r.*, a.nombre_completo as admin_nombre_completo
@@ -179,7 +232,7 @@ export class ActivityLogger {
          LEFT JOIN administradores a ON r.usuario_id = a.id
          ${whereClause}
          ORDER BY r.fecha_creacion DESC
-         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+         LIMIT $${paramIndex}`,
         params,
       )
 
@@ -191,26 +244,10 @@ export class ActivityLogger {
   }
 
   /**
-   * Obtiene estadísticas de actividad
+   * Obtiene estadísticas de los registros actuales
    */
-  static async getEstadisticas(fechaDesde?: Date, fechaHasta?: Date) {
+  static async getEstadisticas() {
     try {
-      let whereClause = "WHERE 1=1"
-      const params: any[] = []
-      let paramIndex = 1
-
-      if (fechaDesde) {
-        whereClause += ` AND fecha_creacion >= $${paramIndex}`
-        params.push(fechaDesde)
-        paramIndex++
-      }
-
-      if (fechaHasta) {
-        whereClause += ` AND fecha_creacion <= $${paramIndex}`
-        params.push(fechaHasta)
-        paramIndex++
-      }
-
       const result = await query(
         `SELECT 
           COUNT(*) as total_registros,
@@ -218,16 +255,28 @@ export class ActivityLogger {
           COUNT(CASE WHEN resultado = 'ERROR' THEN 1 END) as errores,
           COUNT(CASE WHEN resultado = 'WARNING' THEN 1 END) as advertencias,
           COUNT(DISTINCT usuario_id) as usuarios_activos,
-          COUNT(CASE WHEN accion = 'LOGIN' THEN 1 END) as total_logins
-         FROM registros_actividad
-         ${whereClause}`,
-        params,
+          COUNT(CASE WHEN accion = 'LOGIN' THEN 1 END) as total_logins,
+          COUNT(CASE WHEN accion LIKE 'SHOPIFY%' THEN 1 END) as llamadas_shopify
+         FROM registros_actividad`,
       )
 
       return result.rows[0]
     } catch (error) {
       console.error("Error al obtener estadísticas:", error)
       return null
+    }
+  }
+
+  /**
+   * Obtiene el conteo actual de registros
+   */
+  static async getConteoRegistros() {
+    try {
+      const result = await query("SELECT COUNT(*) as total FROM registros_actividad")
+      return Number.parseInt(result.rows[0].total)
+    } catch (error) {
+      console.error("Error al obtener conteo:", error)
+      return 0
     }
   }
 }

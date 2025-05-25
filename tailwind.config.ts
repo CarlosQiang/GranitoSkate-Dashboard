@@ -9,6 +9,7 @@ const config: Config = {
     "./src/**/*.{ts,tsx}",
     "*.{js,ts,jsx,tsx,mdx}",
   ],
+  prefix: "",
   theme: {
     container: {
       center: true,
@@ -19,27 +20,16 @@ const config: Config = {
     },
     extend: {
       colors: {
+        granito: {
+          DEFAULT: "#D4A574",
+          dark: "#B8935F",
+          light: "#E6C299",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        granito: {
-          DEFAULT: "var(--color-primary)",
-          light: "var(--color-primary-light)",
-          dark: "var(--color-primary-dark)",
-          50: "hsl(var(--granito-50))",
-          100: "hsl(var(--granito-100))",
-          200: "hsl(var(--granito-200))",
-          300: "hsl(var(--granito-300))",
-          400: "hsl(var(--granito-400))",
-          500: "hsl(var(--granito-500))",
-          600: "hsl(var(--granito-600))",
-          700: "hsl(var(--granito-700))",
-          800: "hsl(var(--granito-800))",
-          900: "hsl(var(--granito-900))",
-          950: "hsl(var(--granito-950))",
-        },
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -91,6 +81,6 @@ const config: Config = {
     },
   },
   plugins: [require("tailwindcss-animate")],
-}
+} satisfies Config
 
 export default config
