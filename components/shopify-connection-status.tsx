@@ -3,22 +3,30 @@
 import { useState, useEffect } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { AlertCircle, RefreshCw, CheckCircle } from "lucide-react"
+import { AlertCircle, RefreshCw, CheckCircle, Settings } from "lucide-react"
 import { LoadingState } from "@/components/loading-state"
+import Link from "next/link"
 
 export function ShopifyConnectionStatus() {
-  const [status, setStatus] = useState<"loading" | "connected" | "error" | "hidden">("loading")
+  const [status, setStatus] = useState<"loading" | "connected" | "error" | "not-configured">("loading")
   const [errorDetails, setErrorDetails] = useState<string | null>(null)
   const [shopName, setShopName] = useState<string | null>(null)
 
   async function checkConnection() {
-    // Si no necesitas la integración con Shopify, simplemente oculta el componente
-    setStatus("hidden")
-    return
-
-    // El código original se mantiene pero no se ejecutará
     try {
       setStatus("loading")
+
+      // Primero verificar si las variables están configuradas
+      const configResponse = await fetch("/api/system/config-check")
+      const configData = await configResponse.json()
+
+      if (!configData.shopify) {
+        setStatus("not-configured")
+        setErrorDetails("Variables de entorno de Shopify no configuradas")
+        return
+      }
+
+      // Si están configuradas, probar la conexión
       const response = await fetch("/api/shopify/check", {
         method: "GET",
         headers: {
@@ -32,7 +40,7 @@ export function ShopifyConnectionStatus() {
 
       if (data.success) {
         setStatus("connected")
-        setShopName(data.shopName)
+        setShopName(data.shopName || data.data?.shop?.name)
         setErrorDetails(null)
       } else {
         throw new Error(data.error || "Error desconocido al conectar con Shopify")
@@ -56,6 +64,30 @@ export function ShopifyConnectionStatus() {
     )
   }
 
+  if (status === "not-configured") {
+    return (
+      <Alert variant="destructive" className="my-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle className="text-sm sm:text-base">Shopify no configurado</AlertTitle>
+        <AlertDescription className="text-xs sm:text-sm">
+          <p>Las variables de entorno de Shopify no están configuradas.</p>
+          <div className="mt-4 flex flex-col sm:flex-row gap-2">
+            <Link href="/dashboard/setup">
+              <Button size="sm" className="w-full sm:w-auto">
+                <Settings className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                Configurar Shopify
+              </Button>
+            </Link>
+            <Button onClick={checkConnection} variant="outline" size="sm" className="w-full sm:w-auto">
+              <RefreshCw className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+              Verificar de nuevo
+            </Button>
+          </div>
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
   if (status === "error") {
     return (
       <Alert variant="destructive" className="my-4">
@@ -64,8 +96,8 @@ export function ShopifyConnectionStatus() {
         <AlertDescription className="text-xs sm:text-sm">
           <p>No se pudo conectar con la API de Shopify. Por favor, verifica:</p>
           <ul className="list-disc pl-5 mt-2 mb-4 space-y-1">
-            <li>Que el dominio de la tienda (NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN) sea correcto</li>
-            <li>Que el token de acceso (SHOPIFY_ACCESS_TOKEN) sea válido y tenga los permisos necesarios</li>
+            <li>Que el dominio de la tienda sea correcto</li>
+            <li>Que el token de acceso sea válido y tenga los permisos necesarios</li>
             <li>Que la tienda esté activa y accesible</li>
           </ul>
           {errorDetails && (
@@ -73,9 +105,18 @@ export function ShopifyConnectionStatus() {
               {errorDetails}
             </div>
           )}
-          <Button onClick={checkConnection} className="mt-4 w-full sm:w-auto" variant="outline" size="sm">
-            <RefreshCw className="mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Reintentar conexión
-          </Button>
+          <div className="mt-4 flex flex-col sm:flex-row gap-2">
+            <Link href="/dashboard/setup">
+              <Button size="sm" className="w-full sm:w-auto">
+                <Settings className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                Revisar configuración
+              </Button>
+            </Link>
+            <Button onClick={checkConnection} variant="outline" size="sm" className="w-full sm:w-auto">
+              <RefreshCw className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+              Reintentar conexión
+            </Button>
+          </div>
         </AlertDescription>
       </Alert>
     )

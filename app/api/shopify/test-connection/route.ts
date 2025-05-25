@@ -14,8 +14,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Limpiar el dominio
+    const cleanDomain = shopDomain.replace(/^https?:\/\//, "").replace(/\.myshopify\.com$/, "")
+    const fullDomain = `${cleanDomain}.myshopify.com`
+
     // Probar la conexión con Shopify
-    const endpoint = `https://${shopDomain}/admin/api/2024-01/graphql.json`
+    const endpoint = `https://${fullDomain}/admin/api/2024-01/graphql.json`
 
     const query = `
       query {
@@ -25,6 +29,9 @@ export async function POST(request: NextRequest) {
           url
           primaryDomain {
             url
+          }
+          plan {
+            displayName
           }
         }
       }
@@ -43,7 +50,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message: `Error HTTP ${response.status}: ${response.statusText}`,
+          message: `Error HTTP ${response.status}: ${response.statusText}. Verifica que el dominio y token sean correctos.`,
         },
         { status: 400 },
       )
@@ -63,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Conexión exitosa con ${result.data?.shop?.name || "Shopify"}`,
+      message: `Conexión exitosa con ${result.data?.shop?.name || "tu tienda"}`,
       data: result.data,
     })
   } catch (error) {

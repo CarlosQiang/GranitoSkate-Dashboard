@@ -1,23 +1,40 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { CheckCircle, AlertCircle, Settings } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/components/ui/use-toast"
+import { CheckCircle, AlertCircle, Copy, ExternalLink, Settings, Database, ShoppingBag, Loader2 } from "lucide-react"
 
 export default function SetupPage() {
   const [shopDomain, setShopDomain] = useState("")
   const [accessToken, setAccessToken] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [connectionStatus, setConnectionStatus] = useState<"idle" | "success" | "error">("idle")
-  const [errorMessage, setErrorMessage] = useState("")
+  const [isTestingConnection, setIsTestingConnection] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState<any>(null)
+  const [envVarsStatus, setEnvVarsStatus] = useState<any>(null)
   const { toast } = useToast()
 
-  const testConnection = async () => {
+  // Verificar variables de entorno al cargar
+  useEffect(() => {
+    checkEnvironmentVariables()
+  }, [])
+
+  const checkEnvironmentVariables = async () => {
+    try {
+      const response = await fetch("/api/system/config-check")
+      const data = await response.json()
+      setEnvVarsStatus(data)
+    } catch (error) {
+      console.error("Error checking environment variables:", error)
+    }
+  }
+
+  const testShopifyConnection = async () => {
     if (!shopDomain || !accessToken) {
       toast({
         title: "Error",
@@ -27,10 +44,7 @@ export default function SetupPage() {
       return
     }
 
-    setIsLoading(true)
-    setConnectionStatus("idle")
-    setErrorMessage("")
-
+    setIsTestingConnection(true)
     try {
       const response = await fetch("/api/shopify/test-connection", {
         method: "POST",
@@ -38,58 +52,142 @@ export default function SetupPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          shopDomain,
+          shopDomain: shopDomain.replace(".myshopify.com", ""),
           accessToken,
         }),
       })
 
       const result = await response.json()
+      setConnectionStatus(result)
 
       if (result.success) {
-        setConnectionStatus("success")
         toast({
           title: "¡Conexión exitosa!",
-          description: `Conectado con ${result.data?.shop?.name || "Shopify"}`,
+          description: `Conectado con ${result.data?.shop?.name || "tu tienda"}`,
         })
       } else {
-        setConnectionStatus("error")
-        setErrorMessage(result.message || "Error desconocido")
         toast({
           title: "Error de conexión",
-          description: result.message || "No se pudo conectar con Shopify",
+          description: result.message,
           variant: "destructive",
         })
       }
     } catch (error) {
-      setConnectionStatus("error")
-      setErrorMessage("Error de red al probar la conexión")
       toast({
         title: "Error",
-        description: "Error de red al probar la conexión",
+        description: "No se pudo probar la conexión",
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      setIsTestingConnection(false)
     }
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+    toast({
+      title: "Copiado",
+      description: "Texto copiado al portapapeles",
+    })
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Configuración Inicial</h1>
-        <p className="text-muted-foreground">Configura tu conexión con Shopify para comenzar</p>
+        <h1 className="text-3xl font-bold tracking-tight">Configuración del Sistema</h1>
+        <p className="text-muted-foreground">Configura las integraciones necesarias para el funcionamiento completo</p>
       </div>
 
-      <div className="max-w-2xl">
+      {/* Estado general del sistema */}
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              Configuración de Shopify
-            </CardTitle>
-            <CardDescription>Ingresa las credenciales de tu tienda Shopify para establecer la conexión</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Base de Datos</CardTitle>
+            <Database className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent>
+            {envVarsStatus?.database ? (
+              <Badge className="bg-green-100 text-green-800">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Configurada
+              </Badge>
+            ) : (
+              <Badge variant="destructive">
+                <AlertCircle className="h-3 w-3 mr-1" />
+                No configurada
+              </Badge>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Shopify</CardTitle>
+            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {envVarsStatus?.shopify ? (
+              <Badge className="bg-green-100 text-green-800">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Configurado
+              </Badge>
+            ) : (
+              <Badge variant="destructive">
+                <AlertCircle className="h-3 w-3 mr-1" />
+                No configurado
+              </Badge>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Autenticación</CardTitle>
+            <Settings className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {envVarsStatus?.auth ? (
+              <Badge className="bg-green-100 text-green-800">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Configurada
+              </Badge>
+            ) : (
+              <Badge variant="destructive">
+                <AlertCircle className="h-3 w-3 mr-1" />
+                No configurada
+              </Badge>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Configuración de Shopify */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShoppingBag className="h-5 w-5" />
+            Configuración de Shopify
+          </CardTitle>
+          <CardDescription>Conecta tu tienda de Shopify para gestionar productos, pedidos y clientes</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Instrucciones */}
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Pasos para configurar Shopify:</strong>
+              <ol className="list-decimal list-inside mt-2 space-y-1">
+                <li>Ve a tu panel de administración de Shopify</li>
+                <li>Navega a "Aplicaciones" → "Desarrollo de aplicaciones"</li>
+                <li>Crea una aplicación privada o usa una existente</li>
+                <li>Copia el dominio de tu tienda y el token de acceso</li>
+                <li>Pega los valores aquí y prueba la conexión</li>
+              </ol>
+            </AlertDescription>
+          </Alert>
+
+          {/* Formulario de configuración */}
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="shopDomain">Dominio de la tienda</Label>
               <Input
@@ -98,9 +196,7 @@ export default function SetupPage() {
                 value={shopDomain}
                 onChange={(e) => setShopDomain(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">
-                El dominio de tu tienda Shopify (ej: mi-tienda.myshopify.com)
-              </p>
+              <p className="text-xs text-muted-foreground">Solo el nombre, sin "https://" ni ".myshopify.com"</p>
             </div>
 
             <div className="space-y-2">
@@ -112,72 +208,132 @@ export default function SetupPage() {
                 value={accessToken}
                 onChange={(e) => setAccessToken(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">El token de acceso privado de tu aplicación Shopify</p>
+              <p className="text-xs text-muted-foreground">Token de acceso de la aplicación privada</p>
             </div>
+          </div>
 
-            <Button onClick={testConnection} disabled={isLoading} className="w-full">
-              {isLoading ? "Probando conexión..." : "Probar conexión"}
-            </Button>
-
-            {connectionStatus === "success" && (
-              <Alert>
-                <CheckCircle className="h-4 w-4" />
-                <AlertDescription>
-                  ¡Conexión exitosa! Tu tienda Shopify está configurada correctamente.
-                </AlertDescription>
-              </Alert>
+          {/* Botón de prueba */}
+          <Button onClick={testShopifyConnection} disabled={isTestingConnection} className="w-full">
+            {isTestingConnection ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Probando conexión...
+              </>
+            ) : (
+              "Probar conexión"
             )}
+          </Button>
 
-            {connectionStatus === "error" && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{errorMessage}</AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
+          {/* Resultado de la prueba */}
+          {connectionStatus && (
+            <Alert variant={connectionStatus.success ? "default" : "destructive"}>
+              {connectionStatus.success ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+              <AlertDescription>
+                <strong>{connectionStatus.success ? "¡Éxito!" : "Error:"}</strong> {connectionStatus.message}
+              </AlertDescription>
+            </Alert>
+          )}
 
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Instrucciones de configuración</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <h4 className="font-medium">1. Crear una aplicación privada en Shopify</h4>
-              <p className="text-sm text-muted-foreground">
-                Ve a tu panel de administración de Shopify → Aplicaciones → Desarrollar aplicaciones → Crear una
-                aplicación privada
-              </p>
-            </div>
+          <Separator />
 
-            <div>
-              <h4 className="font-medium">2. Configurar permisos</h4>
-              <p className="text-sm text-muted-foreground">
-                Asegúrate de que tu aplicación tenga permisos de lectura y escritura para productos, pedidos, clientes y
-                colecciones
-              </p>
-            </div>
+          {/* Variables de entorno para Vercel */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Variables de entorno para Vercel</h3>
+            <p className="text-sm text-muted-foreground">
+              Añade estas variables en tu panel de Vercel para que la aplicación funcione correctamente:
+            </p>
 
-            <div>
-              <h4 className="font-medium">3. Obtener credenciales</h4>
-              <p className="text-sm text-muted-foreground">
-                Copia el token de acceso de la aplicación y el dominio de tu tienda
-              </p>
-            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <div>
+                  <code className="text-sm font-mono">NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN</code>
+                  <p className="text-xs text-muted-foreground mt-1">{shopDomain || "tu-tienda"}.myshopify.com</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    copyToClipboard(shopDomain ? `${shopDomain}.myshopify.com` : "tu-tienda.myshopify.com")
+                  }
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
 
-            <div>
-              <h4 className="font-medium">4. Variables de entorno</h4>
-              <p className="text-sm text-muted-foreground">
-                Configura las siguientes variables de entorno en tu proyecto:
-              </p>
-              <div className="bg-muted p-3 rounded-md mt-2 text-sm font-mono">
-                <div>NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN=tu-tienda.myshopify.com</div>
-                <div>SHOPIFY_ACCESS_TOKEN=shpat_...</div>
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <div>
+                  <code className="text-sm font-mono">SHOPIFY_ACCESS_TOKEN</code>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {accessToken ? "shpat_••••••••••••••••" : "Tu token de acceso"}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => copyToClipboard(accessToken || "tu-token-de-acceso")}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+
+          {/* Enlaces útiles */}
+          <div className="space-y-2">
+            <h4 className="font-medium">Enlaces útiles:</h4>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <a
+                  href="https://help.shopify.com/en/manual/apps/private-apps"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <ExternalLink className="h-4 w-4 mr-1" />
+                  Crear aplicación privada
+                </a>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <a href="https://vercel.com/dashboard" target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4 mr-1" />
+                  Panel de Vercel
+                </a>
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Configuración de la base de datos */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Estado de la Base de Datos
+          </CardTitle>
+          <CardDescription>Información sobre la conexión a la base de datos</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {envVarsStatus?.database ? (
+            <Alert>
+              <CheckCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Base de datos configurada correctamente</strong>
+                <br />
+                La conexión a PostgreSQL está funcionando. Todas las tablas están creadas y listas para usar.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Base de datos no configurada</strong>
+                <br />
+                Configura las variables de entorno de PostgreSQL en Vercel para continuar.
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
