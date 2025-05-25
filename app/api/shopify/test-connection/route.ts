@@ -1,6 +1,6 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const { shopDomain, accessToken } = await request.json()
 
@@ -8,31 +8,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message: "Faltan credenciales de Shopify",
+          message: "Dominio de tienda y token de acceso son requeridos",
         },
         { status: 400 },
       )
     }
 
-    // Limpiar el dominio
-    const cleanDomain = shopDomain.replace(/^https?:\/\//, "").replace(/\.myshopify\.com$/, "")
-    const fullDomain = `${cleanDomain}.myshopify.com`
-
-    // Probar la conexión con Shopify
+    // Construir la URL del endpoint
+    const fullDomain = shopDomain.includes(".myshopify.com") ? shopDomain : `${shopDomain}.myshopify.com`
     const endpoint = `https://${fullDomain}/admin/api/2024-01/graphql.json`
 
+    // Consulta simple para verificar la conexión
     const query = `
       query {
         shop {
-          name
           id
+          name
           url
           primaryDomain {
             url
           }
-          plan {
-            displayName
-          }
+          email
+          currencyCode
         }
       }
     `
@@ -47,12 +44,14 @@ export async function POST(request: NextRequest) {
     })
 
     if (!response.ok) {
+      const errorText = await response.text()
       return NextResponse.json(
         {
           success: false,
-          message: `Error HTTP ${response.status}: ${response.statusText}. Verifica que el dominio y token sean correctos.`,
+          message: `Error HTTP ${response.status}: ${response.statusText}`,
+          details: errorText,
         },
-        { status: 400 },
+        { status: response.status },
       )
     }
 
@@ -62,7 +61,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message: `Error de GraphQL: ${result.errors.map((e: any) => e.message).join(", ")}`,
+          message: "Error en la API de Shopify",
+          details: result.errors,
+        },
+        { status: 400 },
+      )
+    }
+
+    if (!result.data || !result.data.shop) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Respuesta inválida de Shopify",
+          details: result,
         },
         { status: 400 },
       )
@@ -70,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Conexión exitosa con ${result.data?.shop?.name || "tu tienda"}`,
+      message: `Conexión exitosa con ${result.data.shop.name}`,
       data: result.data,
     })
   } catch (error) {
@@ -78,7 +89,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: `Error al probar la conexión: ${error instanceof Error ? error.message : "Error desconocido"}`,
+        message: "Error interno del servidor",
+        details: error instanceof Error ? error.message : "Error desconocido",
       },
       { status: 500 },
     )

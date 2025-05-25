@@ -3,50 +3,49 @@ import { NextResponse } from "next/server"
 export async function GET() {
   try {
     // Verificar variables de entorno de la base de datos
-    const databaseVars = ["POSTGRES_URL", "POSTGRES_PRISMA_URL", "POSTGRES_URL_NON_POOLING", "DATABASE_URL"]
+    const databaseConfigured = !!(
+      process.env.POSTGRES_URL ||
+      process.env.DATABASE_URL ||
+      (process.env.POSTGRES_HOST && process.env.POSTGRES_USER && process.env.POSTGRES_PASSWORD)
+    )
 
-    const hasDatabase = databaseVars.some((varName) => process.env[varName])
+    // Verificar variables de entorno de Shopify
+    const shopifyConfigured = !!(process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN && process.env.SHOPIFY_ACCESS_TOKEN)
 
-    // Verificar variables de Shopify
-    const shopifyVars = ["NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN", "SHOPIFY_ACCESS_TOKEN"]
-
-    const hasShopify = shopifyVars.every((varName) => process.env[varName])
-
-    // Verificar variables de autenticación
-    const authVars = ["NEXTAUTH_SECRET", "NEXTAUTH_URL"]
-
-    const hasAuth = authVars.every((varName) => process.env[varName])
+    // Verificar variables de entorno de autenticación
+    const authConfigured = !!(process.env.NEXTAUTH_SECRET && process.env.NEXTAUTH_URL)
 
     return NextResponse.json({
-      database: hasDatabase,
-      shopify: hasShopify,
-      auth: hasAuth,
+      database: databaseConfigured,
+      shopify: shopifyConfigured,
+      auth: authConfigured,
       details: {
         database: {
-          configured: hasDatabase,
-          variables: databaseVars.map((varName) => ({
-            name: varName,
-            configured: !!process.env[varName],
-          })),
+          postgres_url: !!process.env.POSTGRES_URL,
+          database_url: !!process.env.DATABASE_URL,
+          postgres_host: !!process.env.POSTGRES_HOST,
+          postgres_user: !!process.env.POSTGRES_USER,
+          postgres_password: !!process.env.POSTGRES_PASSWORD,
         },
         shopify: {
-          configured: hasShopify,
-          variables: shopifyVars.map((varName) => ({
-            name: varName,
-            configured: !!process.env[varName],
-          })),
+          shop_domain: !!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN,
+          access_token: !!process.env.SHOPIFY_ACCESS_TOKEN,
+          shop_domain_value: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || null,
         },
         auth: {
-          configured: hasAuth,
-          variables: authVars.map((varName) => ({
-            name: varName,
-            configured: !!process.env[varName],
-          })),
+          nextauth_secret: !!process.env.NEXTAUTH_SECRET,
+          nextauth_url: !!process.env.NEXTAUTH_URL,
         },
       },
     })
   } catch (error) {
-    console.error("Error checking environment variables:", error)
-    return NextResponse.json({ error: "Error checking configuration" }, { status: 500 })
+    console.error("Error checking configuration:", error)
+    return NextResponse.json(
+      {
+        error: "Error al verificar la configuración",
+        details: error instanceof Error ? error.message : "Error desconocido",
+      },
+      { status: 500 },
+    )
   }
 }

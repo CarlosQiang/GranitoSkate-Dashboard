@@ -21,11 +21,18 @@ export async function shopifyFetch({ query, variables = {} }: { query: string; v
       console.warn("Shopify no configurado correctamente")
       return {
         data: null,
-        errors: [{ message: "Shopify no está configurado. Ve a /dashboard/setup para configurarlo." }],
+        errors: [{ message: "Shopify no está configurado. Configura las variables de entorno." }],
       }
     }
 
+    // Construir la URL del endpoint
     const endpoint = `https://${shopifyConfig.shopDomain}/admin/api/${shopifyConfig.apiVersion}/graphql.json`
+
+    console.log("Shopify fetch:", {
+      endpoint,
+      shopDomain: shopifyConfig.shopDomain,
+      hasToken: !!shopifyConfig.accessToken,
+    })
 
     const response = await fetch(endpoint, {
       method: "POST",
@@ -40,7 +47,13 @@ export async function shopifyFetch({ query, variables = {} }: { query: string; v
     })
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      const errorText = await response.text()
+      console.error("Shopify API Error:", {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText,
+      })
+      throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`)
     }
 
     const result = await response.json()
@@ -83,6 +96,8 @@ export async function testShopifyConnection() {
           primaryDomain {
             url
           }
+          email
+          currencyCode
         }
       }
     `

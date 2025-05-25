@@ -1,57 +1,79 @@
 import { NextResponse } from "next/server"
-
-export const dynamic = "force-dynamic"
-export const revalidate = 0
+import { shopifyFetch } from "@/lib/shopify"
 
 export async function GET() {
   try {
+    // Verificar que las variables de entorno estén configuradas
     const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
     const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
 
     if (!shopDomain || !accessToken) {
       return NextResponse.json(
-        { success: false, error: "Faltan credenciales de Shopify en las variables de entorno" },
+        {
+          success: false,
+          error: "Variables de entorno de Shopify no configuradas",
+          details: {
+            shopDomain: !!shopDomain,
+            accessToken: !!accessToken,
+          },
+        },
+        { status: 400 },
+      )
+    }
+
+    // Consulta simple para verificar la conexión
+    const query = `
+      query {
+        shop {
+          id
+          name
+          url
+          primaryDomain {
+            url
+          }
+          email
+          currencyCode
+        }
+      }
+    `
+
+    const response = await shopifyFetch({ query })
+
+    if (response.errors) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Error en la API de Shopify",
+          details: response.errors,
+        },
         { status: 500 },
       )
     }
 
-    // Hacer una solicitud simple para verificar la conexión
-    const shopifyApiUrl = `https://${shopDomain}/admin/api/2023-10/graphql.json`
-    const response = await fetch(shopifyApiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": accessToken,
-      },
-      body: JSON.stringify({
-        query: `{
-          shop {
-            name
-            myshopifyDomain
-          }
-        }`,
-      }),
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
+    if (!response.data || !response.data.shop) {
       return NextResponse.json(
-        { success: false, error: `Error en la respuesta de Shopify: ${response.status}`, details: errorText },
-        { status: response.status },
+        {
+          success: false,
+          error: "Respuesta inválida de Shopify",
+          details: response,
+        },
+        { status: 500 },
       )
     }
 
-    const data = await response.json()
     return NextResponse.json({
       success: true,
-      message: "Conexión con Shopify establecida correctamente",
-      shopName: data.data.shop.name,
+      message: `Conectado exitosamente con ${response.data.shop.name}`,
+      shopName: response.data.shop.name,
+      data: response.data,
     })
   } catch (error) {
+    console.error("Error al verificar conexión con Shopify:", error)
     return NextResponse.json(
       {
         success: false,
-        error: `Error al verificar la conexión con Shopify: ${error instanceof Error ? error.message : "Error desconocido"}`,
+        error: "Error interno del servidor",
+        details: error instanceof Error ? error.message : "Error desconocido",
       },
       { status: 500 },
     )
