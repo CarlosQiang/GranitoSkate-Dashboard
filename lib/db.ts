@@ -64,4 +64,125 @@ export async function getDatabaseInfo() {
   }
 }
 
+// Funciones CRUD genéricas
+export async function findAll(table: string) {
+  try {
+    const result = await query(`SELECT * FROM ${table} ORDER BY fecha_creacion DESC`)
+    return result.rows
+  } catch (error) {
+    console.error(`Error al obtener todos los registros de ${table}:`, error)
+    throw error
+  }
+}
+
+export async function findById(table: string, id: number) {
+  try {
+    const result = await query(`SELECT * FROM ${table} WHERE id = $1`, [id])
+    return result.rows[0] || null
+  } catch (error) {
+    console.error(`Error al obtener registro ${id} de ${table}:`, error)
+    throw error
+  }
+}
+
+export async function findByField(table: string, field: string, value: any) {
+  try {
+    const result = await query(`SELECT * FROM ${table} WHERE ${field} = $1`, [value])
+    return result.rows[0] || null
+  } catch (error) {
+    console.error(`Error al buscar en ${table} por ${field}:`, error)
+    throw error
+  }
+}
+
+export async function insert(table: string, data: any) {
+  try {
+    const fields = Object.keys(data).join(", ")
+    const values = Object.values(data)
+    const placeholders = values.map((_, index) => `$${index + 1}`).join(", ")
+
+    const result = await query(
+      `INSERT INTO ${table} (${fields}, fecha_creacion, fecha_actualizacion) 
+       VALUES (${placeholders}, NOW(), NOW()) 
+       RETURNING *`,
+      values,
+    )
+    return result.rows[0]
+  } catch (error) {
+    console.error(`Error al insertar en ${table}:`, error)
+    throw error
+  }
+}
+
+export async function update(table: string, id: number, data: any) {
+  try {
+    const fields = Object.keys(data)
+    const values = Object.values(data)
+    const setClause = fields.map((field, index) => `${field} = $${index + 1}`).join(", ")
+
+    const result = await query(
+      `UPDATE ${table} SET ${setClause}, fecha_actualizacion = NOW() WHERE id = $${fields.length + 1} RETURNING *`,
+      [...values, id],
+    )
+    return result.rows[0]
+  } catch (error) {
+    console.error(`Error al actualizar ${table}:`, error)
+    throw error
+  }
+}
+
+export async function remove(table: string, id: number) {
+  try {
+    const result = await query(`DELETE FROM ${table} WHERE id = $1 RETURNING *`, [id])
+    return result.rows[0]
+  } catch (error) {
+    console.error(`Error al eliminar de ${table}:`, error)
+    throw error
+  }
+}
+
+// Función para logging de eventos de sincronización
+export async function logSyncEvent(
+  entidad: string,
+  entidadId: string | null,
+  accion: string,
+  estado: string,
+  descripcion: string,
+  metadatos?: any,
+) {
+  try {
+    // Primero, limpiar registros antiguos (mantener solo los últimos 10)
+    await query(`
+      DELETE FROM registro_actividad 
+      WHERE id NOT IN (
+        SELECT id FROM registro_actividad 
+        ORDER BY fecha_creacion DESC 
+        LIMIT 10
+      )
+    `)
+
+    // Insertar nuevo registro
+    const result = await query(
+      `INSERT INTO registro_actividad 
+       (usuario_id, usuario_nombre, accion, entidad, entidad_id, descripcion, metadatos, fecha_creacion) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) 
+       RETURNING *`,
+      [
+        1, // usuario_id por defecto
+        "Sistema", // usuario_nombre por defecto
+        accion.toUpperCase(),
+        entidad.toUpperCase(),
+        entidadId,
+        descripcion,
+        metadatos ? JSON.stringify(metadatos) : null,
+      ],
+    )
+    return result.rows[0]
+  } catch (error) {
+    console.error("Error al registrar evento de sincronización:", error)
+    // No lanzar error para evitar que falle la operación principal
+    return null
+  }
+}
+
 export default pool
