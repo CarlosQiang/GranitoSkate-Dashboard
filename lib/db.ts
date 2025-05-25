@@ -1,5 +1,4 @@
 import { Pool } from "pg"
-import { logError } from "./utils"
 
 // Obtener la URL de conexión de las variables de entorno
 const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL
@@ -9,14 +8,9 @@ if (!connectionString) {
 }
 
 // Crear un pool de conexiones
-export const pool = new Pool({
-  connectionString: connectionString || "",
-  ssl: {
-    rejectUnauthorized: false,
-  },
-  max: 10, // Máximo número de conexiones en el pool
-  idleTimeoutMillis: 30000, // Tiempo máximo que una conexión puede estar inactiva antes de ser cerrada
-  connectionTimeoutMillis: 5000, // Tiempo máximo para establecer una conexión
+const pool = new Pool({
+  connectionString: connectionString,
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
 })
 
 // Manejar errores de conexión
@@ -43,16 +37,16 @@ export async function testConnection() {
 }
 
 // Función para ejecutar consultas
-export async function query(text: string, params: any[] = []) {
+export async function query(text: string, params?: any[]) {
+  const client = await pool.connect()
   try {
-    const start = Date.now()
-    const res = await pool.query(text, params)
-    const duration = Date.now() - start
-    console.log("Consulta ejecutada", { text, duration, rows: res.rowCount })
-    return res
+    const result = await client.query(text, params)
+    return result
   } catch (error) {
-    logError("Error ejecutando consulta", error)
+    console.error("Error en consulta de base de datos:", error)
     throw error
+  } finally {
+    client.release()
   }
 }
 

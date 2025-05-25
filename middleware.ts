@@ -1,45 +1,50 @@
+import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
-import { getToken } from "next-auth/jwt"
 
-export async function middleware(request: NextRequest) {
-  // Archivos estáticos y rutas de API que no requieren verificación
-  if (
-    request.nextUrl.pathname.startsWith("/_next") ||
-    request.nextUrl.pathname.startsWith("/api/auth") ||
-    request.nextUrl.pathname.includes(".") ||
-    request.nextUrl.pathname === "/api/health"
-  ) {
+export default withAuth(
+  function middleware(req) {
+    // Permitir acceso a páginas públicas
+    if (req.nextUrl.pathname === "/" || req.nextUrl.pathname === "/login") {
+      return NextResponse.next()
+    }
+
+    // Verificar autenticación para rutas protegidas
+    if (req.nextUrl.pathname.startsWith("/dashboard")) {
+      if (!req.nextauth.token) {
+        return NextResponse.redirect(new URL("/login", req.url))
+      }
+    }
+
     return NextResponse.next()
-  }
+  },
+  {
+    callbacks: {
+      authorized: ({ token, req }) => {
+        // Permitir acceso a páginas públicas sin token
+        if (req.nextUrl.pathname === "/" || req.nextUrl.pathname === "/login") {
+          return true
+        }
 
-  // Rutas públicas que no requieren autenticación
-  const publicRoutes = ["/", "/login"]
-  if (publicRoutes.includes(request.nextUrl.pathname)) {
-    return NextResponse.next()
-  }
+        // Requerir token para rutas del dashboard
+        if (req.nextUrl.pathname.startsWith("/dashboard")) {
+          return !!token
+        }
 
-  // Verificar autenticación para rutas protegidas
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  })
-
-  // Redirigir a login si no está autenticado
-  if (!token && request.nextUrl.pathname.startsWith("/dashboard")) {
-    const url = new URL("/login", request.url)
-    url.searchParams.set("callbackUrl", encodeURI(request.url))
-    return NextResponse.redirect(url)
-  }
-
-  // Redirigir a dashboard si está autenticado e intenta acceder a /docs
-  if (token && request.nextUrl.pathname.startsWith("/docs")) {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
-  }
-
-  return NextResponse.next()
-}
+        return true
+      },
+    },
+  },
+)
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.png|.*\\.svg).*)"],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    "/((?!api|_next/static|_next/image|favicon.ico).*)",
+  ],
 }

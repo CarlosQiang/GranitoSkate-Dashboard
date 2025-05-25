@@ -1,14 +1,22 @@
 import type React from "react"
+import { getServerSession } from "next-auth"
+import { redirect } from "next/navigation"
+import { authOptions } from "@/lib/auth"
 import { DashboardNav } from "@/components/dashboard-nav"
-import { ThemeProvider } from "@/contexts/theme-context"
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const session = await getServerSession(authOptions)
+
+  if (!session) {
+    redirect("/login")
+  }
+
   return (
-    <ThemeProvider>
-      <div className="main-layout">
-        <DashboardNav />
-        <main className="main-content p-4 md:p-6">{children}</main>
-      </div>
-    </ThemeProvider>
+    <div className="flex min-h-screen">
+      <DashboardNav />
+      <main className="flex-1 overflow-y-auto">
+        <div className="container mx-auto py-6 px-4">{children}</div>
+      </main>
+    </div>
   )
 }

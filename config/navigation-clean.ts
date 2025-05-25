@@ -1,6 +1,6 @@
 import { LayoutDashboard, Settings, AlertTriangle, UserCog, Activity, Wrench } from "lucide-react"
 
-// Navegación principal - solo rutas que funcionan
+// Navegación limpia - solo rutas que funcionan
 export const navigationItems = [
   {
     name: "Dashboard",
@@ -76,6 +76,7 @@ export const settingsNav = [
   },
 ]
 
+// Configuración simplificada del dashboard
 export const dashboardConfig = {
   mainNav: [
     {

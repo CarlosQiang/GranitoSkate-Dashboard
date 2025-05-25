@@ -1,6 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Activity, Users, Settings, Database, CheckCircle, AlertTriangle } from "lucide-react"
-import Link from "next/link"
+import { Activity, Users, Settings, Database, CheckCircle } from "lucide-react"
 
 export default function DashboardPage() {
   return (
@@ -72,10 +71,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Link
-                href="/dashboard/registros"
-                className="block p-3 rounded-lg border hover:bg-muted transition-colors"
-              >
+              <a href="/dashboard/registros" className="block p-3 rounded-lg border hover:bg-muted transition-colors">
                 <div className="flex items-center space-x-3">
                   <Activity className="h-5 w-5 text-green-500" />
                   <div>
@@ -83,9 +79,9 @@ export default function DashboardPage() {
                     <p className="text-sm text-muted-foreground">Revisar actividad del sistema</p>
                   </div>
                 </div>
-              </Link>
+              </a>
 
-              <Link
+              <a
                 href="/dashboard/administradores"
                 className="block p-3 rounded-lg border hover:bg-muted transition-colors"
               >
@@ -96,9 +92,9 @@ export default function DashboardPage() {
                     <p className="text-sm text-muted-foreground">Crear y editar usuarios admin</p>
                   </div>
                 </div>
-              </Link>
+              </a>
 
-              <Link href="/dashboard/setup" className="block p-3 rounded-lg border hover:bg-muted transition-colors">
+              <a href="/dashboard/setup" className="block p-3 rounded-lg border hover:bg-muted transition-colors">
                 <div className="flex items-center space-x-3">
                   <Settings className="h-5 w-5 text-purple-500" />
                   <div>
@@ -106,7 +102,7 @@ export default function DashboardPage() {
                     <p className="text-sm text-muted-foreground">Verificar configuración del sistema</p>
                   </div>
                 </div>
-              </Link>
+              </a>
             </div>
           </CardContent>
         </Card>
@@ -145,7 +141,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm">Shopify (próximamente)</span>
                 <span className="flex items-center text-sm text-yellow-600">
-                  <AlertTriangle className="h-4 w-4 mr-1" />
+                  <Activity className="h-4 w-4 mr-1" />
                   Pendiente
                 </span>
               </div>
@@ -153,42 +149,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Próximos pasos */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Próximos Pasos</CardTitle>
-          <CardDescription>Funcionalidades que se implementarán próximamente</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <h4 className="font-medium text-sm">Gestión de Productos</h4>
-              <p className="text-xs text-muted-foreground">
-                Sistema completo para gestionar productos de Shopify con sincronización automática
-              </p>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-medium text-sm">Gestión de Colecciones</h4>
-              <p className="text-xs text-muted-foreground">
-                Organización y gestión de colecciones de productos con metadatos SEO
-              </p>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-medium text-sm">Sistema de Promociones</h4>
-              <p className="text-xs text-muted-foreground">
-                Creación y gestión de códigos de descuento y promociones especiales
-              </p>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-medium text-sm">Gestión de Clientes</h4>
-              <p className="text-xs text-muted-foreground">
-                Base de datos de clientes con historial de pedidos y segmentación
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

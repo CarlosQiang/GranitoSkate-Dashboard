@@ -55,7 +55,6 @@ export const authOptions: NextAuthOptions = {
           }
         } catch (error) {
           console.error("Error en autenticación:", error)
-          await ActivityLogger.logSystemError(error as Error, "Error en autenticación")
           return null
         }
       },
