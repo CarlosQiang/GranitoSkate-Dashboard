@@ -1,86 +1,226 @@
-import { fetchOrders } from "./orders"
-import { fetchProducts } from "./products"
-import { fetchCustomers } from "./customers"
+import { shopifyFetch } from "@/lib/shopify"
 
-export interface AnalyticsData {
-  totalRevenue: number
-  totalOrders: number
-  totalCustomers: number
-  totalProducts: number
-  averageOrderValue: number
-  revenueGrowth: number
-  ordersGrowth: number
-  topProducts: Array<{
-    id: string
-    title: string
-    sales: number
-    revenue: number
-  }>
-  monthlyRevenue: Array<{
-    month: string
-    revenue: number
-    orders: number
-  }>
-}
-
-export async function getAnalyticsData(): Promise<AnalyticsData> {
+export async function fetchAnalyticsData() {
   try {
-    // Obtener datos de diferentes fuentes
-    const [orders, products, customers] = await Promise.all([fetchOrders(250), fetchProducts(100), fetchCustomers(100)])
+    // Consulta para obtener datos de ventas
+    const query = `
+      query {
+        orders(first: 50, query: "status:any") {
+          edges {
+            node {
+              id
+              name
+              createdAt
+              totalPriceSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+              }
+              lineItems(first: 5) {
+                edges {
+                  node {
+                    name
+                    quantity
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `
 
-    // Calcular métricas básicas
-    const totalRevenue = orders.reduce((sum, order) => sum + Number.parseFloat(order.totalPrice || "0"), 0)
+    const response = await shopifyFetch({ query })
+
+    if (!response.data) {
+      throw new Error("No se pudieron obtener los datos de análisis")
+    }
+
+    const orders = response.data.orders.edges.map(({ node }) => node)
+
+    // Procesar datos para análisis
+    const totalRevenue = orders.reduce((sum, order) => sum + Number.parseFloat(order.totalPriceSet.shopMoney.amount), 0)
     const totalOrders = orders.length
-    const totalCustomers = customers.length
-    const totalProducts = products.length
     const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
 
-    // Calcular crecimiento (simulado para demo)
-    const revenueGrowth = Math.random() * 20 - 10 // -10% a +10%
-    const ordersGrowth = Math.random() * 15 - 5 // -5% a +10%
+    // Agrupar pedidos por mes para gráfico de ingresos
+    const revenueByMonth = orders.reduce((acc, order) => {
+      const date = new Date(order.createdAt)
+      const monthYear = `${date.getMonth() + 1}/${date.getFullYear()}`
 
-    // Productos más vendidos (simulado)
-    const topProducts = products.slice(0, 5).map((product, index) => ({
-      id: product.id,
-      title: product.title,
-      sales: Math.floor(Math.random() * 50) + 10,
-      revenue: Math.floor(Math.random() * 5000) + 1000,
-    }))
-
-    // Ingresos mensuales (últimos 6 meses)
-    const monthlyRevenue = Array.from({ length: 6 }, (_, i) => {
-      const date = new Date()
-      date.setMonth(date.getMonth() - (5 - i))
-      return {
-        month: date.toLocaleDateString("es-ES", { month: "short", year: "numeric" }),
-        revenue: Math.floor(Math.random() * 10000) + 5000,
-        orders: Math.floor(Math.random() * 100) + 20,
+      if (!acc[monthYear]) {
+        acc[monthYear] = {
+          month: monthYear,
+          total: 0,
+        }
       }
+
+      acc[monthYear].total += Number.parseFloat(order.totalPriceSet.shopMoney.amount)
+      return acc
+    }, {})
+
+    const revenueData = Object.values(revenueByMonth)
+
+    // Calcular productos más vendidos
+    const productSales = {}
+    orders.forEach((order) => {
+      order.lineItems.edges.forEach((edge) => {
+        const product = edge.node
+        if (!productSales[product.name]) {
+          productSales[product.name] = 0
+        }
+        productSales[product.name] += product.quantity
+      })
     })
+
+    const topProducts = Object.entries(productSales)
+      .map(([name, sales]) => ({ name, sales }))
+      .sort((a, b) => b.sales - a.sales)
+      .slice(0, 5)
+
+    // Agrupar pedidos por mes para gráfico de pedidos
+    const ordersByMonth = orders.reduce((acc, order) => {
+      const date = new Date(order.createdAt)
+      const monthYear = `${date.getMonth() + 1}/${date.getFullYear()}`
+
+      if (!acc[monthYear]) {
+        acc[monthYear] = {
+          month: monthYear,
+          total: 0,
+        }
+      }
+
+      acc[monthYear].total += 1
+      return acc
+    }, {})
+
+    const ordersData = Object.values(ordersByMonth)
 
     return {
       totalRevenue,
       totalOrders,
-      totalCustomers,
-      totalProducts,
       averageOrderValue,
-      revenueGrowth,
-      ordersGrowth,
       topProducts,
-      monthlyRevenue,
+      revenueData,
+      ordersData,
     }
   } catch (error) {
-    console.error("Error getting analytics data:", error)
-    return {
-      totalRevenue: 0,
-      totalOrders: 0,
-      totalCustomers: 0,
-      totalProducts: 0,
-      averageOrderValue: 0,
-      revenueGrowth: 0,
-      ordersGrowth: 0,
-      topProducts: [],
-      monthlyRevenue: [],
+    console.error("Error fetching analytics data:", error)
+    throw new Error(`Error al obtener datos de análisis: ${error.message}`)
+  }
+}
+
+export async function fetchSalesOverview(period = "7d") {
+  try {
+    // Calcular fechas basadas en el período
+    const endDate = new Date()
+    const startDate = new Date()
+
+    switch (period) {
+      case "7d":
+        startDate.setDate(endDate.getDate() - 7)
+        break
+      case "30d":
+        startDate.setDate(endDate.getDate() - 30)
+        break
+      case "90d":
+        startDate.setDate(endDate.getDate() - 90)
+        break
+      default:
+        startDate.setDate(endDate.getDate() - 7)
     }
+
+    // Formatear fechas para la consulta GraphQL
+    const formattedStartDate = startDate.toISOString().split("T")[0]
+    const formattedEndDate = endDate.toISOString().split("T")[0]
+
+    const query = `
+      query {
+        orders(first: 250, query: "created_at:>=${formattedStartDate} AND created_at:<=${formattedEndDate}") {
+          edges {
+            node {
+              id
+              createdAt
+              totalPriceSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const response = await shopifyFetch({ query })
+
+    if (!response.data) {
+      throw new Error("No se pudieron obtener los datos de ventas")
+    }
+
+    // Procesar los datos para el gráfico
+    const orders = response.data.orders.edges.map(({ node }) => ({
+      id: node.id.split("/").pop(),
+      date: new Date(node.createdAt).toISOString().split("T")[0],
+      amount: Number.parseFloat(node.totalPriceSet?.shopMoney?.amount || 0),
+    }))
+
+    // Agrupar ventas por fecha
+    const salesByDate = orders.reduce((acc, order) => {
+      if (!acc[order.date]) {
+        acc[order.date] = 0
+      }
+      acc[order.date] += order.amount
+      return acc
+    }, {})
+
+    // Generar array de fechas entre startDate y endDate
+    const dateArray = []
+    const currentDate = new Date(startDate)
+    while (currentDate <= endDate) {
+      const dateString = currentDate.toISOString().split("T")[0]
+      dateArray.push({
+        date: dateString,
+        sales: salesByDate[dateString] || 0,
+      })
+      currentDate.setDate(currentDate.getDate() + 1)
+    }
+
+    return dateArray
+  } catch (error) {
+    console.error("Error al obtener datos de ventas:", error)
+
+    // Datos de fallback para evitar errores en la UI
+    const fallbackData = []
+    const endDate = new Date()
+    const startDate = new Date()
+
+    switch (period) {
+      case "7d":
+        startDate.setDate(endDate.getDate() - 7)
+        break
+      case "30d":
+        startDate.setDate(endDate.getDate() - 30)
+        break
+      case "90d":
+        startDate.setDate(endDate.getDate() - 90)
+        break
+      default:
+        startDate.setDate(endDate.getDate() - 7)
+    }
+
+    const currentDate = new Date(startDate)
+    while (currentDate <= endDate) {
+      const dateString = currentDate.toISOString().split("T")[0]
+      fallbackData.push({
+        date: dateString,
+        sales: 0,
+      })
+      currentDate.setDate(currentDate.getDate() + 1)
+    }
+
+    return fallbackData
   }
 }

@@ -1,9 +1,8 @@
 "use client"
 
 import { useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { AlertTriangle, RefreshCw, Home } from "lucide-react"
+import Link from "next/link"
 
 export default function Error({
   error,
@@ -13,46 +12,39 @@ export default function Error({
   reset: () => void
 }) {
   useEffect(() => {
-    console.error("Error de aplicación:", error)
+    console.error(error)
   }, [error])
 
   return (
-    <div className="container mx-auto py-6">
-      <Card className="max-w-md mx-auto">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="h-5 w-5" />
-            Error en la aplicación
-          </CardTitle>
-          <CardDescription>Ha ocurrido un error inesperado</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            El sistema ha detectado un error. Esto puede deberse a problemas temporales de conectividad o configuración.
-          </p>
-
-          <div className="space-y-2">
-            <Button onClick={reset} className="w-full">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Reintentar
-            </Button>
-
-            <Button variant="outline" className="w-full" asChild>
-              <a href="/dashboard">
-                <Home className="h-4 w-4 mr-2" />
-                Ir al Dashboard
-              </a>
-            </Button>
-          </div>
-
-          {process.env.NODE_ENV === "development" && (
-            <details className="text-xs">
-              <summary className="cursor-pointer text-muted-foreground">Detalles del error (desarrollo)</summary>
-              <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-auto max-h-32">{error.message}</pre>
-            </details>
-          )}
-        </CardContent>
-      </Card>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4 text-center">
+      <div className="rounded-full bg-red-100 p-3 text-red-600 mb-4">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-6 w-6"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+      </div>
+      <h2 className="mb-2 text-2xl font-bold">¡Algo salió mal!</h2>
+      <p className="mb-6 text-gray-600">Ha ocurrido un error inesperado. Nuestro equipo ha sido notificado.</p>
+      <div className="flex flex-col sm:flex-row gap-4">
+        <Button onClick={reset} className="bg-granito hover:bg-granito-dark">
+          Intentar de nuevo
+        </Button>
+        <Link href="/">
+          <Button variant="outline">Volver al inicio</Button>
+        </Link>
+      </div>
     </div>
   )
 }

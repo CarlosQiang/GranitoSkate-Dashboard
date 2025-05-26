@@ -13,11 +13,11 @@ import {
 } from "@/components/ui/dialog"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/components/ui/use-toast"
-import { exportCustomersToCSV } from "@/lib/api/customers"
+import { exportCustomersToCSV, type CustomerFilters } from "@/lib/api/customers"
 import { Download, Loader2 } from "lucide-react"
 
 interface ExportCustomersProps {
-  filters: any
+  filters: CustomerFilters
 }
 
 export function ExportCustomers({ filters }: ExportCustomersProps) {

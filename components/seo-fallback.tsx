@@ -6,12 +6,11 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { CheckCircle, AlertTriangle } from "lucide-react"
+import { CheckCircle } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { useToast } from "@/components/ui/use-toast"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 const seoFormSchema = z.object({
   title: z.string().min(1, "El título es obligatorio").max(60, "El título debe tener máximo 60 caracteres"),
@@ -65,20 +64,10 @@ export function SeoFallback() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Configuración SEO</CardTitle>
-        <CardDescription>Configuración básica de SEO para tu tienda</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Alert>
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            La configuración SEO estará disponible una vez que se configure la conexión con Shopify.
-          </AlertDescription>
-        </Alert>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         {success && (
-          <Alert className="bg-green-50 border-green-200 mt-4">
+          <Alert className="bg-green-50 border-green-200">
             <CheckCircle className="h-4 w-4 text-green-600" />
             <AlertTitle className="text-green-800">Guardado correctamente</AlertTitle>
             <AlertDescription className="text-green-700">
@@ -87,65 +76,61 @@ export function SeoFallback() {
           </Alert>
         )}
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 mt-4">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Título SEO</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Título para SEO" {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    El título que se mostrará en los resultados de búsqueda. Recomendado: 50-60 caracteres.
-                  </FormDescription>
-                  <FormMessage />
-                  <div className="text-xs text-muted-foreground mt-1">{field.value?.length || 0}/60 caracteres</div>
-                </FormItem>
-              )}
-            />
+        <FormField
+          control={form.control}
+          name="title"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Título SEO</FormLabel>
+              <FormControl>
+                <Input placeholder="Título para SEO" {...field} />
+              </FormControl>
+              <FormDescription>
+                El título que se mostrará en los resultados de búsqueda. Recomendado: 50-60 caracteres.
+              </FormDescription>
+              <FormMessage />
+              <div className="text-xs text-muted-foreground mt-1">{field.value?.length || 0}/60 caracteres</div>
+            </FormItem>
+          )}
+        />
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Descripción SEO</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Descripción para SEO" {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    La descripción que se mostrará en los resultados de búsqueda. Recomendado: 150-160 caracteres.
-                  </FormDescription>
-                  <FormMessage />
-                  <div className="text-xs text-muted-foreground mt-1">{field.value?.length || 0}/160 caracteres</div>
-                </FormItem>
-              )}
-            />
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Descripción SEO</FormLabel>
+              <FormControl>
+                <Textarea placeholder="Descripción para SEO" {...field} />
+              </FormControl>
+              <FormDescription>
+                La descripción que se mostrará en los resultados de búsqueda. Recomendado: 150-160 caracteres.
+              </FormDescription>
+              <FormMessage />
+              <div className="text-xs text-muted-foreground mt-1">{field.value?.length || 0}/160 caracteres</div>
+            </FormItem>
+          )}
+        />
 
-            <FormField
-              control={form.control}
-              name="keywords"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Palabras clave (separadas por comas)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="palabra1, palabra2, palabra3" {...field} />
-                  </FormControl>
-                  <FormDescription>Palabras clave relevantes para el contenido, separadas por comas.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        <FormField
+          control={form.control}
+          name="keywords"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Palabras clave (separadas por comas)</FormLabel>
+              <FormControl>
+                <Input placeholder="palabra1, palabra2, palabra3" {...field} />
+              </FormControl>
+              <FormDescription>Palabras clave relevantes para el contenido, separadas por comas.</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Guardando..." : "Guardar SEO"}
-            </Button>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+        <Button type="submit" disabled={isLoading}>
+          {isLoading ? "Guardando..." : "Guardar SEO"}
+        </Button>
+      </form>
+    </Form>
   )
 }

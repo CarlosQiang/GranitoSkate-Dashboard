@@ -2,106 +2,161 @@
 
 import type React from "react"
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { signIn } from "next-auth/react"
-import { useSearchParams } from "next/navigation"
 import { useState } from "react"
+import { signIn } from "next-auth/react"
+import { useRouter } from "next/navigation"
+import { Eye, EyeOff, AlertCircle } from "lucide-react"
+import { useTheme } from "@/contexts/theme-context"
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("")
+  const router = useRouter()
+  const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") || "/"
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const { theme } = useTheme()
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    setIsLoading(true)
+
+    if (!identifier || !password) {
+      setError("Por favor, completa todos los campos")
+      return
+    }
 
     try {
-      await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      }).then((callback) => {
-        if (callback?.error) {
-          console.log("Invalid credentials")
-        }
+      setLoading(true)
+      setError("")
 
-        if (callback?.ok) {
-          window.location.href = callbackUrl
-        }
+      const result = await signIn("credentials", {
+        redirect: false,
+        identifier,
+        password,
       })
-    } catch (error) {
-      console.error("An error occurred during login:", error)
-    } finally {
-      setIsLoading(false)
+
+      if (result?.error) {
+        setError("Credenciales inválidas. Por favor, inténtalo de nuevo.")
+        setLoading(false)
+        return
+      }
+
+      router.push("/dashboard")
+    } catch (err) {
+      console.error("Error de inicio de sesión:", err)
+      setError("Ocurrió un error al iniciar sesión. Por favor, inténtalo de nuevo.")
+      setLoading(false)
     }
   }
 
+  const toggleShowPassword = () => {
+    setShowPassword(!showPassword)
+  }
+
+  // Estilos dinámicos basados en el tema
+  const logoStyle = {
+    backgroundColor: theme.primaryColor,
+  }
+
+  const buttonStyle = {
+    backgroundColor: theme.primaryColor,
+    color: "#ffffff",
+  }
+
+  const focusRingStyle = {
+    "--tw-ring-color": theme.primaryColor,
+    "--tw-border-opacity": 1,
+    borderColor: theme.primaryColor,
+  }
+
   return (
-    <div className="container relative h-[800px] flex-col items-center justify-center md:grid lg:max-w-none lg:grid-cols-2 lg:px-0">
-      <div className="relative hidden h-full flex-col bg-muted p-10 text-white lg:flex">
-        <div className="absolute inset-0 bg-zinc-900" />
-        <div className="relative z-20 flex items-center text-lg font-medium">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="mr-2 h-6 w-6"
-          >
-            <path d="M15 6v12a3 3 0 1 1-6 0V6a3 3 0 1 1 6 0z" />
-          </svg>
-          Acme Inc
-        </div>
-        <div className="relative z-20 mt-auto">
-          <blockquote className="space-y-2">
-            <p className="text-lg">
-              &ldquo;This library has saved me countless hours of work and really sped up our design process. I highly
-              recommend it to anyone.&rdquo;
-            </p>
-            <footer className="text-sm">Sofia Davis, Acme Corp</footer>
-          </blockquote>
-        </div>
-      </div>
-      <div className="lg:p-8">
-        <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
-          <div className="flex flex-col space-y-2 text-center">
-            <h1 className="text-2xl font-semibold">Iniciar sesión</h1>
-            <p className="text-sm text-muted-foreground">Introduce tu email y contraseña para iniciar sesión</p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow-md">
+        <div className="text-center">
+          <div className="mx-auto h-16 w-16 rounded-full flex items-center justify-center" style={logoStyle}>
+            <span className="text-2xl font-bold text-white">G</span>
           </div>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="admin@ejemplo.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Contraseña</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Iniciando sesión..." : "Iniciar sesión"}
-            </Button>
-          </form>
+          <h2 className="mt-6 text-3xl font-bold text-gray-900">{theme.shopName || "GranitoSkate"}</h2>
+          <p className="mt-2 text-sm text-gray-600">Inicia sesión para acceder al panel de administración</p>
+        </div>
+
+        <div className="mt-8">
+          <div className="rounded-md shadow-sm">
+            <h3 className="text-xl font-medium text-gray-900 mb-4">Iniciar sesión</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Ingresa tus credenciales para acceder al panel de administración
+            </p>
+
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-md flex items-start">
+                <AlertCircle className="h-5 w-5 mr-2 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label htmlFor="identifier" className="block text-sm font-medium text-gray-700">
+                  Usuario o Email
+                </label>
+                <input
+                  id="identifier"
+                  name="identifier"
+                  type="text"
+                  autoComplete="username email"
+                  required
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent"
+                  style={{ "--tw-ring-color": theme.primaryColor } as React.CSSProperties}
+                  placeholder="Ingresa tu usuario o email"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                  Contraseña
+                </label>
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent"
+                    style={{ "--tw-ring-color": theme.primaryColor } as React.CSSProperties}
+                    placeholder="Ingresa tu contraseña"
+                  />
+                  <button
+                    type="button"
+                    onClick={toggleShowPassword}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5 text-gray-400" />
+                    ) : (
+                      <Eye className="h-5 w-5 text-gray-400" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium disabled:opacity-50 transition-colors"
+                  style={buttonStyle}
+                >
+                  {loading ? "Iniciando sesión..." : "Iniciar sesión"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     </div>

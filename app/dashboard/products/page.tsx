@@ -12,13 +12,16 @@ import { ProductCard } from "@/components/product-card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useToast } from "@/components/ui/use-toast"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "@/components/ui/use-toast"
 import { Package } from "lucide-react" // Import Package component
+import { Image } from "next/image" // Import Image component
+import { Link } from "next/link" // Import Link component
+
+// Marcar la página como dinámica para evitar errores de renderizado estático
+export const dynamic = "force-dynamic"
 
 export default function ProductsPage() {
   const router = useRouter()
-  const { toast } = useToast()
   const [products, setProducts] = useState([])
   const [filteredProducts, setFilteredProducts] = useState([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -26,19 +29,17 @@ export default function ProductsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSyncing, setIsSyncing] = useState(false)
   const [error, setError] = useState(null)
-  const [viewMode, setViewMode] = useState("grid")
-  const [sortBy, setSortBy] = useState("title-asc")
-  const [vendorFilter, setVendorFilter] = useState("all")
-  const [productTypeFilter, setProductTypeFilter] = useState("all")
+  const [viewMode, setViewMode] = useState("grid") // grid o list
+  const [sortBy, setSortBy] = useState("title-asc") // title-asc, title-desc, date-asc, date-desc, price-asc, price-desc
 
   // Función para cargar productos
   const loadProducts = async () => {
     setIsLoading(true)
     setError(null)
     try {
-      const data = await fetchProducts(100)
+      const data = await fetchProducts(100) // Obtener hasta 100 productos
       setProducts(data)
-      filterAndSortProducts(data, searchTerm, activeTab, sortBy, vendorFilter, productTypeFilter)
+      filterAndSortProducts(data, searchTerm, activeTab, sortBy)
     } catch (error) {
       console.error("Error al cargar productos:", error)
       setError("No se pudieron cargar los productos. Intente nuevamente más tarde.")
@@ -53,7 +54,7 @@ export default function ProductsPage() {
   }
 
   // Filtrar y ordenar productos
-  const filterAndSortProducts = (productsData, search, tab, sort, vendor, productType) => {
+  const filterAndSortProducts = (productsData, search, tab, sort) => {
     let filtered = [...productsData]
 
     // Filtrar por término de búsqueda
@@ -62,8 +63,7 @@ export default function ProductsPage() {
         (product) =>
           product.title?.toLowerCase().includes(search.toLowerCase()) ||
           product.vendor?.toLowerCase().includes(search.toLowerCase()) ||
-          product.productType?.toLowerCase().includes(search.toLowerCase()) ||
-          product.tags?.some((tag) => tag.toLowerCase().includes(search.toLowerCase())),
+          product.productType?.toLowerCase().includes(search.toLowerCase()),
       )
     }
 
@@ -75,16 +75,6 @@ export default function ProductsPage() {
         if (tab === "archived") return product.status === "ARCHIVED"
         return true
       })
-    }
-
-    // Filtrar por vendor
-    if (vendor !== "all") {
-      filtered = filtered.filter((product) => product.vendor === vendor)
-    }
-
-    // Filtrar por tipo de producto
-    if (productType !== "all") {
-      filtered = filtered.filter((product) => product.productType === productType)
     }
 
     // Ordenar productos
@@ -99,13 +89,9 @@ export default function ProductsPage() {
         case "date-desc":
           return new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
         case "price-asc":
-          const priceA = Number.parseFloat(a.variants?.[0]?.price || "0")
-          const priceB = Number.parseFloat(b.variants?.[0]?.price || "0")
-          return priceA - priceB
+          return (Number.parseFloat(a.price) || 0) - (Number.parseFloat(b.price) || 0)
         case "price-desc":
-          const priceA2 = Number.parseFloat(a.variants?.[0]?.price || "0")
-          const priceB2 = Number.parseFloat(b.variants?.[0]?.price || "0")
-          return priceB2 - priceA2
+          return (Number.parseFloat(b.price) || 0) - (Number.parseFloat(a.price) || 0)
         default:
           return 0
       }
@@ -132,8 +118,8 @@ export default function ProductsPage() {
 
   // Actualizar filtros cuando cambian los criterios
   useEffect(() => {
-    filterAndSortProducts(products, searchTerm, activeTab, sortBy, vendorFilter, productTypeFilter)
-  }, [searchTerm, activeTab, sortBy, vendorFilter, productTypeFilter, products])
+    filterAndSortProducts(products, searchTerm, activeTab, sortBy)
+  }, [searchTerm, activeTab, sortBy, products])
 
   // Guardar preferencias de vista en localStorage
   useEffect(() => {
@@ -159,11 +145,19 @@ export default function ProductsPage() {
     setIsSyncing(true)
     setError(null)
     try {
-      await loadProducts()
+      // Llamar a la API para sincronizar productos
+      const response = await fetch("/api/sync/products")
+      if (!response.ok) {
+        throw new Error("Error al sincronizar productos")
+      }
+
       toast({
         title: "Sincronización completada",
         description: "Los productos se han sincronizado correctamente con Shopify.",
       })
+
+      // Recargar productos después de sincronizar
+      await loadProducts()
     } catch (error) {
       console.error("Error al sincronizar productos:", error)
       setError("No se pudieron sincronizar los productos. Intente nuevamente más tarde.")
@@ -197,12 +191,6 @@ export default function ProductsPage() {
     }
   }
 
-  // Obtener vendors únicos
-  const uniqueVendors = [...new Set(products.map((p) => p.vendor).filter(Boolean))]
-
-  // Obtener tipos de producto únicos
-  const uniqueProductTypes = [...new Set(products.map((p) => p.productType).filter(Boolean))]
-
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -210,7 +198,10 @@ export default function ProductsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Productos</h1>
           <p className="text-muted-foreground mt-1">Gestiona los productos de tu tienda Shopify</p>
         </div>
-        <Button onClick={() => router.push("/dashboard/products/new")} className="bg-granito-500 hover:bg-granito-600">
+        <Button
+          onClick={() => router.push("/dashboard/products/new")}
+          className="bg-granito-500 hover:bg-granito-600 text-white"
+        >
           <Plus className="mr-2 h-4 w-4" />
           Nuevo producto
         </Button>
@@ -261,35 +252,6 @@ export default function ProductsPage() {
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Filtros */}
-                <Select value={vendorFilter} onValueChange={setVendorFilter}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Marca" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas las marcas</SelectItem>
-                    {uniqueVendors.map((vendor) => (
-                      <SelectItem key={vendor} value={vendor}>
-                        {vendor}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={productTypeFilter} onValueChange={setProductTypeFilter}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los tipos</SelectItem>
-                    {uniqueProductTypes.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm" className="gap-1">
@@ -447,20 +409,66 @@ export default function ProductsPage() {
                 ) : (
                   <div className="space-y-2">
                     {filteredProducts.map((product) => (
-                      <ProductListItem key={product.id} product={product} />
+                      <Link
+                        key={product.id}
+                        href={`/dashboard/products/${cleanId(product.id)}`}
+                        className="flex items-center gap-4 border rounded-md p-4 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+                      >
+                        <div className="h-16 w-16 relative bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden">
+                          {getImageUrl(product) ? (
+                            <Image
+                              src={getImageUrl(product) || "/placeholder.svg"}
+                              alt={product.title || "Producto"}
+                              fill
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Package className="h-6 w-6 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium truncate">{product.title}</h3>
+                          <p className="text-sm text-muted-foreground">{product.productType || "Sin categoría"}</p>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-medium">
+                            {formatCurrency(product.price || 0, product.currencyCode || "EUR")}
+                          </div>
+                          <Badge
+                            variant={product.status === "ACTIVE" ? "default" : "secondary"}
+                            className={
+                              product.status === "ACTIVE"
+                                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                                : ""
+                            }
+                          >
+                            {product.status === "ACTIVE"
+                              ? "Activo"
+                              : product.status === "DRAFT"
+                                ? "Borrador"
+                                : "Archivado"}
+                          </Badge>
+                        </div>
+                      </Link>
                     ))}
                   </div>
                 )}
               </TabsContent>
 
+              {/* Contenido similar para las otras pestañas */}
               <TabsContent value="active" className="mt-0">
-                {/* El contenido se renderiza automáticamente por el filtrado */}
+                {/* Contenido similar al de "all" pero filtrado por productos activos */}
+                {/* Este contenido se renderiza automáticamente por el filtrado */}
               </TabsContent>
               <TabsContent value="draft" className="mt-0">
-                {/* El contenido se renderiza automáticamente por el filtrado */}
+                {/* Contenido similar al de "all" pero filtrado por borradores */}
+                {/* Este contenido se renderiza automáticamente por el filtrado */}
               </TabsContent>
               <TabsContent value="archived" className="mt-0">
-                {/* El contenido se renderiza automáticamente por el filtrado */}
+                {/* Contenido similar al de "all" pero filtrado por archivados */}
+                {/* Este contenido se renderiza automáticamente por el filtrado */}
               </TabsContent>
             </Tabs>
           </div>
@@ -470,68 +478,46 @@ export default function ProductsPage() {
   )
 }
 
-// Componente para vista de lista de productos
-function ProductListItem({ product }) {
-  const router = useRouter()
+// Función auxiliar para extraer el ID limpio
+function cleanId(id) {
+  if (!id) return ""
+  if (typeof id === "string" && id.includes("/")) {
+    return id.split("/").pop()
+  }
+  return id
+}
 
-  const cleanId = (id) => {
-    if (!id) return ""
-    if (typeof id === "string" && id.includes("/")) {
-      return id.split("/").pop()
-    }
-    return id
+// Función auxiliar para obtener la URL de la imagen
+function getImageUrl(product) {
+  if (!product) return null
+
+  // Intentar obtener la imagen de diferentes propiedades
+  if (product.imagen) return product.imagen
+  if (product.image) return typeof product.image === "string" ? product.image : product.image?.url || product.image?.src
+
+  if (product.featuredImage) return product.featuredImage.url || product.featuredImage.src
+
+  if (product.imagenes && product.imagenes.length > 0) {
+    return product.imagenes[0].src || product.imagenes[0].url
   }
 
-  const getImageUrl = (product) => {
-    if (product.featuredImage?.url) return product.featuredImage.url
-    if (product.images?.[0]?.url) return product.images[0].url
-    return null
+  if (product.images && product.images.length > 0) {
+    return typeof product.images[0] === "string" ? product.images[0] : product.images[0]?.url || product.images[0]?.src
   }
 
-  const formatCurrency = (amount, currencyCode = "EUR") => {
-    return new Intl.NumberFormat("es-ES", {
-      style: "currency",
-      currency: currencyCode,
-      minimumFractionDigits: 2,
-    }).format(amount)
+  // Si hay edges en las imágenes (formato GraphQL)
+  if (product.images && product.images.edges && product.images.edges.length > 0) {
+    return product.images.edges[0].node.url || product.images.edges[0].node.src
   }
 
-  const price = product.variants?.[0]?.price || "0"
+  return null
+}
 
-  return (
-    <div
-      onClick={() => router.push(`/dashboard/products/${cleanId(product.id)}`)}
-      className="flex items-center gap-4 border rounded-md p-4 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors cursor-pointer"
-    >
-      <div className="h-16 w-16 relative bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden">
-        {getImageUrl(product) ? (
-          <img
-            src={getImageUrl(product) || "/placeholder.svg"}
-            alt={product.title || "Producto"}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Package className="h-6 w-6 text-gray-400" />
-          </div>
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <h3 className="font-medium truncate">{product.title}</h3>
-        <p className="text-sm text-muted-foreground">{product.productType || "Sin categoría"}</p>
-        <p className="text-xs text-muted-foreground">{product.vendor}</p>
-      </div>
-      <div className="text-right">
-        <div className="font-medium">{formatCurrency(Number.parseFloat(price))}</div>
-        <Badge
-          variant={product.status === "ACTIVE" ? "default" : "secondary"}
-          className={
-            product.status === "ACTIVE" ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" : ""
-          }
-        >
-          {product.status === "ACTIVE" ? "Activo" : product.status === "DRAFT" ? "Borrador" : "Archivado"}
-        </Badge>
-      </div>
-    </div>
-  )
+// Función auxiliar para formatear moneda
+function formatCurrency(amount, currencyCode = "EUR") {
+  return new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: currencyCode,
+    minimumFractionDigits: 2,
+  }).format(amount)
 }

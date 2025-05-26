@@ -1,22 +1,18 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { ActivityLogger } from "@/lib/services/activity-logger"
+import { Logger } from "next-axiom"
+
+const logger = new Logger({
+  source: "api-shopify",
+})
 
 export async function POST(request: Request) {
-  const startTime = Date.now()
-
   try {
     // Verificar autenticación
     const session = await getServerSession(authOptions)
     if (!session) {
-      await ActivityLogger.log({
-        accion: "SHOPIFY_API_UNAUTHORIZED",
-        entidad: "SHOPIFY",
-        descripcion: "Intento de acceso no autorizado a la API de Shopify",
-        resultado: "ERROR",
-        errorMensaje: "No autorizado",
-      })
+      logger.warn("Intento de acceso no autorizado a la API de Shopify")
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
@@ -24,18 +20,30 @@ export async function POST(request: Request) {
     const shopDomain = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
     const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
 
-    if (!shopDomain || !accessToken) {
-      await ActivityLogger.logSystemError(
-        new Error("Configuración de Shopify incompleta"),
-        "Variables de entorno faltantes",
-        Number.parseInt(session.user.id),
+    if (!shopDomain) {
+      logger.error("NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN no está configurado")
+      return NextResponse.json(
+        { error: "Configuración de Shopify incompleta: falta el dominio de la tienda" },
+        { status: 500 },
       )
-      return NextResponse.json({ error: "Configuración de Shopify incompleta" }, { status: 500 })
+    }
+
+    if (!accessToken) {
+      logger.error("SHOPIFY_ACCESS_TOKEN no está configurado")
+      return NextResponse.json(
+        { error: "Configuración de Shopify incompleta: falta el token de acceso" },
+        { status: 500 },
+      )
     }
 
     // Obtener el cuerpo de la solicitud
     const body = await request.json()
     const { query, variables } = body
+
+    logger.debug("Enviando consulta a Shopify", {
+      query: query.substring(0, 100) + "...",
+      variables,
+    })
 
     // Hacer la solicitud a la API de Shopify
     const response = await fetch(`https://${shopDomain}/admin/api/2023-10/graphql.json`, {
@@ -50,20 +58,10 @@ export async function POST(request: Request) {
       }),
     })
 
-    const duration = Date.now() - startTime
-
+    // Verificar si la respuesta es exitosa
     if (!response.ok) {
       const errorText = await response.text()
-      await ActivityLogger.logShopifyCall(
-        Number.parseInt(session.user.id),
-        session.user.name || "Usuario",
-        "GraphQL",
-        "POST",
-        "ERROR",
-        duration,
-        `${response.status}: ${errorText}`,
-        { query: query.substring(0, 100), variables },
-      )
+      logger.error(`Error en la respuesta de Shopify (${response.status})`, { errorText })
 
       return NextResponse.json(
         {
@@ -74,20 +72,27 @@ export async function POST(request: Request) {
       )
     }
 
-    const data = await response.json()
+    // Intentar parsear la respuesta JSON
+    let data
+    try {
+      data = await response.json()
+    } catch (error) {
+      logger.error("Error al parsear la respuesta JSON", {
+        error: error instanceof Error ? error.message : "Error desconocido",
+      })
+
+      return NextResponse.json(
+        {
+          error: "Error al parsear la respuesta JSON de Shopify",
+          details: error instanceof Error ? error.message : "Error desconocido",
+        },
+        { status: 500 },
+      )
+    }
 
     // Verificar si hay errores en la respuesta GraphQL
     if (data.errors) {
-      await ActivityLogger.logShopifyCall(
-        Number.parseInt(session.user.id),
-        session.user.name || "Usuario",
-        "GraphQL",
-        "POST",
-        "ERROR",
-        duration,
-        `GraphQL errors: ${JSON.stringify(data.errors)}`,
-        { query: query.substring(0, 100), variables },
-      )
+      logger.error("Errores GraphQL", { errors: data.errors })
 
       return NextResponse.json(
         {
@@ -98,26 +103,11 @@ export async function POST(request: Request) {
       )
     }
 
-    // Registrar llamada exitosa
-    await ActivityLogger.logShopifyCall(
-      Number.parseInt(session.user.id),
-      session.user.name || "Usuario",
-      "GraphQL",
-      "POST",
-      "SUCCESS",
-      duration,
-      undefined,
-      { query: query.substring(0, 100), variables },
-    )
-
     return NextResponse.json(data)
   } catch (error) {
-    const duration = Date.now() - startTime
-    await ActivityLogger.logSystemError(
-      error as Error,
-      "Error en el proxy de Shopify",
-      Number.parseInt((await getServerSession(authOptions))?.user?.id || "0"),
-    )
+    logger.error("Error en el proxy de Shopify", {
+      error: error instanceof Error ? error.message : "Error desconocido",
+    })
 
     return NextResponse.json(
       {
@@ -129,6 +119,7 @@ export async function POST(request: Request) {
   }
 }
 
+// Añadir soporte para GET para el endpoint de verificación
 export async function GET() {
   return NextResponse.json({ error: "Método no permitido. Use POST para consultas GraphQL." }, { status: 405 })
 }

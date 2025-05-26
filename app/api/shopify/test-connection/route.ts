@@ -1,96 +1,118 @@
 import { NextResponse } from "next/server"
+import { shopifyFetch } from "@/lib/shopify"
 
-export async function POST(request: Request) {
+export async function GET() {
   try {
-    const body = await request.json()
-    const { shopDomain, accessToken } = body
-
-    if (!shopDomain || !accessToken) {
+    // Verificar que las variables de entorno estén configuradas
+    if (!process.env.SHOPIFY_API_URL) {
       return NextResponse.json(
         {
           success: false,
-          message: "Faltan parámetros: shopDomain y accessToken son requeridos",
+          error: "SHOPIFY_API_URL no está configurado",
+          env: {
+            SHOPIFY_API_URL: process.env.SHOPIFY_API_URL ? "Configurado" : "No configurado",
+            SHOPIFY_ACCESS_TOKEN: process.env.SHOPIFY_ACCESS_TOKEN ? "Configurado" : "No configurado",
+            NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
+              ? "Configurado"
+              : "No configurado",
+          },
         },
-        { status: 400 },
+        { status: 500 },
       )
     }
 
-    // Construir la URL del endpoint
-    const domain = shopDomain.includes(".myshopify.com") ? shopDomain : `${shopDomain}.myshopify.com`
-    const endpoint = `https://${domain}/admin/api/2024-01/graphql.json`
+    if (!process.env.SHOPIFY_ACCESS_TOKEN) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "SHOPIFY_ACCESS_TOKEN no está configurado",
+          env: {
+            SHOPIFY_API_URL: process.env.SHOPIFY_API_URL ? "Configurado" : "No configurado",
+            SHOPIFY_ACCESS_TOKEN: process.env.SHOPIFY_ACCESS_TOKEN ? "Configurado" : "No configurado",
+            NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
+              ? "Configurado"
+              : "No configurado",
+          },
+        },
+        { status: 500 },
+      )
+    }
 
+    // Consulta GraphQL simple para probar la conexión
     const query = `
       query {
         shop {
-          id
           name
-          url
           primaryDomain {
             url
           }
-          email
-          currencyCode
         }
       }
     `
 
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": accessToken,
-      },
-      body: JSON.stringify({ query }),
-    })
+    // Realizar la consulta a Shopify
+    const response = await shopifyFetch({ query })
 
-    if (!response.ok) {
-      const errorText = await response.text()
+    if (response.errors) {
       return NextResponse.json(
         {
           success: false,
-          message: `Error HTTP ${response.status}: ${response.statusText}`,
-          details: errorText,
+          error: "Error en la API de Shopify",
+          details: response.errors,
+          env: {
+            SHOPIFY_API_URL: process.env.SHOPIFY_API_URL ? "Configurado" : "No configurado",
+            SHOPIFY_ACCESS_TOKEN: process.env.SHOPIFY_ACCESS_TOKEN ? "Configurado" : "No configurado",
+            NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
+              ? "Configurado"
+              : "No configurado",
+          },
         },
-        { status: response.status },
+        { status: 500 },
       )
     }
 
-    const result = await response.json()
-
-    if (result.errors) {
+    if (!response.data || !response.data.shop) {
       return NextResponse.json(
         {
           success: false,
-          message: `Error de GraphQL: ${result.errors.map((e: any) => e.message).join(", ")}`,
-          details: result.errors,
+          error: "Respuesta de Shopify inválida",
+          response,
+          env: {
+            SHOPIFY_API_URL: process.env.SHOPIFY_API_URL ? "Configurado" : "No configurado",
+            SHOPIFY_ACCESS_TOKEN: process.env.SHOPIFY_ACCESS_TOKEN ? "Configurado" : "No configurado",
+            NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
+              ? "Configurado"
+              : "No configurado",
+          },
         },
-        { status: 400 },
+        { status: 500 },
       )
     }
 
-    if (!result.data || !result.data.shop) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Respuesta inválida de Shopify",
-          details: result,
-        },
-        { status: 400 },
-      )
-    }
-
+    // Conexión exitosa
     return NextResponse.json({
       success: true,
-      message: `Conexión exitosa con ${result.data.shop.name}`,
-      data: result.data,
+      shop: response.data.shop,
+      env: {
+        SHOPIFY_API_URL: process.env.SHOPIFY_API_URL ? "Configurado" : "No configurado",
+        SHOPIFY_ACCESS_TOKEN: process.env.SHOPIFY_ACCESS_TOKEN ? "Configurado" : "No configurado",
+        NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN ? "Configurado" : "No configurado",
+      },
     })
   } catch (error) {
-    console.error("Error testing Shopify connection:", error)
+    console.error("Error al probar la conexión con Shopify:", error)
     return NextResponse.json(
       {
         success: false,
-        message: "Error interno del servidor",
-        details: error instanceof Error ? error.message : "Error desconocido",
+        error: error.message || "Error desconocido",
+        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+        env: {
+          SHOPIFY_API_URL: process.env.SHOPIFY_API_URL ? "Configurado" : "No configurado",
+          SHOPIFY_ACCESS_TOKEN: process.env.SHOPIFY_ACCESS_TOKEN ? "Configurado" : "No configurado",
+          NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN: process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN
+            ? "Configurado"
+            : "No configurado",
+        },
       },
       { status: 500 },
     )

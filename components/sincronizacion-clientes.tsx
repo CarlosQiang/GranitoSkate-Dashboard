@@ -2,32 +2,36 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { RefreshCw, Users, CheckCircle, AlertCircle } from "lucide-react"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { CheckCircle, AlertCircle, RefreshCw, Users } from "lucide-react"
 
-export default function SincronizacionClientes() {
-  const [isLoading, setIsLoading] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [status, setStatus] = useState<"idle" | "syncing" | "success" | "error">("idle")
+export function SincronizacionClientes() {
+  const [loading, setLoading] = useState(false)
+  const [resultado, setResultado] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSync = async () => {
-    setIsLoading(true)
-    setStatus("syncing")
-    setProgress(0)
-
+  const sincronizarClientes = async () => {
     try {
-      // Simular progreso
-      for (let i = 0; i <= 100; i += 25) {
-        setProgress(i)
-        await new Promise((resolve) => setTimeout(resolve, 400))
+      setLoading(true)
+      setError(null)
+
+      const response = await fetch("/api/sync/clientes")
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Error al obtener clientes")
       }
 
-      setStatus("success")
-    } catch (error) {
-      setStatus("error")
+      setResultado({
+        total: data.data.length,
+        mensaje: data.message,
+      })
+    } catch (err) {
+      console.error("Error al sincronizar clientes:", err)
+      setError(err.message || "Error desconocido al sincronizar clientes")
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
@@ -38,47 +42,50 @@ export default function SincronizacionClientes() {
           <Users className="h-5 w-5" />
           Sincronización de Clientes
         </CardTitle>
-        <CardDescription>Sincroniza los clientes entre Shopify y la base de datos local</CardDescription>
+        <CardDescription>Obtén clientes desde tu tienda Shopify</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {status === "syncing" && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span>Sincronizando clientes...</span>
-              <span>{progress}%</span>
-            </div>
-            <Progress value={progress} />
-          </div>
-        )}
-
-        {status === "success" && (
-          <div className="flex items-center gap-2 text-green-600">
-            <CheckCircle className="h-4 w-4" />
-            <span>Sincronización completada exitosamente</span>
-          </div>
-        )}
-
-        {status === "error" && (
-          <div className="flex items-center gap-2 text-red-600">
+      <CardContent>
+        {error && (
+          <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
-            <span>Error en la sincronización</span>
-          </div>
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
-        <Button onClick={handleSync} disabled={isLoading} className="w-full">
-          {isLoading ? (
+        {resultado && (
+          <Alert variant="success" className="mb-4">
+            <CheckCircle className="h-4 w-4" />
+            <AlertTitle>Operación completada</AlertTitle>
+            <AlertDescription>
+              <p>{resultado.mensaje}</p>
+              <p className="mt-2">
+                Total de clientes: <strong>{resultado.total}</strong>
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <p className="text-sm text-muted-foreground mb-4">
+          Esta herramienta te permite obtener clientes desde tu tienda Shopify. Próximamente se implementará la
+          sincronización completa con la base de datos.
+        </p>
+      </CardContent>
+      <CardFooter>
+        <Button onClick={sincronizarClientes} disabled={loading} className="w-full">
+          {loading ? (
             <>
               <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-              Sincronizando...
+              Obteniendo...
             </>
           ) : (
             <>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Sincronizar Clientes
+              <Users className="mr-2 h-4 w-4" />
+              Obtener Clientes desde Shopify
             </>
           )}
         </Button>
-      </CardContent>
+      </CardFooter>
     </Card>
   )
 }

@@ -12,13 +12,9 @@ import {
   ShoppingCart,
   Tag,
   BarChart,
-  Activity,
-  Wrench,
-  Globe,
-  RefreshCw,
 } from "lucide-react"
 
-// Navegación principal completa con Shopify
+// Exportamos navigationItems para mantener compatibilidad con el código existente
 export const navigationItems = [
   {
     name: "Dashboard",
@@ -56,34 +52,9 @@ export const navigationItems = [
     icon: Search,
   },
   {
-    name: "Mercados",
-    href: "/dashboard/seo-markets",
-    icon: Globe,
-  },
-  {
     name: "Analíticas",
     href: "/dashboard/analytics",
     icon: BarChart,
-  },
-  {
-    name: "Contenido",
-    href: "/dashboard/content",
-    icon: FileText,
-  },
-  {
-    name: "Sincronización",
-    href: "/dashboard/sincronizacion",
-    icon: RefreshCw,
-  },
-  {
-    name: "Registros",
-    href: "/dashboard/registros",
-    icon: Activity,
-  },
-  {
-    name: "Administradores",
-    href: "/dashboard/administradores",
-    icon: UserCog,
   },
   {
     name: "Personalización",
@@ -96,17 +67,13 @@ export const navigationItems = [
     icon: Settings,
   },
   {
-    name: "Diagnóstico",
-    href: "/dashboard/diagnostics",
-    icon: AlertTriangle,
-  },
-  {
-    name: "Setup",
-    href: "/dashboard/setup",
-    icon: Wrench,
+    name: "Administradores",
+    href: "/dashboard/administradores",
+    icon: UserCog,
   },
 ]
 
+// Exportamos también las nuevas estructuras de navegación
 export const mainNav = [
   {
     title: "Dashboard",
@@ -150,12 +117,12 @@ export const mainNav = [
     icon: Search,
     color: "text-blue-500",
   },
-  {
-    title: "Mercados",
-    href: "/dashboard/seo-markets",
-    icon: Globe,
-    color: "text-green-500",
-  },
+  // {
+  //   title: "Mercados",
+  //   href: "/dashboard/seo-markets",
+  //   icon: Globe,
+  //   color: "text-green-500",
+  // },
   {
     title: "Contenido",
     href: "/dashboard/content",
@@ -171,24 +138,6 @@ export const mainNav = [
 ]
 
 export const settingsNav = [
-  {
-    title: "Sincronización",
-    href: "/dashboard/sincronizacion",
-    icon: RefreshCw,
-    color: "text-blue-500",
-  },
-  {
-    title: "Registros",
-    href: "/dashboard/registros",
-    icon: Activity,
-    color: "text-green-500",
-  },
-  {
-    title: "Personalización",
-    href: "/dashboard/personalizacion",
-    icon: Palette,
-    color: "text-purple-500",
-  },
   {
     title: "Configuración",
     href: "/dashboard/settings",
@@ -207,14 +156,9 @@ export const settingsNav = [
     icon: UserCog,
     color: "text-granito",
   },
-  {
-    title: "Setup",
-    href: "/dashboard/setup",
-    icon: Wrench,
-    color: "text-blue-500",
-  },
 ]
 
+// Añadir la sección de sincronización al menú de navegación
 export const dashboardConfig = {
   mainNav: [
     {
@@ -257,25 +201,15 @@ export const dashboardConfig = {
       href: "/dashboard/seo",
       icon: "search",
     },
-    {
-      title: "Mercados",
-      href: "/dashboard/seo-markets",
-      icon: "globe",
-    },
+    // {
+    //   title: "Mercados",
+    //   href: "/dashboard/seo-markets",
+    //   icon: "globe",
+    // },
     {
       title: "Analítica",
       href: "/dashboard/analytics",
       icon: "bar-chart",
-    },
-    {
-      title: "Sincronización",
-      href: "/dashboard/sincronizacion",
-      icon: "refresh-cw",
-    },
-    {
-      title: "Registros",
-      href: "/dashboard/registros",
-      icon: "activity",
     },
     {
       title: "Diagnósticos",
@@ -283,14 +217,14 @@ export const dashboardConfig = {
       icon: "activity",
     },
     {
+      title: "Sincronización",
+      href: "/dashboard/sincronizacion",
+      icon: "refresh-cw",
+    },
+    {
       title: "Administradores",
       href: "/dashboard/administradores",
       icon: "shield",
-    },
-    {
-      title: "Personalización",
-      href: "/dashboard/personalizacion",
-      icon: "palette",
     },
     {
       title: "Configuración",
