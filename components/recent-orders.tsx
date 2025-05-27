@@ -1,119 +1,61 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import Link from "next/link"
-import { fetchRecentOrders } from "@/lib/api/orders"
-import { Skeleton } from "@/components/ui/skeleton"
-import { AlertCircle } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Card, CardContent } from "@/components/ui/card"
+import { formatDistanceToNow } from "date-fns"
+import { es } from "date-fns/locale"
 
-export function RecentOrders() {
-  const [orders, setOrders] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+interface RecentOrdersProps {
+  data?: Array<{
+    id: string
+    name: string
+    processedAt: string
+    total: string
+    currency: string
+    customer: string
+    items: Array<{
+      title: string
+      quantity: number
+    }>
+  }>
+}
 
-  useEffect(() => {
-    const loadOrders = async () => {
-      try {
-        setLoading(true)
-        const data = await fetchRecentOrders(5)
-        setOrders(data)
-        setError(null)
-      } catch (err) {
-        console.error("Error al cargar pedidos recientes:", err)
-        setError("Error al cargar pedidos recientes")
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadOrders()
-  }, [])
-
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString)
-      return new Intl.DateTimeFormat("es-ES", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      }).format(date)
-    } catch (error) {
-      console.error("Error al formatear fecha:", error)
-      return dateString
-    }
-  }
-
-  const formatCurrency = (amount: string | number, currency = "EUR") => {
-    try {
-      const numAmount = typeof amount === "string" ? Number.parseFloat(amount) : amount
-      // Asegurarse de que siempre haya un código de moneda válido
-      const currencyCode = currency || "EUR"
-      return new Intl.NumberFormat("es-ES", {
-        style: "currency",
-        currency: currencyCode,
-      }).format(numAmount)
-    } catch (error) {
-      console.error("Error al formatear moneda:", error)
-      return `${amount} €`
-    }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case "fulfilled":
-      case "paid":
-        return "text-green-600"
-      case "unfulfilled":
-      case "partially_fulfilled":
-        return "text-amber-600"
-      case "refunded":
-        return "text-blue-600"
-      case "pending":
-        return "text-gray-600"
-      default:
-        return "text-gray-600"
-    }
+export function RecentOrders({ data = [] }: RecentOrdersProps) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="text-center py-6">
+        <p className="text-sm text-muted-foreground">No hay pedidos recientes</p>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-4">
-      {loading ? (
-        <div className="space-y-3">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="flex items-center justify-between">
-              <Skeleton className="h-5 w-[120px]" />
-              <Skeleton className="h-5 w-[80px]" />
-              <Skeleton className="h-5 w-[60px]" />
-            </div>
-          ))}
-        </div>
-      ) : error ? (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : orders.length === 0 ? (
-        <p className="text-center text-muted-foreground py-4">No hay pedidos recientes</p>
-      ) : (
-        <div className="space-y-4">
-          {orders.map((order) => (
-            <div key={order.id} className="flex items-center justify-between">
-              <div>
-                <Link href={`/dashboard/orders/${order.id}`} className="font-medium hover:underline">
-                  {order.name}
-                </Link>
-                <p className="text-sm text-muted-foreground">{formatDate(order.createdAt)}</p>
+      {data.map((order) => (
+        <Card key={order.id} className="p-4">
+          <CardContent className="p-0">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">{order.name}</p>
+                <p className="text-xs text-muted-foreground">{order.customer}</p>
+                <p className="text-xs text-muted-foreground">
+                  {formatDistanceToNow(new Date(order.processedAt), {
+                    addSuffix: true,
+                    locale: es,
+                  })}
+                </p>
               </div>
               <div className="text-right">
-                <p className="font-medium">{formatCurrency(order.total, order.currency)}</p>
-                <p className={`text-sm ${getStatusColor(order.status)}`}>{order.status}</p>
+                <p className="text-sm font-medium">
+                  {Number.parseFloat(order.total).toFixed(2)} {order.currency}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {order.items.length} producto{order.items.length !== 1 ? "s" : ""}
+                </p>
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          </CardContent>
+        </Card>
+      ))}
     </div>
   )
 }
