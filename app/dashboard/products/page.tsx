@@ -7,54 +7,94 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Search, RefreshCw, ArrowUpDown, Grid3X3, List } from "lucide-react"
-import { fetchProducts } from "@/lib/api/products"
+import { Plus, Search, RefreshCw, ArrowUpDown, Grid3X3, List, Package, AlertCircle } from "lucide-react"
 import { ProductCard } from "@/components/product-card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/components/ui/use-toast"
-import { Package } from "lucide-react"
-import { cleanId, getImageUrl, formatCurrency } from "@/utils/helpers"
 import { cn } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 
+// Función helper para limpiar IDs
+const cleanId = (id: string | undefined) => {
+  if (!id) return ""
+  if (typeof id === "string" && id.includes("/")) {
+    return id.split("/").pop() || ""
+  }
+  return id
+}
+
+// Función helper para obtener URL de imagen
+const getImageUrl = (product: any) => {
+  if (!product) return null
+
+  if (product.imagen) return product.imagen
+  if (product.image) return typeof product.image === "string" ? product.image : product.image?.url || product.image?.src
+
+  if (product.featuredImage) return product.featuredImage.url || product.featuredImage.src
+
+  if (product.imagenes && product.imagenes.length > 0) {
+    return product.imagenes[0].src || product.imagenes[0].url
+  }
+
+  if (product.images && product.images.length > 0) {
+    return typeof product.images[0] === "string" ? product.images[0] : product.images[0]?.url || product.images[0]?.src
+  }
+
+  if (product.images && product.images.edges && product.images.edges.length > 0) {
+    return product.images.edges[0].node.url || product.images.edges[0].node.src
+  }
+
+  return null
+}
+
+// Función helper para formatear moneda
+const formatCurrency = (amount: number | string, currency = "EUR") => {
+  const num = typeof amount === "string" ? Number.parseFloat(amount) : amount
+  return new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: currency,
+  }).format(num || 0)
+}
+
 export default function ProductsPage() {
   const router = useRouter()
-  const [products, setProducts] = useState([])
-  const [filteredProducts, setFilteredProducts] = useState([])
+  const [products, setProducts] = useState<any[]>([])
+  const [filteredProducts, setFilteredProducts] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("all")
   const [isLoading, setIsLoading] = useState(true)
   const [isSyncing, setIsSyncing] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState("grid")
   const [sortBy, setSortBy] = useState("title-asc")
-  const [isMobile, setIsMobile] = useState(false)
-
-  // Detectar dispositivo móvil
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
-
-    checkMobile()
-    window.addEventListener("resize", checkMobile)
-    return () => window.removeEventListener("resize", checkMobile)
-  }, [])
 
   const loadProducts = async () => {
     setIsLoading(true)
     setError(null)
     try {
-      const data = await fetchProducts(100)
-      console.log("Productos cargados:", data) // Debug
-      setProducts(data)
-      filterAndSortProducts(data, searchTerm, activeTab, sortBy)
+      const response = await fetch("/api/shopify/products")
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+
+      // Normalizar datos de productos
+      const normalizedProducts = Array.isArray(data) ? data : data.products || []
+
+      console.log("Productos cargados:", normalizedProducts.length)
+      setProducts(normalizedProducts)
+      filterAndSortProducts(normalizedProducts, searchTerm, activeTab, sortBy)
     } catch (error) {
       console.error("Error al cargar productos:", error)
       setError("No se pudieron cargar los productos. Intente nuevamente más tarde.")
+      setProducts([])
+      setFilteredProducts([])
+
       toast({
         title: "Error al cargar productos",
         description: "No se pudieron cargar los productos. Intente nuevamente más tarde.",
@@ -65,61 +105,59 @@ export default function ProductsPage() {
     }
   }
 
-  const filterAndSortProducts = (productsData, search, tab, sort) => {
-    let filtered = [...productsData]
+  const filterAndSortProducts = (productsData: any[], search: string, tab: string, sort: string) => {
+    try {
+      let filtered = [...productsData]
 
-    console.log("Filtrando productos:", { search, tab, sort, totalProducts: filtered.length }) // Debug
+      // Filtro por búsqueda
+      if (search) {
+        filtered = filtered.filter(
+          (product) =>
+            product.title?.toLowerCase().includes(search.toLowerCase()) ||
+            product.vendor?.toLowerCase().includes(search.toLowerCase()) ||
+            product.productType?.toLowerCase().includes(search.toLowerCase()),
+        )
+      }
 
-    if (search) {
-      filtered = filtered.filter(
-        (product) =>
-          product.title?.toLowerCase().includes(search.toLowerCase()) ||
-          product.vendor?.toLowerCase().includes(search.toLowerCase()) ||
-          product.productType?.toLowerCase().includes(search.toLowerCase()),
-      )
+      // Filtro por estado
+      if (tab !== "all") {
+        const statusMap = {
+          active: "ACTIVE",
+          draft: "DRAFT",
+          archived: "ARCHIVED",
+        }
+
+        const statusToFilter = statusMap[tab as keyof typeof statusMap]
+        if (statusToFilter) {
+          filtered = filtered.filter((product) => product.status === statusToFilter)
+        }
+      }
+
+      // Ordenamiento
+      filtered.sort((a, b) => {
+        switch (sort) {
+          case "title-asc":
+            return (a.title || "").localeCompare(b.title || "")
+          case "title-desc":
+            return (b.title || "").localeCompare(a.title || "")
+          case "date-asc":
+            return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
+          case "date-desc":
+            return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+          case "price-asc":
+            return (Number.parseFloat(a.price) || 0) - (Number.parseFloat(b.price) || 0)
+          case "price-desc":
+            return (Number.parseFloat(b.price) || 0) - (Number.parseFloat(a.price) || 0)
+          default:
+            return 0
+        }
+      })
+
+      setFilteredProducts(filtered)
+    } catch (error) {
+      console.error("Error al filtrar productos:", error)
+      setFilteredProducts([])
     }
-
-    if (tab !== "all") {
-      const statusMap = {
-        active: "ACTIVE",
-        draft: "DRAFT",
-        archived: "ARCHIVED",
-      }
-
-      const statusToFilter = statusMap[tab]
-      console.log("Filtrando por estado:", statusToFilter) // Debug
-
-      if (statusToFilter) {
-        const beforeFilter = filtered.length
-        filtered = filtered.filter((product) => {
-          console.log(`Producto ${product.title}: estado actual = "${product.status}", buscando = "${statusToFilter}"`) // Debug
-          return product.status === statusToFilter
-        })
-        console.log(`Productos después del filtro: ${filtered.length} (antes: ${beforeFilter})`) // Debug
-      }
-    }
-
-    filtered.sort((a, b) => {
-      switch (sort) {
-        case "title-asc":
-          return (a.title || "").localeCompare(b.title || "")
-        case "title-desc":
-          return (b.title || "").localeCompare(a.title || "")
-        case "date-asc":
-          return new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
-        case "date-desc":
-          return new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
-        case "price-asc":
-          return (Number.parseFloat(a.price) || 0) - (Number.parseFloat(b.price) || 0)
-        case "price-desc":
-          return (Number.parseFloat(b.price) || 0) - (Number.parseFloat(a.price) || 0)
-        default:
-          return 0
-      }
-    })
-
-    console.log("Productos filtrados finales:", filtered) // Debug
-    setFilteredProducts(filtered)
   }
 
   useEffect(() => {
@@ -148,10 +186,8 @@ export default function ProductsPage() {
     localStorage.setItem("productsSortBy", sortBy)
   }, [sortBy])
 
-  const handleTabChange = (value) => {
-    console.log("Cambiando a pestaña:", value) // Debug
+  const handleTabChange = (value: string) => {
     setActiveTab(value)
-    filterAndSortProducts(products, searchTerm, value, sortBy)
   }
 
   const syncProducts = async () => {
@@ -201,10 +237,6 @@ export default function ProductsPage() {
     }
   }
 
-  const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value)
-  }
-
   // Calcular contadores para cada pestaña
   const getCounts = () => {
     return {
@@ -218,29 +250,29 @@ export default function ProductsPage() {
   const counts = getCounts()
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6">
       {/* Header responsive */}
-      <div className="flex-responsive-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="heading-responsive">Productos</h1>
-          <p className="caption-responsive mt-1">Gestiona los productos de tu tienda Shopify</p>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Productos</h1>
+          <p className="text-sm text-muted-foreground sm:text-base">Gestiona los productos de tu tienda Shopify</p>
         </div>
         <Button
           onClick={() => router.push("/dashboard/products/new")}
-          className="bg-granito-500 hover:bg-granito-600 text-white mobile-full-width sm:w-auto"
+          className="bg-yellow-600 hover:bg-yellow-700 text-white w-full sm:w-auto"
         >
           <Plus className="mr-2 h-4 w-4" />
-          <span className="mobile-only">Nuevo</span>
-          <span className="tablet-up">Nuevo producto</span>
+          <span className="sm:hidden">Nuevo</span>
+          <span className="hidden sm:inline">Nuevo producto</span>
         </Button>
       </div>
 
-      <Card className="overflow-hidden border-gray-200 dark:border-gray-800">
-        <CardHeader className="bg-gray-50 dark:bg-gray-900 border-b card-responsive">
-          <div className="flex-responsive-between">
+      <Card className="overflow-hidden">
+        <CardHeader className="bg-gray-50 dark:bg-gray-900 border-b">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="subheading-responsive">Catálogo de productos</CardTitle>
-              <CardDescription className="caption-responsive">
+              <CardTitle className="text-lg sm:text-xl">Catálogo de productos</CardTitle>
+              <CardDescription className="text-sm">
                 Visualiza, edita y crea nuevos productos para tu tienda online.
               </CardDescription>
             </div>
@@ -249,20 +281,20 @@ export default function ProductsPage() {
                 onClick={syncProducts}
                 disabled={isSyncing}
                 variant="outline"
-                className="border-granito-300 hover:bg-granito-50"
-                size={isMobile ? "sm" : "default"}
+                className="border-yellow-300 hover:bg-yellow-50"
+                size="sm"
               >
                 {isSyncing ? (
                   <>
                     <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    <span className="mobile-only">Sync...</span>
-                    <span className="tablet-up">Sincronizando...</span>
+                    <span className="sm:hidden">Sync...</span>
+                    <span className="hidden sm:inline">Sincronizando...</span>
                   </>
                 ) : (
                   <>
                     <RefreshCw className="mr-2 h-4 w-4" />
-                    <span className="mobile-only">Sync</span>
-                    <span className="tablet-up">Sincronizar</span>
+                    <span className="sm:hidden">Sync</span>
+                    <span className="hidden sm:inline">Sincronizar</span>
                   </>
                 )}
               </Button>
@@ -270,10 +302,10 @@ export default function ProductsPage() {
           </div>
         </CardHeader>
 
-        <CardContent className="card-responsive">
+        <CardContent className="p-4 sm:p-6">
           <div className="space-y-4">
             {/* Controles de búsqueda y filtros */}
-            <div className="flex-responsive-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -281,7 +313,7 @@ export default function ProductsPage() {
                   placeholder="Buscar productos..."
                   className="pl-8"
                   value={searchTerm}
-                  onChange={handleSearchChange}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
 
@@ -289,10 +321,10 @@ export default function ProductsPage() {
                 {/* Ordenamiento */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size={isMobile ? "sm" : "default"} className="gap-1">
+                    <Button variant="outline" size="sm" className="gap-1">
                       <ArrowUpDown className="h-4 w-4" />
-                      <span className="mobile-only">Orden</span>
-                      <span className="tablet-up">{getSortTitle()}</span>
+                      <span className="sm:hidden">Orden</span>
+                      <span className="hidden sm:inline">{getSortTitle()}</span>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
@@ -331,11 +363,9 @@ export default function ProductsPage() {
 
             {/* Error state */}
             {error && (
-              <div
-                className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-md"
-                role="alert"
-              >
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-md">
                 <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
                   <span className="font-medium">Error:</span>
                   <span>{error}</span>
                 </div>
@@ -346,10 +376,7 @@ export default function ProductsPage() {
             <Tabs defaultValue="all" value={activeTab} onValueChange={handleTabChange} className="w-full">
               <div className="overflow-x-auto">
                 <TabsList className="bg-muted/60 w-full justify-start mb-4 min-w-max">
-                  <TabsTrigger
-                    value="all"
-                    className="data-[state=active]:bg-granito-500 data-[state=active]:text-white"
-                  >
+                  <TabsTrigger value="all" className="data-[state=active]:bg-yellow-600 data-[state=active]:text-white">
                     Todos
                     <Badge variant="outline" className="ml-2 bg-white/20">
                       {counts.all}
@@ -357,7 +384,7 @@ export default function ProductsPage() {
                   </TabsTrigger>
                   <TabsTrigger
                     value="active"
-                    className="data-[state=active]:bg-granito-500 data-[state=active]:text-white"
+                    className="data-[state=active]:bg-yellow-600 data-[state=active]:text-white"
                   >
                     Activos
                     <Badge variant="outline" className="ml-2 bg-white/20">
@@ -366,7 +393,7 @@ export default function ProductsPage() {
                   </TabsTrigger>
                   <TabsTrigger
                     value="draft"
-                    className="data-[state=active]:bg-granito-500 data-[state=active]:text-white"
+                    className="data-[state=active]:bg-yellow-600 data-[state=active]:text-white"
                   >
                     Borradores
                     <Badge variant="outline" className="ml-2 bg-white/20">
@@ -375,7 +402,7 @@ export default function ProductsPage() {
                   </TabsTrigger>
                   <TabsTrigger
                     value="archived"
-                    className="data-[state=active]:bg-granito-500 data-[state=active]:text-white"
+                    className="data-[state=active]:bg-yellow-600 data-[state=active]:text-white"
                   >
                     Archivados
                     <Badge variant="outline" className="ml-2 bg-white/20">
@@ -390,12 +417,7 @@ export default function ProductsPage() {
                 <TabsContent key={tabValue} value={tabValue} className="mt-0">
                   {isLoading ? (
                     viewMode === "grid" ? (
-                      <div
-                        className={cn(
-                          "grid gap-4",
-                          isMobile ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
-                        )}
-                      >
+                      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         {Array(8)
                           .fill(0)
                           .map((_, i) => (
@@ -429,8 +451,8 @@ export default function ProductsPage() {
                       <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
                         <Search className="h-6 w-6 text-gray-400" />
                       </div>
-                      <h3 className="subheading-responsive">No se encontraron productos</h3>
-                      <p className="caption-responsive mt-1 mb-4">
+                      <h3 className="text-lg font-semibold sm:text-xl">No se encontraron productos</h3>
+                      <p className="text-sm text-muted-foreground mt-1 mb-4 sm:text-base">
                         {searchTerm
                           ? `No hay resultados para "${searchTerm}"`
                           : `No hay productos ${
@@ -445,19 +467,14 @@ export default function ProductsPage() {
                       </p>
                       <Button
                         onClick={() => router.push("/dashboard/products/new")}
-                        className="bg-granito-500 hover:bg-granito-600 text-white"
+                        className="bg-yellow-600 hover:bg-yellow-700 text-white"
                       >
                         <Plus className="mr-2 h-4 w-4" />
                         Crear nuevo producto
                       </Button>
                     </div>
                   ) : viewMode === "grid" ? (
-                    <div
-                      className={cn(
-                        "grid gap-4",
-                        isMobile ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
-                      )}
-                    >
+                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {filteredProducts.map((product) => (
                         <ProductCard key={product.id} product={product} />
                       ))}

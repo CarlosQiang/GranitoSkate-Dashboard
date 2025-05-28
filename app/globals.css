@@ -2,405 +2,86 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Variables CSS personalizadas */
-:root {
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
-  --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
-  --primary: 222.2 47.4% 11.2%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 210 40% 96%;
-  --secondary-foreground: 222.2 84% 4.9%;
-  --muted: 210 40% 96%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 210 40% 96%;
-  --accent-foreground: 222.2 84% 4.9%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 222.2 84% 4.9%;
-  --radius: 0.5rem;
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+  }
 
-  /* Colores de Granito personalizables */
-  --granito-50: 48 100% 96%;
-  --granito-100: 48 96% 89%;
-  --granito-200: 48 97% 77%;
-  --granito-300: 46 97% 65%;
-  --granito-400: 43 96% 56%;
-  --granito-500: 38 92% 50%;
-  --granito-600: 32 95% 44%;
-  --granito-700: 26 90% 37%;
-  --granito-800: 23 83% 31%;
-  --granito-900: 22 78% 26%;
-  --granito-950: 23 92% 14%;
-}
-
-.dark {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
-  --popover: 222.2 84% 4.9%;
-  --popover-foreground: 210 40% 98%;
-  --primary: 210 40% 98%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 212.7 26.8% 83.9%;
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+  }
 }
 
-/* Estilos base */
-* {
-  border-color: hsl(var(--border));
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: Inter, sans-serif;
+  }
 }
 
-body {
-  color: hsl(var(--foreground));
-  background: hsl(var(--background));
-  font-family: var(--font-family, Inter, sans-serif);
-  transition: all 0.3s ease;
+/* Utilidades responsive */
+.line-clamp-1 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
 }
 
-/* Estilos de botón personalizables */
-[data-button-style="solid"] .btn-primary {
-  background-color: var(--color-primary);
-  color: white;
-  border: none;
+.line-clamp-2 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
-[data-button-style="solid"] .btn-primary:hover {
-  background-color: var(--color-primary-hover);
+.line-clamp-3 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
-[data-button-style="outline"] .btn-primary {
-  background-color: transparent;
-  color: var(--color-primary);
-  border: 1px solid var(--color-primary);
-}
-
-[data-button-style="outline"] .btn-primary:hover {
-  background-color: var(--color-primary);
-  color: white;
-}
-
-[data-button-style="soft"] .btn-primary {
-  background-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
-  color: var(--color-primary);
-  border: none;
-}
-
-[data-button-style="soft"] .btn-primary:hover {
-  background-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
-}
-
-[data-button-style="ghost"] .btn-primary {
-  background-color: transparent;
-  color: var(--color-primary);
-  border: none;
-}
-
-[data-button-style="ghost"] .btn-primary:hover {
-  background-color: color-mix(in srgb, var(--color-primary) 10%, transparent);
-}
-
-/* Estilos de tarjeta personalizables */
-[data-card-style="flat"] .card {
-  box-shadow: none;
-  border: 1px solid hsl(var(--border));
-}
-
-[data-card-style="raised"] .card {
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-  border: 1px solid hsl(var(--border));
-}
-
-[data-card-style="bordered"] .card {
-  box-shadow: none;
-  border: 2px solid hsl(var(--border));
-}
-
-/* Estilos de sidebar personalizables */
-[data-sidebar-style="default"] .sidebar {
-  width: 16rem;
-}
-
-[data-sidebar-style="compact"] .sidebar {
-  width: 12rem;
-}
-
-[data-sidebar-style="expanded"] .sidebar {
-  width: 20rem;
-}
-
-/* Animaciones personalizables */
-.theme-animation-slow * {
-  transition-duration: 0.5s;
-}
-
-.theme-animation-normal * {
-  transition-duration: 0.3s;
-}
-
-.theme-animation-fast * {
-  transition-duration: 0.15s;
-}
-
-.disable-animations * {
-  transition: none !important;
-  animation: none !important;
-}
-
-/* Modo de alto contraste */
-.high-contrast {
-  filter: contrast(150%);
-}
-
-.high-contrast .card {
-  border-width: 2px;
-}
-
-.high-contrast .btn {
-  border-width: 2px;
-  font-weight: 600;
-}
-
-/* Clases utilitarias responsive */
-.heading-responsive {
-  @apply text-2xl font-bold tracking-tight sm:text-3xl;
-}
-
-.subheading-responsive {
-  @apply text-lg font-semibold sm:text-xl;
-}
-
-.body-responsive {
-  @apply text-sm sm:text-base;
-}
-
-.caption-responsive {
-  @apply text-xs text-muted-foreground sm:text-sm;
-}
-
-.card-responsive {
-  @apply p-4 sm:p-6;
-}
-
-.card-header-responsive {
-  @apply p-4 sm:p-6;
-}
-
-.flex-responsive {
-  @apply flex flex-col gap-4 sm:flex-row sm:items-center;
-}
-
-.flex-responsive-between {
-  @apply flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between;
-}
-
-.flex-responsive-center {
-  @apply flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-center;
-}
-
-.grid-responsive-1 {
-  @apply grid grid-cols-1;
-}
-
-.grid-responsive-2 {
-  @apply grid grid-cols-1 sm:grid-cols-2;
-}
-
-.grid-responsive-3 {
-  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3;
-}
-
-.grid-responsive-4 {
-  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
-}
-
-.grid-responsive-stats {
-  @apply grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4;
-}
-
-.table-responsive {
-  @apply overflow-x-auto;
-}
-
-.mobile-only {
-  @apply block sm:hidden;
-}
-
-.tablet-up {
-  @apply hidden sm:block;
-}
-
-.desktop-only {
-  @apply hidden lg:block;
-}
-
-.mobile-full-width {
-  @apply w-full sm:w-auto;
-}
-
-/* Colores de Granito */
-.bg-granito-50 {
-  background-color: hsl(var(--granito-50));
-}
-.bg-granito-100 {
-  background-color: hsl(var(--granito-100));
-}
-.bg-granito-200 {
-  background-color: hsl(var(--granito-200));
-}
-.bg-granito-300 {
-  background-color: hsl(var(--granito-300));
-}
-.bg-granito-400 {
-  background-color: hsl(var(--granito-400));
-}
-.bg-granito-500 {
-  background-color: hsl(var(--granito-500));
-}
-.bg-granito-600 {
-  background-color: hsl(var(--granito-600));
-}
-.bg-granito-700 {
-  background-color: hsl(var(--granito-700));
-}
-.bg-granito-800 {
-  background-color: hsl(var(--granito-800));
-}
-.bg-granito-900 {
-  background-color: hsl(var(--granito-900));
-}
-.bg-granito-950 {
-  background-color: hsl(var(--granito-950));
-}
-
-.text-granito-50 {
-  color: hsl(var(--granito-50));
-}
-.text-granito-100 {
-  color: hsl(var(--granito-100));
-}
-.text-granito-200 {
-  color: hsl(var(--granito-200));
-}
-.text-granito-300 {
-  color: hsl(var(--granito-300));
-}
-.text-granito-400 {
-  color: hsl(var(--granito-400));
-}
-.text-granito-500 {
-  color: hsl(var(--granito-500));
-}
-.text-granito-600 {
-  color: hsl(var(--granito-600));
-}
-.text-granito-700 {
-  color: hsl(var(--granito-700));
-}
-.text-granito-800 {
-  color: hsl(var(--granito-800));
-}
-.text-granito-900 {
-  color: hsl(var(--granito-900));
-}
-.text-granito-950 {
-  color: hsl(var(--granito-950));
-}
-
-.border-granito-50 {
-  border-color: hsl(var(--granito-50));
-}
-.border-granito-100 {
-  border-color: hsl(var(--granito-100));
-}
-.border-granito-200 {
-  border-color: hsl(var(--granito-200));
-}
-.border-granito-300 {
-  border-color: hsl(var(--granito-300));
-}
-.border-granito-400 {
-  border-color: hsl(var(--granito-400));
-}
-.border-granito-500 {
-  border-color: hsl(var(--granito-500));
-}
-.border-granito-600 {
-  border-color: hsl(var(--granito-600));
-}
-.border-granito-700 {
-  border-color: hsl(var(--granito-700));
-}
-.border-granito-800 {
-  border-color: hsl(var(--granito-800));
-}
-.border-granito-900 {
-  border-color: hsl(var(--granito-900));
-}
-.border-granito-950 {
-  border-color: hsl(var(--granito-950));
-}
-
-.hover\:bg-granito-50:hover {
-  background-color: hsl(var(--granito-50));
-}
-.hover\:bg-granito-100:hover {
-  background-color: hsl(var(--granito-100));
-}
-.hover\:bg-granito-200:hover {
-  background-color: hsl(var(--granito-200));
-}
-.hover\:bg-granito-300:hover {
-  background-color: hsl(var(--granito-300));
-}
-.hover\:bg-granito-400:hover {
-  background-color: hsl(var(--granito-400));
-}
-.hover\:bg-granito-500:hover {
-  background-color: hsl(var(--granito-500));
-}
-.hover\:bg-granito-600:hover {
-  background-color: hsl(var(--granito-600));
-}
-.hover\:bg-granito-700:hover {
-  background-color: hsl(var(--granito-700));
-}
-.hover\:bg-granito-800:hover {
-  background-color: hsl(var(--granito-800));
-}
-.hover\:bg-granito-900:hover {
-  background-color: hsl(var(--granito-900));
-}
-.hover\:bg-granito-950:hover {
-  background-color: hsl(var(--granito-950));
-}
-
-/* Estilos para elementos específicos */
-.btn-primary {
-  @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background;
-  @apply h-10 py-2 px-4;
-}
-
-.card {
-  @apply rounded-lg border bg-card text-card-foreground;
-}
-
-/* Animaciones de entrada */
+/* Animaciones */
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -413,10 +94,6 @@ body {
 }
 
 .animate-in {
-  animation: fade-in 0.3s ease-out;
-}
-
-.fade-in {
   animation: fade-in 0.3s ease-out;
 }
 
@@ -437,4 +114,28 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--primary));
+}
+
+/* Mejoras para móviles */
+@media (max-width: 640px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* Mejoras para tablets */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .container {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+/* Mejoras para desktop */
+@media (min-width: 1025px) {
+  .container {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
 }

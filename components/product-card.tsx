@@ -4,12 +4,53 @@ import Link from "next/link"
 import Image from "next/image"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { formatCurrency } from "@/lib/utils"
 import { useState, useEffect } from "react"
 import { Package, Tag, Calendar, Eye } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export function ProductCard({ product }) {
+// Función helper para formatear moneda
+const formatCurrency = (amount: number | string, currency = "EUR") => {
+  const num = typeof amount === "string" ? Number.parseFloat(amount) : amount
+  return new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: currency,
+  }).format(num || 0)
+}
+
+// Función helper para limpiar IDs
+const cleanId = (id: string | undefined) => {
+  if (!id) return ""
+  if (typeof id === "string" && id.includes("/")) {
+    return id.split("/").pop() || ""
+  }
+  return id
+}
+
+// Función helper para obtener URL de imagen
+const getImageUrl = (product: any) => {
+  if (!product) return null
+
+  if (product.imagen) return product.imagen
+  if (product.image) return typeof product.image === "string" ? product.image : product.image?.url || product.image?.src
+
+  if (product.featuredImage) return product.featuredImage.url || product.featuredImage.src
+
+  if (product.imagenes && product.imagenes.length > 0) {
+    return product.imagenes[0].src || product.imagenes[0].url
+  }
+
+  if (product.images && product.images.length > 0) {
+    return typeof product.images[0] === "string" ? product.images[0] : product.images[0]?.url || product.images[0]?.src
+  }
+
+  if (product.images && product.images.edges && product.images.edges.length > 0) {
+    return product.images.edges[0].node.url || product.images.edges[0].node.src
+  }
+
+  return null
+}
+
+export function ProductCard({ product }: { product: any }) {
   const [imageError, setImageError] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
@@ -39,14 +80,6 @@ export function ProductCard({ product }) {
   } = product || {}
 
   const imageUrl = getImageUrl(product)
-
-  const cleanId = (id) => {
-    if (!id) return ""
-    if (typeof id === "string" && id.includes("/")) {
-      return id.split("/").pop()
-    }
-    return id
-  }
 
   const hasDiscount = compareAtPrice && Number(compareAtPrice) > Number(price)
   const discountPercentage = hasDiscount ? Math.round((1 - Number(price) / Number(compareAtPrice)) * 100) : 0
@@ -142,7 +175,7 @@ export function ProductCard({ product }) {
         <CardFooter className="p-4 pt-0 border-t mt-auto">
           <div className="w-full flex items-center justify-between">
             <div className="flex flex-col">
-              <span className="font-bold text-granito-700 text-sm sm:text-base">
+              <span className="font-bold text-yellow-700 text-sm sm:text-base">
                 {formatCurrency(precio || price, currencyCode)}
               </span>
               {hasDiscount && (
@@ -164,27 +197,4 @@ export function ProductCard({ product }) {
       </Card>
     </Link>
   )
-}
-
-function getImageUrl(product) {
-  if (!product) return null
-
-  if (product.imagen) return product.imagen
-  if (product.image) return typeof product.image === "string" ? product.image : product.image?.url || product.image?.src
-
-  if (product.featuredImage) return product.featuredImage.url || product.featuredImage.src
-
-  if (product.imagenes && product.imagenes.length > 0) {
-    return product.imagenes[0].src || product.imagenes[0].url
-  }
-
-  if (product.images && product.images.length > 0) {
-    return typeof product.images[0] === "string" ? product.images[0] : product.images[0]?.url || product.images[0]?.src
-  }
-
-  if (product.images && product.images.edges && product.images.edges.length > 0) {
-    return product.images.edges[0].node.url || product.images.edges[0].node.src
-  }
-
-  return null
 }

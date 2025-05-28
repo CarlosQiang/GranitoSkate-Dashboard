@@ -4,7 +4,6 @@ import type React from "react"
 
 import { useEffect, useState } from "react"
 import { DashboardNav } from "@/components/dashboard-nav"
-import { DashboardHeader } from "@/components/dashboard-header"
 import { cn } from "@/lib/utils"
 
 export default function DashboardLayout({
@@ -13,10 +12,21 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const [isMobile, setIsMobile] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(false)
 
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
+      const mobile = window.innerWidth < 768
+      setIsMobile(mobile)
+
+      // En móvil, siempre colapsado
+      if (mobile) {
+        setIsCollapsed(true)
+      } else {
+        // En desktop, usar preferencia guardada
+        const saved = localStorage.getItem("sidebarCollapsed")
+        setIsCollapsed(saved === "true")
+      }
     }
 
     checkMobile()
@@ -25,17 +35,21 @@ export default function DashboardLayout({
   }, [])
 
   return (
-    <div className="main-layout">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <DashboardNav />
-      <div className="main-content">
-        {/* Header móvil */}
-        {isMobile && <DashboardHeader />}
 
-        {/* Contenido principal */}
-        <main
-          className={cn("min-h-screen bg-gray-50/50 dark:bg-gray-900/50", "transition-all duration-300 ease-in-out")}
-        >
-          <div className="container-responsive page-container">{children}</div>
+      {/* Contenido principal */}
+      <div
+        className={cn(
+          "transition-all duration-300 ease-in-out",
+          // Desktop
+          "lg:ml-64",
+          // Mobile
+          "ml-0",
+        )}
+      >
+        <main className="min-h-screen">
+          <div className="container mx-auto px-4 py-6 sm:px-6 lg:px-8 max-w-7xl">{children}</div>
         </main>
       </div>
     </div>
