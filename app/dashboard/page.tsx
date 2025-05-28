@@ -8,16 +8,17 @@ import { RecentProducts } from "@/components/recent-products"
 import { SalesOverview } from "@/components/sales-overview"
 import { InventoryStatus } from "@/components/inventory-status"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, Save } from 'lucide-react'
+import { RefreshCw, Save } from "lucide-react"
+import { toast } from "@/components/ui/toast" // Import the toast component
 
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dashboardData, setDashboardData] = useState<any>(null)
-  const [recentOrders, setRecentOrders] = useState<any[]>([]);
-  const [recentProducts, setRecentProducts] = useState<any[]>([]);
-  const [salesOverview, setSalesOverview] = useState<any[]>([]);
+  const [recentOrders, setRecentOrders] = useState<any[]>([])
+  const [recentProducts, setRecentProducts] = useState<any[]>([])
+  const [salesOverview, setSalesOverview] = useState<any[]>([])
 
   // Función para cargar datos del dashboard con debouncing
   const loadDashboardData = useCallback(async () => {
@@ -41,9 +42,9 @@ export default function DashboardPage() {
 
       const data = await response.json()
       setDashboardData(data)
-      setRecentOrders(data?.recentOrders || []);
-      setRecentProducts(data?.recentProducts || []);
-      setSalesOverview(data?.salesOverview || []);
+      setRecentOrders(data?.recentOrders || [])
+      setRecentProducts(data?.recentProducts || [])
+      setSalesOverview(data?.salesOverview || [])
       console.log("✅ Dashboard data loaded successfully")
     } catch (err) {
       console.error("❌ Error loading dashboard:", err)
@@ -59,28 +60,28 @@ export default function DashboardPage() {
   }, [loadDashboardData])
 
   const handleSyncToDatabase = async () => {
-    setIsSyncing(true);
+    setIsSyncing(true)
     try {
       // Implement the logic to save the cached data to the database
       // This is a placeholder, replace with your actual implementation
-      console.log("Saving data to database:", { dashboardData, recentOrders, recentProducts, salesOverview });
+      console.log("Saving data to database:", { dashboardData, recentOrders, recentProducts, salesOverview })
       // After successful sync, show a success message
       toast({
         title: "Sincronización exitosa",
         description: "Los datos se han guardado en la base de datos.",
-      });
+      })
     } catch (error) {
-      console.error("Error saving data to database:", error);
-      setError("Error al guardar los datos en la base de datos.");
+      console.error("Error saving data to database:", error)
+      setError("Error al guardar los datos en la base de datos.")
       toast({
         title: "Error",
         description: "Error al guardar los datos en la base de datos.",
         variant: "destructive",
-      });
+      })
     } finally {
-      setIsSyncing(false);
+      setIsSyncing(false)
     }
-  };
+  }
 
   if (isLoading) {
     return (
@@ -136,7 +137,11 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         <p className="text-muted-foreground">Bienvenido al panel de administración de GranitoSkate</p>
-        <Button onClick={handleSyncToDatabase} disabled={isSyncing} className="bg-blue-600 text-white rounded hover:bg-blue-700">
+        <Button
+          onClick={handleSyncToDatabase}
+          disabled={isSyncing}
+          className="bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
           {isSyncing ? (
             <>
               <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
