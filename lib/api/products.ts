@@ -15,22 +15,146 @@ const normalizeProductStatus = (status) => {
   return "ACTIVE" // Si no es un estado válido, considerarlo activo
 }
 
-// Mock function to simulate fetching products from an API
+// Función para obtener todos los productos
 export const fetchProducts = async () => {
-  // Simulate API response
-  const mockProducts = [
-    { id: "1", name: "Product A", price: 20, status: "active" },
-    { id: "2", name: "Product B", price: 30, status: "draft" },
-    { id: "3", name: "Product C", price: 40, status: "archived" },
-    { id: "4", name: "Product D", price: 50, status: null },
-    { id: "5", name: "Product E", price: 60, status: "invalid" },
-  ]
+  try {
+    const response = await fetch("/api/shopify/products")
+    if (!response.ok) {
+      throw new Error(`Error fetching products: ${response.statusText}`)
+    }
+    const data = await response.json()
+    return data.products || []
+  } catch (error) {
+    console.error("Error fetching products:", error)
+    return []
+  }
+}
 
-  // Asegurarse de que cada producto tenga un estado normalizado
-  const products = mockProducts.map((product) => ({
-    ...product,
-    status: normalizeProductStatus(product.status),
-  }))
+// Función para obtener un producto por ID
+export const fetchProductById = async (id) => {
+  try {
+    const response = await fetch(`/api/shopify/products/${id}`)
+    if (!response.ok) {
+      throw new Error(`Error fetching product: ${response.statusText}`)
+    }
+    const data = await response.json()
+    return data.product
+  } catch (error) {
+    console.error(`Error fetching product ${id}:`, error)
+    throw error
+  }
+}
 
-  return products
+// Función para actualizar un producto
+export const updateProduct = async (id, productData) => {
+  try {
+    const response = await fetch(`/api/shopify/products/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(productData),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error updating product: ${response.statusText}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error(`Error updating product ${id}:`, error)
+    throw error
+  }
+}
+
+// Función para eliminar un producto
+export const deleteProduct = async (id) => {
+  try {
+    const response = await fetch(`/api/shopify/products/${id}`, {
+      method: "DELETE",
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error deleting product: ${response.statusText}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error(`Error deleting product ${id}:`, error)
+    throw error
+  }
+}
+
+// Función para crear un nuevo producto
+export const createProduct = async (productData) => {
+  try {
+    const response = await fetch("/api/shopify/products", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(productData),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error creating product: ${response.statusText}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error("Error creating product:", error)
+    throw error
+  }
+}
+
+// Función para obtener el nivel de inventario
+export const getInventoryLevel = async (variantId) => {
+  try {
+    const response = await fetch(`/api/shopify/inventory/${variantId}`)
+    if (!response.ok) {
+      throw new Error(`Error fetching inventory level: ${response.statusText}`)
+    }
+    const data = await response.json()
+    return data.inventoryLevel || 0
+  } catch (error) {
+    console.error(`Error fetching inventory level for variant ${variantId}:`, error)
+    throw error
+  }
+}
+
+// Función para actualizar el nivel de inventario
+export const updateInventoryLevel = async (variantId, quantity) => {
+  try {
+    const response = await fetch(`/api/shopify/inventory/${variantId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ quantity }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error updating inventory level: ${response.statusText}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error(`Error updating inventory level for variant ${variantId}:`, error)
+    throw error
+  }
+}
+
+// Función para obtener productos con stock bajo
+export const fetchLowStockProducts = async (threshold = 5) => {
+  try {
+    const response = await fetch(`/api/shopify/products/low-stock?threshold=${threshold}`)
+    if (!response.ok) {
+      throw new Error(`Error fetching low stock products: ${response.statusText}`)
+    }
+    const data = await response.json()
+    return data.products || []
+  } catch (error) {
+    console.error("Error fetching low stock products:", error)
+    return []
+  }
 }
