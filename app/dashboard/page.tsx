@@ -8,7 +8,7 @@ import { RecentProducts } from "@/components/recent-products"
 import { SalesOverview } from "@/components/sales-overview"
 import { InventoryStatus } from "@/components/inventory-status"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, Save } from "lucide-react"
+import { RefreshCw, Database } from "lucide-react"
 
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
@@ -63,17 +63,51 @@ export default function DashboardPage() {
     setIsSyncing(true)
     setSyncMessage(null)
     try {
-      // Implement the logic to save the cached data to the database
-      console.log("Saving data to database:", { dashboardData, recentOrders, recentProducts, salesOverview })
+      console.log("🔄 Iniciando sincronización con base de datos...")
 
-      // Simular guardado en base de datos
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      // Sincronizar productos
+      const productResponse = await fetch("/api/db/sincronizar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tipo: "productos",
+          datos: recentProducts,
+        }),
+      })
 
-      setSyncMessage("✅ Datos guardados exitosamente en la base de datos")
+      if (!productResponse.ok) {
+        throw new Error("Error al sincronizar productos")
+      }
+
+      const productResult = await productResponse.json()
+      console.log("✅ Productos sincronizados:", productResult)
+
+      // Sincronizar pedidos si hay datos
+      if (recentOrders.length > 0) {
+        const orderResponse = await fetch("/api/db/sincronizar", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            tipo: "pedidos",
+            datos: recentOrders,
+          }),
+        })
+
+        if (!orderResponse.ok) {
+          console.warn("Advertencia: No se pudieron sincronizar los pedidos")
+        }
+      }
+
+      setSyncMessage("✅ Datos sincronizados exitosamente con la base de datos")
+      console.log("🎉 Sincronización completada")
     } catch (error) {
-      console.error("Error saving data to database:", error)
+      console.error("❌ Error saving data to database:", error)
       setError("Error al guardar los datos en la base de datos.")
-      setSyncMessage("❌ Error al guardar los datos en la base de datos")
+      setSyncMessage("❌ Error al sincronizar los datos con la base de datos")
     } finally {
       setIsSyncing(false)
     }
@@ -146,8 +180,8 @@ export default function DashboardPage() {
               </>
             ) : (
               <>
-                <Save className="mr-2 h-4 w-4" />
-                Guardar en la base de datos
+                <Database className="mr-2 h-4 w-4" />
+                Sincronizar con Base de Datos
               </>
             )}
           </Button>

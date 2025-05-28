@@ -6,14 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Search, RefreshCw, ArrowUpDown, Grid3X3, List } from "lucide-react"
+import { Plus, Search, ArrowUpDown, Grid3X3, List } from "lucide-react"
 import { fetchProducts } from "@/lib/api/products"
 import { ProductCard } from "@/components/product-card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { toast } from "@/components/ui/use-toast"
-import { Package } from "lucide-react" // Import Package component
+import { Package } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 
@@ -27,7 +26,6 @@ export default function ProductsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("all")
   const [isLoading, setIsLoading] = useState(true)
-  const [isSyncing, setIsSyncing] = useState(false)
   const [error, setError] = useState(null)
   const [viewMode, setViewMode] = useState("grid") // grid o list
   const [sortBy, setSortBy] = useState("title-asc") // title-asc, title-desc, date-asc, date-desc, price-asc, price-desc
@@ -43,11 +41,6 @@ export default function ProductsPage() {
     } catch (error) {
       console.error("Error al cargar productos:", error)
       setError("No se pudieron cargar los productos. Intente nuevamente más tarde.")
-      toast({
-        title: "Error al cargar productos",
-        description: "No se pudieron cargar los productos. Intente nuevamente más tarde.",
-        variant: "destructive",
-      })
     } finally {
       setIsLoading(false)
     }
@@ -138,37 +131,6 @@ export default function ProductsPage() {
   // Manejar cambio en la búsqueda
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value)
-  }
-
-  // Función para sincronizar productos con Shopify
-  const syncProducts = async () => {
-    setIsSyncing(true)
-    setError(null)
-    try {
-      // Llamar a la API para sincronizar productos
-      const response = await fetch("/api/sync/products")
-      if (!response.ok) {
-        throw new Error("Error al sincronizar productos")
-      }
-
-      toast({
-        title: "Sincronización completada",
-        description: "Los productos se han sincronizado correctamente con Shopify.",
-      })
-
-      // Recargar productos después de sincronizar
-      await loadProducts()
-    } catch (error) {
-      console.error("Error al sincronizar productos:", error)
-      setError("No se pudieron sincronizar los productos. Intente nuevamente más tarde.")
-      toast({
-        title: "Error de sincronización",
-        description: "No se pudieron sincronizar los productos. Intente nuevamente más tarde.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSyncing(false)
-    }
   }
 
   // Obtener el título del ordenamiento actual
@@ -331,27 +293,7 @@ export default function ProductsPage() {
               <CardTitle className="text-xl">Catálogo de productos</CardTitle>
               <CardDescription>Visualiza, edita y crea nuevos productos para tu tienda online.</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={syncProducts}
-                disabled={isSyncing}
-                variant="outline"
-                className="border-granito-300 hover:bg-granito-50"
-                size="sm"
-              >
-                {isSyncing ? (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    Sincronizando...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Sincronizar
-                  </>
-                )}
-              </Button>
-            </div>
+            {/* Botón de sincronizar eliminado */}
           </div>
         </CardHeader>
         <CardContent className="p-6">
