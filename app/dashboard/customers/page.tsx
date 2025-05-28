@@ -24,7 +24,6 @@ import {
   Grid3X3,
   List,
 } from "lucide-react"
-import { fetchCustomers } from "@/lib/api/customers"
 import { toast } from "@/components/ui/use-toast"
 import { cn } from "@/lib/utils"
 import { formatDate } from "@/lib/utils"
@@ -60,12 +59,28 @@ export default function CustomersPage() {
     setIsLoading(true)
     setError(null)
     try {
-      const data = await fetchCustomers()
-      setCustomers(data)
-      filterCustomers(data, searchTerm)
+      const response = await fetch("/api/shopify/customers")
+      if (!response.ok) {
+        throw new Error("Error al cargar clientes desde la API")
+      }
+
+      const result = await response.json()
+
+      // Verificar que result.customers es un array
+      if (!result.customers || !Array.isArray(result.customers)) {
+        throw new Error("Los datos de clientes no tienen el formato esperado")
+      }
+
+      setCustomers(result.customers)
+      filterCustomers(result.customers, searchTerm)
     } catch (error) {
       console.error("Error al cargar clientes:", error)
       setError("No se pudieron cargar los clientes. Intente nuevamente más tarde.")
+
+      // Establecer array vacío en caso de error
+      setCustomers([])
+      setFilteredCustomers([])
+
       toast({
         title: "Error al cargar clientes",
         description: "No se pudieron cargar los clientes. Intente nuevamente más tarde.",
@@ -77,6 +92,13 @@ export default function CustomersPage() {
   }
 
   const filterCustomers = (customersData, search) => {
+    // Verificar que customersData es un array
+    if (!Array.isArray(customersData)) {
+      console.error("customersData no es un array:", customersData)
+      setFilteredCustomers([])
+      return
+    }
+
     let filtered = [...customersData]
 
     if (search) {

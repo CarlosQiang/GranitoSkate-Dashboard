@@ -49,6 +49,7 @@ export default function ProductsPage() {
     setError(null)
     try {
       const data = await fetchProducts(100)
+      console.log("Productos cargados:", data) // Debug
       setProducts(data)
       filterAndSortProducts(data, searchTerm, activeTab, sortBy)
     } catch (error) {
@@ -67,6 +68,8 @@ export default function ProductsPage() {
   const filterAndSortProducts = (productsData, search, tab, sort) => {
     let filtered = [...productsData]
 
+    console.log("Filtrando productos:", { search, tab, sort, totalProducts: filtered.length }) // Debug
+
     if (search) {
       filtered = filtered.filter(
         (product) =>
@@ -84,8 +87,15 @@ export default function ProductsPage() {
       }
 
       const statusToFilter = statusMap[tab]
+      console.log("Filtrando por estado:", statusToFilter) // Debug
+
       if (statusToFilter) {
-        filtered = filtered.filter((product) => product.status === statusToFilter)
+        const beforeFilter = filtered.length
+        filtered = filtered.filter((product) => {
+          console.log(`Producto ${product.title}: estado actual = "${product.status}", buscando = "${statusToFilter}"`) // Debug
+          return product.status === statusToFilter
+        })
+        console.log(`Productos después del filtro: ${filtered.length} (antes: ${beforeFilter})`) // Debug
       }
     }
 
@@ -108,6 +118,7 @@ export default function ProductsPage() {
       }
     })
 
+    console.log("Productos filtrados finales:", filtered) // Debug
     setFilteredProducts(filtered)
   }
 
@@ -138,6 +149,7 @@ export default function ProductsPage() {
   }, [sortBy])
 
   const handleTabChange = (value) => {
+    console.log("Cambiando a pestaña:", value) // Debug
     setActiveTab(value)
     filterAndSortProducts(products, searchTerm, value, sortBy)
   }
@@ -192,6 +204,18 @@ export default function ProductsPage() {
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value)
   }
+
+  // Calcular contadores para cada pestaña
+  const getCounts = () => {
+    return {
+      all: products.length,
+      active: products.filter((p) => p.status === "ACTIVE").length,
+      draft: products.filter((p) => p.status === "DRAFT").length,
+      archived: products.filter((p) => p.status === "ARCHIVED").length,
+    }
+  }
+
+  const counts = getCounts()
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -327,176 +351,169 @@ export default function ProductsPage() {
                     className="data-[state=active]:bg-granito-500 data-[state=active]:text-white"
                   >
                     Todos
-                    {!isLoading && (
-                      <Badge variant="outline" className="ml-2 bg-white/20">
-                        {products.length}
-                      </Badge>
-                    )}
+                    <Badge variant="outline" className="ml-2 bg-white/20">
+                      {counts.all}
+                    </Badge>
                   </TabsTrigger>
                   <TabsTrigger
                     value="active"
                     className="data-[state=active]:bg-granito-500 data-[state=active]:text-white"
                   >
                     Activos
-                    {!isLoading && (
-                      <Badge variant="outline" className="ml-2 bg-white/20">
-                        {products.filter((p) => p.status === "ACTIVE").length}
-                      </Badge>
-                    )}
+                    <Badge variant="outline" className="ml-2 bg-white/20">
+                      {counts.active}
+                    </Badge>
                   </TabsTrigger>
                   <TabsTrigger
                     value="draft"
                     className="data-[state=active]:bg-granito-500 data-[state=active]:text-white"
                   >
                     Borradores
-                    {!isLoading && (
-                      <Badge variant="outline" className="ml-2 bg-white/20">
-                        {products.filter((p) => p.status === "DRAFT").length}
-                      </Badge>
-                    )}
+                    <Badge variant="outline" className="ml-2 bg-white/20">
+                      {counts.draft}
+                    </Badge>
                   </TabsTrigger>
                   <TabsTrigger
                     value="archived"
                     className="data-[state=active]:bg-granito-500 data-[state=active]:text-white"
                   >
                     Archivados
-                    {!isLoading && (
-                      <Badge variant="outline" className="ml-2 bg-white/20">
-                        {products.filter((p) => p.status === "ARCHIVED").length}
-                      </Badge>
-                    )}
+                    <Badge variant="outline" className="ml-2 bg-white/20">
+                      {counts.archived}
+                    </Badge>
                   </TabsTrigger>
                 </TabsList>
               </div>
 
-              <TabsContent value="all" className="mt-0">
-                {isLoading ? (
-                  viewMode === "grid" ? (
+              {/* Contenido de las pestañas */}
+              {["all", "active", "draft", "archived"].map((tabValue) => (
+                <TabsContent key={tabValue} value={tabValue} className="mt-0">
+                  {isLoading ? (
+                    viewMode === "grid" ? (
+                      <div
+                        className={cn(
+                          "grid gap-4",
+                          isMobile ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+                        )}
+                      >
+                        {Array(8)
+                          .fill(0)
+                          .map((_, i) => (
+                            <div key={i} className="border rounded-md overflow-hidden">
+                              <Skeleton className="h-48 w-full" />
+                              <div className="p-4 space-y-2">
+                                <Skeleton className="h-4 w-3/4" />
+                                <Skeleton className="h-4 w-1/2" />
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {Array(5)
+                          .fill(0)
+                          .map((_, i) => (
+                            <div key={i} className="flex items-center gap-4 border rounded-md p-4">
+                              <Skeleton className="h-16 w-16 rounded-md" />
+                              <div className="flex-1 space-y-2">
+                                <Skeleton className="h-4 w-1/3" />
+                                <Skeleton className="h-4 w-1/4" />
+                              </div>
+                              <Skeleton className="h-8 w-24" />
+                            </div>
+                          ))}
+                      </div>
+                    )
+                  ) : filteredProducts.length === 0 ? (
+                    <div className="text-center py-12 border rounded-md bg-gray-50 dark:bg-gray-900">
+                      <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
+                        <Search className="h-6 w-6 text-gray-400" />
+                      </div>
+                      <h3 className="subheading-responsive">No se encontraron productos</h3>
+                      <p className="caption-responsive mt-1 mb-4">
+                        {searchTerm
+                          ? `No hay resultados para "${searchTerm}"`
+                          : `No hay productos ${
+                              activeTab === "all"
+                                ? ""
+                                : activeTab === "active"
+                                  ? "activos"
+                                  : activeTab === "draft"
+                                    ? "en borrador"
+                                    : "archivados"
+                            }`}
+                      </p>
+                      <Button
+                        onClick={() => router.push("/dashboard/products/new")}
+                        className="bg-granito-500 hover:bg-granito-600 text-white"
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Crear nuevo producto
+                      </Button>
+                    </div>
+                  ) : viewMode === "grid" ? (
                     <div
                       className={cn(
                         "grid gap-4",
                         isMobile ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
                       )}
                     >
-                      {Array(8)
-                        .fill(0)
-                        .map((_, i) => (
-                          <div key={i} className="border rounded-md overflow-hidden">
-                            <Skeleton className="h-48 w-full" />
-                            <div className="p-4 space-y-2">
-                              <Skeleton className="h-4 w-3/4" />
-                              <Skeleton className="h-4 w-1/2" />
-                            </div>
-                          </div>
-                        ))}
+                      {filteredProducts.map((product) => (
+                        <ProductCard key={product.id} product={product} />
+                      ))}
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {Array(5)
-                        .fill(0)
-                        .map((_, i) => (
-                          <div key={i} className="flex items-center gap-4 border rounded-md p-4">
-                            <Skeleton className="h-16 w-16 rounded-md" />
-                            <div className="flex-1 space-y-2">
-                              <Skeleton className="h-4 w-1/3" />
-                              <Skeleton className="h-4 w-1/4" />
-                            </div>
-                            <Skeleton className="h-8 w-24" />
-                          </div>
-                        ))}
-                    </div>
-                  )
-                ) : filteredProducts.length === 0 ? (
-                  <div className="text-center py-12 border rounded-md bg-gray-50 dark:bg-gray-900">
-                    <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-                      <Search className="h-6 w-6 text-gray-400" />
-                    </div>
-                    <h3 className="subheading-responsive">No se encontraron productos</h3>
-                    <p className="caption-responsive mt-1 mb-4">
-                      {searchTerm
-                        ? `No hay resultados para "${searchTerm}"`
-                        : "No hay productos disponibles en esta categoría"}
-                    </p>
-                    <Button
-                      onClick={() => router.push("/dashboard/products/new")}
-                      className="bg-granito-500 hover:bg-granito-600 text-white"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Crear nuevo producto
-                    </Button>
-                  </div>
-                ) : viewMode === "grid" ? (
-                  <div
-                    className={cn(
-                      "grid gap-4",
-                      isMobile ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
-                    )}
-                  >
-                    {filteredProducts.map((product) => (
-                      <ProductCard key={product.id} product={product} />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {filteredProducts.map((product) => (
-                      <Link
-                        key={product.id}
-                        href={`/dashboard/products/${cleanId(product.id)}`}
-                        className="flex items-center gap-4 border rounded-md p-4 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
-                      >
-                        <div className="h-16 w-16 relative bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden flex-shrink-0">
-                          {getImageUrl(product) ? (
-                            <img
-                              src={getImageUrl(product) || "/placeholder.svg"}
-                              alt={product.title || "Producto"}
-                              className="object-cover w-full h-full"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Package className="h-6 w-6 text-gray-400" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium truncate">{product.title}</h3>
-                          <p className="text-sm text-muted-foreground truncate">
-                            {product.productType || "Sin categoría"}
-                          </p>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <div className="font-medium">
-                            {formatCurrency(product.price || 0, product.currencyCode || "EUR")}
-                          </div>
-                          <Badge
-                            variant={product.status === "ACTIVE" ? "default" : "secondary"}
-                            className={cn(
-                              "text-xs",
-                              product.status === "ACTIVE" &&
-                                "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+                      {filteredProducts.map((product) => (
+                        <Link
+                          key={product.id}
+                          href={`/dashboard/products/${cleanId(product.id)}`}
+                          className="flex items-center gap-4 border rounded-md p-4 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+                        >
+                          <div className="h-16 w-16 relative bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden flex-shrink-0">
+                            {getImageUrl(product) ? (
+                              <img
+                                src={getImageUrl(product) || "/placeholder.svg"}
+                                alt={product.title || "Producto"}
+                                className="object-cover w-full h-full"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Package className="h-6 w-6 text-gray-400" />
+                              </div>
                             )}
-                          >
-                            {product.status === "ACTIVE"
-                              ? "Activo"
-                              : product.status === "DRAFT"
-                                ? "Borrador"
-                                : "Archivado"}
-                          </Badge>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="active" className="mt-0">
-                {/* El contenido se renderiza automáticamente por el filtrado */}
-              </TabsContent>
-              <TabsContent value="draft" className="mt-0">
-                {/* El contenido se renderiza automáticamente por el filtrado */}
-              </TabsContent>
-              <TabsContent value="archived" className="mt-0">
-                {/* El contenido se renderiza automáticamente por el filtrado */}
-              </TabsContent>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium truncate">{product.title}</h3>
+                            <p className="text-sm text-muted-foreground truncate">
+                              {product.productType || "Sin categoría"}
+                            </p>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <div className="font-medium">
+                              {formatCurrency(product.price || 0, product.currencyCode || "EUR")}
+                            </div>
+                            <Badge
+                              variant={product.status === "ACTIVE" ? "default" : "secondary"}
+                              className={cn(
+                                "text-xs",
+                                product.status === "ACTIVE" &&
+                                  "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+                              )}
+                            >
+                              {product.status === "ACTIVE"
+                                ? "Activo"
+                                : product.status === "DRAFT"
+                                  ? "Borrador"
+                                  : "Archivado"}
+                            </Badge>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+              ))}
             </Tabs>
           </div>
         </CardContent>
