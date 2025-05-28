@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
       sortKey: searchParams.get("sortKey") || "CREATED_AT",
       reverse: searchParams.get("reverse") === "true",
       first: Number.parseInt(searchParams.get("first") || "20"),
-      after: searchParams.get("after") || null,
+      after: searchParams.get("after"),
     }
 
     const result = await fetchCustomers(filters)
@@ -18,30 +18,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(result)
   } catch (error) {
     console.error("Error in customers API route:", error)
-
-    // Devolver datos mock en caso de error para evitar el crash
-    return NextResponse.json({
-      customers: [
-        {
-          id: "mock-1",
-          firstName: "Cliente",
-          lastName: "Demo",
-          email: "demo@example.com",
-          phone: "+34 600 000 000",
-          ordersCount: 0,
-          totalSpent: { amount: "0", currencyCode: "EUR" },
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          verifiedEmail: false,
-          acceptsMarketing: false,
-          defaultAddress: null,
-          addresses: [],
-          tags: [],
-          metafields: [],
-          cursor: "mock-cursor-1",
-        },
-      ],
-      pageInfo: { hasNextPage: false, endCursor: null },
-    })
+    return NextResponse.json({ error: "Error al obtener clientes", details: (error as Error).message }, { status: 500 })
   }
 }

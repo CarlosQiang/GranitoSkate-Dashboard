@@ -131,31 +131,7 @@ export async function fetchCustomers(filters: CustomerFilters = {}) {
     }
   } catch (error) {
     console.error("Error fetching customers:", error)
-
-    // En caso de error, devolver datos mock para evitar el crash
-    return {
-      customers: [
-        {
-          id: "mock-1",
-          firstName: "Cliente",
-          lastName: "Demo",
-          email: "demo@example.com",
-          phone: "+34 600 000 000",
-          ordersCount: 0,
-          totalSpent: { amount: "0", currencyCode: "EUR" },
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          verifiedEmail: false,
-          acceptsMarketing: false,
-          defaultAddress: null,
-          addresses: [],
-          tags: [],
-          metafields: [],
-          cursor: "mock-cursor-1",
-        },
-      ],
-      pageInfo: { hasNextPage: false, endCursor: null },
-    }
+    throw new Error(`Error al obtener clientes: ${(error as Error).message}`)
   }
 }
 
