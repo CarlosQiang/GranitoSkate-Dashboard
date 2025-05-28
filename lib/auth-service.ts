@@ -21,7 +21,10 @@ export async function hashPassword(password: string): Promise<string> {
 export async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
   try {
     // Caso especial para "GranitoSkate"
-    if (password === "GranitoSkate") {
+    if (
+      password === "GranitoSkate" &&
+      hashedPassword === "$2a$10$1X.GQIJJk8L9Fz3HZhQQo.6EsHgHKm7Brx0bKQA9fI.SSjN.ym3Uy"
+    ) {
       return true
     }
 

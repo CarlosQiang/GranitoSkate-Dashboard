@@ -1,112 +1,64 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { PrismaClient } from "@prisma/client"
-import { compare } from "bcryptjs"
-import config from "./config"
-
-const prisma = new PrismaClient()
+import { sql } from "@vercel/postgres"
+import { verifyPassword, updateLastLogin } from "./auth-service"
 
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        identifier: { label: "Usuario o Email", type: "text" },
+        email: { label: "Email", type: "email" },
         password: { label: "Contraseña", type: "password" },
       },
       async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error("Credenciales incompletas")
+        }
+
         try {
-          if (!credentials?.identifier || !credentials?.password) {
-            console.log("❌ Credenciales incompletas")
-            return null
+          console.log("Buscando administrador con email:", credentials.email)
+
+          // Buscar en la tabla de administradores
+          const { rows } = await sql`
+            SELECT id, nombre_usuario, correo_electronico, contrasena, nombre_completo, rol, activo
+            FROM administradores
+            WHERE correo_electronico = ${credentials.email}
+          `
+
+          if (rows.length === 0) {
+            console.log("Administrador no encontrado")
+            throw new Error("Credenciales incorrectas")
           }
 
-          console.log("🔍 Buscando usuario:", credentials.identifier)
+          const admin = rows[0]
 
-          // Buscar usuario por nombre de usuario o correo electrónico
-          const user = await prisma.administradores
-            .findFirst({
-              where: {
-                OR: [{ nombre_usuario: credentials.identifier }, { correo_electronico: credentials.identifier }],
-                activo: true,
-              },
-            })
-            .catch((err) => {
-              console.error("❌ Error al buscar usuario en la base de datos:", err)
-              // En desarrollo, usar usuario predeterminado
-              if (config.app.isDevelopment) {
-                console.warn("⚠️ Usando usuario predeterminado para desarrollo")
-                return {
-                  id: 1,
-                  nombre_usuario: "admin",
-                  correo_electronico: "admin@gmail.com",
-                  contrasena: "$2a$10$1X.GQIJJk8L9Fz3HZhQQo.6EsHgHKm7Brx0bKQA9fI.SSjN.ym3Uy",
-                  nombre_completo: "Administrador Principal",
-                  rol: "admin",
-                  activo: true,
-                  ultimo_acceso: new Date(),
-                }
-              }
-              return null
-            })
-
-          if (!user) {
-            console.log("❌ Usuario no encontrado:", credentials.identifier)
-            return null
+          if (!admin.activo) {
+            console.log("Administrador inactivo")
+            throw new Error("Usuario inactivo")
           }
 
-          console.log("✅ Usuario encontrado:", user.nombre_usuario)
+          const isValid = await verifyPassword(credentials.password, admin.contrasena)
 
-          // Verificar contraseña
-          let isValidPassword = false
-
-          try {
-            // Primero intentar con bcrypt
-            isValidPassword = await compare(credentials.password, user.contrasena)
-            console.log("🔐 Verificación bcrypt:", isValidPassword)
-
-            // Si falla bcrypt, verificar contraseña maestra para desarrollo
-            if (!isValidPassword && credentials.password === "GranitoSkate") {
-              isValidPassword = true
-              console.log("🔑 Acceso con contraseña maestra")
-            }
-
-            // Último recurso: comparación directa (para casos legacy)
-            if (!isValidPassword && credentials.password === user.contrasena) {
-              isValidPassword = true
-              console.log("🔓 Verificación directa")
-            }
-          } catch (error) {
-            console.error("❌ Error al verificar contraseña:", error)
-            return null
+          if (!isValid) {
+            console.log("Contraseña incorrecta")
+            throw new Error("Credenciales incorrectas")
           }
 
-          if (!isValidPassword) {
-            console.log("❌ Contraseña inválida para usuario:", credentials.identifier)
-            return null
-          }
+          // Actualizar último acceso
+          await updateLastLogin(admin.id)
 
-          console.log("✅ Autenticación exitosa para:", user.nombre_usuario)
-
-          // Actualizar último acceso (sin bloquear si falla)
-          try {
-            await prisma.administradores.update({
-              where: { id: user.id },
-              data: { ultimo_acceso: new Date() },
-            })
-          } catch (err) {
-            console.warn("⚠️ No se pudo actualizar último acceso:", err.message)
-          }
+          console.log("Login exitoso para:", admin.correo_electronico)
 
           return {
-            id: user.id.toString(),
-            name: user.nombre_completo || user.nombre_usuario,
-            email: user.correo_electronico,
-            role: user.rol,
+            id: admin.id.toString(),
+            name: admin.nombre_completo || admin.nombre_usuario,
+            email: admin.correo_electronico,
+            role: admin.rol,
           }
         } catch (error) {
-          console.error("❌ Error crítico en authorize:", error)
-          return null
+          console.error("Error en authorize:", error)
+          throw new Error(error instanceof Error ? error.message : "Error de autenticación")
         }
       },
     }),
@@ -114,15 +66,15 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id
         token.role = user.role
+        token.id = user.id
       }
       return token
     },
     async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string
+      if (token && session.user) {
         session.user.role = token.role as string
+        session.user.id = token.id as string
       }
       return session
     },
@@ -133,8 +85,8 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 días
+    maxAge: 24 * 60 * 60, // 24 horas
   },
-  secret: process.env.NEXTAUTH_SECRET || config.auth.secret,
-  debug: process.env.NODE_ENV === "development" || config.app.isDevelopment,
+  secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === "development",
 }

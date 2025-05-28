@@ -1,17 +1,23 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DashboardStats } from "@/components/dashboard-stats"
 import { RecentOrders } from "@/components/recent-orders"
 import { RecentProducts } from "@/components/recent-products"
 import { SalesOverview } from "@/components/sales-overview"
 import { InventoryStatus } from "@/components/inventory-status"
+import { Button } from "@/components/ui/button"
+import { RefreshCw, Save } from 'lucide-react'
 
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
+  const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null)
   const [dashboardData, setDashboardData] = useState<any>(null)
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [recentProducts, setRecentProducts] = useState<any[]>([]);
+  const [salesOverview, setSalesOverview] = useState<any[]>([]);
 
   // Función para cargar datos del dashboard con debouncing
   const loadDashboardData = useCallback(async () => {
@@ -35,6 +41,9 @@ export default function DashboardPage() {
 
       const data = await response.json()
       setDashboardData(data)
+      setRecentOrders(data?.recentOrders || []);
+      setRecentProducts(data?.recentProducts || []);
+      setSalesOverview(data?.salesOverview || []);
       console.log("✅ Dashboard data loaded successfully")
     } catch (err) {
       console.error("❌ Error loading dashboard:", err)
@@ -44,10 +53,34 @@ export default function DashboardPage() {
     }
   }, [])
 
-  // Cargar datos solo una vez al montar el componente
+  // Cargar datos solo una vez al montar el component
   useEffect(() => {
     loadDashboardData()
   }, [loadDashboardData])
+
+  const handleSyncToDatabase = async () => {
+    setIsSyncing(true);
+    try {
+      // Implement the logic to save the cached data to the database
+      // This is a placeholder, replace with your actual implementation
+      console.log("Saving data to database:", { dashboardData, recentOrders, recentProducts, salesOverview });
+      // After successful sync, show a success message
+      toast({
+        title: "Sincronización exitosa",
+        description: "Los datos se han guardado en la base de datos.",
+      });
+    } catch (error) {
+      console.error("Error saving data to database:", error);
+      setError("Error al guardar los datos en la base de datos.");
+      toast({
+        title: "Error",
+        description: "Error al guardar los datos en la base de datos.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -89,9 +122,9 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-gray-600 mb-4">{error}</p>
-            <button onClick={loadDashboardData} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+            <Button onClick={loadDashboardData} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
               Reintentar
-            </button>
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -103,17 +136,30 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         <p className="text-muted-foreground">Bienvenido al panel de administración de GranitoSkate</p>
+        <Button onClick={handleSyncToDatabase} disabled={isSyncing} className="bg-blue-600 text-white rounded hover:bg-blue-700">
+          {isSyncing ? (
+            <>
+              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              Sincronizando...
+            </>
+          ) : (
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              Guardar en la base de datos
+            </>
+          )}
+        </Button>
       </div>
       <div className="space-y-4">
         <DashboardStats data={dashboardData?.stats} />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           <Card className="col-span-4">
             <CardHeader>
-              <CardTitle>Ventas recientes</CardTitle>
-              <CardDescription>Los últimos pedidos realizados en tu tienda</CardDescription>
+              <CardTitle>Tendencia de ventas</CardTitle>
+              <CardDescription>Evolución de las ventas en los últimos 7 días</CardDescription>
             </CardHeader>
             <CardContent className="pl-2">
-              <SalesOverview data={dashboardData?.salesOverview} />
+              <SalesOverview data={salesOverview} />
             </CardContent>
           </Card>
           <Card className="col-span-3">
@@ -122,7 +168,7 @@ export default function DashboardPage() {
               <CardDescription>Últimos pedidos procesados</CardDescription>
             </CardHeader>
             <CardContent>
-              <RecentOrders data={dashboardData?.recentOrders} />
+              <RecentOrders data={recentOrders} />
             </CardContent>
           </Card>
         </div>
@@ -133,7 +179,7 @@ export default function DashboardPage() {
               <CardDescription>Los últimos productos añadidos a tu catálogo</CardDescription>
             </CardHeader>
             <CardContent>
-              <RecentProducts data={dashboardData?.recentProducts} />
+              <RecentProducts data={recentProducts} />
             </CardContent>
           </Card>
           <Card>

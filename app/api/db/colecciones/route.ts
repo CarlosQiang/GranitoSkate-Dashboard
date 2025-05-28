@@ -1,11 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { ServicioProducto } from "@/lib/servicios/producto.servicio"
+import { ServicioColeccion } from "@/lib/servicios/coleccion.servicio"
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const emailUsuario = searchParams.get("emailUsuario")
-    const busqueda = searchParams.get("busqueda")
     const pagina = Number(searchParams.get("pagina") || "1")
     const limite = Number(searchParams.get("limite") || "10")
 
@@ -13,16 +12,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Email de usuario requerido" }, { status: 400 })
     }
 
-    let resultado
-    if (busqueda) {
-      resultado = await ServicioProducto.buscar(emailUsuario, busqueda, pagina, limite)
-    } else {
-      resultado = await ServicioProducto.listarPorUsuario(emailUsuario, pagina, limite)
-    }
-
+    const resultado = await ServicioColeccion.listarPorUsuario(emailUsuario, pagina, limite)
     return NextResponse.json(resultado)
   } catch (error) {
-    console.error("Error en GET /api/db/productos:", error)
+    console.error("Error en GET /api/db/colecciones:", error)
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
   }
 }
@@ -35,10 +28,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email de usuario requerido" }, { status: 400 })
     }
 
-    const producto = await ServicioProducto.crear(datos)
-    return NextResponse.json(producto, { status: 201 })
+    const coleccion = await ServicioColeccion.crear(datos)
+    return NextResponse.json(coleccion, { status: 201 })
   } catch (error) {
-    console.error("Error en POST /api/db/productos:", error)
+    console.error("Error en POST /api/db/colecciones:", error)
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
   }
 }

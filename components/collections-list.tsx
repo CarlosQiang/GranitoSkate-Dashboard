@@ -3,12 +3,13 @@
 import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Edit, Package } from "lucide-react"
+import { Edit, Package, List, Grid3X3 } from 'lucide-react'
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { fetchCollections } from "@/lib/api/collections"
 import { LoadingState } from "@/components/loading-state"
 import { CollectionsFilters, type CollectionFilters } from "./collections-filters"
+import { cn } from "@/lib/utils"
 
 export function CollectionsList() {
   const [collections, setCollections] = useState([])
@@ -146,45 +147,80 @@ export function CollectionsList() {
       />
 
       {/* Lista de colecciones */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredAndSortedCollections.map((collection) => (
-          <Card key={collection.id} className="overflow-hidden h-full flex flex-col">
-            <div className="aspect-video relative bg-gray-100">
-              {collection.image ? (
-                <Image
-                  src={collection.image.url || "/placeholder.svg"}
-                  alt={collection.image.altText || collection.title}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <Package className="h-12 w-12 text-gray-400" />
-                </div>
-              )}
-            </div>
-            <CardContent className="p-4 flex-grow">
-              <h3 className="text-lg font-semibold line-clamp-1">{collection.title}</h3>
-              <p className="text-sm text-gray-500">{collection.productsCount} productos</p>
-            </CardContent>
-            <CardFooter className="flex justify-between p-4 pt-0 border-t">
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/dashboard/collections/${collection.id.split("/").pop()}`}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Editar
-                </Link>
-              </Button>
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/dashboard/collections/${collection.id.split("/").pop()}/products`}>
-                  <Package className="mr-2 h-4 w-4" />
-                  Productos
-                </Link>
-              </Button>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
+      {viewMode === "grid" ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredAndSortedCollections.map((collection) => (
+            <Card key={collection.id} className="overflow-hidden h-full flex flex-col">
+              <div className="aspect-video relative bg-gray-100">
+                {collection.image ? (
+                  <Image
+                    src={collection.image.url || "/placeholder.svg"}
+                    alt={collection.title}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <Package className="h-12 w-12 text-gray-400" />
+                  </div>
+                )}
+              </div>
+              <CardContent className="p-4 flex-grow">
+                <h3 className="text-lg font-semibold line-clamp-1">{collection.title}</h3>
+                <p className="text-sm text-gray-500">{collection.productsCount} productos</p>
+              </CardContent>
+              <CardFooter className="flex justify-between p-4 pt-0 border-t">
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/dashboard/collections/${collection.id.split("/").pop()}`}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Editar
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/dashboard/collections/${collection.id.split("/").pop()}/products`}>
+                    <Package className="mr-2 h-4 w-4" />
+                    Productos
+                  </Link>
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filteredAndSortedCollections.map((collection) => (
+            <Link
+              key={collection.id}
+              href={`/dashboard/collections/${collection.id.split("/").pop()}`}
+              className="flex items-center gap-4 border rounded-md p-4 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+            >
+              <div className="h-16 w-16 relative bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden">
+                {collection.image ? (
+                  <Image
+                    src={collection.image.url || "/placeholder.svg"}
+                    alt={collection.title}
+                    fill
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Package className="h-6 w-6 text-gray-400" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium truncate">{collection.title}</h3>
+                <p className="text-sm text-gray-500">{collection.description}</p>
+              </div>
+              <div className="text-right">
+                <div className="font-medium">{collection.productsCount} productos</div>
+                <Badge variant="outline">Ver detalles</Badge>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

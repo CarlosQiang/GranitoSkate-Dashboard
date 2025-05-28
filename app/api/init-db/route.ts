@@ -1,18 +1,12 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
-
-const prisma = new PrismaClient()
-
-// Función simple para generar un hash de contraseña (no seguro, solo para desarrollo)
-function simpleHash(password: string): string {
-  // Este es el hash conocido de "GranitoSkate" generado previamente con bcrypt
-  return "$2b$10$1X.GQIJJk8L9Fz3HZhQQo.6EsHgHKm7Brx0bKQA9fI.SSjN.ym3Uy"
-}
+import { sql } from "@vercel/postgres"
 
 export async function GET() {
   try {
+    console.log("Inicializando base de datos...")
+
     // Verificar si existe la tabla de administradores
-    const adminTableExists = await prisma.$queryRaw`
+    const adminTableExists = await sql`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
         WHERE table_schema = 'public' 
@@ -21,8 +15,10 @@ export async function GET() {
     `
 
     if (!(adminTableExists as any)[0].exists) {
+      console.log("Creando tabla de administradores...")
+
       // Crear tabla de administradores
-      await prisma.$executeRaw`
+      await sql`
         CREATE TABLE IF NOT EXISTS administradores (
           id SERIAL PRIMARY KEY,
           nombre_usuario VARCHAR(50) UNIQUE NOT NULL,
@@ -36,18 +32,65 @@ export async function GET() {
           fecha_actualizacion TIMESTAMP
         )
       `
+
+      console.log("Tabla de administradores creada.")
+    } else {
+      console.log("La tabla de administradores ya existe.")
+    }
+
+    // Verificar si existe la función para actualizar timestamp
+    const functionExists = await sql`
+      SELECT EXISTS (
+        SELECT 1 FROM pg_proc WHERE proname = 'actualizar_timestamp'
+      ) as exists
+    `
+
+    if (!(functionExists as any)[0].exists) {
+      console.log("Creando función actualizar_timestamp...")
+
+      await sql`
+        CREATE FUNCTION actualizar_timestamp() RETURNS TRIGGER AS $$
+        BEGIN
+            NEW.fecha_actualizacion = NOW();
+            RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql
+      `
+
+      console.log("Función actualizar_timestamp creada.")
+    }
+
+    // Verificar si existe el trigger
+    const triggerExists = await sql`
+      SELECT EXISTS (
+        SELECT 1 FROM pg_trigger 
+        WHERE tgname = 'trigger_administradores_actualizado' 
+        AND tgrelid = 'administradores'::regclass
+      ) as exists
+    `
+
+    if (!(triggerExists as any)[0].exists) {
+      console.log("Creando trigger para actualizar timestamp...")
+
+      await sql`
+        CREATE TRIGGER trigger_administradores_actualizado
+        BEFORE UPDATE ON administradores
+        FOR EACH ROW EXECUTE FUNCTION actualizar_timestamp()
+      `
+
+      console.log("Trigger creado.")
     }
 
     // Verificar si existe el usuario admin
-    const adminExists = await prisma.$queryRaw`
+    const adminExists = await sql`
       SELECT COUNT(*) as count FROM administradores WHERE nombre_usuario = 'admin'
     `
 
     if ((adminExists as any)[0].count === 0) {
-      // Crear usuario admin con hash predefinido
-      const hashedPassword = simpleHash("GranitoSkate")
+      console.log("Creando usuario administrador por defecto...")
 
-      await prisma.$executeRaw`
+      // Crear usuario admin con hash predefinido
+      await sql`
         INSERT INTO administradores (
           nombre_usuario, 
           correo_electronico, 
@@ -57,25 +100,23 @@ export async function GET() {
           activo
         ) VALUES (
           'admin', 
-          'admin@granitoskate.com', 
-          ${hashedPassword}, 
+          'admin@gmail.com', 
+          '$2a$10$1X.GQIJJk8L9Fz3HZhQQo.6EsHgHKm7Brx0bKQA9fI.SSjN.ym3Uy', 
           'Administrador', 
           'superadmin', 
           true
         )
       `
 
-      return NextResponse.json({
-        status: "success",
-        message: "Base de datos inicializada y usuario admin creado",
-        adminCreated: true,
-      })
+      console.log("Usuario administrador creado.")
+    } else {
+      console.log("El usuario administrador ya existe.")
     }
 
     return NextResponse.json({
       status: "success",
-      message: "Base de datos ya inicializada",
-      adminCreated: false,
+      message: "Base de datos inicializada correctamente",
+      adminCreated: (adminExists as any)[0].count === 0,
     })
   } catch (error) {
     console.error("Error al inicializar la base de datos:", error)

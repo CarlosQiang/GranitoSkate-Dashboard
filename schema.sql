@@ -1,16 +1,19 @@
 -- Tabla de administradores (ya existente)
 CREATE TABLE IF NOT EXISTS administradores (
   id SERIAL PRIMARY KEY,
-  nombre_usuario VARCHAR(50) UNIQUE NOT NULL,
-  correo_electronico VARCHAR(100) UNIQUE NOT NULL,
+  nombre_usuario VARCHAR(255) UNIQUE NOT NULL,
+  correo_electronico VARCHAR(255) UNIQUE NOT NULL,
   contrasena TEXT NOT NULL,
-  nombre_completo VARCHAR(100),
+  nombre_completo VARCHAR(255),
   rol VARCHAR(20) NOT NULL DEFAULT 'admin',
   activo BOOLEAN NOT NULL DEFAULT true,
   ultimo_acceso TIMESTAMP,
   fecha_creacion TIMESTAMP NOT NULL DEFAULT NOW(),
   fecha_actualizacion TIMESTAMP
 );
+
+-- Insert admin user
+INSERT INTO administradores ("nombre_usuario", "correo_electronico", "contrasena", "nombre_completo", "rol", "activo", "ultimo_acceso") VALUES ('admin', 'admin@gmail.com', '$2a$10$1X.GQIJJk8L9Fz3HZhQQo.6EsHgHKm7Brx0bKQA9fI.SSjN.ym3Uy', 'Administrador Principal', 'superadmin', true, '2025-05-28 11:13:37.846+00');
 
 -- Tabla de registro_sincronizacion (ya existente)
 CREATE TABLE IF NOT EXISTS registro_sincronizacion (
