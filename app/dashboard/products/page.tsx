@@ -191,6 +191,123 @@ export default function ProductsPage() {
     }
   }
 
+  // Función para renderizar el contenido de productos
+  const renderProductsContent = () => {
+    if (isLoading) {
+      return viewMode === "grid" ? (
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array(8)
+            .fill(0)
+            .map((_, i) => (
+              <div key={i} className="border rounded-md overflow-hidden">
+                <Skeleton className="h-48 w-full" />
+                <div className="p-4 space-y-2">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+              </div>
+            ))}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {Array(5)
+            .fill(0)
+            .map((_, i) => (
+              <div key={i} className="flex items-center gap-4 border rounded-md p-4">
+                <Skeleton className="h-16 w-16 rounded-md" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-1/3" />
+                  <Skeleton className="h-4 w-1/4" />
+                </div>
+                <Skeleton className="h-8 w-24" />
+              </div>
+            ))}
+        </div>
+      )
+    }
+
+    if (filteredProducts.length === 0) {
+      return (
+        <div className="text-center py-12 border rounded-md bg-gray-50 dark:bg-gray-900">
+          <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
+            <Search className="h-6 w-6 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-medium">No se encontraron productos</h3>
+          <p className="text-muted-foreground mt-1 mb-4">
+            {searchTerm
+              ? `No hay resultados para "${searchTerm}"`
+              : activeTab === "all"
+                ? "No hay productos disponibles"
+                : activeTab === "active"
+                  ? "No hay productos activos"
+                  : activeTab === "draft"
+                    ? "No hay productos en borrador"
+                    : "No hay productos archivados"}
+          </p>
+          <Button
+            onClick={() => router.push("/dashboard/products/new")}
+            className="bg-granito-500 hover:bg-granito-600 text-white"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Crear nuevo producto
+          </Button>
+        </div>
+      )
+    }
+
+    if (viewMode === "grid") {
+      return (
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filteredProducts.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+      )
+    }
+
+    return (
+      <div className="space-y-2">
+        {filteredProducts.map((product) => (
+          <Link
+            key={product.id}
+            href={`/dashboard/products/${cleanId(product.id)}`}
+            className="flex items-center gap-4 border rounded-md p-4 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+          >
+            <div className="h-16 w-16 relative bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden">
+              {getImageUrl(product) ? (
+                <Image
+                  src={getImageUrl(product) || "/placeholder.svg"}
+                  alt={product.title || "Producto"}
+                  fill
+                  className="object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Package className="h-6 w-6 text-gray-400" />
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-medium truncate">{product.title}</h3>
+              <p className="text-sm text-muted-foreground">{product.productType || "Sin categoría"}</p>
+            </div>
+            <div className="text-right">
+              <div className="font-medium">{formatCurrency(product.price || 0, product.currencyCode || "EUR")}</div>
+              <Badge
+                variant={product.status === "ACTIVE" ? "default" : "secondary"}
+                className={
+                  product.status === "ACTIVE" ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" : ""
+                }
+              >
+                {product.status === "ACTIVE" ? "Activo" : product.status === "DRAFT" ? "Borrador" : "Archivado"}
+              </Badge>
+            </div>
+          </Link>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -350,125 +467,19 @@ export default function ProductsPage() {
               </TabsList>
 
               <TabsContent value="all" className="mt-0">
-                {isLoading ? (
-                  viewMode === "grid" ? (
-                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                      {Array(8)
-                        .fill(0)
-                        .map((_, i) => (
-                          <div key={i} className="border rounded-md overflow-hidden">
-                            <Skeleton className="h-48 w-full" />
-                            <div className="p-4 space-y-2">
-                              <Skeleton className="h-4 w-3/4" />
-                              <Skeleton className="h-4 w-1/2" />
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {Array(5)
-                        .fill(0)
-                        .map((_, i) => (
-                          <div key={i} className="flex items-center gap-4 border rounded-md p-4">
-                            <Skeleton className="h-16 w-16 rounded-md" />
-                            <div className="flex-1 space-y-2">
-                              <Skeleton className="h-4 w-1/3" />
-                              <Skeleton className="h-4 w-1/4" />
-                            </div>
-                            <Skeleton className="h-8 w-24" />
-                          </div>
-                        ))}
-                    </div>
-                  )
-                ) : filteredProducts.length === 0 ? (
-                  <div className="text-center py-12 border rounded-md bg-gray-50 dark:bg-gray-900">
-                    <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-                      <Search className="h-6 w-6 text-gray-400" />
-                    </div>
-                    <h3 className="text-lg font-medium">No se encontraron productos</h3>
-                    <p className="text-muted-foreground mt-1 mb-4">
-                      {searchTerm
-                        ? `No hay resultados para "${searchTerm}"`
-                        : "No hay productos disponibles en esta categoría"}
-                    </p>
-                    <Button
-                      onClick={() => router.push("/dashboard/products/new")}
-                      className="bg-granito-500 hover:bg-granito-600 text-white"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Crear nuevo producto
-                    </Button>
-                  </div>
-                ) : viewMode === "grid" ? (
-                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {filteredProducts.map((product) => (
-                      <ProductCard key={product.id} product={product} />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {filteredProducts.map((product) => (
-                      <Link
-                        key={product.id}
-                        href={`/dashboard/products/${cleanId(product.id)}`}
-                        className="flex items-center gap-4 border rounded-md p-4 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
-                      >
-                        <div className="h-16 w-16 relative bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden">
-                          {getImageUrl(product) ? (
-                            <Image
-                              src={getImageUrl(product) || "/placeholder.svg"}
-                              alt={product.title || "Producto"}
-                              fill
-                              className="object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Package className="h-6 w-6 text-gray-400" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium truncate">{product.title}</h3>
-                          <p className="text-sm text-muted-foreground">{product.productType || "Sin categoría"}</p>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-medium">
-                            {formatCurrency(product.price || 0, product.currencyCode || "EUR")}
-                          </div>
-                          <Badge
-                            variant={product.status === "ACTIVE" ? "default" : "secondary"}
-                            className={
-                              product.status === "ACTIVE"
-                                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                                : ""
-                            }
-                          >
-                            {product.status === "ACTIVE"
-                              ? "Activo"
-                              : product.status === "DRAFT"
-                                ? "Borrador"
-                                : "Archivado"}
-                          </Badge>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
+                {renderProductsContent()}
               </TabsContent>
 
-              {/* Contenido similar para las otras pestañas */}
               <TabsContent value="active" className="mt-0">
-                {/* Contenido similar al de "all" pero filtrado por productos activos */}
-                {/* Este contenido se renderiza automáticamente por el filtrado */}
+                {renderProductsContent()}
               </TabsContent>
+
               <TabsContent value="draft" className="mt-0">
-                {/* Contenido similar al de "all" pero filtrado por borradores */}
-                {/* Este contenido se renderiza automáticamente por el filtrado */}
+                {renderProductsContent()}
               </TabsContent>
+
               <TabsContent value="archived" className="mt-0">
-                {/* Contenido similar al de "all" pero filtrado por archivados */}
-                {/* Este contenido se renderiza automáticamente por el filtrado */}
+                {renderProductsContent()}
               </TabsContent>
             </Tabs>
           </div>
