@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link" // Corregir esta importación, eliminar { Link }
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,8 +15,6 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/components/ui/use-toast"
 import { Package } from "lucide-react" // Import Package component
-import { Image } from "next/image" // Import Image component
-import { Link } from "next/link" // Import Link component
 
 // Marcar la página como dinámica para evitar errores de renderizado estático
 export const dynamic = "force-dynamic"
@@ -69,12 +68,17 @@ export default function ProductsPage() {
 
     // Filtrar por estado (pestaña)
     if (tab !== "all") {
-      filtered = filtered.filter((product) => {
-        if (tab === "active") return product.status === "ACTIVE"
-        if (tab === "draft") return product.status === "DRAFT"
-        if (tab === "archived") return product.status === "ARCHIVED"
-        return true
-      })
+      const statusMap = {
+        active: "ACTIVE",
+        draft: "DRAFT",
+        archived: "ARCHIVED",
+      }
+
+      const statusToFilter = statusMap[tab]
+
+      if (statusToFilter) {
+        filtered = filtered.filter((product) => product.status === statusToFilter)
+      }
     }
 
     // Ordenar productos
@@ -133,6 +137,7 @@ export default function ProductsPage() {
   // Manejar cambio de pestaña
   const handleTabChange = (value) => {
     setActiveTab(value)
+    filterAndSortProducts(products, searchTerm, value, sortBy)
   }
 
   // Manejar cambio en la búsqueda
@@ -416,11 +421,10 @@ export default function ProductsPage() {
                       >
                         <div className="h-16 w-16 relative bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden">
                           {getImageUrl(product) ? (
-                            <Image
+                            <img
                               src={getImageUrl(product) || "/placeholder.svg"}
                               alt={product.title || "Producto"}
-                              fill
-                              className="object-cover"
+                              className="object-cover w-full h-full"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
