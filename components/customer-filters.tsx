@@ -22,7 +22,6 @@ import { CalendarIcon, Filter, X } from "lucide-react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { cn } from "@/lib/utils"
-import { useTheme } from "@/contexts/theme-context"
 
 export interface CustomerFilter {
   query?: string
@@ -43,7 +42,6 @@ interface CustomerFiltersProps {
 }
 
 export function CustomerFilters({ filters, onFilterChange, onReset }: CustomerFiltersProps) {
-  const { theme } = useTheme()
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
   const [localFilters, setLocalFilters] = useState<CustomerFilter>(filters)
 
@@ -143,25 +141,12 @@ export function CustomerFilters({ filters, onFilterChange, onReset }: CustomerFi
 
           <Dialog open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
             <DialogTrigger asChild>
-              <Button
-                variant="outline"
-                className="gap-2 w-full sm:w-auto"
-                style={{
-                  borderColor: theme.primaryColor + "50",
-                  color: theme.primaryColor,
-                }}
-              >
+              <Button variant="outline" className="gap-2 w-full sm:w-auto">
                 <Filter className="h-4 w-4" />
                 <span className="hidden sm:inline">Filtros avanzados</span>
                 <span className="sm:hidden">Filtros</span>
                 {hasActiveFilters() && (
-                  <span
-                    className="ml-1 rounded-full w-5 h-5 text-xs flex items-center justify-center text-primary-foreground"
-                    style={{
-                      backgroundColor: theme.primaryColor,
-                      color: "white",
-                    }}
-                  >
+                  <span className="ml-1 rounded-full bg-primary w-5 h-5 text-xs flex items-center justify-center text-primary-foreground">
                     !
                   </span>
                 )}
@@ -328,14 +313,7 @@ export function CustomerFilters({ filters, onFilterChange, onReset }: CustomerFi
                 >
                   Restablecer
                 </Button>
-                <Button
-                  onClick={applyAdvancedFilters}
-                  className="w-full sm:w-auto"
-                  style={{
-                    backgroundColor: theme.primaryColor,
-                    color: "white",
-                  }}
-                >
+                <Button onClick={applyAdvancedFilters} className="w-full sm:w-auto">
                   Aplicar filtros
                 </Button>
               </DialogFooter>
@@ -391,15 +369,7 @@ export function CustomerFilters({ filters, onFilterChange, onReset }: CustomerFi
               </Badge>
             ))}
 
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs"
-            onClick={onReset}
-            style={{
-              color: theme.primaryColor,
-            }}
-          >
+          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onReset}>
             Limpiar todos
           </Button>
         </div>
@@ -414,27 +384,10 @@ interface BadgeProps {
 }
 
 function Badge({ children, onRemove }: BadgeProps) {
-  const { theme } = useTheme()
-
   return (
-    <div
-      className="flex items-center gap-1 px-2 py-1 rounded-md text-xs"
-      style={{
-        backgroundColor: theme.primaryColor + "20",
-        color: theme.primaryColor,
-      }}
-    >
+    <div className="flex items-center gap-1 bg-secondary text-secondary-foreground px-2 py-1 rounded-md text-xs">
       {children}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-4 w-4 p-0"
-        onClick={onRemove}
-        style={{
-          color: theme.primaryColor,
-          opacity: 0.8,
-        }}
-      >
+      <Button variant="ghost" size="icon" className="h-4 w-4 p-0 hover:bg-secondary-foreground/20" onClick={onRemove}>
         <X className="h-3 w-3" />
       </Button>
     </div>

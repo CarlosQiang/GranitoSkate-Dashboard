@@ -3,9 +3,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const limit = Number.parseInt(searchParams.get("limit") || "10")
     const cursor = searchParams.get("cursor")
-    const status = searchParams.get("status")
 
-    console.log(`🛍️ Fetching ${limit} products from Shopify...${status ? ` with status: ${status}` : ""}`)
+    console.log(`🛍️ Fetching ${limit} products from Shopify...`)
 
     // Validar configuración de Shopify
     if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
@@ -13,15 +12,9 @@ export async function GET(request: Request) {
       return Response.json({ error: "Shopify configuration missing" }, { status: 500 })
     }
 
-    // Construir la consulta GraphQL con filtro de estado opcional
-    let statusFilter = ""
-    if (status && ["ACTIVE", "DRAFT", "ARCHIVED"].includes(status)) {
-      statusFilter = `, query: "status:${status}"`
-    }
-
     const query = `
       query GetProducts($first: Int!, $after: String) {
-        products(first: $first, after: $after, sortKey: CREATED_AT, reverse: true${statusFilter}) {
+        products(first: $first, after: $after, sortKey: CREATED_AT, reverse: true) {
           edges {
             node {
               id
@@ -68,30 +61,17 @@ export async function GET(request: Request) {
       after: cursor,
     }
 
-    // Implementar retry logic para manejar errores temporales
-    let retries = 3
-    let response
-
-    while (retries > 0) {
-      response = await fetch(`https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-07/graphql.json`, {
+    const response = await fetch(
+      `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-07/graphql.json`,
+      {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
         },
         body: JSON.stringify({ query, variables }),
-        // Aumentar el timeout para evitar errores de red
-        cache: "no-store",
-      })
-
-      if (response.ok) break
-
-      retries--
-      if (retries > 0) {
-        console.log(`Retry attempt for Shopify API, ${retries} attempts remaining`)
-        await new Promise((resolve) => setTimeout(resolve, 1000)) // Esperar 1 segundo entre intentos
-      }
-    }
+      },
+    )
 
     if (!response.ok) {
       console.error(`❌ Shopify API error: ${response.status} ${response.statusText}`)

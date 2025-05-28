@@ -83,66 +83,6 @@ export default function PersonalizacionPage() {
     updateTheme({ favicon: null })
   }
 
-  const handleGeneratePalette = () => {
-    // Lógica para generar una paleta de colores aleatoria
-    const newPrimaryColor = "#" + Math.floor(Math.random() * 16777215).toString(16)
-    const newSecondaryColor = "#" + Math.floor(Math.random() * 16777215).toString(16)
-    const newAccentColor = "#" + Math.floor(Math.random() * 16777215).toString(16)
-
-    updateTheme({
-      primaryColor: newPrimaryColor,
-      secondaryColor: newSecondaryColor,
-      accentColor: newAccentColor,
-    })
-
-    toast({
-      title: "Paleta generada",
-      description: "Se ha generado una nueva paleta de colores aleatoria.",
-    })
-  }
-
-  const handleImportPalette = () => {
-    // Lógica para importar una paleta de colores desde un archivo o texto
-    const palette = prompt("Introduce la paleta de colores (JSON):")
-    if (palette) {
-      try {
-        const parsedPalette = JSON.parse(palette)
-        updateTheme({
-          primaryColor: parsedPalette.primaryColor || theme.primaryColor,
-          secondaryColor: parsedPalette.secondaryColor || theme.secondaryColor,
-          accentColor: parsedPalette.accentColor || theme.accentColor,
-        })
-
-        toast({
-          title: "Paleta importada",
-          description: "Se ha importado la paleta de colores correctamente.",
-        })
-      } catch (error) {
-        toast({
-          title: "Error al importar",
-          description: "No se pudo importar la paleta de colores. Formato incorrecto.",
-          variant: "destructive",
-        })
-      }
-    }
-  }
-
-  const handleExportPalette = () => {
-    // Lógica para exportar la paleta de colores a un archivo o texto
-    const palette = JSON.stringify({
-      primaryColor: theme.primaryColor,
-      secondaryColor: theme.secondaryColor,
-      accentColor: theme.accentColor,
-    })
-
-    navigator.clipboard.writeText(palette)
-
-    toast({
-      title: "Paleta exportada",
-      description: "Se ha copiado la paleta de colores al portapapeles.",
-    })
-  }
-
   return (
     <div className="container mx-auto py-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
@@ -192,13 +132,13 @@ export default function PersonalizacionPage() {
             <TabsContent value="colores" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Colores</CardTitle>
-                  <CardDescription>Personaliza los colores de tu panel de administración</CardDescription>
+                  <CardTitle>Colores principales</CardTitle>
+                  <CardDescription>Personaliza los colores principales de tu panel de administración</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label htmlFor="primaryColor">Color primario</Label>
+                      <Label htmlFor="primaryColor">Color principal</Label>
                       <div className="flex items-center gap-2">
                         <ColorPicker
                           color={theme.primaryColor}
@@ -207,24 +147,10 @@ export default function PersonalizacionPage() {
                         />
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Color principal para botones, enlaces y elementos destacados.
+                        Este color se usa para botones, enlaces y elementos destacados
                       </p>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="primaryColorHover">Color primario (Hover)</Label>
-                      <div className="flex items-center gap-2">
-                        <ColorPicker
-                          color={theme.primaryColorHover || theme.primaryColor} // Use primaryColor as default
-                          onChange={(color) => updateTheme({ primaryColorHover: color })}
-                          presets={["#c7a04a", "#3182ce", "#38a169", "#e53e3e", "#805ad5"]}
-                        />
-                      </div>
-                      <p className="text-xs text-muted-foreground">Color primario al pasar el cursor por encima.</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <Label htmlFor="secondaryColor">Color secundario</Label>
                       <div className="flex items-center gap-2">
@@ -234,19 +160,9 @@ export default function PersonalizacionPage() {
                           presets={["#4a5568", "#2c5282", "#276749", "#9b2c2c", "#553c9a"]}
                         />
                       </div>
-                      <p className="text-xs text-muted-foreground">Color secundario para elementos de apoyo.</p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="secondaryColorHover">Color secundario (Hover)</Label>
-                      <div className="flex items-center gap-2">
-                        <ColorPicker
-                          color={theme.secondaryColorHover || theme.secondaryColor} // Use secondaryColor as default
-                          onChange={(color) => updateTheme({ secondaryColorHover: color })}
-                          presets={["#4a5568", "#2c5282", "#276749", "#9b2c2c", "#553c9a"]}
-                        />
-                      </div>
-                      <p className="text-xs text-muted-foreground">Color secundario al pasar el cursor por encima.</p>
+                      <p className="text-xs text-muted-foreground">
+                        Este color se usa para elementos secundarios y de apoyo
+                      </p>
                     </div>
                   </div>
 
@@ -261,24 +177,10 @@ export default function PersonalizacionPage() {
                         />
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Color de acento para destacar elementos importantes.
+                        Este color se usa para destacar elementos importantes o llamar la atención
                       </p>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="accentColorHover">Color de acento (Hover)</Label>
-                      <div className="flex items-center gap-2">
-                        <ColorPicker
-                          color={theme.accentColorHover || theme.accentColor} // Use accentColor as default
-                          onChange={(color) => updateTheme({ accentColorHover: color })}
-                          presets={["#3182ce", "#c7a04a", "#38a169", "#e53e3e", "#805ad5"]}
-                        />
-                      </div>
-                      <p className="text-xs text-muted-foreground">Color de acento al pasar el cursor por encima.</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <div className="space-y-0.5">
@@ -306,21 +208,9 @@ export default function PersonalizacionPage() {
                         </div>
                       )}
                     </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="highContrastMode">Modo de alto contraste</Label>
-                      <Switch
-                        id="highContrastMode"
-                        checked={theme.highContrastMode || false}
-                        onCheckedChange={(checked) => updateTheme({ highContrastMode: checked })}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Activa el modo de alto contraste para mejorar la accesibilidad.
-                      </p>
-                    </div>
                   </div>
                 </CardContent>
-                <CardFooter className="flex justify-between">
+                <CardFooter>
                   <Button
                     variant="outline"
                     size="sm"
@@ -329,25 +219,11 @@ export default function PersonalizacionPage() {
                         primaryColor: defaultThemeConfig.primaryColor,
                         secondaryColor: defaultThemeConfig.secondaryColor,
                         accentColor: defaultThemeConfig.accentColor,
-                        primaryColorHover: defaultThemeConfig.primaryColor,
-                        secondaryColorHover: defaultThemeConfig.secondaryColor,
-                        accentColorHover: defaultThemeConfig.accentColor,
                       })
                     }
                   >
                     Restaurar colores predeterminados
                   </Button>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={handleGeneratePalette}>
-                      Generar paleta
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={handleImportPalette}>
-                      Importar paleta
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={handleExportPalette}>
-                      Exportar paleta
-                    </Button>
-                  </div>
                 </CardFooter>
               </Card>
 

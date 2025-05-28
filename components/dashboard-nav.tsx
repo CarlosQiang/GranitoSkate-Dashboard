@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
-import { Menu, X, LogOut } from "lucide-react"
+import { Menu, X, LogOut, ChevronRight } from "lucide-react"
 import { signOut } from "next-auth/react"
 import { cn } from "@/lib/utils"
 import { navigationItems } from "@/config/navigation"
@@ -14,47 +14,52 @@ export function DashboardNav() {
   const { theme } = useTheme()
   const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
-
-  // Detectar si es móvil
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
-
-    checkMobile()
-    window.addEventListener("resize", checkMobile)
-    return () => window.removeEventListener("resize", checkMobile)
-  }, [])
+  const [isCollapsed, setIsCollapsed] = useState(false)
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen)
+  }
+
+  const toggleCollapse = () => {
+    setIsCollapsed(!isCollapsed)
+    // Guardar preferencia en localStorage
+    localStorage.setItem("navCollapsed", String(!isCollapsed))
+    // Actualizar clase en el documento para el layout
+    if (!isCollapsed) {
+      document.documentElement.classList.add("sidebar-collapsed")
+    } else {
+      document.documentElement.classList.remove("sidebar-collapsed")
+    }
   }
 
   const handleLogout = async () => {
     await signOut({ callbackUrl: "/login" })
   }
 
-  // Cerrar el menú cuando se hace clic en un enlace
+  // Cargar preferencia de colapso del menú
+  useEffect(() => {
+    const savedCollapsed = localStorage.getItem("navCollapsed")
+    if (savedCollapsed !== null) {
+      const collapsed = savedCollapsed === "true"
+      setIsCollapsed(collapsed)
+      if (collapsed) {
+        document.documentElement.classList.add("sidebar-collapsed")
+      } else {
+        document.documentElement.classList.remove("sidebar-collapsed")
+      }
+    }
+  }, [])
+
+  // Cerrar el menú cuando se hace clic en un enlace y se cambia de ruta
   useEffect(() => {
     setIsMenuOpen(false)
   }, [pathname])
 
-  // Cerrar el menú cuando se hace clic fuera de él (solo móvil)
+  // Cerrar el menú cuando se hace clic fuera de él
   useEffect(() => {
-    if (!isMobile) return
-
     const handleClickOutside = (event: MouseEvent) => {
       const nav = document.getElementById("mobile-nav")
-      const button = document.getElementById("mobile-menu-button")
-
-      if (
-        nav &&
-        !nav.contains(event.target as Node) &&
-        button &&
-        !button.contains(event.target as Node) &&
-        isMenuOpen
-      ) {
+      if (nav && !nav.contains(event.target as Node) && isMenuOpen) {
         setIsMenuOpen(false)
       }
     }
@@ -63,101 +68,124 @@ export function DashboardNav() {
     return () => {
       document.removeEventListener("mousedown", handleClickOutside)
     }
-  }, [isMenuOpen, isMobile])
+  }, [isMenuOpen])
+
+  // Prevenir scroll cuando el menú está abierto en móvil
+  useEffect(() => {
+    if (isMenuOpen) {
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = "auto"
+    }
+    return () => {
+      document.body.style.overflow = "auto"
+    }
+  }, [isMenuOpen])
+
+  // Estilo dinámico para el color de fondo del elemento activo
+  const activeItemStyle = {
+    backgroundColor: theme.primaryColor,
+    color: "#ffffff",
+  }
+
+  // Estilo para el botón de cerrar sesión
+  const logoutButtonStyle = {
+    color: "#ef4444", // Color rojo para el botón de cerrar sesión
+    borderColor: "#ef4444",
+  }
 
   return (
     <>
-      {/* Botón de menú móvil */}
-      {isMobile && (
-        <Button
-          id="mobile-menu-button"
-          variant="ghost"
-          className="fixed top-4 left-4 z-50 bg-white shadow-md border lg:hidden"
-          onClick={toggleMenu}
-          aria-label={isMenuOpen ? "Cerrar menú" : "Abrir menú"}
-        >
-          {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
-      )}
+      {/* Botón de menú móvil con animación mejorada */}
+      <Button
+        variant="ghost"
+        className="md:hidden fixed top-4 right-4 z-50 transition-all duration-200 bg-background/80 backdrop-blur-sm"
+        onClick={toggleMenu}
+        aria-label={isMenuOpen ? "Cerrar menú" : "Abrir menú"}
+      >
+        {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+      </Button>
 
-      {/* Overlay para móvil */}
-      {isMobile && isMenuOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={toggleMenu} aria-hidden="true" />
-      )}
-
-      {/* Navegación principal */}
+      {/* Navegación para escritorio y móvil con animaciones mejoradas */}
       <nav
         id="mobile-nav"
         className={cn(
-          "fixed top-0 left-0 h-full z-50 bg-white dark:bg-gray-900 border-r shadow-lg",
-          "flex flex-col transition-transform duration-300 ease-in-out",
-          // Desktop: siempre visible
-          "lg:translate-x-0 lg:w-64",
-          // Mobile: deslizable
-          isMobile && ["w-72", isMenuOpen ? "translate-x-0" : "-translate-x-full"],
+          "sidebar",
+          "flex flex-col border-r bg-white dark:bg-gray-900 shadow-sm",
+          "fixed top-0 left-0 h-full z-40",
+          "transform transition-all duration-300 ease-in-out",
+          isMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+          isCollapsed && "sidebar-collapsed",
         )}
       >
-        {/* Header del sidebar */}
-        <div className="flex items-center border-b p-4">
-          <div
-            className="h-10 w-10 rounded-md flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: theme.primaryColor }}
+        <div className="flex flex-col gap-1 p-4 pt-16 md:pt-4 overflow-y-auto hide-scrollbar h-full">
+          {/* Logo o título en la parte superior del menú */}
+          <div className="mb-6 flex items-center justify-center md:justify-start">
+            <div
+              className="h-10 w-10 rounded-md flex items-center justify-center mr-2 flex-shrink-0"
+              style={{ backgroundColor: theme.primaryColor }}
+            >
+              <span className="text-white font-bold text-lg">G</span>
+            </div>
+            {!isCollapsed && <span className="font-bold text-lg">{theme.shopName || "GranitoSkate"}</span>}
+          </div>
+
+          {/* Botón para colapsar/expandir el menú (solo en escritorio) */}
+          <button
+            onClick={toggleCollapse}
+            className="hidden md:flex items-center justify-center absolute -right-3 top-20 bg-white dark:bg-gray-800 border rounded-full h-6 w-6 shadow-md"
+            aria-label={isCollapsed ? "Expandir menú" : "Colapsar menú"}
           >
-            <span className="text-white font-bold text-lg">G</span>
-          </div>
-          <div className="ml-3">
-            <span className="font-bold text-lg" data-shop-name>
-              {theme.shopName || "GranitoSkate"}
-            </span>
-            <p className="text-xs text-muted-foreground">Panel de administración</p>
-          </div>
+            <ChevronRight
+              className={cn("h-4 w-4 text-gray-500 transition-transform", isCollapsed ? "rotate-180" : "")}
+            />
+          </button>
+
+          {navigationItems.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-all",
+                  "hover:bg-gray-100 dark:hover:bg-gray-800",
+                  isCollapsed && "md:justify-center md:px-2",
+                )}
+                style={isActive ? activeItemStyle : {}}
+              >
+                <item.icon className={cn("h-5 w-5 flex-shrink-0", isCollapsed && "md:h-6 md:w-6")} />
+                {!isCollapsed && <span className="truncate">{item.name}</span>}
+              </Link>
+            )
+          })}
         </div>
 
-        {/* Navegación */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-4 space-y-1">
-            {navigationItems.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
-                    "hover:bg-gray-100 dark:hover:bg-gray-800",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                    isActive && "nav-item-active text-white",
-                  )}
-                  style={
-                    isActive
-                      ? {
-                          backgroundColor: theme.primaryColor,
-                          color: "white",
-                        }
-                      : {}
-                  }
-                >
-                  <item.icon className="h-5 w-5 flex-shrink-0" />
-                  <span className="truncate">{item.name}</span>
-                  {isActive && <div className="ml-auto h-2 w-2 rounded-full bg-white/80" />}
-                </Link>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Footer del sidebar */}
-        <div className="border-t p-4">
+        {/* Botón de logout con estilo mejorado */}
+        <div className="p-4 mt-auto border-t">
           <Button
             variant="outline"
-            className="w-full flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50"
+            className={cn(
+              "w-full flex items-center justify-center gap-2 hover:bg-red-50 dark:hover:bg-red-950/20",
+              isCollapsed && "md:p-2",
+            )}
+            style={logoutButtonStyle}
             onClick={handleLogout}
           >
             <LogOut className="h-4 w-4" />
-            <span>Cerrar sesión</span>
+            {!isCollapsed && <span>Cerrar sesión</span>}
           </Button>
         </div>
       </nav>
+
+      {/* Overlay para cerrar el menú en móvil con animación de fade */}
+      {isMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 md:hidden backdrop-blur-sm fade-in"
+          onClick={toggleMenu}
+          aria-hidden="true"
+        />
+      )}
     </>
   )
 }

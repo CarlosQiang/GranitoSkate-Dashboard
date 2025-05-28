@@ -5,55 +5,67 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 84% 4.9%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 39 54% 53%; /* Color Granito #c7a04a */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 39 54% 53%; /* Color Granito #c7a04a */
     --radius: 0.5rem;
+    --font-family: "Inter", sans-serif;
+    --heading-font-family: "Inter", sans-serif;
 
-    /* Variables personalizables */
+    /* Colores específicos de Granito */
+    --granito-50: 39 54% 97%;
+    --granito-100: 39 54% 92%;
+    --granito-200: 39 54% 84%;
+    --granito-300: 39 54% 74%;
+    --granito-400: 39 54% 63%;
+    --granito-500: 39 54% 53%; /* Color principal #c7a04a */
+    --granito-600: 39 54% 45%;
+    --granito-700: 39 54% 35%;
+    --granito-800: 39 54% 25%;
+    --granito-900: 39 54% 15%;
+    --granito-950: 39 54% 10%;
+
+    /* Variables para colores personalizados */
     --color-primary: #c7a04a;
-    --color-primary-hover: #b8914a;
     --color-secondary: #4a5568;
-    --color-secondary-hover: #3a4553;
     --color-accent: #3182ce;
-    --color-accent-hover: #2c5aa0;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 39 54% 53%; /* Color Granito #c7a04a */
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 39 54% 53%; /* Color Granito #c7a04a */
   }
 }
 
@@ -63,299 +75,290 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-family, Inter, sans-serif);
+    font-family: var(--font-family);
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--heading-font-family);
   }
 }
 
-/* Clases personalizables para botones */
-.btn-primary {
-  @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors;
-  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
-  @apply disabled:opacity-50 disabled:pointer-events-none ring-offset-background;
-  @apply h-10 px-4 py-2;
+/* Clases específicas para el color de Granito */
+.bg-granito {
   background-color: var(--color-primary);
-  border-color: var(--color-primary);
-  color: white;
 }
 
-.btn-primary:hover {
-  background-color: var(--color-primary-hover);
-  border-color: var(--color-primary-hover);
-}
-
-.btn-secondary {
-  background-color: var(--color-secondary);
-  border-color: var(--color-secondary);
-  color: white;
-}
-
-.btn-secondary:hover {
-  background-color: var(--color-secondary-hover);
-  border-color: var(--color-secondary-hover);
-}
-
-/* Clases para elementos de navegación activos */
-.nav-item-active {
-  background-color: var(--color-primary) !important;
-  color: white !important;
-}
-
-/* Clases para estados y badges */
-.status-primary {
-  background-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
+.text-granito {
   color: var(--color-primary);
+}
+
+.border-granito {
   border-color: var(--color-primary);
 }
 
-/* Utilidades responsive mejoradas */
-.line-clamp-1 {
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
+.granito-gradient {
+  background: linear-gradient(to right, var(--color-primary), var(--color-primary-light, #d5b66e));
 }
 
-.line-clamp-2 {
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+/* Clases de utilidad para responsividad */
+.mobile-container {
+  @apply px-4 sm:px-6 md:px-8;
 }
 
-.line-clamp-3 {
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+.responsive-grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4;
 }
 
-/* Mejoras para móviles */
+.responsive-grid-tight {
+  @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3;
+}
+
+.responsive-flex {
+  @apply flex flex-col sm:flex-row gap-4;
+}
+
+/* Mejoras para dispositivos móviles */
 @media (max-width: 640px) {
-  .container {
-    padding-left: 1rem;
-    padding-right: 1rem;
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 
-  /* Botones de tamaño completo en móvil */
-  .mobile-full-width {
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-full-height {
+    min-height: calc(100vh - 4rem);
+  }
+
+  .mobile-bottom-sheet {
+    @apply fixed bottom-0 left-0 right-0 bg-background border-t rounded-t-xl shadow-lg z-50 p-4;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  /* Ajustes para tablas en móvil */
+  .table-responsive {
+    display: block;
     width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
-  /* Espaciado reducido en móvil */
-  .mobile-spacing {
-    gap: 0.75rem;
+  /* Ajustes para tarjetas en móvil */
+  .card-responsive {
+    @apply p-3 md:p-6;
   }
 
-  /* Texto más pequeño en móvil */
-  .mobile-text {
-    font-size: 0.875rem;
-  }
-
-  /* Padding reducido en móvil */
-  .mobile-padding {
-    padding: 0.75rem;
+  /* Ajustes para botones en móvil */
+  .btn-responsive {
+    @apply text-sm py-1.5 px-3 md:text-base md:py-2 md:px-4;
   }
 }
 
-/* Mejoras para tablets */
-@media (min-width: 641px) and (max-width: 1024px) {
-  .container {
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
-  }
-
-  .tablet-grid-2 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .tablet-grid-3 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .tablet-padding {
-    padding: 1.25rem;
-  }
-
-  .tablet-text {
-    font-size: 1rem;
-  }
+/* Animaciones para mejorar la experiencia de usuario */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
 }
 
-/* Mejoras para desktop */
-@media (min-width: 1025px) {
-  .container {
-    padding-left: 2rem;
-    padding-right: 2rem;
-  }
-
-  .desktop-grid-4 {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .desktop-grid-5 {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-
-  .desktop-padding {
-    padding: 2rem;
-  }
-
-  .desktop-text {
-    font-size: 1.125rem;
-  }
-}
-
-/* Animaciones */
-@keyframes fade-in {
+@keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
-.animate-in {
-  animation: fade-in 0.3s ease-out;
+.slide-up {
+  animation: slideUp 0.3s ease-in-out;
 }
 
-/* Scrollbar personalizado */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
-::-webkit-scrollbar-track {
-  background: hsl(var(--muted));
+/* Mejoras para la responsividad de formularios */
+.form-responsive {
+  @apply space-y-4 md:space-y-6;
 }
 
-::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground));
-  border-radius: 4px;
+.form-responsive .form-group {
+  @apply flex flex-col space-y-2;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-primary);
+.form-responsive .form-row {
+  @apply grid grid-cols-1 md:grid-cols-2 gap-4;
 }
 
-/* Estilos de botón personalizables */
-[data-button-style="solid"] .btn-primary {
+/* Mejoras para la responsividad de tablas */
+.table-container {
+  @apply w-full overflow-x-auto rounded-md border;
+}
+
+/* Mejoras para la responsividad de botones */
+.button-group {
+  @apply flex flex-wrap gap-2;
+}
+
+/* Mejoras para la responsividad de tarjetas */
+.card-grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4;
+}
+
+.card-grid-compact {
+  @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3;
+}
+
+/* Estilos específicos para botones con el color de Granito */
+.btn-granito {
   background-color: var(--color-primary);
   color: white;
-  border: none;
 }
 
-[data-button-style="solid"] .btn-primary:hover {
-  background-color: var(--color-primary-hover);
+.btn-granito:hover {
+  background-color: var(--granito-600);
 }
 
-[data-button-style="outline"] .btn-primary {
-  background-color: transparent;
+.btn-granito-outline {
+  border-color: var(--color-primary);
   color: var(--color-primary);
-  border: 1px solid var(--color-primary);
 }
 
-[data-button-style="outline"] .btn-primary:hover {
-  background-color: var(--color-primary);
-  color: white;
-}
-
-[data-button-style="soft"] .btn-primary {
-  background-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
-  color: var(--color-primary);
-  border: none;
-}
-
-[data-button-style="soft"] .btn-primary:hover {
-  background-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
-}
-
-[data-button-style="ghost"] .btn-primary {
-  background-color: transparent;
-  color: var(--color-primary);
-  border: none;
-}
-
-[data-button-style="ghost"] .btn-primary:hover {
+.btn-granito-outline:hover {
   background-color: color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 
-/* Estilos de tarjeta personalizables */
-[data-card-style="flat"] .card {
-  box-shadow: none;
-  border: 1px solid hsl(var(--border));
+/* Estilos para badges con el color de Granito */
+.badge-granito {
+  background-color: color-mix(in srgb, var(--color-primary) 20%, white);
+  color: var(--color-primary);
 }
 
-[data-card-style="raised"] .card {
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-  border: 1px solid hsl(var(--border));
-}
-
-[data-card-style="bordered"] .card {
-  box-shadow: none;
-  border: 2px solid hsl(var(--border));
-}
-
-/* Animaciones personalizables */
-.theme-animation-slow * {
+/* Estilos para animaciones basados en la configuración del tema */
+.theme-animation-slow {
   transition-duration: 0.5s;
 }
 
-.theme-animation-normal * {
+.theme-animation-normal {
   transition-duration: 0.3s;
 }
 
-.theme-animation-fast * {
+.theme-animation-fast {
   transition-duration: 0.15s;
 }
 
-.disable-animations * {
-  transition: none !important;
-  animation: none !important;
+/* Estilos para diferentes estilos de tarjetas */
+.card-flat {
+  @apply border-0 shadow-none;
 }
 
-/* Modo de alto contraste */
-.high-contrast {
-  filter: contrast(150%);
+.card-raised {
+  @apply border shadow-md;
 }
 
-.high-contrast .card {
-  border-width: 2px;
+.card-bordered {
+  @apply border-2;
 }
 
-.high-contrast .btn {
-  border-width: 2px;
-  font-weight: 600;
+/* Estilos para diferentes estilos de botones */
+.button-solid {
+  background-color: var(--color-primary);
+  color: white;
 }
 
-/* Mejoras de accesibilidad */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+.button-solid:hover {
+  background-color: var(--granito-600);
+}
+
+.button-outline {
+  border: 1px solid var(--color-primary);
+  background-color: transparent;
+  color: var(--color-primary);
+}
+
+.button-outline:hover {
+  background-color: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.button-soft {
+  background-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  color: var(--color-primary);
+}
+
+.button-soft:hover {
+  background-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+
+.button-ghost {
+  background-color: transparent;
+  color: var(--color-primary);
+}
+
+.button-ghost:hover {
+  background-color: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+/* Estilos para el layout principal */
+.main-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  margin-left: var(--sidebar-width, 16rem);
+  transition: margin-left 0.3s ease;
+  width: calc(100% - var(--sidebar-width, 16rem));
+}
+
+.main-content-full {
+  margin-left: 0;
+  width: 100%;
+}
+
+.sidebar-collapsed .main-content {
+  --sidebar-width: 5rem;
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    margin-left: 0;
+    width: 100%;
   }
 }
 
-/* Focus visible mejorado */
-.focus-visible:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+/* Estilos para la barra lateral */
+.sidebar {
+  width: var(--sidebar-width, 16rem);
+  transition: width 0.3s ease;
+  position: fixed;
+  height: 100vh;
+  z-index: 40;
 }
 
-/* Mejoras para touch devices */
-@media (hover: none) and (pointer: coarse) {
-  .touch-target {
-    min-height: 44px;
-    min-width: 44px;
-  }
+.sidebar-collapsed {
+  --sidebar-width: 5rem;
+}
 
-  .hover-disabled:hover {
-    background-color: initial;
-    color: initial;
-  }
+/* Estilos para el login */
+.login-button {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.login-button:hover {
+  background-color: var(--granito-600);
 }

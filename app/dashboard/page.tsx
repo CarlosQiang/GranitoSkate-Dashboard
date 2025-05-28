@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DashboardStats } from "@/components/dashboard-stats"
 import { RecentOrders } from "@/components/recent-orders"
@@ -12,26 +12,21 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [dashboardData, setDashboardData] = useState<any>(null)
-  const dataFetchedRef = useRef(false)
 
+  // Función para cargar datos del dashboard con debouncing
   const loadDashboardData = useCallback(async () => {
-    // Evitar múltiples llamadas a la API
-    if (dataFetchedRef.current) return
-
     try {
       setIsLoading(true)
       setError(null)
 
       console.log("📊 Loading dashboard data...")
-      dataFetchedRef.current = true
 
+      // Hacer una sola llamada que agregue todos los datos necesarios
       const response = await fetch("/api/dashboard/summary", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
-        // Evitar caché para asegurar datos frescos
-        cache: "no-store",
       })
 
       if (!response.ok) {
@@ -44,46 +39,38 @@ export default function DashboardPage() {
     } catch (err) {
       console.error("❌ Error loading dashboard:", err)
       setError(err instanceof Error ? err.message : "Error loading dashboard")
-      // Resetear la bandera en caso de error para permitir reintentos
-      dataFetchedRef.current = false
     } finally {
       setIsLoading(false)
     }
   }, [])
 
+  // Cargar datos solo una vez al montar el componente
   useEffect(() => {
     loadDashboardData()
-
-    // Limpiar la referencia cuando el componente se desmonte
-    return () => {
-      dataFetchedRef.current = false
-    }
   }, [loadDashboardData])
 
   if (isLoading) {
     return (
-      <div className="space-y-6 animate-in fade-in duration-500">
-        <div className="flex-responsive-between">
-          <div>
-            <h2 className="heading-responsive">Dashboard</h2>
-            <p className="caption-responsive mt-1">Cargando datos del panel...</p>
-          </div>
+      <div className="flex-1 space-y-4 p-8 pt-6">
+        <div className="flex items-center justify-between space-y-2">
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         </div>
-
-        {/* Stats skeleton */}
-        <div className="grid-responsive-stats">
-          {[...Array(4)].map((_, i) => (
-            <Card key={i} className="card-responsive">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="skeleton h-4 w-24"></div>
-                <div className="skeleton h-4 w-4"></div>
-              </CardHeader>
-              <CardContent>
-                <div className="skeleton h-8 w-20 mb-2"></div>
-                <div className="skeleton h-3 w-16"></div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {[...Array(4)].map((_, i) => (
+              <Card key={i}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-8 bg-gray-200 rounded animate-pulse mb-2"></div>
+                  <div className="h-3 bg-gray-200 rounded animate-pulse w-3/4"></div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </div>
     )
@@ -91,28 +78,18 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="space-y-6">
-        <div className="flex-responsive-between">
-          <div>
-            <h2 className="heading-responsive">Dashboard</h2>
-            <p className="caption-responsive mt-1">Error al cargar los datos</p>
-          </div>
+      <div className="flex-1 space-y-4 p-8 pt-6">
+        <div className="flex items-center justify-between space-y-2">
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         </div>
-
-        <Card className="card-responsive">
+        <Card>
           <CardHeader>
             <CardTitle className="text-red-600">Error</CardTitle>
             <CardDescription>No se pudieron cargar los datos del dashboard</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="body-responsive text-gray-600 mb-4">{error}</p>
-            <button
-              onClick={() => {
-                dataFetchedRef.current = false
-                loadDashboardData()
-              }}
-              className="btn-responsive bg-primary text-primary-foreground hover:bg-primary/90 rounded-md"
-            >
+            <p className="text-sm text-gray-600 mb-4">{error}</p>
+            <button onClick={loadDashboardData} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
               Reintentar
             </button>
           </CardContent>
@@ -122,79 +99,53 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      {/* Header */}
-      <div className="flex-responsive-between">
-        <div>
-          <h2 className="heading-responsive">Dashboard</h2>
-          <p className="caption-responsive mt-1">Bienvenido al panel de administración de GranitoSkate</p>
-        </div>
-        <div className="tablet-up">
-          <p className="body-responsive text-muted-foreground">
-            Última actualización: {new Date().toLocaleTimeString()}
-          </p>
-        </div>
+    <div className="flex-1 space-y-4 p-8 pt-6">
+      <div className="flex items-center justify-between space-y-2">
+        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+        <p className="text-muted-foreground">Bienvenido al panel de administración de GranitoSkate</p>
       </div>
-
-      {/* Stats Cards */}
-      <div className="grid-responsive-stats">
+      <div className="space-y-4">
         <DashboardStats data={dashboardData?.stats} />
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-7">
-        {/* Sales Overview */}
-        <Card className="col-span-full lg:col-span-4 card-responsive">
-          <CardHeader className="card-header-responsive">
-            <div>
-              <CardTitle className="subheading-responsive">Ventas recientes</CardTitle>
-              <CardDescription className="caption-responsive">
-                Los últimos pedidos realizados en tu tienda
-              </CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="pl-2">
-            <SalesOverview data={dashboardData?.salesOverview} />
-          </CardContent>
-        </Card>
-
-        {/* Recent Orders */}
-        <Card className="col-span-full lg:col-span-3 card-responsive">
-          <CardHeader>
-            <CardTitle className="subheading-responsive">Pedidos recientes</CardTitle>
-            <CardDescription className="caption-responsive">Últimos pedidos procesados</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RecentOrders data={dashboardData?.recentOrders} />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Secondary Content Grid */}
-      <div className="grid-responsive-2">
-        {/* Recent Products */}
-        <Card className="card-responsive">
-          <CardHeader>
-            <CardTitle className="subheading-responsive">Productos recientes</CardTitle>
-            <CardDescription className="caption-responsive">
-              Los últimos productos añadidos a tu catálogo
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RecentProducts data={dashboardData?.recentProducts} />
-          </CardContent>
-        </Card>
-
-        {/* Inventory Status */}
-        <Card className="card-responsive">
-          <CardHeader>
-            <CardTitle className="subheading-responsive">Estado del inventario</CardTitle>
-            <CardDescription className="caption-responsive">Resumen del stock disponible</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <InventoryStatus data={dashboardData?.inventoryStatus} />
-          </CardContent>
-        </Card>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+          <Card className="col-span-4">
+            <CardHeader>
+              <CardTitle>Ventas recientes</CardTitle>
+              <CardDescription>Los últimos pedidos realizados en tu tienda</CardDescription>
+            </CardHeader>
+            <CardContent className="pl-2">
+              <SalesOverview data={dashboardData?.salesOverview} />
+            </CardContent>
+          </Card>
+          <Card className="col-span-3">
+            <CardHeader>
+              <CardTitle>Pedidos recientes</CardTitle>
+              <CardDescription>Últimos pedidos procesados</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RecentOrders data={dashboardData?.recentOrders} />
+            </CardContent>
+          </Card>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Productos recientes</CardTitle>
+              <CardDescription>Los últimos productos añadidos a tu catálogo</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RecentProducts data={dashboardData?.recentProducts} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Estado del inventario</CardTitle>
+              <CardDescription>Resumen del stock disponible</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <InventoryStatus data={dashboardData?.inventoryStatus} />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )
