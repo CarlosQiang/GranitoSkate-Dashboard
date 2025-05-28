@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -14,6 +14,33 @@ interface ColorPickerProps {
   presets?: string[]
 }
 
+const defaultPresets = {
+  "Brand Colors": [
+    "#007bff", // Blue
+    "#28a745", // Green
+    "#dc3545", // Red
+    "#ffc107", // Yellow
+    "#17a2b8", // Cyan
+    "#fd7e14", // Orange
+  ],
+  "Cool Palettes": ["#e0f2f1", "#a5d8d3", "#52b69a", "#168aad", "#1a759f"],
+  "Warm Palettes": ["#fff3b0", "#ffc857", "#ff9f0a", "#ff7000", "#ff5100"],
+  "Neutral Colors": [
+    "#ffffff", // White
+    "#f8f9fa", // Light Gray
+    "#e9ecef", // Gray
+    "#adb5bd", // Medium Gray
+    "#495057", // Dark Gray
+    "#000000", // Black
+  ],
+  "Seasonal Colors": {
+    Spring: ["#E9D8A6", "#95B8D1", "#8CB369", "#F2D7D9", "#6B486B"],
+    Summer: ["#F7DAD9", "#D6E8DB", "#BBDED6", "#FAE3D5", "#F0E68C"],
+    Autumn: ["#E0BBE4", "#957DAD", "#D291BC", "#FEC8D8", "#FFDFD3"],
+    Winter: ["#A7D1AB", "#A7D1CD", "#ADBAC7", "#B48E92", "#898AA6"],
+  },
+}
+
 export function ColorPicker({ color, onChange, presets = [] }: ColorPickerProps) {
   const [localColor, setLocalColor] = useState(color)
   const [isOpen, setIsOpen] = useState(false)
@@ -22,6 +49,7 @@ export function ColorPicker({ color, onChange, presets = [] }: ColorPickerProps)
   const [isDragging, setIsDragging] = useState(false)
   const [sliderValue, setSliderValue] = useState(0)
   const [position, setPosition] = useState({ x: 0, y: 0 })
+  const [recentColors, setRecentColors] = useState<string[]>([])
 
   // Inicializar el color local cuando cambia el color prop
   useEffect(() => {
@@ -291,16 +319,44 @@ export function ColorPicker({ color, onChange, presets = [] }: ColorPickerProps)
     }
   }, [isDragging])
 
+  // Validar el formato hexadecimal del color
+  const isValidHexColor = (hex: string): boolean => {
+    return /^#([0-9A-Fa-f]{3}){1,2}$/.test(hex)
+  }
+
   // Manejar el cambio de color
   const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newColor = e.target.value
-    setLocalColor(newColor)
+    if (isValidHexColor(newColor) || newColor === "") {
+      setLocalColor(newColor)
+    }
   }
+
+  const addRecentColor = useCallback(
+    (newColor: string) => {
+      setRecentColors((prevColors) => {
+        // Si el color ya está en el historial, no lo agregamos de nuevo
+        if (prevColors.includes(newColor)) {
+          return prevColors
+        }
+        // Agregamos el nuevo color al principio del array
+        const updatedColors = [newColor, ...prevColors]
+        // Limitamos el historial a un máximo de 10 colores
+        return updatedColors.slice(0, 10)
+      })
+    },
+    [setRecentColors],
+  )
 
   // Aplicar el color
   const applyColor = () => {
-    onChange(localColor)
-    setIsOpen(false)
+    if (isValidHexColor(localColor)) {
+      onChange(localColor)
+      addRecentColor(localColor)
+      setIsOpen(false)
+    } else {
+      alert("Please enter a valid hex color.")
+    }
   }
 
   // Cancelar el cambio de color
@@ -320,7 +376,7 @@ export function ColorPicker({ color, onChange, presets = [] }: ColorPickerProps)
             aria-label="Seleccionar color"
           />
         </PopoverTrigger>
-        <PopoverContent className="w-64 p-3" align="start">
+        <PopoverContent className="w-80 p-4" align="start">
           <div className="space-y-3">
             <div className="relative">
               <canvas
@@ -329,6 +385,9 @@ export function ColorPicker({ color, onChange, presets = [] }: ColorPickerProps)
                 height={200}
                 className="w-full h-40 rounded-md cursor-crosshair"
                 onMouseDown={handleColorPickerClick}
+                aria-label="Color Picker"
+                role="button"
+                tabIndex={0}
               />
             </div>
 
@@ -339,32 +398,58 @@ export function ColorPicker({ color, onChange, presets = [] }: ColorPickerProps)
                 height={20}
                 className="w-full h-5 rounded-md cursor-pointer"
                 onMouseDown={handleHueSliderClick}
+                aria-label="Hue Slider"
+                role="slider"
+                tabIndex={0}
               />
             </div>
 
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-md border" style={{ backgroundColor: localColor }} />
-              <Input value={localColor} onChange={handleColorChange} className="font-mono" />
+              <Input value={localColor} onChange={handleColorChange} className="font-mono" aria-label="Color Input" />
             </div>
 
-            {presets && presets.length > 0 && (
+            {/* Recent Colors */}
+            {recentColors.length > 0 && (
               <div className="flex flex-wrap gap-1 pt-2">
-                {presets.map((preset) => (
+                <p className="w-full text-sm font-medium">Recent Colors:</p>
+                {recentColors.map((recentColor) => (
                   <button
-                    key={preset}
+                    key={recentColor}
                     type="button"
                     className="w-6 h-6 rounded-md border overflow-hidden"
-                    style={{ backgroundColor: preset }}
+                    style={{ backgroundColor: recentColor }}
                     onClick={() => {
-                      setLocalColor(preset)
-                      onChange(preset)
-                      setIsOpen(false)
+                      setLocalColor(recentColor)
                     }}
-                    aria-label={`Color predefinido ${preset}`}
+                    aria-label={`Recent color ${recentColor}`}
                   />
                 ))}
               </div>
             )}
+
+            {/* Organized Presets */}
+            {Object.entries(defaultPresets).map(([category, colors]) => (
+              <div key={category} className="pt-2">
+                <p className="w-full text-sm font-medium">{category}:</p>
+                <div className="flex flex-wrap gap-1">
+                  {(Array.isArray(colors) ? colors : Object.values(colors).flat()).map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      className="w-6 h-6 rounded-md border overflow-hidden"
+                      style={{ backgroundColor: preset }}
+                      onClick={() => {
+                        setLocalColor(preset)
+                        onChange(preset)
+                        setIsOpen(false)
+                      }}
+                      aria-label={`Preset color ${preset}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
 
             <div className="flex justify-between pt-2">
               <Button variant="outline" size="sm" onClick={cancelColorChange}>
@@ -382,8 +467,11 @@ export function ColorPicker({ color, onChange, presets = [] }: ColorPickerProps)
       <Input
         value={localColor}
         onChange={(e) => {
-          setLocalColor(e.target.value)
-          onChange(e.target.value)
+          const newColor = e.target.value
+          if (isValidHexColor(newColor) || newColor === "") {
+            setLocalColor(newColor)
+            onChange(newColor)
+          }
         }}
         className="font-mono"
       />

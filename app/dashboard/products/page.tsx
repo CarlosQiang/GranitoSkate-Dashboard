@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link" // Corregir esta importación, eliminar { Link }
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,9 +14,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/components/ui/use-toast"
-import { Package } from "lucide-react" // Import Package component
+import { Package } from "lucide-react"
+import { cleanId, getImageUrl, formatCurrency } from "@/utils/helpers"
+import { cn } from "@/lib/utils"
 
-// Marcar la página como dinámica para evitar errores de renderizado estático
 export const dynamic = "force-dynamic"
 
 export default function ProductsPage() {
@@ -28,15 +29,26 @@ export default function ProductsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSyncing, setIsSyncing] = useState(false)
   const [error, setError] = useState(null)
-  const [viewMode, setViewMode] = useState("grid") // grid o list
-  const [sortBy, setSortBy] = useState("title-asc") // title-asc, title-desc, date-asc, date-desc, price-asc, price-desc
+  const [viewMode, setViewMode] = useState("grid")
+  const [sortBy, setSortBy] = useState("title-asc")
+  const [isMobile, setIsMobile] = useState(false)
 
-  // Función para cargar productos
+  // Detectar dispositivo móvil
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+
+    checkMobile()
+    window.addEventListener("resize", checkMobile)
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
+
   const loadProducts = async () => {
     setIsLoading(true)
     setError(null)
     try {
-      const data = await fetchProducts(100) // Obtener hasta 100 productos
+      const data = await fetchProducts(100)
       setProducts(data)
       filterAndSortProducts(data, searchTerm, activeTab, sortBy)
     } catch (error) {
@@ -52,11 +64,9 @@ export default function ProductsPage() {
     }
   }
 
-  // Filtrar y ordenar productos
   const filterAndSortProducts = (productsData, search, tab, sort) => {
     let filtered = [...productsData]
 
-    // Filtrar por término de búsqueda
     if (search) {
       filtered = filtered.filter(
         (product) =>
@@ -66,7 +76,6 @@ export default function ProductsPage() {
       )
     }
 
-    // Filtrar por estado (pestaña)
     if (tab !== "all") {
       const statusMap = {
         active: "ACTIVE",
@@ -75,13 +84,11 @@ export default function ProductsPage() {
       }
 
       const statusToFilter = statusMap[tab]
-
       if (statusToFilter) {
         filtered = filtered.filter((product) => product.status === statusToFilter)
       }
     }
 
-    // Ordenar productos
     filtered.sort((a, b) => {
       switch (sort) {
         case "title-asc":
@@ -104,11 +111,9 @@ export default function ProductsPage() {
     setFilteredProducts(filtered)
   }
 
-  // Cargar productos al montar el componente
   useEffect(() => {
     loadProducts()
 
-    // Cargar preferencias de vista del localStorage
     const savedViewMode = localStorage.getItem("productsViewMode")
     if (savedViewMode) {
       setViewMode(savedViewMode)
@@ -120,12 +125,10 @@ export default function ProductsPage() {
     }
   }, [])
 
-  // Actualizar filtros cuando cambian los criterios
   useEffect(() => {
     filterAndSortProducts(products, searchTerm, activeTab, sortBy)
   }, [searchTerm, activeTab, sortBy, products])
 
-  // Guardar preferencias de vista en localStorage
   useEffect(() => {
     localStorage.setItem("productsViewMode", viewMode)
   }, [viewMode])
@@ -134,23 +137,15 @@ export default function ProductsPage() {
     localStorage.setItem("productsSortBy", sortBy)
   }, [sortBy])
 
-  // Manejar cambio de pestaña
   const handleTabChange = (value) => {
     setActiveTab(value)
     filterAndSortProducts(products, searchTerm, value, sortBy)
   }
 
-  // Manejar cambio en la búsqueda
-  const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value)
-  }
-
-  // Función para sincronizar productos con Shopify
   const syncProducts = async () => {
     setIsSyncing(true)
     setError(null)
     try {
-      // Llamar a la API para sincronizar productos
       const response = await fetch("/api/sync/products")
       if (!response.ok) {
         throw new Error("Error al sincronizar productos")
@@ -161,7 +156,6 @@ export default function ProductsPage() {
         description: "Los productos se han sincronizado correctamente con Shopify.",
       })
 
-      // Recargar productos después de sincronizar
       await loadProducts()
     } catch (error) {
       console.error("Error al sincronizar productos:", error)
@@ -176,7 +170,6 @@ export default function ProductsPage() {
     }
   }
 
-  // Obtener el título del ordenamiento actual
   const getSortTitle = () => {
     switch (sortBy) {
       case "title-asc":
@@ -196,28 +189,36 @@ export default function ProductsPage() {
     }
   }
 
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value)
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Header responsive */}
+      <div className="flex-responsive-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Productos</h1>
-          <p className="text-muted-foreground mt-1">Gestiona los productos de tu tienda Shopify</p>
+          <h1 className="heading-responsive">Productos</h1>
+          <p className="caption-responsive mt-1">Gestiona los productos de tu tienda Shopify</p>
         </div>
         <Button
           onClick={() => router.push("/dashboard/products/new")}
-          className="bg-granito-500 hover:bg-granito-600 text-white"
+          className="bg-granito-500 hover:bg-granito-600 text-white mobile-full-width sm:w-auto"
         >
           <Plus className="mr-2 h-4 w-4" />
-          Nuevo producto
+          <span className="mobile-only">Nuevo</span>
+          <span className="tablet-up">Nuevo producto</span>
         </Button>
       </div>
 
       <Card className="overflow-hidden border-gray-200 dark:border-gray-800">
-        <CardHeader className="bg-gray-50 dark:bg-gray-900 border-b px-6 py-4">
-          <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
+        <CardHeader className="bg-gray-50 dark:bg-gray-900 border-b card-responsive">
+          <div className="flex-responsive-between">
             <div>
-              <CardTitle className="text-xl">Catálogo de productos</CardTitle>
-              <CardDescription>Visualiza, edita y crea nuevos productos para tu tienda online.</CardDescription>
+              <CardTitle className="subheading-responsive">Catálogo de productos</CardTitle>
+              <CardDescription className="caption-responsive">
+                Visualiza, edita y crea nuevos productos para tu tienda online.
+              </CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -225,26 +226,30 @@ export default function ProductsPage() {
                 disabled={isSyncing}
                 variant="outline"
                 className="border-granito-300 hover:bg-granito-50"
-                size="sm"
+                size={isMobile ? "sm" : "default"}
               >
                 {isSyncing ? (
                   <>
                     <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    Sincronizando...
+                    <span className="mobile-only">Sync...</span>
+                    <span className="tablet-up">Sincronizando...</span>
                   </>
                 ) : (
                   <>
                     <RefreshCw className="mr-2 h-4 w-4" />
-                    Sincronizar
+                    <span className="mobile-only">Sync</span>
+                    <span className="tablet-up">Sincronizar</span>
                   </>
                 )}
               </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-6">
-          <div className="flex flex-col space-y-4">
-            <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+
+        <CardContent className="card-responsive">
+          <div className="space-y-4">
+            {/* Controles de búsqueda y filtros */}
+            <div className="flex-responsive-between">
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -256,12 +261,14 @@ export default function ProductsPage() {
                 />
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Ordenamiento */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-1">
+                    <Button variant="outline" size={isMobile ? "sm" : "default"} className="gap-1">
                       <ArrowUpDown className="h-4 w-4" />
-                      <span className="hidden sm:inline">{getSortTitle()}</span>
+                      <span className="mobile-only">Orden</span>
+                      <span className="tablet-up">{getSortTitle()}</span>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
@@ -274,11 +281,12 @@ export default function ProductsPage() {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
+                {/* Selector de vista */}
                 <div className="flex items-center border rounded-md overflow-hidden">
                   <Button
                     variant="ghost"
                     size="sm"
-                    className={`px-2 rounded-none ${viewMode === "grid" ? "bg-gray-100 dark:bg-gray-800" : ""}`}
+                    className={cn("px-2 rounded-none", viewMode === "grid" && "bg-gray-100 dark:bg-gray-800")}
                     onClick={() => setViewMode("grid")}
                     aria-label="Vista de cuadrícula"
                   >
@@ -287,7 +295,7 @@ export default function ProductsPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className={`px-2 rounded-none ${viewMode === "list" ? "bg-gray-100 dark:bg-gray-800" : ""}`}
+                    className={cn("px-2 rounded-none", viewMode === "list" && "bg-gray-100 dark:bg-gray-800")}
                     onClick={() => setViewMode("list")}
                     aria-label="Vista de lista"
                   >
@@ -297,6 +305,7 @@ export default function ProductsPage() {
               </div>
             </div>
 
+            {/* Error state */}
             {error && (
               <div
                 className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-md"
@@ -309,55 +318,66 @@ export default function ProductsPage() {
               </div>
             )}
 
+            {/* Tabs responsivos */}
             <Tabs defaultValue="all" value={activeTab} onValueChange={handleTabChange} className="w-full">
-              <TabsList className="bg-muted/60 w-full justify-start mb-4 overflow-x-auto flex-nowrap">
-                <TabsTrigger value="all" className="data-[state=active]:bg-granito-500 data-[state=active]:text-white">
-                  Todos
-                  {!isLoading && (
-                    <Badge variant="outline" className="ml-2 bg-white/20">
-                      {products.length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="active"
-                  className="data-[state=active]:bg-granito-500 data-[state=active]:text-white"
-                >
-                  Activos
-                  {!isLoading && (
-                    <Badge variant="outline" className="ml-2 bg-white/20">
-                      {products.filter((p) => p.status === "ACTIVE").length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="draft"
-                  className="data-[state=active]:bg-granito-500 data-[state=active]:text-white"
-                >
-                  Borradores
-                  {!isLoading && (
-                    <Badge variant="outline" className="ml-2 bg-white/20">
-                      {products.filter((p) => p.status === "DRAFT").length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="archived"
-                  className="data-[state=active]:bg-granito-500 data-[state=active]:text-white"
-                >
-                  Archivados
-                  {!isLoading && (
-                    <Badge variant="outline" className="ml-2 bg-white/20">
-                      {products.filter((p) => p.status === "ARCHIVED").length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-              </TabsList>
+              <div className="overflow-x-auto">
+                <TabsList className="bg-muted/60 w-full justify-start mb-4 min-w-max">
+                  <TabsTrigger
+                    value="all"
+                    className="data-[state=active]:bg-granito-500 data-[state=active]:text-white"
+                  >
+                    Todos
+                    {!isLoading && (
+                      <Badge variant="outline" className="ml-2 bg-white/20">
+                        {products.length}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="active"
+                    className="data-[state=active]:bg-granito-500 data-[state=active]:text-white"
+                  >
+                    Activos
+                    {!isLoading && (
+                      <Badge variant="outline" className="ml-2 bg-white/20">
+                        {products.filter((p) => p.status === "ACTIVE").length}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="draft"
+                    className="data-[state=active]:bg-granito-500 data-[state=active]:text-white"
+                  >
+                    Borradores
+                    {!isLoading && (
+                      <Badge variant="outline" className="ml-2 bg-white/20">
+                        {products.filter((p) => p.status === "DRAFT").length}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="archived"
+                    className="data-[state=active]:bg-granito-500 data-[state=active]:text-white"
+                  >
+                    Archivados
+                    {!isLoading && (
+                      <Badge variant="outline" className="ml-2 bg-white/20">
+                        {products.filter((p) => p.status === "ARCHIVED").length}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
               <TabsContent value="all" className="mt-0">
                 {isLoading ? (
                   viewMode === "grid" ? (
-                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    <div
+                      className={cn(
+                        "grid gap-4",
+                        isMobile ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+                      )}
+                    >
                       {Array(8)
                         .fill(0)
                         .map((_, i) => (
@@ -391,8 +411,8 @@ export default function ProductsPage() {
                     <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
                       <Search className="h-6 w-6 text-gray-400" />
                     </div>
-                    <h3 className="text-lg font-medium">No se encontraron productos</h3>
-                    <p className="text-muted-foreground mt-1 mb-4">
+                    <h3 className="subheading-responsive">No se encontraron productos</h3>
+                    <p className="caption-responsive mt-1 mb-4">
                       {searchTerm
                         ? `No hay resultados para "${searchTerm}"`
                         : "No hay productos disponibles en esta categoría"}
@@ -406,7 +426,12 @@ export default function ProductsPage() {
                     </Button>
                   </div>
                 ) : viewMode === "grid" ? (
-                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <div
+                    className={cn(
+                      "grid gap-4",
+                      isMobile ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+                    )}
+                  >
                     {filteredProducts.map((product) => (
                       <ProductCard key={product.id} product={product} />
                     ))}
@@ -419,7 +444,7 @@ export default function ProductsPage() {
                         href={`/dashboard/products/${cleanId(product.id)}`}
                         className="flex items-center gap-4 border rounded-md p-4 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
                       >
-                        <div className="h-16 w-16 relative bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden">
+                        <div className="h-16 w-16 relative bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden flex-shrink-0">
                           {getImageUrl(product) ? (
                             <img
                               src={getImageUrl(product) || "/placeholder.svg"}
@@ -434,19 +459,21 @@ export default function ProductsPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-medium truncate">{product.title}</h3>
-                          <p className="text-sm text-muted-foreground">{product.productType || "Sin categoría"}</p>
+                          <p className="text-sm text-muted-foreground truncate">
+                            {product.productType || "Sin categoría"}
+                          </p>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right flex-shrink-0">
                           <div className="font-medium">
                             {formatCurrency(product.price || 0, product.currencyCode || "EUR")}
                           </div>
                           <Badge
                             variant={product.status === "ACTIVE" ? "default" : "secondary"}
-                            className={
-                              product.status === "ACTIVE"
-                                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                                : ""
-                            }
+                            className={cn(
+                              "text-xs",
+                              product.status === "ACTIVE" &&
+                                "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+                            )}
                           >
                             {product.status === "ACTIVE"
                               ? "Activo"
@@ -461,18 +488,14 @@ export default function ProductsPage() {
                 )}
               </TabsContent>
 
-              {/* Contenido similar para las otras pestañas */}
               <TabsContent value="active" className="mt-0">
-                {/* Contenido similar al de "all" pero filtrado por productos activos */}
-                {/* Este contenido se renderiza automáticamente por el filtrado */}
+                {/* El contenido se renderiza automáticamente por el filtrado */}
               </TabsContent>
               <TabsContent value="draft" className="mt-0">
-                {/* Contenido similar al de "all" pero filtrado por borradores */}
-                {/* Este contenido se renderiza automáticamente por el filtrado */}
+                {/* El contenido se renderiza automáticamente por el filtrado */}
               </TabsContent>
               <TabsContent value="archived" className="mt-0">
-                {/* Contenido similar al de "all" pero filtrado por archivados */}
-                {/* Este contenido se renderiza automáticamente por el filtrado */}
+                {/* El contenido se renderiza automáticamente por el filtrado */}
               </TabsContent>
             </Tabs>
           </div>
@@ -480,48 +503,4 @@ export default function ProductsPage() {
       </Card>
     </div>
   )
-}
-
-// Función auxiliar para extraer el ID limpio
-function cleanId(id) {
-  if (!id) return ""
-  if (typeof id === "string" && id.includes("/")) {
-    return id.split("/").pop()
-  }
-  return id
-}
-
-// Función auxiliar para obtener la URL de la imagen
-function getImageUrl(product) {
-  if (!product) return null
-
-  // Intentar obtener la imagen de diferentes propiedades
-  if (product.imagen) return product.imagen
-  if (product.image) return typeof product.image === "string" ? product.image : product.image?.url || product.image?.src
-
-  if (product.featuredImage) return product.featuredImage.url || product.featuredImage.src
-
-  if (product.imagenes && product.imagenes.length > 0) {
-    return product.imagenes[0].src || product.imagenes[0].url
-  }
-
-  if (product.images && product.images.length > 0) {
-    return typeof product.images[0] === "string" ? product.images[0] : product.images[0]?.url || product.images[0]?.src
-  }
-
-  // Si hay edges en las imágenes (formato GraphQL)
-  if (product.images && product.images.edges && product.images.edges.length > 0) {
-    return product.images.edges[0].node.url || product.images.edges[0].node.src
-  }
-
-  return null
-}
-
-// Función auxiliar para formatear moneda
-function formatCurrency(amount, currencyCode = "EUR") {
-  return new Intl.NumberFormat("es-ES", {
-    style: "currency",
-    currency: currencyCode,
-    minimumFractionDigits: 2,
-  }).format(amount)
 }
