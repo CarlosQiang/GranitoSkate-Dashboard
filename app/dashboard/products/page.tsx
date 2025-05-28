@@ -14,8 +14,8 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/components/ui/use-toast"
 import { Package } from "lucide-react" // Import Package component
-import { Image } from "next/image" // Import Image component
-import { Link } from "next/link" // Import Link component
+import Image from "next/image"
+import Link from "next/link"
 
 // Marcar la página como dinámica para evitar errores de renderizado estático
 export const dynamic = "force-dynamic"

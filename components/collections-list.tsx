@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Edit, Package } from "lucide-react"
@@ -8,11 +8,22 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { fetchCollections } from "@/lib/api/collections"
 import { LoadingState } from "@/components/loading-state"
+import { CollectionsFilters, type CollectionFilters } from "./collections-filters"
 
 export function CollectionsList() {
   const [collections, setCollections] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [filters, setFilters] = useState<CollectionFilters>({
+    search: "",
+    productSearch: "",
+    sortBy: "name",
+    sortOrder: "asc",
+    hasProducts: "all",
+    productCountRange: { min: null, max: null },
+    status: "all",
+  })
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
 
   useEffect(() => {
     const loadCollections = async () => {
@@ -31,6 +42,68 @@ export function CollectionsList() {
 
     loadCollections()
   }, [])
+
+  // Función para filtrar y ordenar colecciones
+  const filteredAndSortedCollections = useMemo(() => {
+    let filtered = [...collections]
+
+    // Filtro por búsqueda de nombre de colección
+    if (filters.search) {
+      filtered = filtered.filter(
+        (collection) =>
+          collection.title.toLowerCase().includes(filters.search.toLowerCase()) ||
+          collection.description?.toLowerCase().includes(filters.search.toLowerCase()),
+      )
+    }
+
+    // Filtro por búsqueda de producto
+    if (filters.productSearch) {
+      filtered = filtered.filter((collection) =>
+        collection.products?.edges?.some((edge) =>
+          edge.node.title.toLowerCase().includes(filters.productSearch.toLowerCase()),
+        ),
+      )
+    }
+
+    // Filtro por productos
+    if (filters.hasProducts === "with") {
+      filtered = filtered.filter((collection) => collection.productsCount > 0)
+    } else if (filters.hasProducts === "without") {
+      filtered = filtered.filter((collection) => collection.productsCount === 0)
+    }
+
+    // Filtro por rango de productos
+    if (filters.productCountRange.min !== null) {
+      filtered = filtered.filter((collection) => collection.productsCount >= filters.productCountRange.min)
+    }
+    if (filters.productCountRange.max !== null) {
+      filtered = filtered.filter((collection) => collection.productsCount <= filters.productCountRange.max)
+    }
+
+    // Ordenamiento
+    filtered.sort((a, b) => {
+      let comparison = 0
+
+      switch (filters.sortBy) {
+        case "name":
+          comparison = a.title.localeCompare(b.title)
+          break
+        case "products":
+          comparison = a.productsCount - b.productsCount
+          break
+        case "created":
+          comparison = new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
+          break
+        case "updated":
+          comparison = new Date(a.updatedAt || 0).getTime() - new Date(b.updatedAt || 0).getTime()
+          break
+      }
+
+      return filters.sortOrder === "desc" ? -comparison : comparison
+    })
+
+    return filtered
+  }, [collections, filters])
 
   if (loading) {
     return <LoadingState message="Cargando colecciones..." />
@@ -62,44 +135,56 @@ export function CollectionsList() {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {collections.map((collection) => (
-        <Card key={collection.id} className="overflow-hidden h-full flex flex-col">
-          <div className="aspect-video relative bg-gray-100">
-            {collection.image ? (
-              <Image
-                src={collection.image.url || "/placeholder.svg"}
-                alt={collection.image.altText || collection.title}
-                fill
-                className="object-cover"
-                sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <Package className="h-12 w-12 text-gray-400" />
-              </div>
-            )}
-          </div>
-          <CardContent className="p-4 flex-grow">
-            <h3 className="text-lg font-semibold line-clamp-1">{collection.title}</h3>
-            <p className="text-sm text-gray-500">{collection.productsCount} productos</p>
-          </CardContent>
-          <CardFooter className="flex justify-between p-4 pt-0 border-t">
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/dashboard/collections/${collection.id.split("/").pop()}`}>
-                <Edit className="mr-2 h-4 w-4" />
-                Editar
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/dashboard/collections/${collection.id.split("/").pop()}/products`}>
-                <Package className="mr-2 h-4 w-4" />
-                Productos
-              </Link>
-            </Button>
-          </CardFooter>
-        </Card>
-      ))}
+    <div className="space-y-6">
+      {/* Filtros */}
+      <CollectionsFilters
+        onFiltersChange={setFilters}
+        totalCollections={collections.length}
+        filteredCount={filteredAndSortedCollections.length}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+      />
+
+      {/* Lista de colecciones */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredAndSortedCollections.map((collection) => (
+          <Card key={collection.id} className="overflow-hidden h-full flex flex-col">
+            <div className="aspect-video relative bg-gray-100">
+              {collection.image ? (
+                <Image
+                  src={collection.image.url || "/placeholder.svg"}
+                  alt={collection.image.altText || collection.title}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <Package className="h-12 w-12 text-gray-400" />
+                </div>
+              )}
+            </div>
+            <CardContent className="p-4 flex-grow">
+              <h3 className="text-lg font-semibold line-clamp-1">{collection.title}</h3>
+              <p className="text-sm text-gray-500">{collection.productsCount} productos</p>
+            </CardContent>
+            <CardFooter className="flex justify-between p-4 pt-0 border-t">
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/dashboard/collections/${collection.id.split("/").pop()}`}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Editar
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/dashboard/collections/${collection.id.split("/").pop()}/products`}>
+                  <Package className="mr-2 h-4 w-4" />
+                  Productos
+                </Link>
+              </Button>
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
     </div>
   )
 }
