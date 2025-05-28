@@ -4,6 +4,7 @@ import { PrismaClient } from "@prisma/client"
 import { compare } from "bcryptjs"
 import config from "./config"
 
+// Crear una única instancia de PrismaClient para evitar múltiples conexiones
 const prisma = new PrismaClient()
 
 export const authOptions: NextAuthOptions = {
@@ -40,7 +41,7 @@ export const authOptions: NextAuthOptions = {
                   id: 1,
                   nombre_usuario: "admin",
                   correo_electronico: "admin@gmail.com",
-                  contrasena: "$2a$10$1X.GQIJJk8L9Fz3HZhQQo.6EsHgHKm7Brx0bKQA9fI.SSjN.ym3Uy",
+                  contrasena: "$2a$10$1X.GQIJJk8L9Fz3HZhQQo.6EsHgHKm7Brx0bKQA9fI.SSjN.ym3Uy", // hash de "admin"
                   nombre_completo: "Administrador Principal",
                   rol: "admin",
                   activo: true,
@@ -66,15 +67,9 @@ export const authOptions: NextAuthOptions = {
             console.log("🔐 Verificación bcrypt:", isValidPassword)
 
             // Si falla bcrypt, verificar contraseña maestra para desarrollo
-            if (!isValidPassword && credentials.password === "GranitoSkate") {
+            if (!isValidPassword && config.app.isDevelopment && credentials.password === "GranitoSkate") {
               isValidPassword = true
               console.log("🔑 Acceso con contraseña maestra")
-            }
-
-            // Último recurso: comparación directa (para casos legacy)
-            if (!isValidPassword && credentials.password === user.contrasena) {
-              isValidPassword = true
-              console.log("🔓 Verificación directa")
             }
           } catch (error) {
             console.error("❌ Error al verificar contraseña:", error)

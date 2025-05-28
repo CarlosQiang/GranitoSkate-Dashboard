@@ -23,24 +23,34 @@ import {
   Filter,
   Grid3X3,
   List,
+  AlertCircle,
 } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 import { cn } from "@/lib/utils"
-import { formatDate } from "@/lib/utils"
+import { useTheme } from "@/contexts/theme-context"
 
 export const dynamic = "force-dynamic"
 
+// Función helper para formatear fecha
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString("es-ES", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  })
+}
+
 export default function CustomersPage() {
+  const { theme } = useTheme()
   const router = useRouter()
-  const [customers, setCustomers] = useState([])
-  const [filteredCustomers, setFilteredCustomers] = useState([])
+  const [customers, setCustomers] = useState<any[]>([])
+  const [filteredCustomers, setFilteredCustomers] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [isSyncing, setIsSyncing] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState("table")
   const [isMobile, setIsMobile] = useState(false)
-  const [showMobileFilters, setShowMobileFilters] = useState(false)
 
   useEffect(() => {
     const checkMobile = () => {
@@ -59,31 +69,35 @@ export default function CustomersPage() {
     setIsLoading(true)
     setError(null)
     try {
-      const response = await fetch("/api/shopify/customers")
+      console.log("Loading customers...")
+      const response = await fetch("/api/shopify/customers?first=50")
+
       if (!response.ok) {
-        throw new Error("Error al cargar clientes desde la API")
+        const errorData = await response.json()
+        throw new Error(errorData.details || `Error ${response.status}: ${response.statusText}`)
       }
 
       const result = await response.json()
+      console.log("API response:", result)
 
-      // Verificar que result.customers es un array
-      if (!result.customers || !Array.isArray(result.customers)) {
-        throw new Error("Los datos de clientes no tienen el formato esperado")
+      if (!result.success) {
+        throw new Error(result.error || "Error al cargar clientes")
       }
 
-      setCustomers(result.customers)
-      filterCustomers(result.customers, searchTerm)
+      const customersData = result.customers || []
+      console.log("Customers loaded:", customersData.length)
+
+      setCustomers(customersData)
+      filterCustomers(customersData, searchTerm)
     } catch (error) {
       console.error("Error al cargar clientes:", error)
-      setError("No se pudieron cargar los clientes. Intente nuevamente más tarde.")
-
-      // Establecer array vacío en caso de error
+      setError(error instanceof Error ? error.message : "Error desconocido al cargar clientes")
       setCustomers([])
       setFilteredCustomers([])
 
       toast({
         title: "Error al cargar clientes",
-        description: "No se pudieron cargar los clientes. Intente nuevamente más tarde.",
+        description: error instanceof Error ? error.message : "Error desconocido",
         variant: "destructive",
       })
     } finally {
@@ -91,8 +105,7 @@ export default function CustomersPage() {
     }
   }
 
-  const filterCustomers = (customersData, search) => {
-    // Verificar que customersData es un array
+  const filterCustomers = (customersData: any[], search: string) => {
     if (!Array.isArray(customersData)) {
       console.error("customersData no es un array:", customersData)
       setFilteredCustomers([])
@@ -161,23 +174,19 @@ export default function CustomersPage() {
     }
   }
 
-  const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value)
-  }
-
-  const getCustomerInitials = (customer) => {
+  const getCustomerInitials = (customer: any) => {
     const firstName = customer.firstName || ""
     const lastName = customer.lastName || ""
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
   }
 
-  const getCustomerStatus = (customer) => {
+  const getCustomerStatus = (customer: any) => {
     if (customer.acceptsMarketing) return "Suscrito"
     if (customer.ordersCount > 0) return "Cliente"
     return "Prospecto"
   }
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case "Suscrito":
         return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
@@ -189,36 +198,41 @@ export default function CustomersPage() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 p-4 lg:p-6">
       {/* Header responsive */}
-      <div className="flex-responsive-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="heading-responsive">Clientes</h1>
-          <p className="caption-responsive mt-1">Gestiona los clientes de tu tienda</p>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Clientes</h1>
+          <p className="text-sm text-muted-foreground sm:text-base">Gestiona los clientes de tu tienda</p>
         </div>
         <div className="flex items-center gap-2">
           {isMobile && (
-            <Button variant="outline" onClick={() => setShowMobileFilters(!showMobileFilters)} size="sm">
+            <Button variant="outline" size="sm">
               <Filter className="h-4 w-4" />
             </Button>
           )}
           <Button
             onClick={() => router.push("/dashboard/customers/new")}
-            className="bg-granito-500 hover:bg-granito-600 text-white mobile-full-width sm:w-auto"
+            className="btn-primary w-full sm:w-auto"
+            style={{
+              backgroundColor: theme.primaryColor,
+              borderColor: theme.primaryColor,
+              color: "white",
+            }}
           >
             <Plus className="mr-2 h-4 w-4" />
-            <span className="mobile-only">Nuevo</span>
-            <span className="tablet-up">Nuevo cliente</span>
+            <span className="sm:hidden">Nuevo</span>
+            <span className="hidden sm:inline">Nuevo cliente</span>
           </Button>
         </div>
       </div>
 
       <Card className="overflow-hidden border-gray-200 dark:border-gray-800">
-        <CardHeader className="bg-gray-50 dark:bg-gray-900 border-b card-responsive">
-          <div className="flex-responsive-between">
+        <CardHeader className="bg-gray-50 dark:bg-gray-900 border-b p-4 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="subheading-responsive">Base de clientes</CardTitle>
-              <CardDescription className="caption-responsive">
+              <CardTitle className="text-lg sm:text-xl">Base de clientes</CardTitle>
+              <CardDescription className="text-sm">
                 Gestiona la información y historial de tus clientes.
               </CardDescription>
             </div>
@@ -227,20 +241,24 @@ export default function CustomersPage() {
                 onClick={syncCustomers}
                 disabled={isSyncing}
                 variant="outline"
-                className="border-granito-300 hover:bg-granito-50"
+                className="border-gray-300 hover:bg-gray-50"
                 size={isMobile ? "sm" : "default"}
+                style={{
+                  borderColor: theme.primaryColor + "50",
+                  color: theme.primaryColor,
+                }}
               >
                 {isSyncing ? (
                   <>
                     <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    <span className="mobile-only">Sync...</span>
-                    <span className="tablet-up">Sincronizando...</span>
+                    <span className="sm:hidden">Sync...</span>
+                    <span className="hidden sm:inline">Sincronizando...</span>
                   </>
                 ) : (
                   <>
                     <RefreshCw className="mr-2 h-4 w-4" />
-                    <span className="mobile-only">Sync</span>
-                    <span className="tablet-up">Sincronizar</span>
+                    <span className="sm:hidden">Sync</span>
+                    <span className="hidden sm:inline">Sincronizar</span>
                   </>
                 )}
               </Button>
@@ -248,10 +266,10 @@ export default function CustomersPage() {
           </div>
         </CardHeader>
 
-        <CardContent className="card-responsive">
+        <CardContent className="p-4 sm:p-6">
           <div className="space-y-4">
             {/* Controles de búsqueda y vista */}
-            <div className="flex-responsive-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -259,7 +277,7 @@ export default function CustomersPage() {
                   placeholder="Buscar clientes..."
                   className="pl-8"
                   value={searchTerm}
-                  onChange={handleSearchChange}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
 
@@ -289,11 +307,9 @@ export default function CustomersPage() {
 
             {/* Error state */}
             {error && (
-              <div
-                className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-md"
-                role="alert"
-              >
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-md">
                 <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
                   <span className="font-medium">Error:</span>
                   <span>{error}</span>
                 </div>
@@ -308,22 +324,27 @@ export default function CustomersPage() {
                 <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
                   <Search className="h-6 w-6 text-gray-400" />
                 </div>
-                <h3 className="subheading-responsive">No se encontraron clientes</h3>
-                <p className="caption-responsive mt-1 mb-4">
+                <h3 className="text-lg font-semibold sm:text-xl">No se encontraron clientes</h3>
+                <p className="text-sm text-muted-foreground mt-1 mb-4 sm:text-base">
                   {searchTerm ? `No hay resultados para "${searchTerm}"` : "No hay clientes registrados"}
                 </p>
                 <Button
                   onClick={() => router.push("/dashboard/customers/new")}
-                  className="bg-granito-500 hover:bg-granito-600 text-white"
+                  className="btn-primary"
+                  style={{
+                    backgroundColor: theme.primaryColor,
+                    borderColor: theme.primaryColor,
+                    color: "white",
+                  }}
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Añadir primer cliente
                 </Button>
               </div>
             ) : viewMode === "table" && !isMobile ? (
-              <CustomersTable customers={filteredCustomers} />
+              <CustomersTable customers={filteredCustomers} theme={theme} />
             ) : (
-              <CustomersCards customers={filteredCustomers} isMobile={isMobile} />
+              <CustomersCards customers={filteredCustomers} isMobile={isMobile} theme={theme} />
             )}
           </div>
         </CardContent>
@@ -332,10 +353,10 @@ export default function CustomersPage() {
   )
 }
 
-function CustomersSkeleton({ viewMode, isMobile }) {
+function CustomersSkeleton({ viewMode, isMobile }: { viewMode: string; isMobile: boolean }) {
   if (viewMode === "table" && !isMobile) {
     return (
-      <div className="table-responsive">
+      <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -403,9 +424,9 @@ function CustomersSkeleton({ viewMode, isMobile }) {
   )
 }
 
-function CustomersTable({ customers }) {
+function CustomersTable({ customers, theme }: { customers: any[]; theme: any }) {
   return (
-    <div className="table-responsive">
+    <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
@@ -422,7 +443,10 @@ function CustomersTable({ customers }) {
             <TableRow key={customer.id} className="cursor-pointer hover:bg-muted/50">
               <TableCell>
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-granito-100 flex items-center justify-center text-granito-700 font-medium">
+                  <div
+                    className="h-10 w-10 rounded-full flex items-center justify-center text-white font-medium"
+                    style={{ backgroundColor: theme.primaryColor }}
+                  >
                     {getCustomerInitials(customer)}
                   </div>
                   <div>
@@ -487,23 +511,26 @@ function CustomersTable({ customers }) {
   )
 }
 
-function CustomersCards({ customers, isMobile }) {
+function CustomersCards({ customers, isMobile, theme }: { customers: any[]; isMobile: boolean; theme: any }) {
   return (
     <div className={cn("grid gap-4", isMobile ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3")}>
       {customers.map((customer) => (
-        <CustomerCard key={customer.id} customer={customer} />
+        <CustomerCard key={customer.id} customer={customer} theme={theme} />
       ))}
     </div>
   )
 }
 
-function CustomerCard({ customer }) {
+function CustomerCard({ customer, theme }: { customer: any; theme: any }) {
   return (
     <Link href={`/dashboard/customers/${customer.id}`}>
       <Card className="hover:shadow-md transition-shadow duration-200 cursor-pointer">
         <CardContent className="p-4">
           <div className="flex items-center gap-3 mb-3">
-            <div className="h-12 w-12 rounded-full bg-granito-100 flex items-center justify-center text-granito-700 font-medium">
+            <div
+              className="h-12 w-12 rounded-full flex items-center justify-center text-white font-medium"
+              style={{ backgroundColor: theme.primaryColor }}
+            >
               {getCustomerInitials(customer)}
             </div>
             <div>
@@ -551,19 +578,19 @@ function CustomerCard({ customer }) {
   )
 }
 
-function getCustomerInitials(customer) {
+function getCustomerInitials(customer: any) {
   const firstName = customer.firstName || ""
   const lastName = customer.lastName || ""
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
 }
 
-function getCustomerStatus(customer) {
+function getCustomerStatus(customer: any) {
   if (customer.acceptsMarketing) return "Suscrito"
   if (customer.ordersCount > 0) return "Cliente"
   return "Prospecto"
 }
 
-function getStatusColor(status) {
+function getStatusColor(status: string) {
   switch (status) {
     case "Suscrito":
       return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"

@@ -9,7 +9,7 @@ if (!connectionString) {
 }
 
 // Crear un pool de conexiones
-export const pool = new Pool({
+const pool = new Pool({
   connectionString: connectionString || "",
   ssl: {
     rejectUnauthorized: false,
@@ -25,7 +25,7 @@ pool.on("error", (err) => {
 })
 
 // Verificar la conexión
-export async function testConnection() {
+async function testConnection() {
   if (!connectionString) {
     console.error("No hay URL de conexión definida")
     return false
@@ -43,7 +43,7 @@ export async function testConnection() {
 }
 
 // Función para ejecutar consultas
-export async function query(text: string, params: any[] = []) {
+async function query(text: string, params: any[] = []) {
   try {
     const start = Date.now()
     const res = await pool.query(text, params)
@@ -57,7 +57,7 @@ export async function query(text: string, params: any[] = []) {
 }
 
 // Función para cerrar la conexión
-export async function closeConnection() {
+async function closeConnection() {
   try {
     await pool.end()
     console.log("Conexión a la base de datos cerrada correctamente")
@@ -67,7 +67,7 @@ export async function closeConnection() {
 }
 
 // Funciones CRUD genéricas
-export async function findAll(table: string) {
+async function findAll(table: string) {
   try {
     const result = await query(`SELECT * FROM ${table}`)
     return result.rows
@@ -77,7 +77,7 @@ export async function findAll(table: string) {
   }
 }
 
-export async function findById(table: string, id: number) {
+async function findById(table: string, id: number) {
   try {
     const result = await query(`SELECT * FROM ${table} WHERE id = $1`, [id])
     return result.rows.length > 0 ? result.rows[0] : null
@@ -87,7 +87,7 @@ export async function findById(table: string, id: number) {
   }
 }
 
-export async function findByField(table: string, field: string, value: any) {
+async function findByField(table: string, field: string, value: any) {
   try {
     const result = await query(`SELECT * FROM ${table} WHERE ${field} = $1`, [value])
     return result.rows.length > 0 ? result.rows[0] : null
@@ -97,7 +97,7 @@ export async function findByField(table: string, field: string, value: any) {
   }
 }
 
-export async function insert(table: string, data: any) {
+async function insert(table: string, data: any) {
   try {
     const keys = Object.keys(data)
     const values = Object.values(data)
@@ -112,7 +112,7 @@ export async function insert(table: string, data: any) {
   }
 }
 
-export async function update(table: string, id: number, data: any) {
+async function update(table: string, id: number, data: any) {
   try {
     const keys = Object.keys(data)
     const values = Object.values(data)
@@ -129,7 +129,7 @@ export async function update(table: string, id: number, data: any) {
   }
 }
 
-export async function remove(table: string, id: number) {
+async function remove(table: string, id: number) {
   try {
     const result = await query(`DELETE FROM ${table} WHERE id = $1 RETURNING *`, [id])
     return result.rows.length > 0 ? result.rows[0] : null
@@ -140,7 +140,7 @@ export async function remove(table: string, id: number) {
 }
 
 // Función logSyncEvent para registrar eventos de sincronización
-export async function logSyncEvent(
+async function logSyncEvent(
   tipo: string,
   entidad_id: string | null,
   accion: string,
@@ -164,7 +164,22 @@ export async function logSyncEvent(
   }
 }
 
-// Export por defecto para compatibilidad
+// Exportar todas las funciones y objetos individualmente
+export {
+  pool,
+  testConnection,
+  query,
+  closeConnection,
+  findAll,
+  findById,
+  findByField,
+  insert,
+  update,
+  remove,
+  logSyncEvent,
+}
+
+// Export por defecto para compatibilidad con código existente
 const db = {
   pool,
   testConnection,

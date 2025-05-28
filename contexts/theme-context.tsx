@@ -89,7 +89,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const accentLight = adjustColor(theme.accentColor, 15)
     const accentDark = adjustColor(theme.accentColor, -15)
 
-    // Aplicar colores principales
+    // Aplicar colores principales a variables CSS
     root.style.setProperty("--primary", hexToHSL(theme.primaryColor))
     root.style.setProperty("--primary-foreground", "210 40% 98%")
     root.style.setProperty("--secondary", hexToHSL(theme.secondaryColor))
@@ -106,7 +106,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.style.setProperty("--color-accent", theme.accentColor)
     root.style.setProperty("--color-accent-hover", theme.accentColorHover || accentDark)
 
-    // Aplicar variaciones de granito
+    // Aplicar variaciones de granito para consistencia
     root.style.setProperty("--granito-50", hexToHSL(adjustColor(theme.primaryColor, 75)))
     root.style.setProperty("--granito-100", hexToHSL(adjustColor(theme.primaryColor, 60)))
     root.style.setProperty("--granito-200", hexToHSL(primaryLighter))
@@ -170,6 +170,30 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         el.textContent = theme.shopName
       })
     }
+
+    // Aplicar colores a todos los botones personalizables
+    const customButtons = document.querySelectorAll(".btn-primary, .btn-custom")
+    customButtons.forEach((button) => {
+      const btn = button as HTMLElement
+      btn.style.backgroundColor = theme.primaryColor
+      btn.style.borderColor = theme.primaryColor
+    })
+
+    // Aplicar colores a elementos de navegación activos
+    const activeNavItems = document.querySelectorAll(".nav-item-active")
+    activeNavItems.forEach((item) => {
+      const navItem = item as HTMLElement
+      navItem.style.backgroundColor = theme.primaryColor
+    })
+
+    // Aplicar colores a badges y elementos de estado
+    const statusElements = document.querySelectorAll(".status-primary")
+    statusElements.forEach((element) => {
+      const el = element as HTMLElement
+      el.style.backgroundColor = `${theme.primaryColor}20`
+      el.style.color = theme.primaryColor
+      el.style.borderColor = theme.primaryColor
+    })
 
     console.log("Tema aplicado al DOM:", theme)
   }

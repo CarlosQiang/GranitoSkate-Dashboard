@@ -24,6 +24,14 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
+
+    /* Variables personalizables */
+    --color-primary: #c7a04a;
+    --color-primary-hover: #b8914a;
+    --color-secondary: #4a5568;
+    --color-secondary-hover: #3a4553;
+    --color-accent: #3182ce;
+    --color-accent-hover: #2c5aa0;
   }
 
   .dark {
@@ -55,11 +63,51 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: Inter, sans-serif;
+    font-family: var(--font-family, Inter, sans-serif);
   }
 }
 
-/* Utilidades responsive */
+/* Clases personalizables para botones */
+.btn-primary {
+  @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  @apply disabled:opacity-50 disabled:pointer-events-none ring-offset-background;
+  @apply h-10 px-4 py-2;
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+.btn-secondary {
+  background-color: var(--color-secondary);
+  border-color: var(--color-secondary);
+  color: white;
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-secondary-hover);
+  border-color: var(--color-secondary-hover);
+}
+
+/* Clases para elementos de navegación activos */
+.nav-item-active {
+  background-color: var(--color-primary) !important;
+  color: white !important;
+}
+
+/* Clases para estados y badges */
+.status-primary {
+  background-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+/* Utilidades responsive mejoradas */
 .line-clamp-1 {
   overflow: hidden;
   display: -webkit-box;
@@ -79,6 +127,82 @@
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
+}
+
+/* Mejoras para móviles */
+@media (max-width: 640px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /* Botones de tamaño completo en móvil */
+  .mobile-full-width {
+    width: 100%;
+  }
+
+  /* Espaciado reducido en móvil */
+  .mobile-spacing {
+    gap: 0.75rem;
+  }
+
+  /* Texto más pequeño en móvil */
+  .mobile-text {
+    font-size: 0.875rem;
+  }
+
+  /* Padding reducido en móvil */
+  .mobile-padding {
+    padding: 0.75rem;
+  }
+}
+
+/* Mejoras para tablets */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .container {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+
+  .tablet-grid-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tablet-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .tablet-padding {
+    padding: 1.25rem;
+  }
+
+  .tablet-text {
+    font-size: 1rem;
+  }
+}
+
+/* Mejoras para desktop */
+@media (min-width: 1025px) {
+  .container {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+
+  .desktop-grid-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .desktop-grid-5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .desktop-padding {
+    padding: 2rem;
+  }
+
+  .desktop-text {
+    font-size: 1.125rem;
+  }
 }
 
 /* Animaciones */
@@ -113,29 +237,125 @@
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--primary));
+  background: var(--color-primary);
 }
 
-/* Mejoras para móviles */
-@media (max-width: 640px) {
-  .container {
-    padding-left: 1rem;
-    padding-right: 1rem;
+/* Estilos de botón personalizables */
+[data-button-style="solid"] .btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+}
+
+[data-button-style="solid"] .btn-primary:hover {
+  background-color: var(--color-primary-hover);
+}
+
+[data-button-style="outline"] .btn-primary {
+  background-color: transparent;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+}
+
+[data-button-style="outline"] .btn-primary:hover {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+[data-button-style="soft"] .btn-primary {
+  background-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  color: var(--color-primary);
+  border: none;
+}
+
+[data-button-style="soft"] .btn-primary:hover {
+  background-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+
+[data-button-style="ghost"] .btn-primary {
+  background-color: transparent;
+  color: var(--color-primary);
+  border: none;
+}
+
+[data-button-style="ghost"] .btn-primary:hover {
+  background-color: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+/* Estilos de tarjeta personalizables */
+[data-card-style="flat"] .card {
+  box-shadow: none;
+  border: 1px solid hsl(var(--border));
+}
+
+[data-card-style="raised"] .card {
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  border: 1px solid hsl(var(--border));
+}
+
+[data-card-style="bordered"] .card {
+  box-shadow: none;
+  border: 2px solid hsl(var(--border));
+}
+
+/* Animaciones personalizables */
+.theme-animation-slow * {
+  transition-duration: 0.5s;
+}
+
+.theme-animation-normal * {
+  transition-duration: 0.3s;
+}
+
+.theme-animation-fast * {
+  transition-duration: 0.15s;
+}
+
+.disable-animations * {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Modo de alto contraste */
+.high-contrast {
+  filter: contrast(150%);
+}
+
+.high-contrast .card {
+  border-width: 2px;
+}
+
+.high-contrast .btn {
+  border-width: 2px;
+  font-weight: 600;
+}
+
+/* Mejoras de accesibilidad */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
-/* Mejoras para tablets */
-@media (min-width: 641px) and (max-width: 1024px) {
-  .container {
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
-  }
+/* Focus visible mejorado */
+.focus-visible:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
-/* Mejoras para desktop */
-@media (min-width: 1025px) {
-  .container {
-    padding-left: 2rem;
-    padding-right: 2rem;
+/* Mejoras para touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .hover-disabled:hover {
+    background-color: initial;
+    color: initial;
   }
 }

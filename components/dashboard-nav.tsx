@@ -8,8 +8,10 @@ import { signOut } from "next-auth/react"
 import { cn } from "@/lib/utils"
 import { navigationItems } from "@/config/navigation"
 import { Button } from "@/components/ui/button"
+import { useTheme } from "@/contexts/theme-context"
 
 export function DashboardNav() {
+  const { theme } = useTheme()
   const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
@@ -97,11 +99,16 @@ export function DashboardNav() {
       >
         {/* Header del sidebar */}
         <div className="flex items-center border-b p-4">
-          <div className="h-10 w-10 rounded-md bg-yellow-600 flex items-center justify-center flex-shrink-0">
+          <div
+            className="h-10 w-10 rounded-md flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: theme.primaryColor }}
+          >
             <span className="text-white font-bold text-lg">G</span>
           </div>
           <div className="ml-3">
-            <span className="font-bold text-lg">GranitoSkate</span>
+            <span className="font-bold text-lg" data-shop-name>
+              {theme.shopName || "GranitoSkate"}
+            </span>
             <p className="text-xs text-muted-foreground">Panel de administración</p>
           </div>
         </div>
@@ -119,8 +126,16 @@ export function DashboardNav() {
                     "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
                     "hover:bg-gray-100 dark:hover:bg-gray-800",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                    isActive && "bg-yellow-600 text-white hover:bg-yellow-700",
+                    isActive && "nav-item-active text-white",
                   )}
+                  style={
+                    isActive
+                      ? {
+                          backgroundColor: theme.primaryColor,
+                          color: "white",
+                        }
+                      : {}
+                  }
                 >
                   <item.icon className="h-5 w-5 flex-shrink-0" />
                   <span className="truncate">{item.name}</span>

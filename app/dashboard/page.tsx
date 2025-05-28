@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DashboardStats } from "@/components/dashboard-stats"
 import { RecentOrders } from "@/components/recent-orders"
@@ -12,19 +12,26 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [dashboardData, setDashboardData] = useState<any>(null)
+  const dataFetchedRef = useRef(false)
 
   const loadDashboardData = useCallback(async () => {
+    // Evitar múltiples llamadas a la API
+    if (dataFetchedRef.current) return
+
     try {
       setIsLoading(true)
       setError(null)
 
       console.log("📊 Loading dashboard data...")
+      dataFetchedRef.current = true
 
       const response = await fetch("/api/dashboard/summary", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
+        // Evitar caché para asegurar datos frescos
+        cache: "no-store",
       })
 
       if (!response.ok) {
@@ -37,6 +44,8 @@ export default function DashboardPage() {
     } catch (err) {
       console.error("❌ Error loading dashboard:", err)
       setError(err instanceof Error ? err.message : "Error loading dashboard")
+      // Resetear la bandera en caso de error para permitir reintentos
+      dataFetchedRef.current = false
     } finally {
       setIsLoading(false)
     }
@@ -44,6 +53,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadDashboardData()
+
+    // Limpiar la referencia cuando el componente se desmonte
+    return () => {
+      dataFetchedRef.current = false
+    }
   }, [loadDashboardData])
 
   if (isLoading) {
@@ -93,7 +107,10 @@ export default function DashboardPage() {
           <CardContent>
             <p className="body-responsive text-gray-600 mb-4">{error}</p>
             <button
-              onClick={loadDashboardData}
+              onClick={() => {
+                dataFetchedRef.current = false
+                loadDashboardData()
+              }}
               className="btn-responsive bg-primary text-primary-foreground hover:bg-primary/90 rounded-md"
             >
               Reintentar
