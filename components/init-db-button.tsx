@@ -2,52 +2,68 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Loader2 } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { CheckCircle, AlertCircle, RefreshCw } from "lucide-react"
 
-export default function InitDbButton() {
-  const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
+export function InitDbButton() {
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
+  const [message, setMessage] = useState("")
 
-  const handleInitDb = async () => {
-    setLoading(true)
+  const initializeDatabase = async () => {
+    setStatus("loading")
+    setMessage("")
+
     try {
-      const response = await fetch("/api/init-db")
+      const response = await fetch("/api/init-db", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
       const data = await response.json()
 
-      if (data.status === "success") {
-        toast({
-          title: "Base de datos inicializada",
-          description: data.adminCreated
-            ? "Se ha creado el usuario administrador por defecto."
-            : "La base de datos ya estaba inicializada.",
-          variant: "default",
-        })
+      if (response.ok) {
+        setStatus("success")
+        setMessage(data.message || "Base de datos inicializada correctamente")
       } else {
-        throw new Error(data.message || "Error desconocido")
+        setStatus("error")
+        setMessage(data.message || "Error al inicializar la base de datos")
       }
     } catch (error) {
-      console.error("Error al inicializar la base de datos:", error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Error al inicializar la base de datos",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
+      setStatus("error")
+      setMessage("Error de conexión al inicializar la base de datos")
     }
   }
 
   return (
-    <Button onClick={handleInitDb} disabled={loading} className="bg-[#c7a04a] hover:bg-[#b08e42]">
-      {loading ? (
-        <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Inicializando...
-        </>
-      ) : (
-        "Inicializar Base de Datos"
+    <div className="space-y-4">
+      <Button onClick={initializeDatabase} disabled={status === "loading"} className="w-full">
+        {status === "loading" ? (
+          <>
+            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+            Inicializando...
+          </>
+        ) : (
+          "Inicializar Base de Datos"
+        )}
+      </Button>
+
+      {status === "success" && (
+        <Alert className="bg-green-50 border-green-200">
+          <CheckCircle className="h-4 w-4 text-green-500" />
+          <AlertDescription className="text-green-700">{message}</AlertDescription>
+        </Alert>
       )}
-    </Button>
+
+      {status === "error" && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      )}
+    </div>
   )
 }
+
+export default InitDbButton

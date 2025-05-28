@@ -1,77 +1,84 @@
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
-import { redirect } from "next/navigation"
+"use client"
+
+import { Button } from "@/components/ui/button"
+import { ArrowLeft } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { SystemDiagnostics } from "@/components/system-diagnostics"
+import { DbConnectionStatus } from "@/components/db-connection-status"
+import { DbInitializer } from "@/components/db-initializer"
+import { TestShopifyConnection } from "@/components/test-shopify-connection"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import SystemStatus from "@/components/system-status"
-import ShopifyConnectionStatus from "@/components/shopify-connection-status"
-import DbConnectionStatus from "@/components/db-connection-status"
-import InitDbButton from "@/components/init-db-button"
-import SystemHealthCheck from "@/components/system-health-check"
+import Link from "next/link"
 
-export default async function DiagnosticsPage() {
-  const session = await getServerSession(authOptions)
-
-  if (!session) {
-    redirect("/login")
-  }
+export default function DiagnosticsPage() {
+  const router = useRouter()
 
   return (
-    <div className="container mx-auto py-6">
-      <h1 className="text-2xl font-bold mb-6">Diagnósticos del Sistema</h1>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4" />
+            <span className="sr-only">Volver</span>
+          </Button>
+          <h1 className="text-3xl font-bold tracking-tight">Diagnóstico del sistema</h1>
+        </div>
+      </div>
+
+      <p className="text-muted-foreground">
+        Esta página ejecuta pruebas de diagnóstico para verificar que todos los componentes de la aplicación estén
+        funcionando correctamente.
+      </p>
 
       <div className="grid gap-6 md:grid-cols-2">
+        <TestShopifyConnection />
+        <DbConnectionStatus />
+        <DbInitializer />
         <Card>
           <CardHeader>
-            <CardTitle>Estado del Sistema</CardTitle>
-            <CardDescription>Verificación de componentes del sistema</CardDescription>
+            <CardTitle>Diagnóstico de Base de Datos</CardTitle>
+            <CardDescription>Verifica la conexión con la base de datos y el estado de las tablas</CardDescription>
           </CardHeader>
           <CardContent>
-            <SystemStatus />
+            <Button asChild>
+              <Link href="/dashboard/diagnostics/db-check">Verificar Base de Datos</Link>
+            </Button>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Conexión con Shopify</CardTitle>
-            <CardDescription>Estado de la conexión con la API de Shopify</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ShopifyConnectionStatus />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Conexión con Base de Datos</CardTitle>
-            <CardDescription>Estado de la conexión con la base de datos</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <DbConnectionStatus />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Inicialización de Base de Datos</CardTitle>
-            <CardDescription>Crear tablas y datos iniciales necesarios</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <p className="text-sm text-muted-foreground">
-              Este proceso creará la tabla de administradores y un usuario administrador por defecto si no existen.
-            </p>
-            <div>
-              <p className="text-sm font-medium mb-1">Credenciales por defecto:</p>
-              <p className="text-sm">Email: admin@granitoskate.com</p>
-              <p className="text-sm">Contraseña: GranitoSkate</p>
-            </div>
-            <div className="mt-2">
-              <InitDbButton />
-            </div>
-          </CardContent>
-        </Card>
-
         <div className="md:col-span-2">
-          <SystemHealthCheck />
+          <SystemDiagnostics />
+        </div>
+      </div>
+
+      <div className="space-y-4 bg-blue-50 p-6 rounded-lg border border-blue-200">
+        <h2 className="text-xl font-semibold text-blue-800">Instrucciones para solucionar problemas</h2>
+
+        <div className="space-y-2">
+          <h3 className="font-medium text-blue-700">Si hay errores de conexión con Shopify:</h3>
+          <ul className="list-disc pl-5 text-blue-600 space-y-1">
+            <li>Verifica que las credenciales de Shopify sean correctas en las variables de entorno</li>
+            <li>Asegúrate de que la tienda esté activa y accesible</li>
+            <li>Comprueba que la API de Shopify esté funcionando correctamente</li>
+            <li>Recuerda que todas las solicitudes a Shopify deben pasar por el proxy del servidor</li>
+          </ul>
+        </div>
+
+        <div className="space-y-2">
+          <h3 className="font-medium text-blue-700">Si hay errores de conexión con la base de datos:</h3>
+          <ul className="list-disc pl-5 text-blue-600 space-y-1">
+            <li>Verifica que las credenciales de la base de datos sean correctas</li>
+            <li>Comprueba que la base de datos esté activa y accesible</li>
+            <li>Usa el botón "Inicializar Base de Datos" para crear las tablas necesarias</li>
+          </ul>
+        </div>
+
+        <div className="space-y-2">
+          <h3 className="font-medium text-blue-700">Si hay errores al cargar productos o colecciones:</h3>
+          <ul className="list-disc pl-5 text-blue-600 space-y-1">
+            <li>Verifica que existan productos o colecciones en tu tienda</li>
+            <li>Comprueba los permisos de la aplicación en Shopify</li>
+            <li>Revisa los logs del servidor para más detalles sobre el error</li>
+          </ul>
         </div>
       </div>
     </div>
