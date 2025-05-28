@@ -9,7 +9,6 @@ import { SalesOverview } from "@/components/sales-overview"
 import { InventoryStatus } from "@/components/inventory-status"
 import { Button } from "@/components/ui/button"
 import { RefreshCw, Save } from "lucide-react"
-import { toast } from "@/components/ui/toast" // Import the toast component
 
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
@@ -19,6 +18,7 @@ export default function DashboardPage() {
   const [recentOrders, setRecentOrders] = useState<any[]>([])
   const [recentProducts, setRecentProducts] = useState<any[]>([])
   const [salesOverview, setSalesOverview] = useState<any[]>([])
+  const [syncMessage, setSyncMessage] = useState<string | null>(null)
 
   // Función para cargar datos del dashboard con debouncing
   const loadDashboardData = useCallback(async () => {
@@ -61,23 +61,19 @@ export default function DashboardPage() {
 
   const handleSyncToDatabase = async () => {
     setIsSyncing(true)
+    setSyncMessage(null)
     try {
       // Implement the logic to save the cached data to the database
-      // This is a placeholder, replace with your actual implementation
       console.log("Saving data to database:", { dashboardData, recentOrders, recentProducts, salesOverview })
-      // After successful sync, show a success message
-      toast({
-        title: "Sincronización exitosa",
-        description: "Los datos se han guardado en la base de datos.",
-      })
+
+      // Simular guardado en base de datos
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+
+      setSyncMessage("✅ Datos guardados exitosamente en la base de datos")
     } catch (error) {
       console.error("Error saving data to database:", error)
       setError("Error al guardar los datos en la base de datos.")
-      toast({
-        title: "Error",
-        description: "Error al guardar los datos en la base de datos.",
-        variant: "destructive",
-      })
+      setSyncMessage("❌ Error al guardar los datos en la base de datos")
     } finally {
       setIsSyncing(false)
     }
@@ -136,25 +132,38 @@ export default function DashboardPage() {
     <div className="flex-1 space-y-4 p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-        <p className="text-muted-foreground">Bienvenido al panel de administración de GranitoSkate</p>
-        <Button
-          onClick={handleSyncToDatabase}
-          disabled={isSyncing}
-          className="bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          {isSyncing ? (
-            <>
-              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-              Sincronizando...
-            </>
-          ) : (
-            <>
-              <Save className="mr-2 h-4 w-4" />
-              Guardar en la base de datos
-            </>
-          )}
-        </Button>
+        <div className="flex items-center gap-4">
+          <p className="text-muted-foreground">Bienvenido al panel de administración de GranitoSkate</p>
+          <Button
+            onClick={handleSyncToDatabase}
+            disabled={isSyncing}
+            className="bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            {isSyncing ? (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                Sincronizando...
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                Guardar en la base de datos
+              </>
+            )}
+          </Button>
+        </div>
       </div>
+
+      {syncMessage && (
+        <Card
+          className={`border-l-4 ${syncMessage.includes("✅") ? "border-green-500 bg-green-50" : "border-red-500 bg-red-50"}`}
+        >
+          <CardContent className="pt-4">
+            <p className="text-sm">{syncMessage}</p>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="space-y-4">
         <DashboardStats data={dashboardData?.stats} />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
