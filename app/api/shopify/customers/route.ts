@@ -18,6 +18,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(result)
   } catch (error) {
     console.error("Error in customers API route:", error)
-    return NextResponse.json({ error: "Error al obtener clientes", details: (error as Error).message }, { status: 500 })
+
+    // Devolver estructura válida en caso de error
+    return NextResponse.json({
+      customers: [],
+      pageInfo: { hasNextPage: false, endCursor: null },
+      error: "Error al obtener clientes",
+    })
   }
 }

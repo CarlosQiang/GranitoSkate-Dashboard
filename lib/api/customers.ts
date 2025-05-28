@@ -131,13 +131,17 @@ export async function fetchCustomers(filters: CustomerFilters = {}) {
     }
   } catch (error) {
     console.error("Error fetching customers:", error)
-    throw new Error(`Error al obtener clientes: ${(error as Error).message}`)
+
+    // Fallback seguro: devolver estructura vacía pero válida
+    return {
+      customers: [],
+      pageInfo: { hasNextPage: false, endCursor: null },
+    }
   }
 }
 
 export async function fetchCustomerById(id: string) {
   try {
-    // Formatear el ID correctamente
     let formattedId = id
     if (!id.includes("gid://shopify/")) {
       formattedId = `gid://shopify/Customer/${id}`
@@ -196,17 +200,13 @@ export async function fetchCustomerById(id: string) {
       }
     `
 
-    const variables = {
-      id: formattedId,
-    }
-
+    const variables = { id: formattedId }
     const data = await shopifyClient.request(query, variables)
 
     if (!data || !data.customer) {
       throw new Error(`Cliente no encontrado: ${id}`)
     }
 
-    // Transformar los datos para mantener la consistencia con el resto de la aplicación
     return {
       id: data.customer.id.split("/").pop(),
       firstName: data.customer.firstName || "",

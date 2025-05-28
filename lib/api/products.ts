@@ -12,6 +12,16 @@ export interface ProductFilters {
   after?: string | null
 }
 
+// Función para normalizar el estado del producto
+const normalizeProductStatus = (status: any) => {
+  if (!status) return "ACTIVE"
+  const normalizedStatus = status.toString().toUpperCase()
+  if (["ACTIVE", "DRAFT", "ARCHIVED"].includes(normalizedStatus)) {
+    return normalizedStatus
+  }
+  return "ACTIVE"
+}
+
 export async function fetchProducts(filters: ProductFilters = {}) {
   try {
     const {
@@ -190,6 +200,18 @@ export async function fetchProducts(filters: ProductFilters = {}) {
   }
 }
 
+// Función para obtener productos por estado
+export const fetchProductsByStatus = async (status: string, limit = 50) => {
+  try {
+    const allProducts = await fetchProducts({ first: limit })
+    const normalizedStatus = normalizeProductStatus(status)
+    return allProducts.products.filter((product: any) => product.status === normalizedStatus)
+  } catch (error) {
+    console.error(`Error fetching products by status ${status}:`, error)
+    return []
+  }
+}
+
 export async function fetchProductById(id: string) {
   try {
     let formattedId = id
@@ -314,7 +336,7 @@ export async function fetchProductById(id: string) {
     }
   } catch (error) {
     console.error(`Error fetching product ${id}:`, error)
-    throw new Error(`Error al cargar producto: ${(error as Error).message}`)
+    throw error
   }
 }
 
