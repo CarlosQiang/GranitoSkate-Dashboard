@@ -66,26 +66,31 @@ export default function DashboardPage() {
       console.log("🔄 Iniciando sincronización con base de datos...")
 
       // Sincronizar productos
-      const productResponse = await fetch("/api/db/sincronizar", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tipo: "productos",
-          datos: recentProducts,
-        }),
-      })
+      if (recentProducts && recentProducts.length > 0) {
+        console.log(`📦 Sincronizando ${recentProducts.length} productos...`)
+        const productResponse = await fetch("/api/db/sincronizar", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            tipo: "productos",
+            datos: recentProducts,
+          }),
+        })
 
-      if (!productResponse.ok) {
-        throw new Error("Error al sincronizar productos")
+        if (!productResponse.ok) {
+          const errorData = await productResponse.json()
+          throw new Error(errorData.mensaje || "Error al sincronizar productos")
+        }
+
+        const productResult = await productResponse.json()
+        console.log("✅ Productos sincronizados:", productResult)
       }
 
-      const productResult = await productResponse.json()
-      console.log("✅ Productos sincronizados:", productResult)
-
       // Sincronizar pedidos si hay datos
-      if (recentOrders.length > 0) {
+      if (recentOrders && recentOrders.length > 0) {
+        console.log(`🛒 Sincronizando ${recentOrders.length} pedidos...`)
         const orderResponse = await fetch("/api/db/sincronizar", {
           method: "POST",
           headers: {
@@ -98,7 +103,10 @@ export default function DashboardPage() {
         })
 
         if (!orderResponse.ok) {
-          console.warn("Advertencia: No se pudieron sincronizar los pedidos")
+          console.warn("⚠️ Advertencia: No se pudieron sincronizar los pedidos")
+        } else {
+          const orderResult = await orderResponse.json()
+          console.log("✅ Pedidos sincronizados:", orderResult)
         }
       }
 
@@ -107,7 +115,9 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("❌ Error saving data to database:", error)
       setError("Error al guardar los datos en la base de datos.")
-      setSyncMessage("❌ Error al sincronizar los datos con la base de datos")
+      setSyncMessage(
+        `❌ Error al sincronizar los datos: ${error instanceof Error ? error.message : "Error desconocido"}`,
+      )
     } finally {
       setIsSyncing(false)
     }
