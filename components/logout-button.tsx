@@ -13,7 +13,11 @@ interface LogoutButtonProps {
 
 export function LogoutButton({ variant = "outline", className = "", iconOnly = false }: LogoutButtonProps) {
   const handleLogout = async () => {
-    await signOut({ callbackUrl: "/login" })
+    console.log("🚪 Cerrando sesión...")
+    await signOut({
+      callbackUrl: "/login",
+      redirect: true,
+    })
   }
 
   return (

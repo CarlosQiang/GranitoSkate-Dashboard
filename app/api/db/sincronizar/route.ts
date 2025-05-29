@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { query } from "@/lib/db"
+import { sql } from "@vercel/postgres"
 
 async function sincronizarProductos(productos: any[]) {
   console.log(`🔄 Sincronizando ${productos.length} productos...`)
@@ -12,75 +12,65 @@ async function sincronizarProductos(productos: any[]) {
 
   for (const producto of productos) {
     try {
+      console.log(`📦 Procesando producto: ${producto.title} (ID: ${producto.id})`)
+
       // Verificar si el producto ya existe
-      const existeProducto = await query("SELECT id FROM productos WHERE shopify_id = $1", [producto.id])
+      const existeProducto = await sql`
+        SELECT id FROM productos WHERE shopify_id = ${producto.id}
+      `
 
       if (existeProducto.rows.length > 0) {
         // Actualizar producto existente
-        await query(
-          `UPDATE productos SET 
-            titulo = $1,
-            descripcion = $2,
-            tipo_producto = $3,
-            proveedor = $4,
-            estado = $5,
-            publicado = $6,
-            imagen_destacada_url = $7,
-            precio_base = $8,
-            precio_comparacion = $9,
-            inventario_disponible = $10,
+        await sql`
+          UPDATE productos SET 
+            titulo = ${producto.title},
+            descripcion = ${producto.description || ""},
+            tipo_producto = ${producto.productType || ""},
+            proveedor = ${producto.vendor || ""},
+            estado = ${producto.status || "active"},
+            publicado = ${producto.status === "active"},
+            imagen_destacada_url = ${producto.featuredImage?.url || null},
+            precio_base = ${Number.parseFloat(producto.variants?.edges[0]?.node?.price || "0")},
+            precio_comparacion = ${producto.variants?.edges[0]?.node?.compareAtPrice ? Number.parseFloat(producto.variants.edges[0].node.compareAtPrice) : null},
+            inventario_disponible = ${producto.variants?.edges[0]?.node?.inventoryQuantity || 0},
             actualizado_en = NOW()
-          WHERE shopify_id = $11`,
-          [
-            producto.title,
-            producto.description || "",
-            producto.productType || "",
-            producto.vendor || "",
-            producto.status || "active",
-            producto.status === "active",
-            producto.featuredImage?.url || null,
-            Number.parseFloat(producto.variants?.edges[0]?.node?.price || "0"),
-            producto.variants?.edges[0]?.node?.compareAtPrice
-              ? Number.parseFloat(producto.variants.edges[0].node.compareAtPrice)
-              : null,
-            producto.variants?.edges[0]?.node?.inventoryQuantity || 0,
-            producto.id,
-          ],
-        )
+          WHERE shopify_id = ${producto.id}
+        `
         resultados.actualizados++
+        console.log(`✅ Producto actualizado: ${producto.title}`)
       } else {
         // Insertar nuevo producto
-        await query(
-          `INSERT INTO productos (
+        await sql`
+          INSERT INTO productos (
             shopify_id, titulo, descripcion, tipo_producto, proveedor, estado,
             publicado, imagen_destacada_url, precio_base, precio_comparacion,
             inventario_disponible, creado_en, actualizado_en
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())`,
-          [
-            producto.id,
-            producto.title,
-            producto.description || "",
-            producto.productType || "",
-            producto.vendor || "",
-            producto.status || "active",
-            producto.status === "active",
-            producto.featuredImage?.url || null,
-            Number.parseFloat(producto.variants?.edges[0]?.node?.price || "0"),
-            producto.variants?.edges[0]?.node?.compareAtPrice
-              ? Number.parseFloat(producto.variants.edges[0].node.compareAtPrice)
-              : null,
-            producto.variants?.edges[0]?.node?.inventoryQuantity || 0,
-          ],
-        )
+          ) VALUES (
+            ${producto.id},
+            ${producto.title},
+            ${producto.description || ""},
+            ${producto.productType || ""},
+            ${producto.vendor || ""},
+            ${producto.status || "active"},
+            ${producto.status === "active"},
+            ${producto.featuredImage?.url || null},
+            ${Number.parseFloat(producto.variants?.edges[0]?.node?.price || "0")},
+            ${producto.variants?.edges[0]?.node?.compareAtPrice ? Number.parseFloat(producto.variants.edges[0].node.compareAtPrice) : null},
+            ${producto.variants?.edges[0]?.node?.inventoryQuantity || 0},
+            NOW(),
+            NOW()
+          )
+        `
         resultados.insertados++
+        console.log(`✅ Producto insertado: ${producto.title}`)
       }
     } catch (error) {
-      console.error(`Error al sincronizar producto ${producto.id}:`, error)
+      console.error(`❌ Error al sincronizar producto ${producto.id}:`, error)
       resultados.errores++
     }
   }
 
-  console.log(`✅ Sincronización de productos completada:`, resultados)
+  console.log(`🎉 Sincronización de productos completada:`, resultados)
   return resultados
 }
 
@@ -95,43 +85,49 @@ async function sincronizarPedidos(pedidos: any[]) {
 
   for (const pedido of pedidos) {
     try {
+      console.log(`🛒 Procesando pedido: ${pedido.name} (ID: ${pedido.id})`)
+
       // Verificar si el pedido ya existe
-      const existePedido = await query("SELECT id FROM pedidos WHERE shopify_id = $1", [pedido.id])
+      const existePedido = await sql`
+        SELECT id FROM pedidos WHERE shopify_id = ${pedido.id}
+      `
 
       if (existePedido.rows.length > 0) {
         // Actualizar pedido existente
-        await query(
-          `UPDATE pedidos SET 
-            estado = $1,
-            total = $2,
+        await sql`
+          UPDATE pedidos SET 
+            estado = ${pedido.status || "pending"},
+            total = ${Number.parseFloat(pedido.totalPrice || "0")},
             actualizado_en = NOW()
-          WHERE shopify_id = $3`,
-          [pedido.status || "pending", Number.parseFloat(pedido.totalPrice || "0"), pedido.id],
-        )
+          WHERE shopify_id = ${pedido.id}
+        `
         resultados.actualizados++
+        console.log(`✅ Pedido actualizado: ${pedido.name}`)
       } else {
         // Insertar nuevo pedido
-        await query(
-          `INSERT INTO pedidos (
+        await sql`
+          INSERT INTO pedidos (
             shopify_id, numero_pedido, email_cliente, estado, total, creado_en, actualizado_en
-          ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
-          [
-            pedido.id,
-            pedido.name || "",
-            pedido.email || "",
-            pedido.status || "pending",
-            Number.parseFloat(pedido.totalPrice || "0"),
-          ],
-        )
+          ) VALUES (
+            ${pedido.id},
+            ${pedido.name || ""},
+            ${pedido.email || ""},
+            ${pedido.status || "pending"},
+            ${Number.parseFloat(pedido.totalPrice || "0")},
+            NOW(),
+            NOW()
+          )
+        `
         resultados.insertados++
+        console.log(`✅ Pedido insertado: ${pedido.name}`)
       }
     } catch (error) {
-      console.error(`Error al sincronizar pedido ${pedido.id}:`, error)
+      console.error(`❌ Error al sincronizar pedido ${pedido.id}:`, error)
       resultados.errores++
     }
   }
 
-  console.log(`✅ Sincronización de pedidos completada:`, resultados)
+  console.log(`🎉 Sincronización de pedidos completada:`, resultados)
   return resultados
 }
 
@@ -146,52 +142,68 @@ async function sincronizarColecciones(colecciones: any[]) {
 
   for (const coleccion of colecciones) {
     try {
+      console.log(`📚 Procesando colección: ${coleccion.title} (ID: ${coleccion.id})`)
+
       // Verificar si la colección ya existe
-      const existeColeccion = await query("SELECT id FROM colecciones WHERE shopify_id = $1", [coleccion.id])
+      const existeColeccion = await sql`
+        SELECT id FROM colecciones WHERE shopify_id = ${coleccion.id}
+      `
 
       if (existeColeccion.rows.length > 0) {
         // Actualizar colección existente
-        await query(
-          `UPDATE colecciones SET 
-            titulo = $1,
-            descripcion = $2,
-            imagen_url = $3,
+        await sql`
+          UPDATE colecciones SET 
+            titulo = ${coleccion.title},
+            descripcion = ${coleccion.description || ""},
+            imagen_url = ${coleccion.image?.url || null},
             actualizado_en = NOW()
-          WHERE shopify_id = $4`,
-          [coleccion.title, coleccion.description || "", coleccion.image?.url || null, coleccion.id],
-        )
+          WHERE shopify_id = ${coleccion.id}
+        `
         resultados.actualizados++
+        console.log(`✅ Colección actualizada: ${coleccion.title}`)
       } else {
         // Insertar nueva colección
-        await query(
-          `INSERT INTO colecciones (
+        await sql`
+          INSERT INTO colecciones (
             shopify_id, titulo, descripcion, imagen_url, creado_en, actualizado_en
-          ) VALUES ($1, $2, $3, $4, NOW(), NOW())`,
-          [coleccion.id, coleccion.title, coleccion.description || "", coleccion.image?.url || null],
-        )
+          ) VALUES (
+            ${coleccion.id},
+            ${coleccion.title},
+            ${coleccion.description || ""},
+            ${coleccion.image?.url || null},
+            NOW(),
+            NOW()
+          )
+        `
         resultados.insertados++
+        console.log(`✅ Colección insertada: ${coleccion.title}`)
       }
     } catch (error) {
-      console.error(`Error al sincronizar colección ${coleccion.id}:`, error)
+      console.error(`❌ Error al sincronizar colección ${coleccion.id}:`, error)
       resultados.errores++
     }
   }
 
-  console.log(`✅ Sincronización de colecciones completada:`, resultados)
+  console.log(`🎉 Sincronización de colecciones completada:`, resultados)
   return resultados
 }
 
 async function registrarActividad(accion: string, tipo_entidad: string, resultado: string, descripcion: string) {
   try {
-    await query(
-      `INSERT INTO registros_actividad (
+    await sql`
+      INSERT INTO registros_actividad (
         accion, tipo_entidad, resultado, descripcion, creado_en
-      ) VALUES ($1, $2, $3, $4, NOW())`,
-      [accion, tipo_entidad, resultado, descripcion],
-    )
-    console.log(`✅ Actividad registrada: ${accion} - ${tipo_entidad}`)
+      ) VALUES (
+        ${accion},
+        ${tipo_entidad},
+        ${resultado},
+        ${descripcion},
+        NOW()
+      )
+    `
+    console.log(`📝 Actividad registrada: ${accion} - ${tipo_entidad}`)
   } catch (error) {
-    console.error("Error al registrar actividad:", error)
+    console.error("❌ Error al registrar actividad:", error)
   }
 }
 
@@ -203,7 +215,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Parámetros requeridos: tipo, datos" }, { status: 400 })
     }
 
-    console.log(`📥 Recibida solicitud de sincronización para ${tipo}:`, datos)
+    console.log(`📥 Recibida solicitud de sincronización para ${tipo}`)
+    console.log(`📊 Cantidad de elementos a sincronizar: ${datos.length}`)
 
     let resultado
     switch (tipo) {
@@ -221,7 +234,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Registrar la actividad
-    await registrarActividad("sincronizar", tipo, "completado", `Sincronización de ${tipo} completada`)
+    await registrarActividad(
+      "sincronizar",
+      tipo,
+      "completado",
+      `Sincronización de ${tipo} completada: ${resultado.insertados} insertados, ${resultado.actualizados} actualizados, ${resultado.errores} errores`,
+    )
 
     return NextResponse.json({
       success: true,
@@ -229,7 +247,7 @@ export async function POST(request: NextRequest) {
       resultado,
     })
   } catch (error) {
-    console.error("Error en POST /api/db/sincronizar:", error)
+    console.error("❌ Error en POST /api/db/sincronizar:", error)
 
     // Registrar el error
     await registrarActividad(

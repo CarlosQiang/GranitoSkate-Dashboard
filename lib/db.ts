@@ -1,5 +1,5 @@
 import { Pool } from "pg"
-import { logError } from "./utils"
+import { sql } from "@vercel/postgres"
 
 // Obtener la URL de conexión de las variables de entorno
 const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL
@@ -45,13 +45,19 @@ export async function testConnection() {
 // Función para ejecutar consultas
 export async function query(text: string, params: any[] = []) {
   try {
-    const start = Date.now()
-    const res = await pool.query(text, params)
-    const duration = Date.now() - start
-    console.log("Consulta ejecutada", { text, duration, rows: res.rowCount })
-    return res
+    console.log("🔍 Ejecutando consulta SQL:", text)
+    console.log("📝 Parámetros:", params)
+
+    const result = await sql.query(text, params)
+
+    console.log("✅ Consulta ejecutada exitosamente")
+    console.log("📊 Filas afectadas:", result.rowCount)
+
+    return result
   } catch (error) {
-    logError("Error ejecutando consulta", error)
+    console.error("❌ Error en consulta SQL:", error)
+    console.error("🔍 Consulta que falló:", text)
+    console.error("📝 Parámetros:", params)
     throw error
   }
 }

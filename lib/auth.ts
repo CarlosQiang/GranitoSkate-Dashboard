@@ -17,7 +17,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          console.log("Buscando administrador con email:", credentials.email)
+          console.log("🔍 Buscando administrador con email:", credentials.email)
 
           // Buscar en la tabla de administradores
           const { rows } = await sql`
@@ -27,28 +27,28 @@ export const authOptions: NextAuthOptions = {
           `
 
           if (rows.length === 0) {
-            console.log("Administrador no encontrado")
+            console.log("❌ Administrador no encontrado")
             throw new Error("Credenciales incorrectas")
           }
 
           const admin = rows[0]
 
           if (!admin.activo) {
-            console.log("Administrador inactivo")
+            console.log("❌ Administrador inactivo")
             throw new Error("Usuario inactivo")
           }
 
           const isValid = await verifyPassword(credentials.password, admin.contrasena)
 
           if (!isValid) {
-            console.log("Contraseña incorrecta")
+            console.log("❌ Contraseña incorrecta")
             throw new Error("Credenciales incorrectas")
           }
 
           // Actualizar último acceso
           await updateLastLogin(admin.id)
 
-          console.log("Login exitoso para:", admin.correo_electronico)
+          console.log("✅ Login exitoso para:", admin.correo_electronico)
 
           return {
             id: admin.id.toString(),
@@ -57,7 +57,7 @@ export const authOptions: NextAuthOptions = {
             role: admin.rol,
           }
         } catch (error) {
-          console.error("Error en authorize:", error)
+          console.error("❌ Error en authorize:", error)
           throw new Error(error instanceof Error ? error.message : "Error de autenticación")
         }
       },
