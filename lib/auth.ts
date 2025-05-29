@@ -9,23 +9,23 @@ export const authOptions: NextAuthOptions = {
       id: "credentials",
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
+        identifier: { label: "Usuario o Email", type: "text" },
         password: { label: "Contraseña", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
+        if (!credentials?.identifier || !credentials?.password) {
           console.log("❌ Credenciales incompletas")
           return null
         }
 
         try {
-          console.log("🔍 Buscando administrador con email:", credentials.email)
+          console.log("🔍 Buscando administrador con identificador:", credentials.identifier)
 
-          // Buscar en la tabla de administradores
+          // Buscar en la tabla de administradores por nombre de usuario o correo electrónico
           const { rows } = await sql`
             SELECT id, nombre_usuario, correo_electronico, contrasena, nombre_completo, rol, activo
             FROM administradores
-            WHERE correo_electronico = ${credentials.email}
+            WHERE nombre_usuario = ${credentials.identifier} OR correo_electronico = ${credentials.identifier}
           `
 
           if (rows.length === 0) {

@@ -28,8 +28,8 @@ async function sincronizarProductos(productos: any[]) {
       `
       console.log(`📊 Resultado de verificación: ${existeProducto.rows.length} registros encontrados`)
 
-      const precio = Number.parseFloat(producto.variants?.edges?.[0]?.node?.price || "0")
-      const inventario = producto.variants?.edges?.[0]?.node?.inventoryQuantity || 0
+      const precio = Number.parseFloat(producto.variants?.[0]?.price || "0")
+      const inventario = producto.variants?.[0]?.inventoryQuantity || 0
 
       if (existeProducto.rows.length > 0) {
         // Actualizar producto existente
@@ -186,8 +186,81 @@ async function sincronizarPedidos(pedidos: any[]) {
   return resultados
 }
 
+async function sincronizarClientes(clientes: any[]) {
+  console.log(`🔄 Sincronizando ${clientes.length} clientes...`)
+  console.log("📋 Estructura del primer cliente:", JSON.stringify(clientes[0], null, 2))
+
+  const resultados = {
+    insertados: 0,
+    actualizados: 0,
+    errores: 0,
+    detalles: [] as any[],
+  }
+
+  for (let i = 0; i < clientes.length; i++) {
+    const cliente = clientes[i]
+    try {
+      console.log(`👤 [${i + 1}/${clientes.length}] Procesando cliente:`, {
+        id: cliente.id,
+        email: cliente.email,
+      })
+
+      // Verificar si el cliente ya existe
+      const existeCliente = await sql`
+        SELECT id FROM clientes WHERE shopify_id = ${cliente.id}
+      `
+
+      const nombreCompleto = `${cliente.firstName || ""} ${cliente.lastName || ""}`.trim()
+
+      if (existeCliente.rows.length > 0) {
+        // Actualizar cliente existente
+        const updateResult = await sql`
+          UPDATE clientes SET 
+            email = ${cliente.email},
+            nombre = ${nombreCompleto},
+            telefono = ${cliente.phone || null},
+            actualizado_en = NOW()
+          WHERE shopify_id = ${cliente.id}
+          RETURNING id
+        `
+
+        console.log(`✅ Cliente actualizado. Filas afectadas: ${updateResult.rowCount}`)
+        resultados.actualizados++
+      } else {
+        // Insertar nuevo cliente
+        const insertResult = await sql`
+          INSERT INTO clientes (
+            shopify_id, email, nombre, telefono, creado_en, actualizado_en
+          ) VALUES (
+            ${cliente.id},
+            ${cliente.email},
+            ${nombreCompleto},
+            ${cliente.phone || null},
+            NOW(),
+            NOW()
+          ) RETURNING id
+        `
+
+        console.log(`✅ Cliente insertado. ID generado: ${insertResult.rows[0]?.id}`)
+        resultados.insertados++
+      }
+    } catch (error) {
+      console.error(`❌ Error al sincronizar cliente:`, error)
+      resultados.errores++
+    }
+  }
+
+  // Verificar el conteo final
+  const conteoFinal = await sql`SELECT COUNT(*) as count FROM clientes`
+  console.log(`📊 Conteo final de clientes en la base de datos: ${conteoFinal.rows[0].count}`)
+
+  console.log(`🎉 Sincronización de clientes completada:`, resultados)
+  return resultados
+}
+
 async function sincronizarColecciones(colecciones: any[]) {
   console.log(`🔄 Sincronizando ${colecciones.length} colecciones...`)
+  console.log("📋 Estructura de la primera colección:", JSON.stringify(colecciones[0], null, 2))
 
   const resultados = {
     insertados: 0,
@@ -239,6 +312,10 @@ async function sincronizarColecciones(colecciones: any[]) {
     }
   }
 
+  // Verificar el conteo final
+  const conteoFinal = await sql`SELECT COUNT(*) as count FROM colecciones`
+  console.log(`📊 Conteo final de colecciones en la base de datos: ${conteoFinal.rows[0].count}`)
+
   console.log(`🎉 Sincronización de colecciones completada:`, resultados)
   return resultados
 }
@@ -284,6 +361,9 @@ export async function POST(request: NextRequest) {
         break
       case "pedidos":
         resultado = await sincronizarPedidos(datos)
+        break
+      case "clientes":
+        resultado = await sincronizarClientes(datos)
         break
       case "colecciones":
         resultado = await sincronizarColecciones(datos)

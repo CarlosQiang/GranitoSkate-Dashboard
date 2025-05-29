@@ -11,15 +11,17 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, Eye, EyeOff, Shield, User } from "lucide-react"
+import { useTheme } from "@/contexts/theme-context"
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("")
+  const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
   const { data: session, status } = useSession()
+  const { theme } = useTheme()
 
   // Si ya está autenticado, redirigir al dashboard
   useEffect(() => {
@@ -38,7 +40,7 @@ export default function LoginPage() {
       console.log("🔐 Intentando iniciar sesión...")
 
       const result = await signIn("credentials", {
-        email,
+        identifier,
         password,
         redirect: false,
       })
@@ -47,7 +49,7 @@ export default function LoginPage() {
 
       if (result?.error) {
         console.error("❌ Error de login:", result.error)
-        setError("Credenciales incorrectas. Verifica tu email y contraseña.")
+        setError("Credenciales incorrectas. Verifica tu usuario/email y contraseña.")
       } else if (result?.ok) {
         console.log("✅ Login exitoso, verificando sesión...")
 
@@ -74,59 +76,93 @@ export default function LoginPage() {
   // Mostrar loading si está verificando la sesión
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100">
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: theme.backgroundColor || "#fff5e6" }}
+      >
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-amber-600" />
-          <p className="text-gray-600">Verificando sesión...</p>
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" style={{ color: theme.primaryColor || "#f59e0b" }} />
+          <p style={{ color: theme.textColor || "#4b5563" }}>Verificando sesión...</p>
         </div>
       </div>
     )
   }
 
+  // Estilos dinámicos basados en el tema
+  const primaryColor = theme.primaryColor || "#f59e0b"
+  const primaryColorHover = theme.primaryColorHover || "#d97706"
+  const backgroundColor = theme.backgroundColor || "#fff5e6"
+  const cardBackground = theme.cardBackground || "white"
+  const textColor = theme.textColor || "#4b5563"
+  const borderRadius = theme.borderRadius || "0.5rem"
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div
+      className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
+      style={{ backgroundColor }}
+    >
       <div className="w-full max-w-md">
         {/* Logo y título */}
         <div className="text-center mb-8">
-          <div className="mx-auto h-16 w-16 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center mb-4 shadow-lg">
+          <div
+            className="mx-auto h-16 w-16 rounded-xl flex items-center justify-center mb-4 shadow-lg"
+            style={{
+              background: `linear-gradient(to bottom right, ${primaryColor}, ${primaryColorHover})`,
+              borderRadius,
+            }}
+          >
             <span className="text-2xl font-bold text-white">G</span>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">GranitoSkate</h1>
-          <p className="text-gray-600">Panel de Administración</p>
+          <h1 className="text-3xl font-bold mb-2" style={{ color: textColor }}>
+            GranitoSkate
+          </h1>
+          <p style={{ color: `${textColor}99` }}>Panel de Administración</p>
         </div>
 
-        <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+        <Card
+          className="shadow-xl border-0 backdrop-blur-sm"
+          style={{
+            backgroundColor: `${cardBackground}cc`,
+            borderRadius,
+          }}
+        >
           <CardHeader className="space-y-1 pb-6">
             <div className="flex items-center justify-center mb-4">
-              <Shield className="h-8 w-8 text-amber-600" />
+              <Shield style={{ color: primaryColor }} className="h-8 w-8" />
             </div>
-            <CardTitle className="text-2xl font-bold text-center text-gray-900">Acceso Seguro</CardTitle>
-            <CardDescription className="text-center text-gray-600">
+            <CardTitle className="text-2xl font-bold text-center" style={{ color: textColor }}>
+              Acceso Seguro
+            </CardTitle>
+            <CardDescription className="text-center" style={{ color: `${textColor}99` }}>
               Ingresa tus credenciales para acceder al panel de administración
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-700 font-medium">
-                  Correo Electrónico
+                <Label htmlFor="identifier" style={{ color: textColor }} className="font-medium">
+                  Usuario o Correo Electrónico
                 </Label>
                 <div className="relative">
                   <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
-                    id="email"
-                    type="email"
-                    placeholder="tu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="identifier"
+                    type="text"
+                    placeholder="usuario o email"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
                     required
                     disabled={isLoading}
-                    className="pl-10 h-12 border-gray-200 focus:border-amber-500 focus:ring-amber-500"
+                    className="pl-10 h-12 border-gray-200"
+                    style={{
+                      borderRadius,
+                      borderColor: `${primaryColor}33`,
+                    }}
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-gray-700 font-medium">
+                <Label htmlFor="password" style={{ color: textColor }} className="font-medium">
                   Contraseña
                 </Label>
                 <div className="relative">
@@ -138,7 +174,12 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     disabled={isLoading}
-                    className="pr-10 h-12 border-gray-200 focus:border-amber-500 focus:ring-amber-500"
+                    className="pr-10 h-12 border-gray-200"
+                    style={{
+                      borderRadius,
+                      borderColor: `${primaryColor}33`,
+                    }}
+                    autoComplete="current-password"
                   />
                   <Button
                     type="button"
@@ -163,7 +204,11 @@ export default function LoginPage() {
               )}
               <Button
                 type="submit"
-                className="w-full h-12 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-medium shadow-lg transition-all duration-200"
+                className="w-full h-12 text-white font-medium shadow-lg transition-all duration-200"
+                style={{
+                  background: `linear-gradient(to right, ${primaryColor}, ${primaryColorHover})`,
+                  borderRadius,
+                }}
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -179,7 +224,7 @@ export default function LoginPage() {
 
             {/* Información de seguridad */}
             <div className="pt-4 border-t border-gray-100">
-              <div className="flex items-center justify-center text-sm text-gray-500">
+              <div className="flex items-center justify-center text-sm" style={{ color: `${textColor}99` }}>
                 <Shield className="h-4 w-4 mr-2" />
                 Conexión segura y cifrada
               </div>
@@ -189,7 +234,9 @@ export default function LoginPage() {
 
         {/* Footer */}
         <div className="text-center mt-8">
-          <p className="text-sm text-gray-500">© 2024 GranitoSkate. Todos los derechos reservados.</p>
+          <p className="text-sm" style={{ color: `${textColor}99` }}>
+            © {new Date().getFullYear()} GranitoSkate. Todos los derechos reservados.
+          </p>
         </div>
       </div>
     </div>
