@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, Database, Users, ShoppingBag, Tag, Euro } from "lucide-react"
+import { RefreshCw, Database, Users, ShoppingBag, Tag, Euro, AlertTriangle } from "lucide-react"
 import { SalesOverview } from "@/components/sales-overview"
 import { RecentOrders } from "@/components/recent-orders"
 import { RecentProducts } from "@/components/recent-products"
@@ -13,7 +13,29 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSyncing, setIsSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [dashboardData, setDashboardData] = useState<any>(null)
+  const [dashboardData, setDashboardData] = useState<any>({
+    stats: {
+      totalSales: "0.00",
+      totalOrders: 0,
+      totalCustomers: 0,
+      totalProducts: 0,
+      totalCollections: 0,
+      totalInventory: 0,
+      currency: "EUR",
+    },
+    recentOrders: [],
+    recentProducts: [],
+    salesOverview: [],
+    inventoryStatus: {
+      inStock: 0,
+      lowStock: 0,
+      outOfStock: 0,
+    },
+    allProducts: [],
+    allOrders: [],
+    allCustomers: [],
+    allCollections: [],
+  })
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
   const [syncDetails, setSyncDetails] = useState<any>({})
 
@@ -29,18 +51,23 @@ export default function DashboardPage() {
         headers: {
           "Content-Type": "application/json",
         },
+        cache: "no-store",
       })
 
-      if (!response.ok) {
-        throw new Error(`Dashboard API error: ${response.status}`)
-      }
-
       const data = await response.json()
+
+      // Incluso si hay un error, usamos los datos de fallback proporcionados por la API
       setDashboardData(data)
-      console.log("✅ Dashboard data loaded successfully:", data)
+
+      if (data.error) {
+        console.warn("⚠️ Dashboard API warning:", data.error)
+        setError(`Advertencia: ${data.error}. Se muestran datos parciales.`)
+      } else {
+        console.log("✅ Dashboard data loaded successfully")
+      }
     } catch (err) {
       console.error("❌ Error loading dashboard:", err)
-      setError(err instanceof Error ? err.message : "Error loading dashboard")
+      setError("Error al cargar el dashboard. Se muestran datos parciales.")
     } finally {
       setIsLoading(false)
     }
@@ -193,34 +220,16 @@ export default function DashboardPage() {
     )
   }
 
-  if (error) {
-    return (
-      <div className="flex-1 space-y-4 p-8 pt-6">
-        <div className="flex items-center justify-between space-y-2">
-          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-        </div>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-red-600">Error</CardTitle>
-            <CardDescription>No se pudieron cargar los datos del dashboard</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600 mb-4">{error}</p>
-            <Button onClick={loadDashboardData} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-              Reintentar
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
   return (
     <div className="flex-1 space-y-4 p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         <div className="flex items-center gap-4">
           <p className="text-muted-foreground">Bienvenido al panel de administración de GranitoSkate</p>
+          <Button onClick={loadDashboardData} className="mr-2">
+            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            Actualizar
+          </Button>
           <Button
             onClick={handleSyncToDatabase}
             disabled={isSyncing}
@@ -240,6 +249,20 @@ export default function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      {error && (
+        <Card className="border-l-4 border-amber-500 bg-amber-50">
+          <CardContent className="pt-4 flex items-start">
+            <AlertTriangle className="h-5 w-5 text-amber-500 mr-2 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-amber-800">{error}</p>
+              <p className="text-xs text-amber-700 mt-1">
+                Los datos pueden estar incompletos. Puedes intentar actualizar o continuar con los datos disponibles.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {syncMessage && (
         <Card
