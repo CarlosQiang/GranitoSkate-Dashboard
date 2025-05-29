@@ -12,11 +12,8 @@ import { DatabaseStatus } from "@/components/database-status"
 
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
-  const [isSyncing, setIsSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dashboardData, setDashboardData] = useState<any>(null)
-  const [syncMessage, setSyncMessage] = useState<string | null>(null)
-  const [syncDetails, setSyncDetails] = useState<any>({})
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -82,53 +79,6 @@ export default function DashboardPage() {
     loadDashboardData()
   }, [loadDashboardData])
 
-  const handleSyncToDatabase = async () => {
-    setIsSyncing(true)
-    setSyncMessage(null)
-    setSyncDetails({})
-
-    try {
-      console.log("🔄 Iniciando sincronización completa con base de datos...")
-
-      if (!dashboardData) {
-        throw new Error("No hay datos para sincronizar")
-      }
-
-      // Usar la API de sincronización completa
-      const response = await fetch("/api/sync/complete", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          dashboardData: dashboardData,
-        }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || `Error HTTP: ${response.status}`)
-      }
-
-      const result = await response.json()
-      console.log("✅ Sincronización completada:", result)
-
-      setSyncDetails(result.results)
-      setSyncMessage(`✅ Sincronización exitosa: ${result.totalInsertados} registros insertados`)
-
-      // Recargar los datos del dashboard después de la sincronización
-      setTimeout(() => {
-        loadDashboardData()
-      }, 1000)
-    } catch (error) {
-      console.error("❌ Error en sincronización:", error)
-      setError("Error al sincronizar los datos con la base de datos.")
-      setSyncMessage(`❌ Error al sincronizar: ${error instanceof Error ? error.message : "Error desconocido"}`)
-    } finally {
-      setIsSyncing(false)
-    }
-  }
-
   if (isLoading) {
     return (
       <div className="flex-1 space-y-4 p-8 pt-6">
@@ -164,24 +114,7 @@ export default function DashboardPage() {
           <p className="text-muted-foreground">Bienvenido al panel de administración de GranitoSkate</p>
           <Button onClick={loadDashboardData} className="mr-2">
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-            Actualizar
-          </Button>
-          <Button
-            onClick={handleSyncToDatabase}
-            disabled={isSyncing}
-            className="bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            {isSyncing ? (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Sincronizando...
-              </>
-            ) : (
-              <>
-                <Database className="mr-2 h-4 w-4" />
-                Sincronizar con Base de Datos
-              </>
-            )}
+            Actualizar Datos
           </Button>
         </div>
       </div>
@@ -196,29 +129,6 @@ export default function DashboardPage() {
                 Los datos pueden estar incompletos. Puedes intentar actualizar o continuar con los datos disponibles.
               </p>
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {syncMessage && (
-        <Card
-          className={`border-l-4 ${syncMessage.includes("✅") ? "border-green-500 bg-green-50" : "border-red-500 bg-red-50"}`}
-        >
-          <CardContent className="pt-4">
-            <p className="text-sm font-medium mb-2">{syncMessage}</p>
-            {Object.keys(syncDetails).length > 0 && (
-              <div className="text-xs space-y-1 mt-2">
-                <p className="font-semibold">Detalles de sincronización:</p>
-                <ul className="list-disc pl-5 space-y-1">
-                  {Object.entries(syncDetails).map(([tipo, resultado]: [string, any]) => (
-                    <li key={tipo}>
-                      {tipo.charAt(0).toUpperCase() + tipo.slice(1)}: {resultado.insertados || 0} insertados,{" "}
-                      {resultado.actualizados || 0} actualizados, {resultado.errores || 0} errores
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </CardContent>
         </Card>
       )}
@@ -322,7 +232,6 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
-
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
             <CardHeader>
@@ -352,7 +261,7 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Estado de la Base de Datos - Movido al final de la página */}
+        {/* Estado de la Base de Datos - Movido al final */}
         <div className="mt-8">
           <DatabaseStatus onRefresh={loadDashboardData} />
         </div>

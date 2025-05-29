@@ -44,7 +44,6 @@ export async function POST(request: Request) {
             tipo_producto VARCHAR(100),
             proveedor VARCHAR(255),
             imagen_destacada_url TEXT,
-            url_handle VARCHAR(255),
             publicado BOOLEAN DEFAULT true,
             creado_en TIMESTAMP DEFAULT NOW(),
             actualizado_en TIMESTAMP DEFAULT NOW()
@@ -53,6 +52,16 @@ export async function POST(request: Request) {
         console.log("✅ Tabla productos creada")
       } else {
         console.log("✅ Tabla productos ya existe")
+
+        // Verificamos las columnas existentes
+        const columnsCheck = await sql`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'productos';
+        `
+
+        const existingColumns = columnsCheck.rows.map((row) => row.column_name)
+        console.log("📋 Columnas existentes:", existingColumns)
       }
     } catch (error) {
       console.error("❌ Error con tabla productos:", error)
@@ -105,7 +114,7 @@ export async function POST(request: Request) {
         console.log("- Precio:", precio)
         console.log("- Inventario:", inventario)
 
-        // Insertar producto
+        // Insertar producto - SIN url_handle
         await sql`
           INSERT INTO productos (
             shopify_id, 
@@ -117,7 +126,6 @@ export async function POST(request: Request) {
             tipo_producto, 
             proveedor,
             imagen_destacada_url, 
-            url_handle, 
             publicado,
             creado_en, 
             actualizado_en
@@ -128,10 +136,9 @@ export async function POST(request: Request) {
             'ACTIVE',
             ${precio},
             ${inventario},
-            'SKATEBOARD',
-            'GranitoSkate',
+            ${producto.product_type || "SKATEBOARD"},
+            ${producto.vendor || "GranitoSkate"},
             ${producto.image || null},
-            ${producto.handle || titulo.toLowerCase().replace(/\s+/g, "-")},
             true,
             NOW(),
             NOW()
