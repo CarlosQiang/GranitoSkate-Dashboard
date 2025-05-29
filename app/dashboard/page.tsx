@@ -2,33 +2,21 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { DashboardStats } from "@/components/dashboard-stats"
-import { RecentOrders } from "@/components/recent-orders"
-import { RecentProducts } from "@/components/recent-products"
-import { SalesOverview } from "@/components/sales-overview"
-import { InventoryStatus } from "@/components/inventory-status"
 import { Button } from "@/components/ui/button"
 import { RefreshCw, Database, Users, ShoppingBag, Tag } from "lucide-react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { SalesOverview } from "@/components/sales-overview"
+import { RecentOrders } from "@/components/recent-orders"
+import { RecentProducts } from "@/components/recent-products"
+import { InventoryStatus } from "@/components/inventory-status"
 
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSyncing, setIsSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [dashboardData, setDashboardData] = useState<any>(null)
-  const [recentOrders, setRecentOrders] = useState<any[]>([])
-  const [recentProducts, setRecentProducts] = useState<any[]>([])
-  const [recentCustomers, setRecentCustomers] = useState<any[]>([])
-  const [recentCollections, setRecentCollections] = useState<any[]>([])
-  const [allOrders, setAllOrders] = useState<any[]>([])
-  const [allProducts, setAllProducts] = useState<any[]>([])
-  const [allCustomers, setAllCustomers] = useState<any[]>([])
-  const [allCollections, setAllCollections] = useState<any[]>([])
-  const [salesOverview, setSalesOverview] = useState<any[]>([])
+  const [dashboardData, setDashboardData] = useState<any>({})
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
   const [syncDetails, setSyncDetails] = useState<any>({})
 
-  // Función para cargar datos del dashboard con debouncing
   const loadDashboardData = useCallback(async () => {
     try {
       setIsLoading(true)
@@ -36,7 +24,6 @@ export default function DashboardPage() {
 
       console.log("📊 Loading dashboard data...")
 
-      // Hacer una sola llamada que agregue todos los datos necesarios
       const response = await fetch("/api/dashboard/summary", {
         method: "GET",
         headers: {
@@ -50,15 +37,6 @@ export default function DashboardPage() {
 
       const data = await response.json()
       setDashboardData(data)
-      setRecentOrders(data?.recentOrders || [])
-      setRecentProducts(data?.recentProducts || [])
-      setRecentCustomers(data?.recentCustomers || [])
-      setRecentCollections(data?.recentCollections || [])
-      setAllOrders(data?.allOrders || [])
-      setAllProducts(data?.allProducts || [])
-      setAllCustomers(data?.allCustomers || [])
-      setAllCollections(data?.allCollections || [])
-      setSalesOverview(data?.salesOverview || [])
       console.log("✅ Dashboard data loaded successfully")
     } catch (err) {
       console.error("❌ Error loading dashboard:", err)
@@ -68,7 +46,6 @@ export default function DashboardPage() {
     }
   }, [])
 
-  // Cargar datos solo una vez al montar el component
   useEffect(() => {
     loadDashboardData()
   }, [loadDashboardData])
@@ -83,8 +60,8 @@ export default function DashboardPage() {
       console.log("🔄 Iniciando sincronización con base de datos...")
 
       // Sincronizar productos
-      if (allProducts && allProducts.length > 0) {
-        console.log(`📦 Sincronizando ${allProducts.length} productos...`)
+      if (dashboardData.totalProducts > 0) {
+        console.log(`📦 Sincronizando ${dashboardData.totalProducts} productos...`)
         const productResponse = await fetch("/api/db/sincronizar", {
           method: "POST",
           headers: {
@@ -92,7 +69,7 @@ export default function DashboardPage() {
           },
           body: JSON.stringify({
             tipo: "productos",
-            datos: allProducts,
+            datos: dashboardData.recentProducts,
           }),
         })
 
@@ -107,8 +84,8 @@ export default function DashboardPage() {
       }
 
       // Sincronizar pedidos
-      if (allOrders && allOrders.length > 0) {
-        console.log(`🛒 Sincronizando ${allOrders.length} pedidos...`)
+      if (dashboardData.totalOrders > 0) {
+        console.log(`🛒 Sincronizando ${dashboardData.totalOrders} pedidos...`)
         const orderResponse = await fetch("/api/db/sincronizar", {
           method: "POST",
           headers: {
@@ -116,7 +93,7 @@ export default function DashboardPage() {
           },
           body: JSON.stringify({
             tipo: "pedidos",
-            datos: allOrders,
+            datos: dashboardData.recentOrders,
           }),
         })
 
@@ -130,8 +107,8 @@ export default function DashboardPage() {
       }
 
       // Sincronizar clientes
-      if (allCustomers && allCustomers.length > 0) {
-        console.log(`👥 Sincronizando ${allCustomers.length} clientes...`)
+      if (dashboardData.totalCustomers > 0) {
+        console.log(`👥 Sincronizando ${dashboardData.totalCustomers} clientes...`)
         const customerResponse = await fetch("/api/db/sincronizar", {
           method: "POST",
           headers: {
@@ -139,7 +116,7 @@ export default function DashboardPage() {
           },
           body: JSON.stringify({
             tipo: "clientes",
-            datos: allCustomers,
+            datos: dashboardData.recentCustomers,
           }),
         })
 
@@ -153,8 +130,8 @@ export default function DashboardPage() {
       }
 
       // Sincronizar colecciones
-      if (allCollections && allCollections.length > 0) {
-        console.log(`📚 Sincronizando ${allCollections.length} colecciones...`)
+      if (dashboardData.totalCollections > 0) {
+        console.log(`📚 Sincronizando ${dashboardData.totalCollections} colecciones...`)
         const collectionResponse = await fetch("/api/db/sincronizar", {
           method: "POST",
           headers: {
@@ -162,7 +139,7 @@ export default function DashboardPage() {
           },
           body: JSON.stringify({
             tipo: "colecciones",
-            datos: allCollections,
+            datos: dashboardData.recentCollections,
           }),
         })
 
@@ -188,6 +165,10 @@ export default function DashboardPage() {
       setIsSyncing(false)
     }
   }
+
+  const salesOverview = dashboardData.salesOverview || []
+  const recentOrders = dashboardData.recentOrders || []
+  const recentProducts = dashboardData.recentProducts || []
 
   if (isLoading) {
     return (
@@ -288,267 +269,105 @@ export default function DashboardPage() {
       )}
 
       <div className="space-y-4">
-        <DashboardStats data={dashboardData?.stats} />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Ventas Totales</CardTitle>
+              <Database className="h-4 w-4 text-gray-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {dashboardData?.stats?.totalSales || 0} {dashboardData?.stats?.currency || "EUR"}
+              </div>
+              <p className="text-sm text-gray-500">+0% desde el mes pasado</p>
+            </CardContent>
+          </Card>
 
-        <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="overview">Resumen</TabsTrigger>
-            <TabsTrigger value="products">
-              <ShoppingBag className="h-4 w-4 mr-2" />
-              Productos ({allProducts.length})
-            </TabsTrigger>
-            <TabsTrigger value="customers">
-              <Users className="h-4 w-4 mr-2" />
-              Clientes ({allCustomers.length})
-            </TabsTrigger>
-            <TabsTrigger value="collections">
-              <Tag className="h-4 w-4 mr-2" />
-              Colecciones ({allCollections.length})
-            </TabsTrigger>
-          </TabsList>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pedidos</CardTitle>
+              <ShoppingBag className="h-4 w-4 text-gray-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{dashboardData?.stats?.totalOrders || 0}</div>
+              <p className="text-sm text-gray-500">+0% desde el mes pasado</p>
+            </CardContent>
+          </Card>
 
-          <TabsContent value="overview">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-              <Card className="col-span-4">
-                <CardHeader>
-                  <CardTitle>Tendencia de ventas</CardTitle>
-                  <CardDescription>Evolución de las ventas en los últimos 7 días</CardDescription>
-                </CardHeader>
-                <CardContent className="pl-2">
-                  <SalesOverview data={salesOverview} />
-                </CardContent>
-              </Card>
-              <Card className="col-span-3">
-                <CardHeader>
-                  <CardTitle>Pedidos recientes</CardTitle>
-                  <CardDescription>Últimos pedidos procesados</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <RecentOrders data={recentOrders} />
-                </CardContent>
-              </Card>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Productos recientes</CardTitle>
-                  <CardDescription>Los últimos productos añadidos a tu catálogo</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <RecentProducts data={recentProducts} />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Estado del inventario</CardTitle>
-                  <CardDescription>Resumen del stock disponible</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <InventoryStatus data={dashboardData?.inventoryStatus} />
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Clientes</CardTitle>
+              <Users className="h-4 w-4 text-gray-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{dashboardData?.stats?.totalCustomers || 0}</div>
+              <p className="text-sm text-gray-500">+0% desde el mes pasado</p>
+            </CardContent>
+          </Card>
 
-          <TabsContent value="products">
-            <Card>
-              <CardHeader>
-                <CardTitle>Todos los productos ({allProducts.length})</CardTitle>
-                <CardDescription>Productos disponibles para sincronizar</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-md border">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
-                          Título
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
-                          Tipo
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
-                          Estado
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
-                          Precio
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {allProducts.slice(0, 10).map((product) => (
-                        <tr key={product.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {product.title}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {product.productType || "-"}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.status}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {product.variants && product.variants[0]
-                              ? `€${Number.parseFloat(product.variants[0].price).toFixed(2)}`
-                              : "-"}
-                          </td>
-                        </tr>
-                      ))}
-                      {allProducts.length > 10 && (
-                        <tr>
-                          <td colSpan={4} className="px-6 py-4 text-sm text-gray-500 text-center">
-                            Mostrando 10 de {allProducts.length} productos
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Productos</CardTitle>
+              <Database className="h-4 w-4 text-gray-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{dashboardData?.stats?.totalProducts || 0}</div>
+              <p className="text-sm text-gray-500">+0% desde el mes pasado</p>
+            </CardContent>
+          </Card>
 
-          <TabsContent value="customers">
-            <Card>
-              <CardHeader>
-                <CardTitle>Todos los clientes ({allCustomers.length})</CardTitle>
-                <CardDescription>Clientes disponibles para sincronizar</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-md border">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
-                          Nombre
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
-                          Email
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
-                          Teléfono
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
-                          Pedidos
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {allCustomers.slice(0, 10).map((customer) => (
-                        <tr key={customer.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {customer.firstName} {customer.lastName}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{customer.email}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{customer.phone || "-"}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {customer.orders ? customer.orders.length : 0}
-                          </td>
-                        </tr>
-                      ))}
-                      {allCustomers.length > 10 && (
-                        <tr>
-                          <td colSpan={4} className="px-6 py-4 text-sm text-gray-500 text-center">
-                            Mostrando 10 de {allCustomers.length} clientes
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Colecciones</CardTitle>
+              <Tag className="h-4 w-4 text-gray-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{dashboardData?.stats?.totalCollections || 0}</div>
+              <p className="text-sm text-gray-500">+0% desde el mes pasado</p>
+            </CardContent>
+          </Card>
+        </div>
 
-          <TabsContent value="collections">
-            <Card>
-              <CardHeader>
-                <CardTitle>Todas las colecciones ({allCollections.length})</CardTitle>
-                <CardDescription>Colecciones disponibles para sincronizar</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-md border">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
-                          Título
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
-                          Handle
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
-                          Imagen
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {allCollections.slice(0, 10).map((collection) => (
-                        <tr key={collection.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {collection.title}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {collection.handle || "-"}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {collection.image ? (
-                              <img
-                                src={collection.image.url || "/placeholder.svg"}
-                                alt={collection.title}
-                                className="h-8 w-8 rounded-full"
-                              />
-                            ) : (
-                              "-"
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                      {allCollections.length > 10 && (
-                        <tr>
-                          <td colSpan={3} className="px-6 py-4 text-sm text-gray-500 text-center">
-                            Mostrando 10 de {allCollections.length} colecciones
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+          <Card className="col-span-4">
+            <CardHeader>
+              <CardTitle>Tendencia de ventas</CardTitle>
+              <CardDescription>Evolución de las ventas en los últimos 7 días</CardDescription>
+            </CardHeader>
+            <CardContent className="pl-2">
+              <SalesOverview data={salesOverview} />
+            </CardContent>
+          </Card>
+          <Card className="col-span-3">
+            <CardHeader>
+              <CardTitle>Pedidos recientes</CardTitle>
+              <CardDescription>Últimos pedidos procesados</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RecentOrders data={recentOrders} />
+            </CardContent>
+          </Card>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Productos recientes</CardTitle>
+              <CardDescription>Los últimos productos añadidos a tu catálogo</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RecentProducts data={recentProducts} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Estado del inventario</CardTitle>
+              <CardDescription>Resumen del stock disponible</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <InventoryStatus data={dashboardData?.inventoryStatus} />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )
