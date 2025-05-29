@@ -10,6 +10,7 @@ export async function POST(request: Request) {
     }
 
     console.log(`🔄 Sincronizando ${tipo}: ${datos.length} elementos`)
+    console.log(`📋 Estructura del primer elemento:`, JSON.stringify(datos[0], null, 2))
 
     const resultado = {
       insertados: 0,
@@ -20,12 +21,34 @@ export async function POST(request: Request) {
     if (tipo === "productos") {
       for (const producto of datos) {
         try {
+          console.log(`📦 Procesando producto:`, {
+            id: producto.id,
+            title: producto.title,
+            status: producto.status,
+            variants: producto.variants?.length || 0,
+          })
+
           if (!producto.id || !producto.title) {
+            console.warn(`⚠️ Producto sin ID o título:`, producto)
             resultado.errores++
             continue
           }
 
-          const shopifyId = producto.id.replace("gid://shopify/Product/", "")
+          // Extraer ID de Shopify correctamente
+          let shopifyId = producto.id
+          if (typeof shopifyId === "string" && shopifyId.includes("gid://shopify/Product/")) {
+            shopifyId = shopifyId.replace("gid://shopify/Product/", "")
+          }
+
+          // Obtener datos del primer variant
+          const variant = producto.variants?.[0] || {}
+          const precio = Number.parseFloat(variant.price || "0")
+          const inventario = Number.parseInt(variant.inventoryQuantity || "0")
+
+          // Obtener imagen
+          const imagen = producto.featuredImage?.url || producto.image?.url || null
+
+          console.log(`💰 Datos del producto: precio=${precio}, inventario=${inventario}, imagen=${imagen}`)
 
           // Verificar si existe
           const existeProducto = await sql`
@@ -37,36 +60,39 @@ export async function POST(request: Request) {
             await sql`
               UPDATE productos SET 
                 titulo = ${producto.title},
+                descripcion = ${producto.description || ""},
                 estado = ${producto.status || "ACTIVE"},
-                precio_base = ${Number.parseFloat(producto.price || "0")},
-                inventario_disponible = ${Number.parseInt(producto.inventory || "0")},
+                precio_base = ${precio},
+                inventario_disponible = ${inventario},
                 tipo_producto = ${producto.productType || "SKATEBOARD"},
                 proveedor = ${producto.vendor || "GranitoSkate"},
-                imagen_destacada_url = ${producto.image || null},
+                imagen_destacada_url = ${imagen},
                 url_handle = ${producto.handle || producto.title.toLowerCase().replace(/\s+/g, "-")},
                 actualizado_en = NOW()
               WHERE shopify_id = ${shopifyId}
             `
             resultado.actualizados++
+            console.log(`✅ Producto actualizado: ${producto.title}`)
           } else {
             // Insertar
             await sql`
               INSERT INTO productos (
-                shopify_id, titulo, estado, precio_base, inventario_disponible,
+                shopify_id, titulo, descripcion, estado, precio_base, inventario_disponible,
                 tipo_producto, proveedor, imagen_destacada_url, url_handle,
                 creado_en, actualizado_en
               ) VALUES (
-                ${shopifyId}, ${producto.title}, ${producto.status || "ACTIVE"},
-                ${Number.parseFloat(producto.price || "0")}, ${Number.parseInt(producto.inventory || "0")},
-                ${producto.productType || "SKATEBOARD"}, ${producto.vendor || "GranitoSkate"},
-                ${producto.image || null}, ${producto.handle || producto.title.toLowerCase().replace(/\s+/g, "-")},
+                ${shopifyId}, ${producto.title}, ${producto.description || ""}, ${producto.status || "ACTIVE"},
+                ${precio}, ${inventario}, ${producto.productType || "SKATEBOARD"}, 
+                ${producto.vendor || "GranitoSkate"}, ${imagen}, 
+                ${producto.handle || producto.title.toLowerCase().replace(/\s+/g, "-")},
                 NOW(), NOW()
               )
             `
             resultado.insertados++
+            console.log(`✅ Producto insertado: ${producto.title}`)
           }
         } catch (error) {
-          console.error(`Error con producto ${producto.id}:`, error)
+          console.error(`❌ Error con producto ${producto.id}:`, error)
           resultado.errores++
         }
       }
@@ -75,12 +101,30 @@ export async function POST(request: Request) {
     if (tipo === "pedidos") {
       for (const pedido of datos) {
         try {
+          console.log(`🛒 Procesando pedido:`, {
+            id: pedido.id,
+            name: pedido.name,
+            totalPrice: pedido.totalPrice,
+            customer: pedido.customer?.email,
+          })
+
           if (!pedido.id) {
+            console.warn(`⚠️ Pedido sin ID:`, pedido)
             resultado.errores++
             continue
           }
 
-          const shopifyId = pedido.id.replace("gid://shopify/Order/", "")
+          // Extraer ID de Shopify correctamente
+          let shopifyId = pedido.id
+          if (typeof shopifyId === "string" && shopifyId.includes("gid://shopify/Order/")) {
+            shopifyId = shopifyId.replace("gid://shopify/Order/", "")
+          }
+
+          const total = Number.parseFloat(pedido.totalPrice || "0")
+          const numeroOrden = pedido.name || `#${shopifyId}`
+          const emailCliente = pedido.customer?.email || ""
+
+          console.log(`💰 Datos del pedido: total=${total}, numero=${numeroOrden}, email=${emailCliente}`)
 
           const existePedido = await sql`
             SELECT id FROM pedidos WHERE shopify_id = ${shopifyId}
@@ -89,29 +133,30 @@ export async function POST(request: Request) {
           if (existePedido.rows.length > 0) {
             await sql`
               UPDATE pedidos SET 
-                numero_pedido = ${pedido.name || `#${shopifyId}`},
-                total = ${Number.parseFloat(pedido.total || "0")},
-                moneda = ${pedido.currency || "EUR"},
-                email_cliente = ${pedido.customer?.email || ""},
+                numero_pedido = ${numeroOrden},
+                total = ${total},
+                moneda = ${pedido.currencyCode || "EUR"},
+                email_cliente = ${emailCliente},
                 actualizado_en = NOW()
               WHERE shopify_id = ${shopifyId}
             `
             resultado.actualizados++
+            console.log(`✅ Pedido actualizado: ${numeroOrden}`)
           } else {
             await sql`
               INSERT INTO pedidos (
                 shopify_id, numero_pedido, total, moneda, email_cliente,
                 creado_en, actualizado_en
               ) VALUES (
-                ${shopifyId}, ${pedido.name || `#${shopifyId}`}, ${Number.parseFloat(pedido.total || "0")},
-                ${pedido.currency || "EUR"}, ${pedido.customer?.email || ""},
-                NOW(), NOW()
+                ${shopifyId}, ${numeroOrden}, ${total}, ${pedido.currencyCode || "EUR"}, 
+                ${emailCliente}, NOW(), NOW()
               )
             `
             resultado.insertados++
+            console.log(`✅ Pedido insertado: ${numeroOrden}`)
           }
         } catch (error) {
-          console.error(`Error con pedido ${pedido.id}:`, error)
+          console.error(`❌ Error con pedido ${pedido.id}:`, error)
           resultado.errores++
         }
       }
@@ -125,7 +170,11 @@ export async function POST(request: Request) {
             continue
           }
 
-          const shopifyId = cliente.id.replace("gid://shopify/Customer/", "")
+          let shopifyId = cliente.id
+          if (typeof shopifyId === "string" && shopifyId.includes("gid://shopify/Customer/")) {
+            shopifyId = shopifyId.replace("gid://shopify/Customer/", "")
+          }
+
           const nombreCompleto = `${cliente.firstName || ""} ${cliente.lastName || ""}`.trim() || "Cliente"
 
           const existeCliente = await sql`
@@ -154,7 +203,7 @@ export async function POST(request: Request) {
             resultado.insertados++
           }
         } catch (error) {
-          console.error(`Error con cliente ${cliente.id}:`, error)
+          console.error(`❌ Error con cliente ${cliente.id}:`, error)
           resultado.errores++
         }
       }
@@ -163,12 +212,29 @@ export async function POST(request: Request) {
     if (tipo === "colecciones") {
       for (const coleccion of datos) {
         try {
+          console.log(`📚 Procesando colección:`, {
+            id: coleccion.id,
+            title: coleccion.title,
+            handle: coleccion.handle,
+            image: coleccion.image?.url,
+          })
+
           if (!coleccion.id || !coleccion.title) {
+            console.warn(`⚠️ Colección sin ID o título:`, coleccion)
             resultado.errores++
             continue
           }
 
-          const shopifyId = coleccion.id.replace("gid://shopify/Collection/", "")
+          // Extraer ID de Shopify correctamente
+          let shopifyId = coleccion.id
+          if (typeof shopifyId === "string" && shopifyId.includes("gid://shopify/Collection/")) {
+            shopifyId = shopifyId.replace("gid://shopify/Collection/", "")
+          }
+
+          const imagen = coleccion.image?.url || null
+          const handle = coleccion.handle || coleccion.title.toLowerCase().replace(/\s+/g, "-")
+
+          console.log(`📋 Datos de la colección: handle=${handle}, imagen=${imagen}`)
 
           const existeColeccion = await sql`
             SELECT id FROM colecciones WHERE shopify_id = ${shopifyId}
@@ -179,12 +245,13 @@ export async function POST(request: Request) {
               UPDATE colecciones SET 
                 titulo = ${coleccion.title},
                 descripcion = ${coleccion.description || ""},
-                url_handle = ${coleccion.handle || coleccion.title.toLowerCase().replace(/\s+/g, "-")},
-                imagen_url = ${coleccion.image || null},
+                url_handle = ${handle},
+                imagen_url = ${imagen},
                 actualizado_en = NOW()
               WHERE shopify_id = ${shopifyId}
             `
             resultado.actualizados++
+            console.log(`✅ Colección actualizada: ${coleccion.title}`)
           } else {
             await sql`
               INSERT INTO colecciones (
@@ -192,14 +259,14 @@ export async function POST(request: Request) {
                 creado_en, actualizado_en
               ) VALUES (
                 ${shopifyId}, ${coleccion.title}, ${coleccion.description || ""},
-                ${coleccion.handle || coleccion.title.toLowerCase().replace(/\s+/g, "-")},
-                ${coleccion.image || null}, NOW(), NOW()
+                ${handle}, ${imagen}, NOW(), NOW()
               )
             `
             resultado.insertados++
+            console.log(`✅ Colección insertada: ${coleccion.title}`)
           }
         } catch (error) {
-          console.error(`Error con colección ${coleccion.id}:`, error)
+          console.error(`❌ Error con colección ${coleccion.id}:`, error)
           resultado.errores++
         }
       }
