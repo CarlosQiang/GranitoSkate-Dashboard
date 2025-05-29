@@ -292,10 +292,6 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-1">
-          <DatabaseStatus onRefresh={loadDashboardData} />
-        </div>
-
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           <Card className="col-span-4">
             <CardHeader>
@@ -353,6 +349,11 @@ export default function DashboardPage() {
               )}
             </CardContent>
           </Card>
+        </div>
+
+        {/* Estado de la Base de Datos - Movido al final */}
+        <div className="grid gap-4 md:grid-cols-1">
+          <DatabaseStatus onRefresh={loadDashboardData} />
         </div>
       </div>
     </div>
