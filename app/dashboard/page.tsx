@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, Database, Users, ShoppingBag, Tag } from "lucide-react"
+import { RefreshCw, Database, Users, ShoppingBag, Tag, Euro } from "lucide-react"
 import { SalesOverview } from "@/components/sales-overview"
 import { RecentOrders } from "@/components/recent-orders"
 import { RecentProducts } from "@/components/recent-products"
@@ -13,7 +13,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSyncing, setIsSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [dashboardData, setDashboardData] = useState<any>({})
+  const [dashboardData, setDashboardData] = useState<any>(null)
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
   const [syncDetails, setSyncDetails] = useState<any>({})
 
@@ -37,7 +37,7 @@ export default function DashboardPage() {
 
       const data = await response.json()
       setDashboardData(data)
-      console.log("✅ Dashboard data loaded successfully")
+      console.log("✅ Dashboard data loaded successfully:", data)
     } catch (err) {
       console.error("❌ Error loading dashboard:", err)
       setError(err instanceof Error ? err.message : "Error loading dashboard")
@@ -60,8 +60,8 @@ export default function DashboardPage() {
       console.log("🔄 Iniciando sincronización con base de datos...")
 
       // Sincronizar productos
-      if (dashboardData.totalProducts > 0) {
-        console.log(`📦 Sincronizando ${dashboardData.totalProducts} productos...`)
+      if (dashboardData?.allProducts && dashboardData.allProducts.length > 0) {
+        console.log(`📦 Sincronizando ${dashboardData.allProducts.length} productos...`)
         const productResponse = await fetch("/api/db/sincronizar", {
           method: "POST",
           headers: {
@@ -69,7 +69,7 @@ export default function DashboardPage() {
           },
           body: JSON.stringify({
             tipo: "productos",
-            datos: dashboardData.recentProducts,
+            datos: dashboardData.allProducts,
           }),
         })
 
@@ -84,8 +84,8 @@ export default function DashboardPage() {
       }
 
       // Sincronizar pedidos
-      if (dashboardData.totalOrders > 0) {
-        console.log(`🛒 Sincronizando ${dashboardData.totalOrders} pedidos...`)
+      if (dashboardData?.allOrders && dashboardData.allOrders.length > 0) {
+        console.log(`🛒 Sincronizando ${dashboardData.allOrders.length} pedidos...`)
         const orderResponse = await fetch("/api/db/sincronizar", {
           method: "POST",
           headers: {
@@ -93,7 +93,7 @@ export default function DashboardPage() {
           },
           body: JSON.stringify({
             tipo: "pedidos",
-            datos: dashboardData.recentOrders,
+            datos: dashboardData.allOrders,
           }),
         })
 
@@ -107,8 +107,8 @@ export default function DashboardPage() {
       }
 
       // Sincronizar clientes
-      if (dashboardData.totalCustomers > 0) {
-        console.log(`👥 Sincronizando ${dashboardData.totalCustomers} clientes...`)
+      if (dashboardData?.allCustomers && dashboardData.allCustomers.length > 0) {
+        console.log(`👥 Sincronizando ${dashboardData.allCustomers.length} clientes...`)
         const customerResponse = await fetch("/api/db/sincronizar", {
           method: "POST",
           headers: {
@@ -116,7 +116,7 @@ export default function DashboardPage() {
           },
           body: JSON.stringify({
             tipo: "clientes",
-            datos: dashboardData.recentCustomers,
+            datos: dashboardData.allCustomers,
           }),
         })
 
@@ -130,8 +130,8 @@ export default function DashboardPage() {
       }
 
       // Sincronizar colecciones
-      if (dashboardData.totalCollections > 0) {
-        console.log(`📚 Sincronizando ${dashboardData.totalCollections} colecciones...`)
+      if (dashboardData?.allCollections && dashboardData.allCollections.length > 0) {
+        console.log(`📚 Sincronizando ${dashboardData.allCollections.length} colecciones...`)
         const collectionResponse = await fetch("/api/db/sincronizar", {
           method: "POST",
           headers: {
@@ -139,7 +139,7 @@ export default function DashboardPage() {
           },
           body: JSON.stringify({
             tipo: "colecciones",
-            datos: dashboardData.recentCollections,
+            datos: dashboardData.allCollections,
           }),
         })
 
@@ -166,10 +166,6 @@ export default function DashboardPage() {
     }
   }
 
-  const salesOverview = dashboardData.salesOverview || []
-  const recentOrders = dashboardData.recentOrders || []
-  const recentProducts = dashboardData.recentProducts || []
-
   if (isLoading) {
     return (
       <div className="flex-1 space-y-4 p-8 pt-6">
@@ -178,7 +174,7 @@ export default function DashboardPage() {
         </div>
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {[...Array(4)].map((_, i) => (
+            {[...Array(5)].map((_, i) => (
               <Card key={i}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
@@ -269,16 +265,14 @@ export default function DashboardPage() {
       )}
 
       <div className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Ventas Totales</CardTitle>
-              <Database className="h-4 w-4 text-gray-500" />
+              <Euro className="h-4 w-4 text-gray-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {dashboardData?.stats?.totalSales || 0} {dashboardData?.stats?.currency || "EUR"}
-              </div>
+              <div className="text-2xl font-bold">€{dashboardData?.stats?.totalSales || "0.00"}</div>
               <p className="text-sm text-gray-500">+0% desde el mes pasado</p>
             </CardContent>
           </Card>
@@ -335,7 +329,7 @@ export default function DashboardPage() {
               <CardDescription>Evolución de las ventas en los últimos 7 días</CardDescription>
             </CardHeader>
             <CardContent className="pl-2">
-              <SalesOverview data={salesOverview} />
+              <SalesOverview data={dashboardData?.salesOverview || []} />
             </CardContent>
           </Card>
           <Card className="col-span-3">
@@ -344,7 +338,7 @@ export default function DashboardPage() {
               <CardDescription>Últimos pedidos procesados</CardDescription>
             </CardHeader>
             <CardContent>
-              <RecentOrders data={recentOrders} />
+              <RecentOrders data={dashboardData?.recentOrders || []} />
             </CardContent>
           </Card>
         </div>
@@ -355,7 +349,7 @@ export default function DashboardPage() {
               <CardDescription>Los últimos productos añadidos a tu catálogo</CardDescription>
             </CardHeader>
             <CardContent>
-              <RecentProducts data={recentProducts} />
+              <RecentProducts data={dashboardData?.recentProducts || []} />
             </CardContent>
           </Card>
           <Card>
