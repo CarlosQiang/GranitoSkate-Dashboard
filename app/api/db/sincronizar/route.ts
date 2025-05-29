@@ -3,102 +3,111 @@ import { sql } from "@vercel/postgres"
 
 async function sincronizarProductos(productos: any[]) {
   console.log(`🔄 Sincronizando ${productos.length} productos...`)
+  console.log("📋 Estructura del primer producto:", JSON.stringify(productos[0], null, 2))
 
   const resultados = {
     insertados: 0,
     actualizados: 0,
     errores: 0,
+    detalles: [] as any[],
   }
 
-  for (const producto of productos) {
+  for (let i = 0; i < productos.length; i++) {
+    const producto = productos[i]
     try {
-      console.log(
-        `📦 Procesando producto: ${producto.title || producto.node?.title} (ID: ${producto.id || producto.node?.id})`,
-      )
-
-      // Normalizar datos del producto
-      const productoData = {
-        id: producto.id || producto.node?.id,
-        title: producto.title || producto.node?.title || "",
-        description: producto.description || producto.node?.description || "",
-        productType: producto.productType || producto.node?.productType || "",
-        vendor: producto.vendor || producto.node?.vendor || "",
-        status: producto.status || producto.node?.status || "active",
-        featuredImageUrl: producto.featuredImage?.url || producto.node?.featuredImage?.url || null,
-        price: producto.variants?.edges?.[0]?.node?.price || producto.node?.variants?.edges?.[0]?.node?.price || "0",
-        compareAtPrice:
-          producto.variants?.edges?.[0]?.node?.compareAtPrice ||
-          producto.node?.variants?.edges?.[0]?.node?.compareAtPrice ||
-          null,
-        inventoryQuantity:
-          producto.variants?.edges?.[0]?.node?.inventoryQuantity ||
-          producto.node?.variants?.edges?.[0]?.node?.inventoryQuantity ||
-          0,
-      }
+      console.log(`📦 [${i + 1}/${productos.length}] Procesando producto:`, {
+        id: producto.id,
+        title: producto.title,
+        status: producto.status,
+      })
 
       // Verificar si el producto ya existe
+      console.log(`🔍 Verificando existencia del producto con ID: ${producto.id}`)
       const existeProducto = await sql`
-        SELECT id FROM productos WHERE shopify_id = ${productoData.id}
+        SELECT id FROM productos WHERE shopify_id = ${producto.id}
       `
+      console.log(`📊 Resultado de verificación: ${existeProducto.rows.length} registros encontrados`)
 
-      console.log(
-        `🔍 Verificando si existe producto con ID ${productoData.id}: ${existeProducto.rows.length > 0 ? "Sí" : "No"}`,
-      )
+      const precio = Number.parseFloat(producto.variants?.edges?.[0]?.node?.price || "0")
+      const inventario = producto.variants?.edges?.[0]?.node?.inventoryQuantity || 0
 
       if (existeProducto.rows.length > 0) {
         // Actualizar producto existente
-        console.log(`🔄 Actualizando producto existente: ${productoData.title}`)
+        console.log(`🔄 Actualizando producto existente: ${producto.title}`)
 
-        await sql`
+        const updateResult = await sql`
           UPDATE productos SET 
-            titulo = ${productoData.title},
-            descripcion = ${productoData.description},
-            tipo_producto = ${productoData.productType},
-            proveedor = ${productoData.vendor},
-            estado = ${productoData.status},
-            publicado = ${productoData.status === "active"},
-            imagen_destacada_url = ${productoData.featuredImageUrl},
-            precio_base = ${Number.parseFloat(productoData.price)},
-            precio_comparacion = ${productoData.compareAtPrice ? Number.parseFloat(productoData.compareAtPrice) : null},
-            inventario_disponible = ${productoData.inventoryQuantity},
+            titulo = ${producto.title},
+            descripcion = ${producto.description || ""},
+            tipo_producto = ${producto.productType || ""},
+            proveedor = ${producto.vendor || ""},
+            estado = ${producto.status || "active"},
+            publicado = ${producto.status === "active"},
+            imagen_destacada_url = ${producto.featuredImage?.url || null},
+            precio_base = ${precio},
+            inventario_disponible = ${inventario},
             actualizado_en = NOW()
-          WHERE shopify_id = ${productoData.id}
+          WHERE shopify_id = ${producto.id}
+          RETURNING id
         `
+
+        console.log(`✅ Producto actualizado. Filas afectadas: ${updateResult.rowCount}`)
         resultados.actualizados++
-        console.log(`✅ Producto actualizado: ${productoData.title}`)
+        resultados.detalles.push({
+          accion: "actualizado",
+          producto: producto.title,
+          id: producto.id,
+          filasAfectadas: updateResult.rowCount,
+        })
       } else {
         // Insertar nuevo producto
-        console.log(`➕ Insertando nuevo producto: ${productoData.title}`)
+        console.log(`➕ Insertando nuevo producto: ${producto.title}`)
 
-        await sql`
+        const insertResult = await sql`
           INSERT INTO productos (
             shopify_id, titulo, descripcion, tipo_producto, proveedor, estado,
-            publicado, imagen_destacada_url, precio_base, precio_comparacion,
-            inventario_disponible, creado_en, actualizado_en
+            publicado, imagen_destacada_url, precio_base, inventario_disponible, 
+            creado_en, actualizado_en
           ) VALUES (
-            ${productoData.id},
-            ${productoData.title},
-            ${productoData.description},
-            ${productoData.productType},
-            ${productoData.vendor},
-            ${productoData.status},
-            ${productoData.status === "active"},
-            ${productoData.featuredImageUrl},
-            ${Number.parseFloat(productoData.price)},
-            ${productoData.compareAtPrice ? Number.parseFloat(productoData.compareAtPrice) : null},
-            ${productoData.inventoryQuantity},
+            ${producto.id},
+            ${producto.title},
+            ${producto.description || ""},
+            ${producto.productType || ""},
+            ${producto.vendor || ""},
+            ${producto.status || "active"},
+            ${producto.status === "active"},
+            ${producto.featuredImage?.url || null},
+            ${precio},
+            ${inventario},
             NOW(),
             NOW()
-          )
+          ) RETURNING id
         `
+
+        console.log(`✅ Producto insertado. ID generado: ${insertResult.rows[0]?.id}`)
         resultados.insertados++
-        console.log(`✅ Producto insertado: ${productoData.title}`)
+        resultados.detalles.push({
+          accion: "insertado",
+          producto: producto.title,
+          id: producto.id,
+          idGenerado: insertResult.rows[0]?.id,
+        })
       }
     } catch (error) {
-      console.error(`❌ Error al sincronizar producto:`, error)
+      console.error(`❌ Error al sincronizar producto ${producto.id}:`, error)
       resultados.errores++
+      resultados.detalles.push({
+        accion: "error",
+        producto: producto.title || "Desconocido",
+        id: producto.id,
+        error: error instanceof Error ? error.message : "Error desconocido",
+      })
     }
   }
+
+  // Verificar el conteo final
+  const conteoFinal = await sql`SELECT COUNT(*) as count FROM productos`
+  console.log(`📊 Conteo final de productos en la base de datos: ${conteoFinal.rows[0].count}`)
 
   console.log(`🎉 Sincronización de productos completada:`, resultados)
   return resultados
@@ -106,73 +115,72 @@ async function sincronizarProductos(productos: any[]) {
 
 async function sincronizarPedidos(pedidos: any[]) {
   console.log(`🔄 Sincronizando ${pedidos.length} pedidos...`)
+  console.log("📋 Estructura del primer pedido:", JSON.stringify(pedidos[0], null, 2))
 
   const resultados = {
     insertados: 0,
     actualizados: 0,
     errores: 0,
+    detalles: [] as any[],
   }
 
-  for (const pedido of pedidos) {
+  for (let i = 0; i < pedidos.length; i++) {
+    const pedido = pedidos[i]
     try {
-      console.log(`🛒 Procesando pedido: ${pedido.name || pedido.node?.name} (ID: ${pedido.id || pedido.node?.id})`)
-
-      // Normalizar datos del pedido
-      const pedidoData = {
-        id: pedido.id || pedido.node?.id,
-        name: pedido.name || pedido.node?.name || "",
-        email: pedido.email || pedido.node?.email || "",
-        status: pedido.status || pedido.node?.status || "pending",
-        totalPrice: pedido.totalPrice || pedido.node?.totalPrice || "0",
-      }
+      console.log(`🛒 [${i + 1}/${pedidos.length}] Procesando pedido:`, {
+        id: pedido.id,
+        name: pedido.name,
+        status: pedido.status,
+      })
 
       // Verificar si el pedido ya existe
       const existePedido = await sql`
-        SELECT id FROM pedidos WHERE shopify_id = ${pedidoData.id}
+        SELECT id FROM pedidos WHERE shopify_id = ${pedido.id}
       `
 
-      console.log(
-        `🔍 Verificando si existe pedido con ID ${pedidoData.id}: ${existePedido.rows.length > 0 ? "Sí" : "No"}`,
-      )
+      const total = Number.parseFloat(pedido.totalPrice || "0")
 
       if (existePedido.rows.length > 0) {
         // Actualizar pedido existente
-        console.log(`🔄 Actualizando pedido existente: ${pedidoData.name}`)
-
-        await sql`
+        const updateResult = await sql`
           UPDATE pedidos SET 
-            estado = ${pedidoData.status},
-            total = ${Number.parseFloat(pedidoData.totalPrice)},
+            estado = ${pedido.status || "pending"},
+            total = ${total},
             actualizado_en = NOW()
-          WHERE shopify_id = ${pedidoData.id}
+          WHERE shopify_id = ${pedido.id}
+          RETURNING id
         `
+
+        console.log(`✅ Pedido actualizado. Filas afectadas: ${updateResult.rowCount}`)
         resultados.actualizados++
-        console.log(`✅ Pedido actualizado: ${pedidoData.name}`)
       } else {
         // Insertar nuevo pedido
-        console.log(`➕ Insertando nuevo pedido: ${pedidoData.name}`)
-
-        await sql`
+        const insertResult = await sql`
           INSERT INTO pedidos (
             shopify_id, numero_pedido, email_cliente, estado, total, creado_en, actualizado_en
           ) VALUES (
-            ${pedidoData.id},
-            ${pedidoData.name},
-            ${pedidoData.email},
-            ${pedidoData.status},
-            ${Number.parseFloat(pedidoData.totalPrice)},
+            ${pedido.id},
+            ${pedido.name || ""},
+            ${pedido.email || ""},
+            ${pedido.status || "pending"},
+            ${total},
             NOW(),
             NOW()
-          )
+          ) RETURNING id
         `
+
+        console.log(`✅ Pedido insertado. ID generado: ${insertResult.rows[0]?.id}`)
         resultados.insertados++
-        console.log(`✅ Pedido insertado: ${pedidoData.name}`)
       }
     } catch (error) {
-      console.error(`❌ Error al sincronizar pedido:`, error)
+      console.error(`❌ Error al sincronizar pedido ${pedido.id}:`, error)
       resultados.errores++
     }
   }
+
+  // Verificar el conteo final
+  const conteoFinal = await sql`SELECT COUNT(*) as count FROM pedidos`
+  console.log(`📊 Conteo final de pedidos en la base de datos: ${conteoFinal.rows[0].count}`)
 
   console.log(`🎉 Sincronización de pedidos completada:`, resultados)
   return resultados
@@ -264,6 +272,10 @@ export async function POST(request: NextRequest) {
 
     console.log(`📥 Recibida solicitud de sincronización para ${tipo}`)
     console.log(`📊 Cantidad de elementos a sincronizar: ${datos.length}`)
+
+    // Verificar conexión antes de proceder
+    const connectionTest = await sql`SELECT NOW() as current_time`
+    console.log("✅ Conexión verificada:", connectionTest.rows[0])
 
     let resultado
     switch (tipo) {
