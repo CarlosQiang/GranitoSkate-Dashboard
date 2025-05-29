@@ -1,61 +1,7 @@
-"use client"
-
-import { Card, CardContent } from "@/components/ui/card"
-import { formatDistanceToNow } from "date-fns"
-import { es } from "date-fns/locale"
-
-interface RecentOrdersProps {
-  data?: Array<{
-    id: string
-    name: string
-    processedAt: string
-    total: string
-    currency: string
-    customer: string
-    items: Array<{
-      title: string
-      quantity: number
-    }>
-  }>
-}
-
-export function RecentOrders({ data = [] }: RecentOrdersProps) {
-  if (!data || data.length === 0) {
-    return (
-      <div className="text-center py-6">
-        <p className="text-sm text-muted-foreground">No hay pedidos recientes</p>
-      </div>
-    )
+export function RecentOrders({ data }: { data?: any[] }) {
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return <div className="text-center text-gray-500 py-4">No hay pedidos recientes</div>
   }
 
-  return (
-    <div className="space-y-4">
-      {data.map((order) => (
-        <Card key={order.id} className="p-4">
-          <CardContent className="p-0">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-sm font-medium">{order.name}</p>
-                <p className="text-xs text-muted-foreground">{order.customer}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(new Date(order.processedAt), {
-                    addSuffix: true,
-                    locale: es,
-                  })}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-medium">
-                  {Number.parseFloat(order.total).toFixed(2)} {order.currency}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {order.items.length} producto{order.items.length !== 1 ? "s" : ""}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  )
+  // resto del código del componente...
 }

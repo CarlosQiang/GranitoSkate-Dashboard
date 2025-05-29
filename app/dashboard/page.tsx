@@ -13,29 +13,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSyncing, setIsSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [dashboardData, setDashboardData] = useState<any>({
-    stats: {
-      totalSales: "0.00",
-      totalOrders: 0,
-      totalCustomers: 0,
-      totalProducts: 0,
-      totalCollections: 0,
-      totalInventory: 0,
-      currency: "EUR",
-    },
-    recentOrders: [],
-    recentProducts: [],
-    salesOverview: [],
-    inventoryStatus: {
-      inStock: 0,
-      lowStock: 0,
-      outOfStock: 0,
-    },
-    allProducts: [],
-    allOrders: [],
-    allCustomers: [],
-    allCollections: [],
-  })
+  const [dashboardData, setDashboardData] = useState<any>(null)
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
   const [syncDetails, setSyncDetails] = useState<any>({})
 
@@ -51,23 +29,42 @@ export default function DashboardPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        cache: "no-store",
       })
 
-      const data = await response.json()
-
-      // Incluso si hay un error, usamos los datos de fallback proporcionados por la API
-      setDashboardData(data)
-
-      if (data.error) {
-        console.warn("⚠️ Dashboard API warning:", data.error)
-        setError(`Advertencia: ${data.error}. Se muestran datos parciales.`)
-      } else {
-        console.log("✅ Dashboard data loaded successfully")
+      if (!response.ok) {
+        throw new Error(`Dashboard API error: ${response.status}`)
       }
+
+      const data = await response.json()
+      setDashboardData(data)
+      console.log("✅ Dashboard data loaded successfully:", data)
     } catch (err) {
       console.error("❌ Error loading dashboard:", err)
-      setError("Error al cargar el dashboard. Se muestran datos parciales.")
+      setError(err instanceof Error ? err.message : "Error loading dashboard")
+      // Establecer datos por defecto en caso de error
+      setDashboardData({
+        stats: {
+          totalSales: "0.00",
+          totalOrders: 0,
+          totalCustomers: 0,
+          totalProducts: 0,
+          totalCollections: 0,
+          totalInventory: 0,
+          currency: "EUR",
+        },
+        recentOrders: [],
+        recentProducts: [],
+        salesOverview: [],
+        inventoryStatus: {
+          inStock: 0,
+          lowStock: 0,
+          outOfStock: 0,
+        },
+        allProducts: [],
+        allOrders: [],
+        allCustomers: [],
+        allCollections: [],
+      })
     } finally {
       setIsLoading(false)
     }
@@ -352,7 +349,13 @@ export default function DashboardPage() {
               <CardDescription>Evolución de las ventas en los últimos 7 días</CardDescription>
             </CardHeader>
             <CardContent className="pl-2">
-              <SalesOverview data={dashboardData?.salesOverview || []} />
+              {dashboardData?.salesOverview ? (
+                <SalesOverview data={dashboardData.salesOverview} />
+              ) : (
+                <div className="h-32 flex items-center justify-center text-gray-500">
+                  No hay datos de ventas disponibles
+                </div>
+              )}
             </CardContent>
           </Card>
           <Card className="col-span-3">
@@ -361,7 +364,11 @@ export default function DashboardPage() {
               <CardDescription>Últimos pedidos procesados</CardDescription>
             </CardHeader>
             <CardContent>
-              <RecentOrders data={dashboardData?.recentOrders || []} />
+              {dashboardData?.recentOrders ? (
+                <RecentOrders data={dashboardData.recentOrders} />
+              ) : (
+                <div className="h-32 flex items-center justify-center text-gray-500">No hay pedidos recientes</div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -372,7 +379,11 @@ export default function DashboardPage() {
               <CardDescription>Los últimos productos añadidos a tu catálogo</CardDescription>
             </CardHeader>
             <CardContent>
-              <RecentProducts data={dashboardData?.recentProducts || []} />
+              {dashboardData?.recentProducts ? (
+                <RecentProducts data={dashboardData.recentProducts} />
+              ) : (
+                <div className="h-32 flex items-center justify-center text-gray-500">No hay productos recientes</div>
+              )}
             </CardContent>
           </Card>
           <Card>
@@ -381,7 +392,11 @@ export default function DashboardPage() {
               <CardDescription>Resumen del stock disponible</CardDescription>
             </CardHeader>
             <CardContent>
-              <InventoryStatus data={dashboardData?.inventoryStatus} />
+              {dashboardData?.inventoryStatus ? (
+                <InventoryStatus data={dashboardData.inventoryStatus} />
+              ) : (
+                <div className="h-32 flex items-center justify-center text-gray-500">No hay datos de inventario</div>
+              )}
             </CardContent>
           </Card>
         </div>
