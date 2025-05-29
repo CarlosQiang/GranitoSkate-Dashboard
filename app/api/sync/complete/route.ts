@@ -10,6 +10,13 @@ export async function POST(request: Request) {
     }
 
     console.log("🔄 Iniciando sincronización completa...")
+    console.log("📊 Datos recibidos:", {
+      productos: dashboardData.allProducts?.length || 0,
+      pedidos: dashboardData.allOrders?.length || 0,
+      clientes: dashboardData.allCustomers?.length || 0,
+      colecciones: dashboardData.allCollections?.length || 0,
+      promociones: dashboardData.allPromotions?.length || 0,
+    })
 
     const results = {
       limpieza: { productos: 0, pedidos: 0, clientes: 0, colecciones: 0, promociones: 0 },
@@ -46,7 +53,7 @@ export async function POST(request: Request) {
       const promocionesResult = await sql`DELETE FROM promociones`
       results.limpieza.promociones = promocionesResult.rowCount || 0
 
-      console.log("✅ Limpieza completada")
+      console.log("✅ Limpieza completada:", results.limpieza)
     } catch (error) {
       console.error("❌ Error durante la limpieza:", error)
     }
@@ -58,6 +65,7 @@ export async function POST(request: Request) {
       for (const producto of dashboardData.allProducts) {
         try {
           if (!producto.id || !producto.title) {
+            console.warn("⚠️ Producto sin ID o título:", producto)
             results.productos.errores++
             continue
           }
@@ -95,10 +103,13 @@ export async function POST(request: Request) {
           `
           results.productos.insertados++
         } catch (error) {
-          console.error(`Error insertando producto:`, error)
+          console.error(`❌ Error insertando producto ${producto.id}:`, error)
           results.productos.errores++
         }
       }
+      console.log(
+        `✅ Productos sincronizados: ${results.productos.insertados} insertados, ${results.productos.errores} errores`,
+      )
     }
 
     // PASO 3: INSERTAR PEDIDOS
@@ -108,11 +119,22 @@ export async function POST(request: Request) {
       for (const pedido of dashboardData.allOrders) {
         try {
           if (!pedido.id) {
+            console.warn("⚠️ Pedido sin ID:", pedido)
             results.pedidos.errores++
             continue
           }
 
           const shopifyId = pedido.id.replace("gid://shopify/Order/", "")
+
+          // Extraer datos del pedido con valores por defecto seguros
+          const numeroPedido = pedido.name || `#${shopifyId}`
+          const total = Number.parseFloat(pedido.totalPriceSet?.shopMoney?.amount || pedido.total || "0")
+          const moneda = pedido.totalPriceSet?.shopMoney?.currencyCode || pedido.currency || "EUR"
+          const emailCliente = pedido.customer?.email || pedido.email || ""
+          const estado = pedido.displayFulfillmentStatus || pedido.fulfillmentStatus || "PENDING"
+          const estadoFinanciero = pedido.displayFinancialStatus || pedido.financialStatus || "PENDING"
+
+          console.log(`📝 Insertando pedido: ${numeroPedido}, Total: ${total} ${moneda}`)
 
           await sql`
             INSERT INTO pedidos (
@@ -122,25 +144,31 @@ export async function POST(request: Request) {
               moneda,
               email_cliente,
               estado,
+              estado_financiero,
               creado_en,
               actualizado_en
             ) VALUES (
               ${shopifyId},
-              ${pedido.name || `#${shopifyId}`},
-              ${Number.parseFloat(pedido.total || "0")},
-              ${pedido.currency || "EUR"},
-              ${pedido.customer?.email || ""},
-              ${pedido.fulfillmentStatus || "PENDING"},
+              ${numeroPedido},
+              ${total},
+              ${moneda},
+              ${emailCliente},
+              ${estado},
+              ${estadoFinanciero},
               NOW(),
               NOW()
             )
           `
           results.pedidos.insertados++
         } catch (error) {
-          console.error(`Error insertando pedido:`, error)
+          console.error(`❌ Error insertando pedido ${pedido.id}:`, error)
+          console.error("Datos del pedido:", JSON.stringify(pedido, null, 2))
           results.pedidos.errores++
         }
       }
+      console.log(
+        `✅ Pedidos sincronizados: ${results.pedidos.insertados} insertados, ${results.pedidos.errores} errores`,
+      )
     }
 
     // PASO 4: INSERTAR CLIENTES
@@ -150,12 +178,15 @@ export async function POST(request: Request) {
       for (const cliente of dashboardData.allCustomers) {
         try {
           if (!cliente.id || !cliente.email) {
+            console.warn("⚠️ Cliente sin ID o email:", cliente)
             results.clientes.errores++
             continue
           }
 
           const shopifyId = cliente.id.replace("gid://shopify/Customer/", "")
           const nombre = `${cliente.firstName || ""} ${cliente.lastName || ""}`.trim() || "Cliente"
+          const totalPedidos = Number.parseInt(cliente.numberOfOrders || "0")
+          const totalGastado = Number.parseFloat(cliente.totalSpent || "0")
 
           await sql`
             INSERT INTO clientes (
@@ -174,18 +205,21 @@ export async function POST(request: Request) {
               ${nombre},
               ${cliente.phone || null},
               ${cliente.state || "ENABLED"},
-              ${Number.parseInt(cliente.numberOfOrders || "0")},
-              ${Number.parseFloat(cliente.totalSpent || "0")},
+              ${totalPedidos},
+              ${totalGastado},
               NOW(),
               NOW()
             )
           `
           results.clientes.insertados++
         } catch (error) {
-          console.error(`Error insertando cliente:`, error)
+          console.error(`❌ Error insertando cliente ${cliente.id}:`, error)
           results.clientes.errores++
         }
       }
+      console.log(
+        `✅ Clientes sincronizados: ${results.clientes.insertados} insertados, ${results.clientes.errores} errores`,
+      )
     }
 
     // PASO 5: INSERTAR COLECCIONES
@@ -195,11 +229,17 @@ export async function POST(request: Request) {
       for (const coleccion of dashboardData.allCollections) {
         try {
           if (!coleccion.id || !coleccion.title) {
+            console.warn("⚠️ Colección sin ID o título:", coleccion)
             results.colecciones.errores++
             continue
           }
 
           const shopifyId = coleccion.id.replace("gid://shopify/Collection/", "")
+          const handle = coleccion.handle || coleccion.title.toLowerCase().replace(/\s+/g, "-")
+          const productosCount = Number.parseInt(coleccion.productsCount?.count || coleccion.productsCount || "0")
+          const imagenUrl = coleccion.image?.url || coleccion.image || null
+
+          console.log(`📝 Insertando colección: ${coleccion.title}, Productos: ${productosCount}`)
 
           await sql`
             INSERT INTO colecciones (
@@ -209,25 +249,31 @@ export async function POST(request: Request) {
               url_handle,
               imagen_url,
               productos_count,
+              publicado,
               creado_en,
               actualizado_en
             ) VALUES (
               ${shopifyId},
               ${coleccion.title},
               ${coleccion.description || ""},
-              ${coleccion.handle || coleccion.title.toLowerCase().replace(/\s+/g, "-")},
-              ${coleccion.image || null},
-              ${Number.parseInt(coleccion.productsCount || "0")},
+              ${handle},
+              ${imagenUrl},
+              ${productosCount},
+              ${true},
               NOW(),
               NOW()
             )
           `
           results.colecciones.insertados++
         } catch (error) {
-          console.error(`Error insertando colección:`, error)
+          console.error(`❌ Error insertando colección ${coleccion.id}:`, error)
+          console.error("Datos de la colección:", JSON.stringify(coleccion, null, 2))
           results.colecciones.errores++
         }
       }
+      console.log(
+        `✅ Colecciones sincronizadas: ${results.colecciones.insertados} insertados, ${results.colecciones.errores} errores`,
+      )
     }
 
     // PASO 6: INSERTAR PROMOCIONES
@@ -237,11 +283,34 @@ export async function POST(request: Request) {
       for (const promocion of dashboardData.allPromotions) {
         try {
           if (!promocion.id || !promocion.title) {
+            console.warn("⚠️ Promoción sin ID o título:", promocion)
             results.promociones.errores++
             continue
           }
 
-          const shopifyId = promocion.id.replace("gid://shopify/DiscountNode/", "")
+          const shopifyId = promocion.id
+            .replace("gid://shopify/DiscountNode/", "")
+            .replace("gid://shopify/DiscountCodeNode/", "")
+
+          // Extraer datos de la promoción
+          const titulo = promocion.title || promocion.codeDiscount?.title || "Promoción sin título"
+          const descripcion = promocion.summary || promocion.codeDiscount?.summary || ""
+          const tipo = promocion.discount?.discountClass || promocion.type || "PERCENTAGE"
+
+          // Extraer valor del descuento
+          let valor = 0
+          if (promocion.discount?.customerGets?.value?.percentage) {
+            valor = Number.parseFloat(promocion.discount.customerGets.value.percentage)
+          } else if (promocion.discount?.customerGets?.value?.discountAmount?.amount) {
+            valor = Number.parseFloat(promocion.discount.customerGets.value.discountAmount.amount)
+          } else if (promocion.value) {
+            valor = Number.parseFloat(promocion.value)
+          }
+
+          const codigo = promocion.codeDiscount?.codes?.nodes?.[0]?.code || promocion.code || null
+          const activo = promocion.status === "ACTIVE" || promocion.status === "active"
+
+          console.log(`📝 Insertando promoción: ${titulo}, Tipo: ${tipo}, Valor: ${valor}`)
 
           await sql`
             INSERT INTO promociones (
@@ -256,22 +325,26 @@ export async function POST(request: Request) {
               actualizado_en
             ) VALUES (
               ${shopifyId},
-              ${promocion.title},
-              ${promocion.summary || ""},
-              ${promocion.type || "PERCENTAGE"},
-              ${Number.parseFloat(promocion.value || "0")},
-              ${promocion.code || null},
-              ${promocion.status === "ACTIVE"},
+              ${titulo},
+              ${descripcion},
+              ${tipo},
+              ${valor},
+              ${codigo},
+              ${activo},
               NOW(),
               NOW()
             )
           `
           results.promociones.insertados++
         } catch (error) {
-          console.error(`Error insertando promoción:`, error)
+          console.error(`❌ Error insertando promoción ${promocion.id}:`, error)
+          console.error("Datos de la promoción:", JSON.stringify(promocion, null, 2))
           results.promociones.errores++
         }
       }
+      console.log(
+        `✅ Promociones sincronizadas: ${results.promociones.insertados} insertados, ${results.promociones.errores} errores`,
+      )
     }
 
     // PASO 7: GUARDAR CONFIGURACIONES
@@ -292,10 +365,12 @@ export async function POST(request: Request) {
           actualizado_en = NOW()
       `
       results.configuracion.guardada = true
+      console.log("✅ Configuración de Shopify guardada")
     } catch (error) {
-      console.error("Error guardando configuración:", error)
+      console.error("❌ Error guardando configuración:", error)
     }
 
+    // PASO 8: GUARDAR METADATOS SEO
     try {
       await sql`
         INSERT INTO metadatos_seo (
@@ -309,28 +384,52 @@ export async function POST(request: Request) {
         DO UPDATE SET actualizado_en = NOW()
       `
       results.seo.guardado = true
+      console.log("✅ Metadatos SEO guardados")
     } catch (error) {
-      console.error("Error guardando SEO:", error)
+      console.error("❌ Error guardando SEO:", error)
     }
 
+    // PASO 9: GUARDAR CONFIGURACIÓN DE PERSONALIZACIÓN
     try {
+      const shopId = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || "granito-skate"
+
+      // Insertar configuración de tema por defecto
       await sql`
         INSERT INTO theme_configs (
           shop_id, config_name, primary_color, secondary_color, accent_color,
-          font_family, enable_dark_mode, shop_name, created_at, updated_at
+          font_family, heading_font_family, border_radius, button_style, card_style,
+          sidebar_style, enable_animations, animation_speed, enable_dark_mode,
+          prefer_dark_mode, shop_name, created_at, updated_at
         ) VALUES (
-          'granito-skate', 'default', '#D4A574', '#8B4513', '#FF6B35',
-          'Inter', true, 'GranitoSkate', NOW(), NOW()
+          ${shopId}, 'default', '#D4A574', '#8B4513', '#FF6B35',
+          'Inter, sans-serif', 'Inter, sans-serif', 'medium', 'solid', 'raised',
+          'default', true, 'normal', true, false, 'GranitoSkate', NOW(), NOW()
         )
         ON CONFLICT (shop_id, config_name) 
-        DO UPDATE SET updated_at = NOW()
+        DO UPDATE SET 
+          updated_at = NOW(),
+          shop_name = 'GranitoSkate'
       `
+
+      // Insertar configuraciones adicionales del tema
+      await sql`
+        INSERT INTO theme_settings (shop_id, setting_key, setting_value, created_at, updated_at)
+        VALUES 
+          (${shopId}, 'logo_url', '/logo-granito.png', NOW(), NOW()),
+          (${shopId}, 'favicon_url', '/favicon.ico', NOW(), NOW()),
+          (${shopId}, 'brand_colors_initialized', 'true', NOW(), NOW())
+        ON CONFLICT (shop_id, setting_key) 
+        DO UPDATE SET 
+          updated_at = NOW()
+      `
+
       results.personalizacion.guardada = true
+      console.log("✅ Configuración de personalización guardada")
     } catch (error) {
-      console.error("Error guardando personalización:", error)
+      console.error("❌ Error guardando personalización:", error)
     }
 
-    // PASO 8: REGISTRAR ACTIVIDAD
+    // PASO 10: REGISTRAR ACTIVIDAD
     const totalInsertados =
       results.productos.insertados +
       results.pedidos.insertados +
@@ -338,22 +437,28 @@ export async function POST(request: Request) {
       results.colecciones.insertados +
       results.promociones.insertados
 
-    await sql`
-      INSERT INTO registros_actividad (
-        accion, tipo_entidad, resultado, descripcion, creado_en
-      ) VALUES (
-        'sincronizacion_completa', 'sistema', 'completado',
-        'Sincronización completa: ' || ${totalInsertados} || ' registros insertados',
-        NOW()
-      )
-    `
+    try {
+      await sql`
+        INSERT INTO registros_actividad (
+          accion, tipo_entidad, resultado, descripcion, creado_en
+        ) VALUES (
+          'sincronizacion_completa', 'sistema', 'completado',
+          'Sincronización completa: ' || ${totalInsertados} || ' registros insertados',
+          NOW()
+        )
+      `
+    } catch (error) {
+      console.error("❌ Error registrando actividad:", error)
+    }
 
     console.log("✅ Sincronización completada exitosamente")
+    console.log("📊 Resultados finales:", results)
 
     return NextResponse.json({
       success: true,
       message: "Sincronización completa exitosa",
       results,
+      totalInsertados,
     })
   } catch (error) {
     console.error("❌ Error en sincronización:", error)

@@ -8,6 +8,7 @@ import { SalesOverview } from "@/components/sales-overview"
 import { RecentOrders } from "@/components/recent-orders"
 import { RecentProducts } from "@/components/recent-products"
 import { InventoryStatus } from "@/components/inventory-status"
+import { DatabaseStatus } from "@/components/database-status"
 
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
@@ -85,110 +86,44 @@ export default function DashboardPage() {
     setIsSyncing(true)
     setSyncMessage(null)
     setSyncDetails({})
-    const details = {}
 
     try {
-      console.log("🔄 Iniciando sincronización con base de datos...")
+      console.log("🔄 Iniciando sincronización completa con base de datos...")
 
-      // Limpiar base de datos primero
-      console.log("🧹 Limpiando base de datos...")
-
-      // Limpiar productos
-      if (dashboardData?.allProducts && dashboardData.allProducts.length > 0) {
-        console.log(`📦 Sincronizando ${dashboardData.allProducts.length} productos...`)
-        const productResponse = await fetch("/api/db/sincronizar", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            tipo: "productos",
-            datos: dashboardData.allProducts,
-          }),
-        })
-
-        if (productResponse.ok) {
-          const productResult = await productResponse.json()
-          console.log("✅ Productos sincronizados:", productResult)
-          details["productos"] = productResult.resultado
-        } else {
-          console.error("❌ Error sincronizando productos")
-          details["productos"] = { insertados: 0, actualizados: 0, errores: dashboardData.allProducts.length }
-        }
+      if (!dashboardData) {
+        throw new Error("No hay datos para sincronizar")
       }
 
-      // Sincronizar pedidos
-      if (dashboardData?.allOrders && dashboardData.allOrders.length > 0) {
-        console.log(`🛒 Sincronizando ${dashboardData.allOrders.length} pedidos...`)
-        const orderResponse = await fetch("/api/db/sincronizar", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            tipo: "pedidos",
-            datos: dashboardData.allOrders,
-          }),
-        })
+      // Usar la nueva API de sincronización completa
+      const response = await fetch("/api/sync/complete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          dashboardData: dashboardData,
+        }),
+      })
 
-        if (orderResponse.ok) {
-          const orderResult = await orderResponse.json()
-          console.log("✅ Pedidos sincronizados:", orderResult)
-          details["pedidos"] = orderResult.resultado
-        }
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || `Error HTTP: ${response.status}`)
       }
 
-      // Sincronizar clientes
-      if (dashboardData?.allCustomers && dashboardData.allCustomers.length > 0) {
-        console.log(`👥 Sincronizando ${dashboardData.allCustomers.length} clientes...`)
-        const customerResponse = await fetch("/api/db/sincronizar", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            tipo: "clientes",
-            datos: dashboardData.allCustomers,
-          }),
-        })
+      const result = await response.json()
+      console.log("✅ Sincronización completada:", result)
 
-        if (customerResponse.ok) {
-          const customerResult = await customerResponse.json()
-          console.log("✅ Clientes sincronizados:", customerResult)
-          details["clientes"] = customerResult.resultado
-        }
-      }
+      setSyncDetails(result.results)
+      setSyncMessage(`✅ Sincronización exitosa: ${result.totalInsertados} registros insertados`)
 
-      // Sincronizar colecciones
-      if (dashboardData?.allCollections && dashboardData.allCollections.length > 0) {
-        console.log(`📚 Sincronizando ${dashboardData.allCollections.length} colecciones...`)
-        const collectionResponse = await fetch("/api/db/sincronizar", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            tipo: "colecciones",
-            datos: dashboardData.allCollections,
-          }),
-        })
-
-        if (collectionResponse.ok) {
-          const collectionResult = await collectionResponse.json()
-          console.log("✅ Colecciones sincronizadas:", collectionResult)
-          details["colecciones"] = collectionResult.resultado
-        }
-      }
-
-      setSyncDetails(details)
-      setSyncMessage("✅ Datos sincronizados exitosamente con la base de datos")
-      console.log("🎉 Sincronización completada")
+      // Recargar los datos del dashboard después de la sincronización
+      setTimeout(() => {
+        loadDashboardData()
+      }, 1000)
     } catch (error) {
-      console.error("❌ Error saving data to database:", error)
-      setError("Error al guardar los datos en la base de datos.")
-      setSyncMessage(
-        `❌ Error al sincronizar los datos: ${error instanceof Error ? error.message : "Error desconocido"}`,
-      )
+      console.error("❌ Error en sincronización:", error)
+      setError("Error al sincronizar los datos con la base de datos.")
+      setSyncMessage(`❌ Error al sincronizar: ${error instanceof Error ? error.message : "Error desconocido"}`)
     } finally {
       setIsSyncing(false)
     }
@@ -355,6 +290,10 @@ export default function DashboardPage() {
               <p className="text-sm text-gray-500">+0% desde el mes pasado</p>
             </CardContent>
           </Card>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-1">
+          <DatabaseStatus onRefresh={loadDashboardData} />
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
