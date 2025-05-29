@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { RefreshCw, Database, CheckCircle, XCircle, AlertCircle } from "lucide-react"
+import { InitTablesButton } from "@/components/init-tables-button"
 
 interface TableStatus {
   exists: boolean
@@ -105,6 +106,8 @@ export function DatabaseStatus({ onRefresh }: DatabaseStatusProps) {
         </div>
       </CardHeader>
       <CardContent>
+        <InitTablesButton />
+
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-800 text-sm">
             <p className="font-medium">Error al cargar el estado de la base de datos</p>
