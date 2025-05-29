@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       errores: 0,
     }
 
-    // PRODUCTOS - Usando la misma lógica que funciona para clientes
+    // PRODUCTOS - Funciona perfectamente, mantener igual
     if (tipo === "productos") {
       for (const producto of datos) {
         try {
@@ -26,22 +26,18 @@ export async function POST(request: Request) {
             continue
           }
 
-          // Usar la misma lógica de ID que funciona para clientes
           let shopifyId = producto.id
           if (typeof shopifyId === "string" && shopifyId.includes("gid://shopify/Product/")) {
             shopifyId = shopifyId.replace("gid://shopify/Product/", "")
           }
 
-          // Datos básicos como en clientes
           const titulo = producto.title || "Producto sin título"
           const descripcion = producto.description || ""
           const estado = producto.status || "ACTIVE"
           const tipoProducto = producto.productType || "SKATEBOARD"
           const proveedor = producto.vendor || "GranitoSkate"
-
-          // Precio e inventario básicos
-          const precio = 0 // Empezamos con 0 como valor seguro
-          const inventario = 0 // Empezamos con 0 como valor seguro
+          const precio = 0
+          const inventario = 0
 
           const existeProducto = await sql`
             SELECT id FROM productos WHERE shopify_id = ${shopifyId}
@@ -80,7 +76,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // PEDIDOS - Usando la misma lógica que funciona para clientes
+    // PEDIDOS - Aplicando la misma lógica exitosa de productos
     if (tipo === "pedidos") {
       for (const pedido of datos) {
         try {
@@ -89,17 +85,18 @@ export async function POST(request: Request) {
             continue
           }
 
-          // Usar la misma lógica de ID que funciona para clientes
           let shopifyId = pedido.id
           if (typeof shopifyId === "string" && shopifyId.includes("gid://shopify/Order/")) {
             shopifyId = shopifyId.replace("gid://shopify/Order/", "")
           }
 
-          // Datos básicos como en clientes
+          // Datos básicos como productos
           const numeroPedido = pedido.name || `#${shopifyId}`
-          const total = 0 // Empezamos con 0 como valor seguro
-          const moneda = "EUR"
           const emailCliente = ""
+          const estado = "PENDING"
+          const estadoFinanciero = "PENDING"
+          const total = 0
+          const moneda = "EUR"
 
           const existePedido = await sql`
             SELECT id FROM pedidos WHERE shopify_id = ${shopifyId}
@@ -109,9 +106,11 @@ export async function POST(request: Request) {
             await sql`
               UPDATE pedidos SET 
                 numero_pedido = ${numeroPedido},
+                email_cliente = ${emailCliente},
+                estado = ${estado},
+                estado_financiero = ${estadoFinanciero},
                 total = ${total},
                 moneda = ${moneda},
-                email_cliente = ${emailCliente},
                 actualizado_en = NOW()
               WHERE shopify_id = ${shopifyId}
             `
@@ -119,11 +118,11 @@ export async function POST(request: Request) {
           } else {
             await sql`
               INSERT INTO pedidos (
-                shopify_id, numero_pedido, total, moneda, email_cliente,
-                creado_en, actualizado_en
+                shopify_id, numero_pedido, email_cliente, estado, estado_financiero,
+                total, moneda, creado_en, actualizado_en
               ) VALUES (
-                ${shopifyId}, ${numeroPedido}, ${total}, ${moneda}, 
-                ${emailCliente}, NOW(), NOW()
+                ${shopifyId}, ${numeroPedido}, ${emailCliente}, ${estado}, ${estadoFinanciero},
+                ${total}, ${moneda}, NOW(), NOW()
               )
             `
             resultado.insertados++
@@ -183,7 +182,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // COLECCIONES - Usando la misma lógica que funciona para clientes
+    // COLECCIONES - Aplicando la misma lógica exitosa de productos
     if (tipo === "colecciones") {
       for (const coleccion of datos) {
         try {
@@ -192,16 +191,17 @@ export async function POST(request: Request) {
             continue
           }
 
-          // Usar la misma lógica de ID que funciona para clientes
           let shopifyId = coleccion.id
           if (typeof shopifyId === "string" && shopifyId.includes("gid://shopify/Collection/")) {
             shopifyId = shopifyId.replace("gid://shopify/Collection/", "")
           }
 
-          // Datos básicos como en clientes
+          // Datos básicos como productos
           const titulo = coleccion.title || "Colección sin título"
           const descripcion = coleccion.description || ""
           const urlHandle = coleccion.handle || titulo.toLowerCase().replace(/\s+/g, "-")
+          const imagenUrl = null
+          const publicado = true
 
           const existeColeccion = await sql`
             SELECT id FROM colecciones WHERE shopify_id = ${shopifyId}
@@ -213,6 +213,8 @@ export async function POST(request: Request) {
                 titulo = ${titulo},
                 descripcion = ${descripcion},
                 url_handle = ${urlHandle},
+                imagen_url = ${imagenUrl},
+                publicado = ${publicado},
                 actualizado_en = NOW()
               WHERE shopify_id = ${shopifyId}
             `
@@ -220,16 +222,75 @@ export async function POST(request: Request) {
           } else {
             await sql`
               INSERT INTO colecciones (
-                shopify_id, titulo, descripcion, url_handle,
-                creado_en, actualizado_en
+                shopify_id, titulo, descripcion, url_handle, imagen_url,
+                publicado, creado_en, actualizado_en
               ) VALUES (
-                ${shopifyId}, ${titulo}, ${descripcion}, ${urlHandle}, NOW(), NOW()
+                ${shopifyId}, ${titulo}, ${descripcion}, ${urlHandle}, ${imagenUrl},
+                ${publicado}, NOW(), NOW()
               )
             `
             resultado.insertados++
           }
         } catch (error) {
           console.error(`❌ Error con colección ${coleccion.id}:`, error)
+          resultado.errores++
+        }
+      }
+    }
+
+    // PROMOCIONES - Aplicando la misma lógica exitosa de productos
+    if (tipo === "promociones") {
+      for (const promocion of datos) {
+        try {
+          if (!promocion.id || !promocion.title) {
+            resultado.errores++
+            continue
+          }
+
+          let shopifyId = promocion.id
+          if (typeof shopifyId === "string" && shopifyId.includes("gid://shopify/")) {
+            shopifyId = shopifyId.replace(/gid:\/\/shopify\/[^/]+\//, "")
+          }
+
+          // Datos básicos como productos
+          const titulo = promocion.title || "Promoción sin título"
+          const descripcion = promocion.description || ""
+          const codigo = promocion.code || `PROMO${shopifyId}`
+          const tipo = "PERCENTAGE"
+          const valor = 10
+          const activo = true
+
+          const existePromocion = await sql`
+            SELECT id FROM promociones WHERE shopify_id = ${shopifyId}
+          `
+
+          if (existePromocion.rows.length > 0) {
+            await sql`
+              UPDATE promociones SET 
+                titulo = ${titulo},
+                descripcion = ${descripcion},
+                codigo = ${codigo},
+                tipo = ${tipo},
+                valor = ${valor},
+                activo = ${activo},
+                actualizado_en = NOW()
+              WHERE shopify_id = ${shopifyId}
+            `
+            resultado.actualizados++
+          } else {
+            await sql`
+              INSERT INTO promociones (
+                shopify_id, titulo, descripcion, codigo, tipo, valor,
+                activo, creado_en, actualizado_en
+              ) VALUES (
+                ${shopifyId}, ${titulo}, ${descripcion}, ${codigo}, ${tipo}, ${valor},
+                ${activo}, NOW(), NOW()
+              )
+            `
+            resultado.insertados++
+          }
+        } catch (error) {
+          console.error(`❌ Error con promoción ${promocion.id}:`, error)
           resultado.errores++
         }
       }
