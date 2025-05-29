@@ -14,6 +14,7 @@ export async function GET() {
           totalCustomers: 0,
           totalProducts: 0,
           totalCollections: 0,
+          totalPromotions: 0,
           totalInventory: 0,
           currency: "EUR",
         },
@@ -29,6 +30,7 @@ export async function GET() {
         allOrders: [],
         allCustomers: [],
         allCollections: [],
+        allPromotions: [],
         error: "Shopify configuration missing",
       })
     }
@@ -146,6 +148,98 @@ export async function GET() {
     const ordersData = await ordersResponse.json()
     const orders = ordersData.data?.orders?.edges || []
     console.log(`✅ Fetched ${orders.length} orders`)
+
+    // Consulta para obtener promociones/descuentos
+    const promotionsQuery = `
+      query {
+        discountNodes(first: 100) {
+          edges {
+            node {
+              id
+              discount {
+                ... on DiscountAutomaticApp {
+                  title
+                  status
+                  createdAt
+                  updatedAt
+                }
+                ... on DiscountAutomaticBasic {
+                  title
+                  status
+                  createdAt
+                  updatedAt
+                  customerGets {
+                    value {
+                      ... on DiscountPercentage {
+                        percentage
+                      }
+                      ... on DiscountAmount {
+                        amount {
+                          amount
+                        }
+                      }
+                    }
+                  }
+                }
+                ... on DiscountCodeApp {
+                  title
+                  status
+                  createdAt
+                  updatedAt
+                }
+                ... on DiscountCodeBasic {
+                  title
+                  status
+                  createdAt
+                  updatedAt
+                  codes(first: 1) {
+                    edges {
+                      node {
+                        code
+                      }
+                    }
+                  }
+                  customerGets {
+                    value {
+                      ... on DiscountPercentage {
+                        percentage
+                      }
+                      ... on DiscountAmount {
+                        amount {
+                          amount
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+
+    console.log("🔍 Fetching promotions from Shopify...")
+    const promotionsResponse = await fetch(
+      `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-07/graphql.json`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
+        },
+        body: JSON.stringify({ query: promotionsQuery }),
+      },
+    )
+
+    if (!promotionsResponse.ok) {
+      console.error(`❌ Shopify API error (promotions): ${promotionsResponse.status}`)
+      // No lanzamos error aquí, solo logueamos
+    }
+
+    const promotionsData = await promotionsResponse.json()
+    const promotions = promotionsData.data?.discountNodes?.edges || []
+    console.log(`✅ Fetched ${promotions.length} promotions`)
 
     // Consulta para obtener clientes y colecciones
     const otherDataQuery = `
@@ -309,6 +403,48 @@ export async function GET() {
       image: edge.node.image?.url || null,
     }))
 
+    // Procesar promociones
+    const allPromotions = promotions.map((edge: any) => {
+      const discount = edge.node.discount
+      let title = "Promoción sin título"
+      let status = "ACTIVE"
+      let value = 0
+      let type = "PERCENTAGE"
+      let code = ""
+
+      if (discount) {
+        title = discount.title || `Promoción ${edge.node.id.split("/").pop()}`
+        status = discount.status || "ACTIVE"
+
+        // Extraer valor del descuento
+        if (discount.customerGets?.value) {
+          if (discount.customerGets.value.percentage) {
+            value = discount.customerGets.value.percentage
+            type = "PERCENTAGE"
+          } else if (discount.customerGets.value.amount?.amount) {
+            value = Number.parseFloat(discount.customerGets.value.amount.amount)
+            type = "FIXED_AMOUNT"
+          }
+        }
+
+        // Extraer código si existe
+        if (discount.codes?.edges?.[0]?.node?.code) {
+          code = discount.codes.edges[0].node.code
+        }
+      }
+
+      return {
+        id: edge.node.id,
+        title,
+        status,
+        value,
+        type,
+        code,
+        createdAt: discount?.createdAt || new Date().toISOString(),
+        updatedAt: discount?.updatedAt || new Date().toISOString(),
+      }
+    })
+
     const dashboardData = {
       stats: {
         totalSales: totalSales.toFixed(2),
@@ -316,6 +452,7 @@ export async function GET() {
         totalCustomers: customers.length,
         totalProducts: products.length,
         totalCollections: collections.length,
+        totalPromotions: promotions.length,
         totalInventory,
         currency: "EUR",
       },
@@ -327,11 +464,14 @@ export async function GET() {
       allOrders,
       allCustomers,
       allCollections,
+      allPromotions,
       lastUpdated: new Date().toISOString(),
     }
 
     console.log("✅ Dashboard summary generated successfully")
-    console.log(`📊 Productos recientes: ${recentProducts.length}, Pedidos recientes: ${recentOrders.length}`)
+    console.log(
+      `📊 Productos: ${products.length}, Pedidos: ${orders.length}, Clientes: ${customers.length}, Colecciones: ${collections.length}, Promociones: ${promotions.length}`,
+    )
 
     return NextResponse.json(dashboardData)
   } catch (error) {
@@ -343,6 +483,7 @@ export async function GET() {
         totalCustomers: 0,
         totalProducts: 0,
         totalCollections: 0,
+        totalPromotions: 0,
         totalInventory: 0,
         currency: "EUR",
       },
@@ -358,6 +499,7 @@ export async function GET() {
       allOrders: [],
       allCustomers: [],
       allCollections: [],
+      allPromotions: [],
       error: "Internal server error",
     })
   }

@@ -16,6 +16,7 @@ export async function POST(request: Request) {
       pedidos: { insertados: 0, actualizados: 0, errores: 0 },
       clientes: { insertados: 0, actualizados: 0, errores: 0 },
       colecciones: { insertados: 0, actualizados: 0, errores: 0 },
+      promociones: { insertados: 0, actualizados: 0, errores: 0 },
       configuracion: { guardada: false },
       seo: { guardado: false },
       personalizacion: { guardada: false },
@@ -203,7 +204,51 @@ export async function POST(request: Request) {
       }
     }
 
-    // 5. Guardar configuración de Shopify
+    // 5. Sincronizar promociones
+    if (dashboardData.allPromotions && Array.isArray(dashboardData.allPromotions)) {
+      console.log(`🎯 Sincronizando ${dashboardData.allPromotions.length} promociones...`)
+
+      for (const promocion of dashboardData.allPromotions) {
+        try {
+          const shopifyId = promocion.id.replace("gid://shopify/DiscountNode/", "")
+
+          const existePromocion = await sql`
+            SELECT id FROM promociones WHERE shopify_id = ${shopifyId}
+          `
+
+          if (existePromocion.rows.length > 0) {
+            await sql`
+              UPDATE promociones SET 
+                titulo = ${promocion.title},
+                tipo = ${promocion.type},
+                valor = ${promocion.value},
+                codigo = ${promocion.code || null},
+                activo = ${promocion.status === "ACTIVE"},
+                actualizado_en = NOW()
+              WHERE shopify_id = ${shopifyId}
+            `
+            results.promociones.actualizados++
+          } else {
+            await sql`
+              INSERT INTO promociones (
+                shopify_id, titulo, tipo, valor, codigo, activo,
+                creado_en, actualizado_en
+              ) VALUES (
+                ${shopifyId}, ${promocion.title}, ${promocion.type},
+                ${promocion.value}, ${promocion.code || null}, ${promocion.status === "ACTIVE"},
+                NOW(), NOW()
+              )
+            `
+            results.promociones.insertados++
+          }
+        } catch (error) {
+          console.error(`Error sincronizando promoción ${promocion.id}:`, error)
+          results.promociones.errores++
+        }
+      }
+    }
+
+    // 6. Guardar configuración de Shopify
     try {
       console.log("⚙️ Guardando configuración de Shopify...")
 
@@ -229,7 +274,7 @@ export async function POST(request: Request) {
       console.error("Error guardando configuración de Shopify:", error)
     }
 
-    // 6. Guardar configuración SEO básica
+    // 7. Guardar configuración SEO básica
     try {
       console.log("🔍 Guardando configuración SEO...")
 
@@ -253,7 +298,7 @@ export async function POST(request: Request) {
       console.error("Error guardando configuración SEO:", error)
     }
 
-    // 7. Guardar configuración de personalización
+    // 8. Guardar configuración de personalización
     try {
       console.log("🎨 Guardando configuración de personalización...")
 
@@ -275,7 +320,7 @@ export async function POST(request: Request) {
       console.error("Error guardando configuración de personalización:", error)
     }
 
-    // 8. Registrar la actividad de sincronización
+    // 9. Registrar la actividad de sincronización
     await sql`
       INSERT INTO registros_actividad (
         accion, tipo_entidad, resultado, descripcion, creado_en

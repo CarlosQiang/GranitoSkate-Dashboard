@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, Database, Users, ShoppingBag, Tag, Euro, AlertTriangle } from "lucide-react"
+import { RefreshCw, Database, Users, ShoppingBag, Tag, Euro, AlertTriangle, Percent } from "lucide-react"
 import { SalesOverview } from "@/components/sales-overview"
 import { RecentOrders } from "@/components/recent-orders"
 import { RecentProducts } from "@/components/recent-products"
@@ -41,7 +41,7 @@ export default function DashboardPage() {
       // Verificar que los datos estén completos
       console.log("✅ Dashboard data loaded successfully:", data)
       console.log(
-        `📊 Productos recientes: ${data.recentProducts?.length || 0}, Pedidos recientes: ${data.recentOrders?.length || 0}`,
+        `📊 Productos: ${data.allProducts?.length || 0}, Pedidos: ${data.allOrders?.length || 0}, Promociones: ${data.allPromotions?.length || 0}`,
       )
 
       setDashboardData(data)
@@ -56,6 +56,7 @@ export default function DashboardPage() {
           totalCustomers: 0,
           totalProducts: 0,
           totalCollections: 0,
+          totalPromotions: 0,
           totalInventory: 0,
           currency: "EUR",
         },
@@ -71,6 +72,7 @@ export default function DashboardPage() {
         allOrders: [],
         allCustomers: [],
         allCollections: [],
+        allPromotions: [],
       })
     } finally {
       setIsLoading(false)
@@ -88,110 +90,33 @@ export default function DashboardPage() {
     const details = {}
 
     try {
-      console.log("🔄 Iniciando sincronización con base de datos...")
+      console.log("🔄 Iniciando sincronización completa con base de datos...")
 
-      // Sincronizar productos
-      if (dashboardData?.allProducts && dashboardData.allProducts.length > 0) {
-        console.log(`📦 Sincronizando ${dashboardData.allProducts.length} productos...`)
-        const productResponse = await fetch("/api/db/sincronizar", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            tipo: "productos",
-            datos: dashboardData.allProducts,
-          }),
-        })
+      // Usar la nueva API de sincronización completa
+      const response = await fetch("/api/sync/complete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          dashboardData,
+        }),
+      })
 
-        if (!productResponse.ok) {
-          const errorData = await productResponse.json()
-          throw new Error(errorData.mensaje || "Error al sincronizar productos")
-        }
-
-        const productResult = await productResponse.json()
-        console.log("✅ Productos sincronizados:", productResult)
-        details["productos"] = productResult.resultado
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Error en la sincronización completa")
       }
 
-      // Sincronizar pedidos
-      if (dashboardData?.allOrders && dashboardData.allOrders.length > 0) {
-        console.log(`🛒 Sincronizando ${dashboardData.allOrders.length} pedidos...`)
-        const orderResponse = await fetch("/api/db/sincronizar", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            tipo: "pedidos",
-            datos: dashboardData.allOrders,
-          }),
-        })
+      const result = await response.json()
+      console.log("✅ Sincronización completa exitosa:", result)
 
-        if (!orderResponse.ok) {
-          console.warn("⚠️ Advertencia: No se pudieron sincronizar los pedidos")
-        } else {
-          const orderResult = await orderResponse.json()
-          console.log("✅ Pedidos sincronizados:", orderResult)
-          details["pedidos"] = orderResult.resultado
-        }
-      }
-
-      // Sincronizar clientes
-      if (dashboardData?.allCustomers && dashboardData.allCustomers.length > 0) {
-        console.log(`👥 Sincronizando ${dashboardData.allCustomers.length} clientes...`)
-        const customerResponse = await fetch("/api/db/sincronizar", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            tipo: "clientes",
-            datos: dashboardData.allCustomers,
-          }),
-        })
-
-        if (!customerResponse.ok) {
-          console.warn("⚠️ Advertencia: No se pudieron sincronizar los clientes")
-        } else {
-          const customerResult = await customerResponse.json()
-          console.log("✅ Clientes sincronizados:", customerResult)
-          details["clientes"] = customerResult.resultado
-        }
-      }
-
-      // Sincronizar colecciones
-      if (dashboardData?.allCollections && dashboardData.allCollections.length > 0) {
-        console.log(`📚 Sincronizando ${dashboardData.allCollections.length} colecciones...`)
-        const collectionResponse = await fetch("/api/db/sincronizar", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            tipo: "colecciones",
-            datos: dashboardData.allCollections,
-          }),
-        })
-
-        if (!collectionResponse.ok) {
-          console.warn("⚠️ Advertencia: No se pudieron sincronizar las colecciones")
-        } else {
-          const collectionResult = await collectionResponse.json()
-          console.log("✅ Colecciones sincronizadas:", collectionResult)
-          details["colecciones"] = collectionResult.resultado
-        }
-      }
-
-      setSyncDetails(details)
-      setSyncMessage("✅ Datos sincronizados exitosamente con la base de datos")
-      console.log("🎉 Sincronización completada")
+      setSyncDetails(result.results)
+      setSyncMessage("✅ Sincronización completa exitosa - Todos los datos guardados en la base de datos")
     } catch (error) {
-      console.error("❌ Error saving data to database:", error)
-      setError("Error al guardar los datos en la base de datos.")
-      setSyncMessage(
-        `❌ Error al sincronizar los datos: ${error instanceof Error ? error.message : "Error desconocido"}`,
-      )
+      console.error("❌ Error en sincronización completa:", error)
+      setError("Error al sincronizar los datos con la base de datos.")
+      setSyncMessage(`❌ Error en la sincronización: ${error instanceof Error ? error.message : "Error desconocido"}`)
     } finally {
       setIsSyncing(false)
     }
@@ -204,8 +129,8 @@ export default function DashboardPage() {
           <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         </div>
         <div className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {[...Array(5)].map((_, i) => (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {[...Array(6)].map((_, i) => (
               <Card key={i}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
@@ -278,12 +203,23 @@ export default function DashboardPage() {
               <div className="text-xs space-y-1 mt-2">
                 <p className="font-semibold">Detalles de sincronización:</p>
                 <ul className="list-disc pl-5 space-y-1">
-                  {Object.entries(syncDetails).map(([tipo, resultado]: [string, any]) => (
-                    <li key={tipo}>
-                      {tipo.charAt(0).toUpperCase() + tipo.slice(1)}: {resultado.insertados} insertados,{" "}
-                      {resultado.actualizados} actualizados, {resultado.errores} errores
-                    </li>
-                  ))}
+                  {Object.entries(syncDetails).map(([tipo, resultado]: [string, any]) => {
+                    if (typeof resultado === "object" && resultado.insertados !== undefined) {
+                      return (
+                        <li key={tipo}>
+                          {tipo.charAt(0).toUpperCase() + tipo.slice(1)}: {resultado.insertados} insertados,{" "}
+                          {resultado.actualizados} actualizados, {resultado.errores} errores
+                        </li>
+                      )
+                    } else if (typeof resultado === "boolean") {
+                      return (
+                        <li key={tipo}>
+                          {tipo.charAt(0).toUpperCase() + tipo.slice(1)}: {resultado ? "✅ Guardado" : "❌ Error"}
+                        </li>
+                      )
+                    }
+                    return null
+                  })}
                 </ul>
               </div>
             )}
@@ -292,7 +228,7 @@ export default function DashboardPage() {
       )}
 
       <div className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Ventas Totales</CardTitle>
@@ -344,6 +280,17 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{dashboardData?.stats?.totalCollections || 0}</div>
+              <p className="text-sm text-gray-500">+0% desde el mes pasado</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Promociones</CardTitle>
+              <Percent className="h-4 w-4 text-gray-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{dashboardData?.stats?.totalPromotions || 0}</div>
               <p className="text-sm text-gray-500">+0% desde el mes pasado</p>
             </CardContent>
           </Card>
