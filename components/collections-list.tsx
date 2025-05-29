@@ -3,13 +3,13 @@
 import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Edit, Package, List, Grid3X3 } from 'lucide-react'
+import { Edit, Package } from "lucide-react"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { fetchCollections } from "@/lib/api/collections"
 import { LoadingState } from "@/components/loading-state"
 import { CollectionsFilters, type CollectionFilters } from "./collections-filters"
-import { cn } from "@/lib/utils"
 
 export function CollectionsList() {
   const [collections, setCollections] = useState([])
@@ -211,7 +211,7 @@ export function CollectionsList() {
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium truncate">{collection.title}</h3>
-                <p className="text-sm text-gray-500">{collection.description}</p>
+                <p className="text-sm text-gray-500">{collection.description || "Sin descripción"}</p>
               </div>
               <div className="text-right">
                 <div className="font-medium">{collection.productsCount} productos</div>

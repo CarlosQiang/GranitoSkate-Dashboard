@@ -37,10 +37,10 @@ export default function LoginPage() {
     setError("")
 
     try {
-      console.log("🔐 Intentando iniciar sesión...")
+      console.log("🔐 Intentando iniciar sesión con:", identifier)
 
       const result = await signIn("credentials", {
-        identifier,
+        email: identifier, // Cambiado de identifier a email
         password,
         redirect: false,
       })
@@ -158,6 +158,7 @@ export default function LoginPage() {
                       borderRadius,
                       borderColor: `${primaryColor}33`,
                     }}
+                    autoComplete="username"
                   />
                 </div>
               </div>
