@@ -94,7 +94,7 @@ export default function DashboardPage() {
         throw new Error("No hay datos para sincronizar")
       }
 
-      // Usar la nueva API de sincronización completa
+      // Usar la API de sincronización completa
       const response = await fetch("/api/sync/complete", {
         method: "POST",
         headers: {
@@ -212,8 +212,8 @@ export default function DashboardPage() {
                 <ul className="list-disc pl-5 space-y-1">
                   {Object.entries(syncDetails).map(([tipo, resultado]: [string, any]) => (
                     <li key={tipo}>
-                      {tipo.charAt(0).toUpperCase() + tipo.slice(1)}: {resultado.insertados} insertados,{" "}
-                      {resultado.actualizados} actualizados, {resultado.errores} errores
+                      {tipo.charAt(0).toUpperCase() + tipo.slice(1)}: {resultado.insertados || 0} insertados,{" "}
+                      {resultado.actualizados || 0} actualizados, {resultado.errores || 0} errores
                     </li>
                   ))}
                 </ul>
@@ -322,6 +322,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
+
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
             <CardHeader>
@@ -351,8 +352,8 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Estado de la Base de Datos - Movido al final */}
-        <div className="grid gap-4 md:grid-cols-1">
+        {/* Estado de la Base de Datos - Movido al final de la página */}
+        <div className="mt-8">
           <DatabaseStatus onRefresh={loadDashboardData} />
         </div>
       </div>

@@ -18,6 +18,22 @@ export async function POST(request: Request) {
       promociones: dashboardData.allPromotions?.length || 0,
     })
 
+    // Verificar si hay datos para sincronizar
+    if (
+      (!dashboardData.allProducts || dashboardData.allProducts.length === 0) &&
+      (!dashboardData.allOrders || dashboardData.allOrders.length === 0) &&
+      (!dashboardData.allCustomers || dashboardData.allCustomers.length === 0) &&
+      (!dashboardData.allCollections || dashboardData.allCollections.length === 0) &&
+      (!dashboardData.allPromotions || dashboardData.allPromotions.length === 0)
+    ) {
+      return NextResponse.json({
+        success: false,
+        message: "No hay datos para sincronizar",
+        results: {},
+        totalInsertados: 0,
+      })
+    }
+
     const results = {
       limpieza: { productos: 0, pedidos: 0, clientes: 0, colecciones: 0, promociones: 0 },
       productos: { insertados: 0, errores: 0 },
@@ -64,17 +80,27 @@ export async function POST(request: Request) {
 
       for (const producto of dashboardData.allProducts) {
         try {
-          if (!producto.id || !producto.title) {
-            console.warn("⚠️ Producto sin ID o título:", producto)
+          if (!producto.id) {
+            console.warn("⚠️ Producto sin ID:", producto)
             results.productos.errores++
             continue
           }
 
-          const shopifyId = producto.id.replace("gid://shopify/Product/", "")
+          // Extraer ID limpio
+          const shopifyId = String(producto.id).replace("gid://shopify/Product/", "")
+
+          // Valores por defecto seguros
+          const titulo = producto.title || `Producto ${shopifyId}`
+          const descripcion = producto.description || ""
+          const estado = producto.status || "ACTIVE"
           const precio = Number.parseFloat(producto.price || "0")
           const inventario = Number.parseInt(producto.inventory || "0")
+          const tipoProducto = producto.productType || "SKATEBOARD"
+          const proveedor = producto.vendor || "GranitoSkate"
+          const imagen = producto.image || null
+          const handle = producto.handle || titulo.toLowerCase().replace(/\s+/g, "-")
 
-          console.log(`📝 Insertando producto: ${producto.title} (ID: ${shopifyId})`)
+          console.log(`📝 Insertando producto: ${titulo} (ID: ${shopifyId})`)
 
           await sql`
             INSERT INTO productos (
@@ -93,15 +119,15 @@ export async function POST(request: Request) {
               actualizado_en
             ) VALUES (
               ${shopifyId},
-              ${producto.title},
-              ${producto.description || ""},
-              ${producto.status || "ACTIVE"},
+              ${titulo},
+              ${descripcion},
+              ${estado},
               ${precio},
               ${inventario},
-              ${producto.productType || "SKATEBOARD"},
-              ${producto.vendor || "GranitoSkate"},
-              ${producto.image || null},
-              ${producto.handle || producto.title.toLowerCase().replace(/\s+/g, "-")},
+              ${tipoProducto},
+              ${proveedor},
+              ${imagen},
+              ${handle},
               ${true},
               NOW(),
               NOW()
@@ -109,7 +135,7 @@ export async function POST(request: Request) {
           `
           results.productos.insertados++
         } catch (error) {
-          console.error(`❌ Error insertando producto ${producto.id}:`, error)
+          console.error(`❌ Error insertando producto:`, error)
           results.productos.errores++
         }
       }
@@ -130,18 +156,21 @@ export async function POST(request: Request) {
 
       for (const cliente of dashboardData.allCustomers) {
         try {
-          if (!cliente.id || !cliente.email) {
-            console.warn("⚠️ Cliente sin ID o email:", cliente)
+          if (!cliente.id) {
+            console.warn("⚠️ Cliente sin ID:", cliente)
             results.clientes.errores++
             continue
           }
 
-          const shopifyId = cliente.id.replace("gid://shopify/Customer/", "")
+          const shopifyId = String(cliente.id).replace("gid://shopify/Customer/", "")
+          const email = cliente.email || `cliente-${shopifyId}@example.com`
           const nombre = `${cliente.firstName || ""} ${cliente.lastName || ""}`.trim() || "Cliente"
+          const telefono = cliente.phone || null
+          const estado = cliente.state || "ENABLED"
           const totalPedidos = Number.parseInt(cliente.numberOfOrders || "0")
           const totalGastado = Number.parseFloat(cliente.totalSpent || "0")
 
-          console.log(`📝 Insertando cliente: ${cliente.email} (ID: ${shopifyId})`)
+          console.log(`📝 Insertando cliente: ${email} (ID: ${shopifyId})`)
 
           await sql`
             INSERT INTO clientes (
@@ -156,10 +185,10 @@ export async function POST(request: Request) {
               actualizado_en
             ) VALUES (
               ${shopifyId},
-              ${cliente.email},
+              ${email},
               ${nombre},
-              ${cliente.phone || null},
-              ${cliente.state || "ENABLED"},
+              ${telefono},
+              ${estado},
               ${totalPedidos},
               ${totalGastado},
               NOW(),
@@ -168,7 +197,7 @@ export async function POST(request: Request) {
           `
           results.clientes.insertados++
         } catch (error) {
-          console.error(`❌ Error insertando cliente ${cliente.id}:`, error)
+          console.error(`❌ Error insertando cliente:`, error)
           results.clientes.errores++
         }
       }
@@ -191,11 +220,34 @@ export async function POST(request: Request) {
             continue
           }
 
-          const shopifyId = pedido.id.replace("gid://shopify/Order/", "")
+          const shopifyId = String(pedido.id).replace("gid://shopify/Order/", "")
           const numeroPedido = pedido.name || `#${shopifyId}`
-          const total = Number.parseFloat(pedido.totalPriceSet?.shopMoney?.amount || pedido.total || "0")
-          const moneda = pedido.totalPriceSet?.shopMoney?.currencyCode || pedido.currency || "EUR"
-          const emailCliente = pedido.customer?.email || pedido.email || ""
+
+          // Manejar diferentes estructuras de datos para el total
+          let total = 0
+          if (pedido.totalPriceSet && pedido.totalPriceSet.shopMoney && pedido.totalPriceSet.shopMoney.amount) {
+            total = Number.parseFloat(pedido.totalPriceSet.shopMoney.amount)
+          } else if (pedido.total) {
+            total = Number.parseFloat(pedido.total)
+          }
+
+          // Manejar diferentes estructuras para la moneda
+          let moneda = "EUR"
+          if (pedido.totalPriceSet && pedido.totalPriceSet.shopMoney && pedido.totalPriceSet.shopMoney.currencyCode) {
+            moneda = pedido.totalPriceSet.shopMoney.currencyCode
+          } else if (pedido.currency) {
+            moneda = pedido.currency
+          }
+
+          // Manejar diferentes estructuras para el email del cliente
+          let emailCliente = ""
+          if (pedido.customer && pedido.customer.email) {
+            emailCliente = pedido.customer.email
+          } else if (pedido.email) {
+            emailCliente = pedido.email
+          }
+
+          // Manejar diferentes estructuras para el estado
           const estado = pedido.displayFulfillmentStatus || pedido.fulfillmentStatus || "PENDING"
           const estadoFinanciero = pedido.displayFinancialStatus || pedido.financialStatus || "PENDING"
 
@@ -226,7 +278,7 @@ export async function POST(request: Request) {
           `
           results.pedidos.insertados++
         } catch (error) {
-          console.error(`❌ Error insertando pedido ${pedido.id}:`, error)
+          console.error(`❌ Error insertando pedido:`, error)
           results.pedidos.errores++
         }
       }
@@ -247,18 +299,34 @@ export async function POST(request: Request) {
 
       for (const coleccion of dashboardData.allCollections) {
         try {
-          if (!coleccion.id || !coleccion.title) {
-            console.warn("⚠️ Colección sin ID o título:", coleccion)
+          if (!coleccion.id) {
+            console.warn("⚠️ Colección sin ID:", coleccion)
             results.colecciones.errores++
             continue
           }
 
-          const shopifyId = coleccion.id.replace("gid://shopify/Collection/", "")
-          const handle = coleccion.handle || coleccion.title.toLowerCase().replace(/\s+/g, "-")
-          const productosCount = Number.parseInt(coleccion.productsCount?.count || coleccion.productsCount || "0")
-          const imagenUrl = coleccion.image?.url || coleccion.image || null
+          const shopifyId = String(coleccion.id).replace("gid://shopify/Collection/", "")
+          const titulo = coleccion.title || `Colección ${shopifyId}`
+          const descripcion = coleccion.description || ""
+          const handle = coleccion.handle || titulo.toLowerCase().replace(/\s+/g, "-")
 
-          console.log(`📝 Insertando colección: ${coleccion.title} (ID: ${shopifyId})`)
+          // Manejar diferentes estructuras para el conteo de productos
+          let productosCount = 0
+          if (coleccion.productsCount && typeof coleccion.productsCount === "object" && coleccion.productsCount.count) {
+            productosCount = Number.parseInt(coleccion.productsCount.count)
+          } else if (coleccion.productsCount) {
+            productosCount = Number.parseInt(String(coleccion.productsCount))
+          }
+
+          // Manejar diferentes estructuras para la imagen
+          let imagenUrl = null
+          if (coleccion.image && coleccion.image.url) {
+            imagenUrl = coleccion.image.url
+          } else if (coleccion.image) {
+            imagenUrl = coleccion.image
+          }
+
+          console.log(`📝 Insertando colección: ${titulo} (ID: ${shopifyId})`)
 
           await sql`
             INSERT INTO colecciones (
@@ -273,8 +341,8 @@ export async function POST(request: Request) {
               actualizado_en
             ) VALUES (
               ${shopifyId},
-              ${coleccion.title},
-              ${coleccion.description || ""},
+              ${titulo},
+              ${descripcion},
               ${handle},
               ${imagenUrl},
               ${productosCount},
@@ -285,7 +353,7 @@ export async function POST(request: Request) {
           `
           results.colecciones.insertados++
         } catch (error) {
-          console.error(`❌ Error insertando colección ${coleccion.id}:`, error)
+          console.error(`❌ Error insertando colección:`, error)
           results.colecciones.errores++
         }
       }
@@ -306,30 +374,69 @@ export async function POST(request: Request) {
 
       for (const promocion of dashboardData.allPromotions) {
         try {
-          if (!promocion.id || !promocion.title) {
-            console.warn("⚠️ Promoción sin ID o título:", promocion)
+          if (!promocion.id) {
+            console.warn("⚠️ Promoción sin ID:", promocion)
             results.promociones.errores++
             continue
           }
 
-          const shopifyId = promocion.id
+          const shopifyId = String(promocion.id)
             .replace("gid://shopify/DiscountNode/", "")
             .replace("gid://shopify/DiscountCodeNode/", "")
 
-          const titulo = promocion.title || promocion.codeDiscount?.title || "Promoción sin título"
-          const descripcion = promocion.summary || promocion.codeDiscount?.summary || ""
-          const tipo = promocion.discount?.discountClass || promocion.type || "PERCENTAGE"
-
-          let valor = 0
-          if (promocion.discount?.customerGets?.value?.percentage) {
-            valor = Number.parseFloat(promocion.discount.customerGets.value.percentage)
-          } else if (promocion.discount?.customerGets?.value?.discountAmount?.amount) {
-            valor = Number.parseFloat(promocion.discount.customerGets.value.discountAmount.amount)
-          } else if (promocion.value) {
-            valor = Number.parseFloat(promocion.value)
+          // Extraer título con fallbacks
+          let titulo = "Promoción sin título"
+          if (promocion.title) {
+            titulo = promocion.title
+          } else if (promocion.codeDiscount && promocion.codeDiscount.title) {
+            titulo = promocion.codeDiscount.title
           }
 
-          const codigo = promocion.codeDiscount?.codes?.nodes?.[0]?.code || promocion.code || null
+          // Extraer descripción con fallbacks
+          let descripcion = ""
+          if (promocion.summary) {
+            descripcion = promocion.summary
+          } else if (promocion.codeDiscount && promocion.codeDiscount.summary) {
+            descripcion = promocion.codeDiscount.summary
+          }
+
+          // Extraer tipo con fallbacks
+          let tipo = "PERCENTAGE"
+          if (promocion.discount && promocion.discount.discountClass) {
+            tipo = promocion.discount.discountClass
+          } else if (promocion.type) {
+            tipo = promocion.type
+          }
+
+          // Extraer valor con fallbacks
+          let valor = 0
+          if (promocion.discount && promocion.discount.customerGets && promocion.discount.customerGets.value) {
+            if (promocion.discount.customerGets.value.percentage) {
+              valor = Number.parseFloat(promocion.discount.customerGets.value.percentage)
+            } else if (
+              promocion.discount.customerGets.value.discountAmount &&
+              promocion.discount.customerGets.value.discountAmount.amount
+            ) {
+              valor = Number.parseFloat(promocion.discount.customerGets.value.discountAmount.amount)
+            }
+          } else if (promocion.value) {
+            valor = Number.parseFloat(String(promocion.value))
+          }
+
+          // Extraer código con fallbacks
+          let codigo = null
+          if (
+            promocion.codeDiscount &&
+            promocion.codeDiscount.codes &&
+            promocion.codeDiscount.codes.nodes &&
+            promocion.codeDiscount.codes.nodes.length > 0
+          ) {
+            codigo = promocion.codeDiscount.codes.nodes[0].code
+          } else if (promocion.code) {
+            codigo = promocion.code
+          }
+
+          // Extraer estado
           const activo = promocion.status === "ACTIVE" || promocion.status === "active"
 
           console.log(`📝 Insertando promoción: ${titulo} (ID: ${shopifyId})`)
@@ -361,7 +468,7 @@ export async function POST(request: Request) {
           `
           results.promociones.insertados++
         } catch (error) {
-          console.error(`❌ Error insertando promoción ${promocion.id}:`, error)
+          console.error(`❌ Error insertando promoción:`, error)
           results.promociones.errores++
         }
       }

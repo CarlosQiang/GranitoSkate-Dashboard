@@ -19,21 +19,31 @@ interface DatabaseStatusProps {
 
 export function DatabaseStatus({ onRefresh }: DatabaseStatusProps) {
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [tablesStatus, setTablesStatus] = useState<Record<string, TableStatus>>({})
   const [lastUpdate, setLastUpdate] = useState<string>("")
 
   const loadStatus = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch("/api/db/status")
+      setError(null)
 
-      if (response.ok) {
-        const data = await response.json()
-        setTablesStatus(data.tablesStatus)
-        setLastUpdate(data.timestamp)
+      const response = await fetch("/api/db/status", {
+        cache: "no-store",
+        next: { revalidate: 0 },
+      })
+
+      if (!response.ok) {
+        throw new Error(`Error al cargar el estado de la base de datos: ${response.status}`)
       }
+
+      const data = await response.json()
+      setTablesStatus(data.tablesStatus || {})
+      setLastUpdate(data.timestamp || new Date().toISOString())
     } catch (error) {
       console.error("Error loading database status:", error)
+      setError(error instanceof Error ? error.message : "Error desconocido")
+      setTablesStatus({})
     } finally {
       setIsLoading(false)
     }
@@ -56,11 +66,11 @@ export function DatabaseStatus({ onRefresh }: DatabaseStatusProps) {
 
   const getStatusBadge = (status: TableStatus) => {
     if (!status.exists) return <Badge variant="destructive">No existe</Badge>
-    if (status.count === 0) return <Badge variant="secondary">Vacía</Badge>
+    if (status.count === 0) return <Badge variant="outline">Vacía</Badge>
     return <Badge variant="default">{status.count} registros</Badge>
   }
 
-  const tableLabels = {
+  const tableLabels: Record<string, string> = {
     productos: "Productos",
     pedidos: "Pedidos",
     clientes: "Clientes",
@@ -95,30 +105,35 @@ export function DatabaseStatus({ onRefresh }: DatabaseStatusProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-3">
-          {Object.entries(tablesStatus).map(([tableName, status]) => (
-            <div key={tableName} className="flex items-center justify-between p-3 border rounded-lg">
-              <div className="flex items-center gap-3">
-                {getStatusIcon(status)}
-                <div>
-                  <p className="font-medium">{tableLabels[tableName] || tableName}</p>
-                  {status.error && <p className="text-xs text-red-500">{status.error}</p>}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">{getStatusBadge(status)}</div>
-            </div>
-          ))}
-        </div>
-
-        {Object.keys(tablesStatus).length === 0 && !isLoading && (
-          <div className="text-center py-8 text-muted-foreground">No se pudo cargar el estado de las tablas</div>
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-800 text-sm">
+            <p className="font-medium">Error al cargar el estado de la base de datos</p>
+            <p className="text-xs mt-1">{error}</p>
+          </div>
         )}
 
-        {isLoading && (
+        {isLoading ? (
           <div className="text-center py-8">
             <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
             <p className="text-muted-foreground">Cargando estado de las tablas...</p>
           </div>
+        ) : Object.keys(tablesStatus).length > 0 ? (
+          <div className="space-y-3">
+            {Object.entries(tablesStatus).map(([tableName, status]) => (
+              <div key={tableName} className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  {getStatusIcon(status)}
+                  <div>
+                    <p className="font-medium">{tableLabels[tableName] || tableName}</p>
+                    {status.error && <p className="text-xs text-red-500">{status.error}</p>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">{getStatusBadge(status)}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">No se pudo cargar el estado de las tablas</div>
         )}
       </CardContent>
     </Card>

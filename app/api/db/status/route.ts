@@ -3,6 +3,8 @@ import { sql } from "@vercel/postgres"
 
 export async function GET() {
   try {
+    console.log("🔍 Verificando estado de las tablas...")
+
     const tablesStatus: Record<string, any> = {}
 
     // Lista de tablas a verificar
@@ -11,17 +13,16 @@ export async function GET() {
     for (const tableName of tables) {
       try {
         // Verificar si la tabla existe y contar registros
-        const result = await sql`
-          SELECT COUNT(*) as count 
-          FROM ${sql(tableName)}
-        `
+        // Usamos sql.query en lugar de sql`` para evitar problemas con nombres de tabla
+        const result = await sql.query(`SELECT COUNT(*) as count FROM "${tableName}"`)
 
         tablesStatus[tableName] = {
           exists: true,
-          count: Number.parseInt(result.rows[0].count),
+          count: Number.parseInt(result.rows[0].count.toString()),
           error: null,
         }
       } catch (error) {
+        console.error(`Error verificando tabla ${tableName}:`, error)
         tablesStatus[tableName] = {
           exists: false,
           count: 0,
@@ -30,13 +31,15 @@ export async function GET() {
       }
     }
 
+    console.log("📊 Estado de las tablas:", tablesStatus)
+
     return NextResponse.json({
       success: true,
       tablesStatus,
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
-    console.error("Error checking database status:", error)
+    console.error("❌ Error verificando estado de la base de datos:", error)
     return NextResponse.json(
       {
         error: "Error al verificar el estado de la base de datos",
