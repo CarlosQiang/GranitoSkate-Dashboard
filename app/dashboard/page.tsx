@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, Database, Users, ShoppingBag, Tag, Euro, AlertTriangle, Percent } from "lucide-react"
+import { RefreshCw, Database, Users, ShoppingBag, Tag, Euro, AlertTriangle, Percent, Trash2 } from "lucide-react"
 import { SalesOverview } from "@/components/sales-overview"
 import { RecentOrders } from "@/components/recent-orders"
 import { RecentProducts } from "@/components/recent-products"
@@ -87,12 +87,11 @@ export default function DashboardPage() {
     setIsSyncing(true)
     setSyncMessage(null)
     setSyncDetails({})
-    const details = {}
 
     try {
-      console.log("🔄 Iniciando sincronización completa con base de datos...")
+      console.log("🔄 Iniciando sincronización completa con limpieza...")
 
-      // Usar la nueva API de sincronización completa
+      // Usar la nueva API de sincronización completa con limpieza
       const response = await fetch("/api/sync/complete", {
         method: "POST",
         headers: {
@@ -112,7 +111,9 @@ export default function DashboardPage() {
       console.log("✅ Sincronización completa exitosa:", result)
 
       setSyncDetails(result.results)
-      setSyncMessage("✅ Sincronización completa exitosa - Todos los datos guardados en la base de datos")
+      setSyncMessage(
+        "✅ Sincronización completa exitosa - Base de datos limpiada y actualizada con datos frescos de Shopify",
+      )
     } catch (error) {
       console.error("❌ Error en sincronización completa:", error)
       setError("Error al sincronizar los datos con la base de datos.")
@@ -172,7 +173,8 @@ export default function DashboardPage() {
             ) : (
               <>
                 <Database className="mr-2 h-4 w-4" />
-                Sincronizar con Base de Datos
+                <Trash2 className="mr-1 h-3 w-3" />
+                Limpiar y Sincronizar
               </>
             )}
           </Button>
@@ -202,25 +204,59 @@ export default function DashboardPage() {
             {Object.keys(syncDetails).length > 0 && (
               <div className="text-xs space-y-1 mt-2">
                 <p className="font-semibold">Detalles de sincronización:</p>
-                <ul className="list-disc pl-5 space-y-1">
-                  {Object.entries(syncDetails).map(([tipo, resultado]: [string, any]) => {
-                    if (typeof resultado === "object" && resultado.insertados !== undefined) {
-                      return (
-                        <li key={tipo}>
-                          {tipo.charAt(0).toUpperCase() + tipo.slice(1)}: {resultado.insertados} insertados,{" "}
-                          {resultado.actualizados} actualizados, {resultado.errores} errores
-                        </li>
-                      )
-                    } else if (typeof resultado === "boolean") {
-                      return (
-                        <li key={tipo}>
-                          {tipo.charAt(0).toUpperCase() + tipo.slice(1)}: {resultado ? "✅ Guardado" : "❌ Error"}
-                        </li>
-                      )
-                    }
-                    return null
-                  })}
-                </ul>
+
+                {/* Mostrar limpieza */}
+                {syncDetails.limpieza && (
+                  <div className="mb-2 p-2 bg-red-50 rounded">
+                    <p className="font-medium text-red-800">🧹 Datos eliminados:</p>
+                    <ul className="list-disc pl-5 space-y-1 text-red-700">
+                      <li>Productos: {syncDetails.limpieza.productos}</li>
+                      <li>Pedidos: {syncDetails.limpieza.pedidos}</li>
+                      <li>Clientes: {syncDetails.limpieza.clientes}</li>
+                      <li>Colecciones: {syncDetails.limpieza.colecciones}</li>
+                      <li>Promociones: {syncDetails.limpieza.promociones}</li>
+                    </ul>
+                  </div>
+                )}
+
+                {/* Mostrar inserciones */}
+                <div className="p-2 bg-green-50 rounded">
+                  <p className="font-medium text-green-800">📥 Datos insertados:</p>
+                  <ul className="list-disc pl-5 space-y-1 text-green-700">
+                    {Object.entries(syncDetails).map(([tipo, resultado]: [string, any]) => {
+                      if (typeof resultado === "object" && resultado.insertados !== undefined && tipo !== "limpieza") {
+                        return (
+                          <li key={tipo}>
+                            {tipo.charAt(0).toUpperCase() + tipo.slice(1)}: {resultado.insertados} insertados
+                            {resultado.errores > 0 && `, ${resultado.errores} errores`}
+                          </li>
+                        )
+                      }
+                      return null
+                    })}
+                  </ul>
+                </div>
+
+                {/* Mostrar configuraciones */}
+                <div className="p-2 bg-blue-50 rounded">
+                  <p className="font-medium text-blue-800">⚙️ Configuraciones:</p>
+                  <ul className="list-disc pl-5 space-y-1 text-blue-700">
+                    {Object.entries(syncDetails).map(([tipo, resultado]: [string, any]) => {
+                      if (
+                        typeof resultado === "boolean" ||
+                        (typeof resultado === "object" && resultado.guardada !== undefined)
+                      ) {
+                        const guardada = typeof resultado === "boolean" ? resultado : resultado.guardada
+                        return (
+                          <li key={tipo}>
+                            {tipo.charAt(0).toUpperCase() + tipo.slice(1)}: {guardada ? "✅ Guardado" : "❌ Error"}
+                          </li>
+                        )
+                      }
+                      return null
+                    })}
+                  </ul>
+                </div>
               </div>
             )}
           </CardContent>
