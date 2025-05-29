@@ -8,6 +8,9 @@ import { RefreshCw, Database, CheckCircle, XCircle, AlertCircle } from "lucide-r
 import { InitTablesButton } from "@/components/init-tables-button"
 import { SyncProductsOnly } from "@/components/sync-products-only"
 import { SyncCollectionsOnly } from "@/components/sync-collections-only"
+import { SyncOrdersOnly } from "@/components/sync-orders-only"
+import { SyncPromotionsOnly } from "@/components/sync-promotions-only"
+import { SyncCustomersOnly } from "@/components/sync-customers-only"
 
 interface TableStatus {
   exists: boolean
@@ -118,6 +121,9 @@ export function DatabaseStatus({ onRefresh }: DatabaseStatusProps) {
         <InitTablesButton />
         <SyncProductsOnly onSyncComplete={handleSyncComplete} />
         <SyncCollectionsOnly onSyncComplete={handleSyncComplete} />
+        <SyncOrdersOnly onSyncComplete={handleSyncComplete} />
+        <SyncCustomersOnly onSyncComplete={handleSyncComplete} />
+        <SyncPromotionsOnly onSyncComplete={handleSyncComplete} />
 
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-800 text-sm">
