@@ -40,7 +40,7 @@ async function sincronizarProductos(productos: any[]) {
             titulo = ${producto.title},
             descripcion = ${producto.description || ""},
             tipo_producto = ${producto.productType || ""},
-            proveedor = ${producto.vendor || ""},
+            proveedor = ${producto.vendor},
             estado = ${producto.status || "active"},
             publicado = ${producto.status === "active"},
             imagen_destacada_url = ${producto.featuredImage?.url || null},
@@ -73,7 +73,7 @@ async function sincronizarProductos(productos: any[]) {
             ${producto.title},
             ${producto.description || ""},
             ${producto.productType || ""},
-            ${producto.vendor || ""},
+            ${producto.vendor},
             ${producto.status || "active"},
             ${producto.status === "active"},
             ${producto.featuredImage?.url || null},
@@ -94,7 +94,7 @@ async function sincronizarProductos(productos: any[]) {
         })
       }
     } catch (error) {
-      console.error(`❌ Error al sincronizar producto ${producto.id}:`, error)
+      console.error(`❌ Error al sincronizar producto:`, error)
       resultados.errores++
       resultados.detalles.push({
         accion: "error",
@@ -160,8 +160,8 @@ async function sincronizarPedidos(pedidos: any[]) {
             shopify_id, numero_pedido, email_cliente, estado, total, creado_en, actualizado_en
           ) VALUES (
             ${pedido.id},
-            ${pedido.name || ""},
-            ${pedido.email || ""},
+            ${pedido.name},
+            ${pedido.email},
             ${pedido.status || "pending"},
             ${total},
             NOW(),
@@ -173,7 +173,7 @@ async function sincronizarPedidos(pedidos: any[]) {
         resultados.insertados++
       }
     } catch (error) {
-      console.error(`❌ Error al sincronizar pedido ${pedido.id}:`, error)
+      console.error(`❌ Error al sincronizar pedido:`, error)
       resultados.errores++
     }
   }
