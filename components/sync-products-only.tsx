@@ -3,11 +3,12 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Package, RefreshCw, CheckCircle, XCircle } from "lucide-react"
+import { Package, RefreshCw, CheckCircle, XCircle, Trash2 } from "lucide-react"
 
 interface SyncResult {
+  borrados?: number
   insertados: number
-  actualizados: number
+  actualizados?: number
   errores: number
   detalles: string[]
 }
@@ -18,14 +19,14 @@ export function SyncProductsOnly() {
   const [message, setMessage] = useState<string | null>(null)
   const [isSuccess, setIsSuccess] = useState<boolean | null>(null)
 
-  const handleSyncProducts = async () => {
+  const handleReplaceProducts = async () => {
     setIsSyncing(true)
     setResult(null)
     setMessage(null)
     setIsSuccess(null)
 
     try {
-      // Primero obtener los datos del dashboard
+      // Obtener datos del dashboard
       console.log("🔍 Obteniendo datos del dashboard...")
       const dashboardResponse = await fetch("/api/dashboard/summary")
 
@@ -40,9 +41,9 @@ export function SyncProductsOnly() {
         throw new Error("No hay productos disponibles para sincronizar")
       }
 
-      // Sincronizar solo productos
-      console.log("🔄 Iniciando sincronización de productos...")
-      const syncResponse = await fetch("/api/sync/products-only", {
+      // Reemplazar productos (borrar + insertar)
+      console.log("🔄 Iniciando reemplazo completo de productos...")
+      const syncResponse = await fetch("/api/sync/products-replace", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -58,11 +59,11 @@ export function SyncProductsOnly() {
         setResult(syncResult.results)
         setMessage(syncResult.message)
         setIsSuccess(true)
-        console.log("✅ Sincronización completada:", syncResult)
+        console.log("✅ Reemplazo completado:", syncResult)
       } else {
         setMessage(`❌ Error: ${syncResult.message}`)
         setIsSuccess(false)
-        console.error("❌ Error en sincronización:", syncResult)
+        console.error("❌ Error en reemplazo:", syncResult)
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error desconocido"
@@ -79,22 +80,35 @@ export function SyncProductsOnly() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Package className="h-5 w-5" />
-          Sincronización de Productos (Solo)
+          Reemplazo Completo de Productos
         </CardTitle>
-        <CardDescription>Sincronizar únicamente los productos desde Shopify a la base de datos</CardDescription>
+        <CardDescription>
+          Borra TODOS los productos existentes y los reemplaza con los datos actuales de Shopify
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <Button onClick={handleSyncProducts} disabled={isSyncing} className="w-full">
+          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-800 text-sm">
+            <div className="flex items-center gap-2">
+              <Trash2 className="h-4 w-4" />
+              <strong>¡Atención!</strong>
+            </div>
+            <p className="mt-1">
+              Esta acción borrará TODOS los productos existentes en la base de datos y los reemplazará con los datos
+              actuales de Shopify.
+            </p>
+          </div>
+
+          <Button onClick={handleReplaceProducts} disabled={isSyncing} className="w-full" variant="destructive">
             {isSyncing ? (
               <>
                 <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Sincronizando productos...
+                Reemplazando productos...
               </>
             ) : (
               <>
-                <Package className="mr-2 h-4 w-4" />
-                Sincronizar Solo Productos
+                <Trash2 className="mr-2 h-4 w-4" />
+                Borrar y Reemplazar Productos
               </>
             )}
           </Button>
@@ -114,15 +128,17 @@ export function SyncProductsOnly() {
 
           {result && (
             <div className="space-y-2">
-              <h4 className="font-medium">Resultados de la sincronización:</h4>
+              <h4 className="font-medium">Resultados del reemplazo:</h4>
               <div className="grid grid-cols-3 gap-4 text-sm">
+                {result.borrados !== undefined && (
+                  <div className="text-center p-2 bg-red-50 rounded">
+                    <div className="font-bold text-red-600">{result.borrados}</div>
+                    <div className="text-red-600">Borrados</div>
+                  </div>
+                )}
                 <div className="text-center p-2 bg-green-50 rounded">
                   <div className="font-bold text-green-600">{result.insertados}</div>
                   <div className="text-green-600">Insertados</div>
-                </div>
-                <div className="text-center p-2 bg-blue-50 rounded">
-                  <div className="font-bold text-blue-600">{result.actualizados}</div>
-                  <div className="text-blue-600">Actualizados</div>
                 </div>
                 <div className="text-center p-2 bg-red-50 rounded">
                   <div className="font-bold text-red-600">{result.errores}</div>
