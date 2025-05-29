@@ -29,6 +29,7 @@ export default function DashboardPage() {
         headers: {
           "Content-Type": "application/json",
         },
+        cache: "no-store",
       })
 
       if (!response.ok) {
@@ -36,8 +37,14 @@ export default function DashboardPage() {
       }
 
       const data = await response.json()
-      setDashboardData(data)
+
+      // Verificar que los datos estén completos
       console.log("✅ Dashboard data loaded successfully:", data)
+      console.log(
+        `📊 Productos recientes: ${data.recentProducts?.length || 0}, Pedidos recientes: ${data.recentOrders?.length || 0}`,
+      )
+
+      setDashboardData(data)
     } catch (err) {
       console.error("❌ Error loading dashboard:", err)
       setError(err instanceof Error ? err.message : "Error loading dashboard")
@@ -349,7 +356,7 @@ export default function DashboardPage() {
               <CardDescription>Evolución de las ventas en los últimos 7 días</CardDescription>
             </CardHeader>
             <CardContent className="pl-2">
-              {dashboardData?.salesOverview ? (
+              {dashboardData?.salesOverview && dashboardData.salesOverview.length > 0 ? (
                 <SalesOverview data={dashboardData.salesOverview} />
               ) : (
                 <div className="h-32 flex items-center justify-center text-gray-500">
@@ -364,7 +371,7 @@ export default function DashboardPage() {
               <CardDescription>Últimos pedidos procesados</CardDescription>
             </CardHeader>
             <CardContent>
-              {dashboardData?.recentOrders ? (
+              {dashboardData?.recentOrders && dashboardData.recentOrders.length > 0 ? (
                 <RecentOrders data={dashboardData.recentOrders} />
               ) : (
                 <div className="h-32 flex items-center justify-center text-gray-500">No hay pedidos recientes</div>
@@ -379,7 +386,7 @@ export default function DashboardPage() {
               <CardDescription>Los últimos productos añadidos a tu catálogo</CardDescription>
             </CardHeader>
             <CardContent>
-              {dashboardData?.recentProducts ? (
+              {dashboardData?.recentProducts && dashboardData.recentProducts.length > 0 ? (
                 <RecentProducts data={dashboardData.recentProducts} />
               ) : (
                 <div className="h-32 flex items-center justify-center text-gray-500">No hay productos recientes</div>
