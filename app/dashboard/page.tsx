@@ -3,19 +3,17 @@
 import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, Database, Users, ShoppingBag, Tag, Euro } from "lucide-react"
+import { RefreshCw, Database, Users, ShoppingBag, Tag, Euro } from 'lucide-react'
 import { SalesOverview } from "@/components/sales-overview"
 import { RecentOrders } from "@/components/recent-orders"
 import { RecentProducts } from "@/components/recent-products"
-import { InventoryStatus } from "@/components/inventory-status"
+import { InventoryStatus from "@/components/inventory-status"
 
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSyncing, setIsSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dashboardData, setDashboardData] = useState<any>({})
-  const [syncMessage, setSyncMessage] = useState<string | null>(null)
-  const [syncDetails, setSyncDetails] = useState<any>({})
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -40,7 +38,7 @@ export default function DashboardPage() {
       console.log("✅ Dashboard data loaded successfully:", data)
     } catch (err) {
       console.error("❌ Error loading dashboard:", err)
-      setError(err instanceof Error ? error.message : "Error loading dashboard")
+      setError(err instanceof Error ? err.message : "Error loading dashboard")
     } finally {
       setIsLoading(false)
     }

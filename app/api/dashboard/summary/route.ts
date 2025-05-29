@@ -152,7 +152,7 @@ export async function GET() {
       createdAt: edge.node.createdAt,
     }))
 
-    // Colecciones recientes (últimos 5)
+    // Colecciones recientes (últimas 5)
     const recentCollections = collections.slice(0, 5).map((edge: any) => ({
       id: edge.node.id,
       title: edge.node.title,
