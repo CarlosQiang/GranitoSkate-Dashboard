@@ -10,10 +10,10 @@ export async function GET() {
       return NextResponse.json({ error: "Shopify configuration missing" }, { status: 500 })
     }
 
-    // Query GraphQL simplificada que funciona correctamente
+    // Query GraphQL optimizada que obtiene todos los datos necesarios en una sola llamada
     const query = `
       query DashboardSummary {
-        orders(first: 250) {
+        orders(first: 250, sortKey: PROCESSED_AT, reverse: true) {
           edges {
             node {
               id
@@ -25,6 +25,14 @@ export async function GET() {
                   currencyCode
                 }
               }
+              lineItems(first: 5) {
+                edges {
+                  node {
+                    title
+                    quantity
+                  }
+                }
+              }
               customer {
                 displayName
                 email
@@ -32,7 +40,7 @@ export async function GET() {
             }
           }
         }
-        products(first: 250) {
+        products(first: 250, sortKey: CREATED_AT, reverse: true) {
           edges {
             node {
               id
@@ -41,6 +49,15 @@ export async function GET() {
               status
               createdAt
               totalInventory
+              productType
+              vendor
+              images(first: 1) {
+                edges {
+                  node {
+                    url
+                  }
+                }
+              }
               variants(first: 1) {
                 edges {
                   node {
@@ -52,23 +69,36 @@ export async function GET() {
             }
           }
         }
-        customers(first: 250) {
+        customers(first: 250, sortKey: CREATED_AT, reverse: true) {
           edges {
             node {
               id
               email
               firstName
               lastName
+              phone
               createdAt
+              orders(first: 5) {
+                edges {
+                  node {
+                    id
+                    name
+                  }
+                }
+              }
             }
           }
         }
-        collections(first: 100) {
+        collections(first: 100, sortKey: CREATED_AT, reverse: true) {
           edges {
             node {
               id
               title
+              description
               handle
+              image {
+                url
+              }
             }
           }
         }
@@ -89,8 +119,6 @@ export async function GET() {
 
     if (!response.ok) {
       console.error(`❌ Shopify API error: ${response.status}`)
-      const errorText = await response.text()
-      console.error("Error details:", errorText)
       return NextResponse.json({ error: `Shopify API error: ${response.status}` }, { status: response.status })
     }
 
@@ -122,6 +150,11 @@ export async function GET() {
     const totalCustomers = customers.length
     const totalCollections = collections.length
 
+    // Calcular inventario total
+    const totalInventory = products.reduce((sum: number, edge: any) => {
+      return sum + (edge.node.totalInventory || 0)
+    }, 0)
+
     // Pedidos recientes (últimos 5)
     const recentOrders = orders.slice(0, 5).map((edge: any) => ({
       id: edge.node.id,
@@ -130,6 +163,11 @@ export async function GET() {
       total: edge.node.totalPriceSet?.shopMoney?.amount || "0.00",
       currency: edge.node.totalPriceSet?.shopMoney?.currencyCode || "EUR",
       customer: edge.node.customer?.displayName || edge.node.customer?.email || "Cliente anónimo",
+      items:
+        edge.node.lineItems?.edges?.map((item: any) => ({
+          title: item.node.title,
+          quantity: item.node.quantity,
+        })) || [],
     }))
 
     // Productos recientes (últimos 5)
@@ -139,8 +177,11 @@ export async function GET() {
       handle: edge.node.handle,
       status: edge.node.status,
       createdAt: edge.node.createdAt,
+      image: edge.node.images?.edges?.[0]?.node?.url || null,
       price: edge.node.variants?.edges?.[0]?.node?.price || "0.00",
       inventory: edge.node.variants?.edges?.[0]?.node?.inventoryQuantity || 0,
+      productType: edge.node.productType,
+      vendor: edge.node.vendor,
     }))
 
     // Clientes recientes (últimos 5)
@@ -149,14 +190,18 @@ export async function GET() {
       email: edge.node.email,
       firstName: edge.node.firstName,
       lastName: edge.node.lastName,
+      phone: edge.node.phone,
       createdAt: edge.node.createdAt,
+      orders: edge.node.orders?.edges?.map((order: any) => order.node) || [],
     }))
 
     // Colecciones recientes (últimas 5)
     const recentCollections = collections.slice(0, 5).map((edge: any) => ({
       id: edge.node.id,
       title: edge.node.title,
+      description: edge.node.description,
       handle: edge.node.handle,
+      image: edge.node.image,
     }))
 
     // Todos los datos para sincronización
@@ -167,6 +212,7 @@ export async function GET() {
       total: edge.node.totalPriceSet?.shopMoney?.amount || "0.00",
       currency: edge.node.totalPriceSet?.shopMoney?.currencyCode || "EUR",
       customer: edge.node.customer,
+      items: edge.node.lineItems?.edges?.map((item: any) => item.node) || [],
     }))
 
     const allProducts = products.map((edge: any) => ({
@@ -175,8 +221,11 @@ export async function GET() {
       handle: edge.node.handle,
       status: edge.node.status,
       createdAt: edge.node.createdAt,
+      image: edge.node.images?.edges?.[0]?.node?.url || null,
       price: edge.node.variants?.edges?.[0]?.node?.price || "0.00",
       inventory: edge.node.variants?.edges?.[0]?.node?.inventoryQuantity || 0,
+      productType: edge.node.productType,
+      vendor: edge.node.vendor,
       variants: edge.node.variants?.edges?.map((variant: any) => variant.node) || [],
     }))
 
@@ -185,13 +234,17 @@ export async function GET() {
       email: edge.node.email,
       firstName: edge.node.firstName,
       lastName: edge.node.lastName,
+      phone: edge.node.phone,
       createdAt: edge.node.createdAt,
+      orders: edge.node.orders?.edges?.map((order: any) => order.node) || [],
     }))
 
     const allCollections = collections.map((edge: any) => ({
       id: edge.node.id,
       title: edge.node.title,
+      description: edge.node.description,
       handle: edge.node.handle,
+      image: edge.node.image,
     }))
 
     // Datos para gráficos de ventas (últimos 7 días)
@@ -204,6 +257,7 @@ export async function GET() {
         totalCustomers,
         totalProducts,
         totalCollections,
+        totalInventory,
         currency: "EUR",
       },
       recentOrders,

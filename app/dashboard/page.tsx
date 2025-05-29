@@ -3,17 +3,19 @@
 import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, Database, Users, ShoppingBag, Tag, Euro } from 'lucide-react'
+import { RefreshCw, Database, Users, ShoppingBag, Tag, Euro } from "lucide-react"
 import { SalesOverview } from "@/components/sales-overview"
 import { RecentOrders } from "@/components/recent-orders"
 import { RecentProducts } from "@/components/recent-products"
-import { InventoryStatus from "@/components/inventory-status"
+import { InventoryStatus } from "@/components/inventory-status"
 
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSyncing, setIsSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [dashboardData, setDashboardData] = useState<any>({})
+  const [dashboardData, setDashboardData] = useState<any>(null)
+  const [syncMessage, setSyncMessage] = useState<string | null>(null)
+  const [syncDetails, setSyncDetails] = useState<any>({})
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -164,10 +166,6 @@ export default function DashboardPage() {
     }
   }
 
-  const salesOverview = dashboardData.salesOverview || []
-  const recentOrders = dashboardData.recentOrders || []
-  const recentProducts = dashboardData.recentProducts || []
-
   if (isLoading) {
     return (
       <div className="flex-1 space-y-4 p-8 pt-6">
@@ -175,7 +173,7 @@ export default function DashboardPage() {
           <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         </div>
         <div className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {[...Array(5)].map((_, i) => (
               <Card key={i}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -184,9 +182,7 @@ export default function DashboardPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
-                    <div className="h-8 bg-gray-200 rounded animate-pulse mb-2"></div>
-                  </div>
+                  <div className="h-8 bg-gray-200 rounded animate-pulse mb-2"></div>
                   <div className="h-3 bg-gray-200 rounded animate-pulse w-3/4"></div>
                 </CardContent>
               </Card>
