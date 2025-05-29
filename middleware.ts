@@ -5,25 +5,42 @@ export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token
     const isAuth = !!token
-    const isAuthPage = req.nextUrl.pathname.startsWith("/login")
-    const isApiRoute = req.nextUrl.pathname.startsWith("/api")
-    const isPublicRoute =
-      req.nextUrl.pathname === "/" ||
-      req.nextUrl.pathname.startsWith("/docs") ||
-      req.nextUrl.pathname.startsWith("/health")
+    const pathname = req.nextUrl.pathname
 
-    // Permitir rutas públicas y de API sin autenticación
-    if (isPublicRoute || isApiRoute) {
+    console.log(`🔍 Middleware: ${pathname}, Auth: ${isAuth}`)
+
+    // Rutas que no requieren autenticación
+    const publicPaths = [
+      "/",
+      "/login",
+      "/api/auth/signin",
+      "/api/auth/callback",
+      "/api/auth/session",
+      "/api/auth/providers",
+      "/api/auth/csrf",
+      "/docs",
+      "/health",
+    ]
+
+    // Permitir todas las rutas de API de NextAuth
+    if (pathname.startsWith("/api/auth/")) {
       return NextResponse.next()
     }
 
-    // Redirigir a dashboard si ya está autenticado y trata de acceder a login
-    if (isAuthPage && isAuth) {
+    // Permitir rutas públicas
+    if (publicPaths.some((path) => pathname === path || pathname.startsWith(path))) {
+      return NextResponse.next()
+    }
+
+    // Si está en login y ya autenticado, redirigir al dashboard
+    if (pathname === "/login" && isAuth) {
+      console.log("🔄 Redirigiendo usuario autenticado al dashboard")
       return NextResponse.redirect(new URL("/dashboard", req.url))
     }
 
-    // Redirigir a login si no está autenticado y trata de acceder a rutas protegidas
-    if (!isAuthPage && !isAuth) {
+    // Si no está autenticado y trata de acceder a rutas protegidas, redirigir a login
+    if (!isAuth && pathname.startsWith("/dashboard")) {
+      console.log("🔄 Redirigiendo usuario no autenticado al login")
       return NextResponse.redirect(new URL("/login", req.url))
     }
 
@@ -32,14 +49,18 @@ export default withAuth(
   {
     callbacks: {
       authorized: ({ token, req }) => {
-        // Permitir acceso a rutas públicas sin token
-        const isPublicRoute =
-          req.nextUrl.pathname === "/" ||
-          req.nextUrl.pathname.startsWith("/docs") ||
-          req.nextUrl.pathname.startsWith("/api") ||
-          req.nextUrl.pathname.startsWith("/health")
+        const pathname = req.nextUrl.pathname
 
-        if (isPublicRoute) return true
+        // Permitir todas las rutas de API de NextAuth
+        if (pathname.startsWith("/api/auth/")) {
+          return true
+        }
+
+        // Permitir rutas públicas
+        const publicPaths = ["/", "/login", "/docs", "/health"]
+        if (publicPaths.some((path) => pathname === path || pathname.startsWith(path))) {
+          return true
+        }
 
         // Para rutas protegidas, requerir token
         return !!token

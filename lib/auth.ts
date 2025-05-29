@@ -6,6 +6,7 @@ import { verifyPassword, updateLastLogin } from "./auth-service"
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
+      id: "credentials",
       name: "Credentials",
       credentials: {
         email: { label: "Email", type: "email" },
@@ -13,7 +14,8 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Credenciales incompletas")
+          console.log("❌ Credenciales incompletas")
+          return null
         }
 
         try {
@@ -28,21 +30,21 @@ export const authOptions: NextAuthOptions = {
 
           if (rows.length === 0) {
             console.log("❌ Administrador no encontrado")
-            throw new Error("Credenciales incorrectas")
+            return null
           }
 
           const admin = rows[0]
 
           if (!admin.activo) {
             console.log("❌ Administrador inactivo")
-            throw new Error("Usuario inactivo")
+            return null
           }
 
           const isValid = await verifyPassword(credentials.password, admin.contrasena)
 
           if (!isValid) {
             console.log("❌ Contraseña incorrecta")
-            throw new Error("Credenciales incorrectas")
+            return null
           }
 
           // Actualizar último acceso
@@ -58,7 +60,7 @@ export const authOptions: NextAuthOptions = {
           }
         } catch (error) {
           console.error("❌ Error en authorize:", error)
-          throw new Error(error instanceof Error ? error.message : "Error de autenticación")
+          return null
         }
       },
     }),
@@ -77,6 +79,14 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string
       }
       return session
+    },
+    async redirect({ url, baseUrl }) {
+      // Si la URL es relativa, usar baseUrl
+      if (url.startsWith("/")) return `${baseUrl}${url}`
+      // Si la URL pertenece al mismo dominio, permitirla
+      else if (new URL(url).origin === baseUrl) return url
+      // Caso contrario, redirigir al dashboard
+      return `${baseUrl}/dashboard`
     },
   },
   pages: {
