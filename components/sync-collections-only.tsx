@@ -3,27 +3,26 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Package, RefreshCw, CheckCircle, XCircle, Trash2 } from "lucide-react"
+import { FolderOpen, RefreshCw, CheckCircle, XCircle, Trash2 } from "lucide-react"
 
 interface SyncResult {
   borrados?: number
   insertados: number
-  actualizados?: number
   errores: number
   detalles: string[]
 }
 
-interface SyncProductsOnlyProps {
+interface SyncCollectionsOnlyProps {
   onSyncComplete?: () => void
 }
 
-export function SyncProductsOnly({ onSyncComplete }: SyncProductsOnlyProps) {
+export function SyncCollectionsOnly({ onSyncComplete }: SyncCollectionsOnlyProps) {
   const [isSyncing, setIsSyncing] = useState(false)
   const [result, setResult] = useState<SyncResult | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [isSuccess, setIsSuccess] = useState<boolean | null>(null)
 
-  const handleReplaceProducts = async () => {
+  const handleReplaceCollections = async () => {
     setIsSyncing(true)
     setResult(null)
     setMessage(null)
@@ -39,21 +38,20 @@ export function SyncProductsOnly({ onSyncComplete }: SyncProductsOnlyProps) {
       }
 
       const dashboardData = await dashboardResponse.json()
-      console.log("📊 Datos del dashboard obtenidos:", dashboardData)
 
-      if (!dashboardData.allProducts || dashboardData.allProducts.length === 0) {
-        throw new Error("No hay productos disponibles para sincronizar")
+      if (!dashboardData.allCollections || dashboardData.allCollections.length === 0) {
+        throw new Error("No hay colecciones disponibles para sincronizar")
       }
 
-      // Reemplazar productos (borrar + insertar)
-      console.log("🔄 Iniciando reemplazo completo de productos...")
-      const syncResponse = await fetch("/api/sync/products-replace", {
+      // Reemplazar colecciones
+      console.log("🔄 Iniciando reemplazo completo de colecciones...")
+      const syncResponse = await fetch("/api/sync/collections-replace", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          products: dashboardData.allProducts,
+          collections: dashboardData.allCollections,
         }),
       })
 
@@ -65,7 +63,6 @@ export function SyncProductsOnly({ onSyncComplete }: SyncProductsOnlyProps) {
         setIsSuccess(true)
         console.log("✅ Reemplazo completado:", syncResult)
 
-        // Actualizar el estado de la base de datos
         setTimeout(() => {
           onSyncComplete?.()
         }, 1000)
@@ -88,11 +85,11 @@ export function SyncProductsOnly({ onSyncComplete }: SyncProductsOnlyProps) {
     <Card className="mb-4">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Package className="h-5 w-5" />
-          Reemplazo Completo de Productos
+          <FolderOpen className="h-5 w-5" />
+          Reemplazo Completo de Colecciones
         </CardTitle>
         <CardDescription>
-          Borra TODOS los productos existentes y los reemplaza con los datos actuales de Shopify
+          Borra TODAS las colecciones existentes y las reemplaza con los datos actuales de Shopify
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -102,22 +99,19 @@ export function SyncProductsOnly({ onSyncComplete }: SyncProductsOnlyProps) {
               <Trash2 className="h-4 w-4" />
               <strong>¡Atención!</strong>
             </div>
-            <p className="mt-1">
-              Esta acción borrará TODOS los productos existentes en la base de datos y los reemplazará con los datos
-              actuales de Shopify.
-            </p>
+            <p className="mt-1">Esta acción borrará TODAS las colecciones existentes en la base de datos.</p>
           </div>
 
-          <Button onClick={handleReplaceProducts} disabled={isSyncing} className="w-full" variant="destructive">
+          <Button onClick={handleReplaceCollections} disabled={isSyncing} className="w-full" variant="destructive">
             {isSyncing ? (
               <>
                 <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Reemplazando productos...
+                Reemplazando colecciones...
               </>
             ) : (
               <>
                 <Trash2 className="mr-2 h-4 w-4" />
-                Borrar y Reemplazar Productos
+                Borrar y Reemplazar Colecciones
               </>
             )}
           </Button>
@@ -142,12 +136,12 @@ export function SyncProductsOnly({ onSyncComplete }: SyncProductsOnlyProps) {
                 {result.borrados !== undefined && (
                   <div className="text-center p-2 bg-red-50 rounded">
                     <div className="font-bold text-red-600">{result.borrados}</div>
-                    <div className="text-red-600">Borrados</div>
+                    <div className="text-red-600">Borradas</div>
                   </div>
                 )}
                 <div className="text-center p-2 bg-green-50 rounded">
                   <div className="font-bold text-green-600">{result.insertados}</div>
-                  <div className="text-green-600">Insertados</div>
+                  <div className="text-green-600">Insertadas</div>
                 </div>
                 <div className="text-center p-2 bg-red-50 rounded">
                   <div className="font-bold text-red-600">{result.errores}</div>

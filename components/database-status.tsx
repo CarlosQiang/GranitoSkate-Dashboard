@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { RefreshCw, Database, CheckCircle, XCircle, AlertCircle } from "lucide-react"
 import { InitTablesButton } from "@/components/init-tables-button"
 import { SyncProductsOnly } from "@/components/sync-products-only"
+import { SyncCollectionsOnly } from "@/components/sync-collections-only"
 
 interface TableStatus {
   exists: boolean
@@ -60,6 +61,13 @@ export function DatabaseStatus({ onRefresh }: DatabaseStatusProps) {
     onRefresh?.()
   }
 
+  const handleSyncComplete = () => {
+    // Actualizar el estado después de una sincronización
+    setTimeout(() => {
+      loadStatus()
+    }, 500)
+  }
+
   const getStatusIcon = (status: TableStatus) => {
     if (!status.exists) return <XCircle className="h-4 w-4 text-red-500" />
     if (status.count === 0) return <AlertCircle className="h-4 w-4 text-yellow-500" />
@@ -108,7 +116,8 @@ export function DatabaseStatus({ onRefresh }: DatabaseStatusProps) {
       </CardHeader>
       <CardContent>
         <InitTablesButton />
-        <SyncProductsOnly />
+        <SyncProductsOnly onSyncComplete={handleSyncComplete} />
+        <SyncCollectionsOnly onSyncComplete={handleSyncComplete} />
 
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-800 text-sm">
