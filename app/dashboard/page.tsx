@@ -13,7 +13,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSyncing, setIsSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [dashboardData, setDashboardData] = useState<any>(null)
+  const [dashboardData, setDashboardData] = useState<any>({})
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
   const [syncDetails, setSyncDetails] = useState<any>({})
 
@@ -40,7 +40,7 @@ export default function DashboardPage() {
       console.log("✅ Dashboard data loaded successfully:", data)
     } catch (err) {
       console.error("❌ Error loading dashboard:", err)
-      setError(err instanceof Error ? err.message : "Error loading dashboard")
+      setError(err instanceof Error ? error.message : "Error loading dashboard")
     } finally {
       setIsLoading(false)
     }
@@ -166,6 +166,10 @@ export default function DashboardPage() {
     }
   }
 
+  const salesOverview = dashboardData.salesOverview || []
+  const recentOrders = dashboardData.recentOrders || []
+  const recentProducts = dashboardData.recentProducts || []
+
   if (isLoading) {
     return (
       <div className="flex-1 space-y-4 p-8 pt-6">
@@ -173,7 +177,7 @@ export default function DashboardPage() {
           <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         </div>
         <div className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             {[...Array(5)].map((_, i) => (
               <Card key={i}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -182,7 +186,9 @@ export default function DashboardPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-8 bg-gray-200 rounded animate-pulse mb-2"></div>
+                  <div className="text-2xl font-bold">
+                    <div className="h-8 bg-gray-200 rounded animate-pulse mb-2"></div>
+                  </div>
                   <div className="h-3 bg-gray-200 rounded animate-pulse w-3/4"></div>
                 </CardContent>
               </Card>

@@ -152,7 +152,7 @@ export async function GET() {
       createdAt: edge.node.createdAt,
     }))
 
-    // Colecciones recientes (últimas 5)
+    // Colecciones recientes (últimos 5)
     const recentCollections = collections.slice(0, 5).map((edge: any) => ({
       id: edge.node.id,
       title: edge.node.title,
@@ -195,7 +195,7 @@ export async function GET() {
     }))
 
     // Datos para gráficos de ventas (últimos 7 días)
-    const salesOverview = generateSalesOverview()
+    const salesOverview = generateSalesOverview(orders)
 
     const dashboardData = {
       stats: {
@@ -245,16 +245,25 @@ export async function GET() {
   }
 }
 
-function generateSalesOverview() {
+function generateSalesOverview(orders: any[]) {
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const date = new Date()
     date.setDate(date.getDate() - i)
     return {
       date: date.toISOString().split("T")[0],
-      sales: Math.random() * 100,
-      orders: Math.floor(Math.random() * 10),
+      sales: 0,
+      orders: 0,
     }
   }).reverse()
+
+  orders.forEach((edge: any) => {
+    const orderDate = new Date(edge.node.processedAt).toISOString().split("T")[0]
+    const dayData = last7Days.find((day) => day.date === orderDate)
+    if (dayData) {
+      dayData.sales += Number.parseFloat(edge.node.totalPriceSet?.shopMoney?.amount || "0")
+      dayData.orders += 1
+    }
+  })
 
   return last7Days
 }
