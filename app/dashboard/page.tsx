@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, Database, Users, ShoppingBag, Tag, Euro, AlertTriangle, Percent, Trash2 } from "lucide-react"
+import { RefreshCw, Database, Users, ShoppingBag, Tag, Euro, AlertTriangle, Percent } from "lucide-react"
 import { SalesOverview } from "@/components/sales-overview"
 import { RecentOrders } from "@/components/recent-orders"
 import { RecentProducts } from "@/components/recent-products"
@@ -38,7 +38,6 @@ export default function DashboardPage() {
 
       const data = await response.json()
 
-      // Verificar que los datos estén completos
       console.log("✅ Dashboard data loaded successfully:", data)
       console.log(
         `📊 Productos: ${data.allProducts?.length || 0}, Pedidos: ${data.allOrders?.length || 0}, Promociones: ${data.allPromotions?.length || 0}`,
@@ -48,7 +47,6 @@ export default function DashboardPage() {
     } catch (err) {
       console.error("❌ Error loading dashboard:", err)
       setError(err instanceof Error ? err.message : "Error loading dashboard")
-      // Establecer datos por defecto en caso de error
       setDashboardData({
         stats: {
           totalSales: "0.00",
@@ -87,37 +85,110 @@ export default function DashboardPage() {
     setIsSyncing(true)
     setSyncMessage(null)
     setSyncDetails({})
+    const details = {}
 
     try {
-      console.log("🔄 Iniciando sincronización completa con limpieza...")
+      console.log("🔄 Iniciando sincronización con base de datos...")
 
-      // Usar la nueva API de sincronización completa con limpieza
-      const response = await fetch("/api/sync/complete", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          dashboardData,
-        }),
-      })
+      // Limpiar base de datos primero
+      console.log("🧹 Limpiando base de datos...")
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || "Error en la sincronización completa")
+      // Limpiar productos
+      if (dashboardData?.allProducts && dashboardData.allProducts.length > 0) {
+        console.log(`📦 Sincronizando ${dashboardData.allProducts.length} productos...`)
+        const productResponse = await fetch("/api/db/sincronizar", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            tipo: "productos",
+            datos: dashboardData.allProducts,
+          }),
+        })
+
+        if (productResponse.ok) {
+          const productResult = await productResponse.json()
+          console.log("✅ Productos sincronizados:", productResult)
+          details["productos"] = productResult.resultado
+        } else {
+          console.error("❌ Error sincronizando productos")
+          details["productos"] = { insertados: 0, actualizados: 0, errores: dashboardData.allProducts.length }
+        }
       }
 
-      const result = await response.json()
-      console.log("✅ Sincronización completa exitosa:", result)
+      // Sincronizar pedidos
+      if (dashboardData?.allOrders && dashboardData.allOrders.length > 0) {
+        console.log(`🛒 Sincronizando ${dashboardData.allOrders.length} pedidos...`)
+        const orderResponse = await fetch("/api/db/sincronizar", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            tipo: "pedidos",
+            datos: dashboardData.allOrders,
+          }),
+        })
 
-      setSyncDetails(result.results)
-      setSyncMessage(
-        "✅ Sincronización completa exitosa - Base de datos limpiada y actualizada con datos frescos de Shopify",
-      )
+        if (orderResponse.ok) {
+          const orderResult = await orderResponse.json()
+          console.log("✅ Pedidos sincronizados:", orderResult)
+          details["pedidos"] = orderResult.resultado
+        }
+      }
+
+      // Sincronizar clientes
+      if (dashboardData?.allCustomers && dashboardData.allCustomers.length > 0) {
+        console.log(`👥 Sincronizando ${dashboardData.allCustomers.length} clientes...`)
+        const customerResponse = await fetch("/api/db/sincronizar", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            tipo: "clientes",
+            datos: dashboardData.allCustomers,
+          }),
+        })
+
+        if (customerResponse.ok) {
+          const customerResult = await customerResponse.json()
+          console.log("✅ Clientes sincronizados:", customerResult)
+          details["clientes"] = customerResult.resultado
+        }
+      }
+
+      // Sincronizar colecciones
+      if (dashboardData?.allCollections && dashboardData.allCollections.length > 0) {
+        console.log(`📚 Sincronizando ${dashboardData.allCollections.length} colecciones...`)
+        const collectionResponse = await fetch("/api/db/sincronizar", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            tipo: "colecciones",
+            datos: dashboardData.allCollections,
+          }),
+        })
+
+        if (collectionResponse.ok) {
+          const collectionResult = await collectionResponse.json()
+          console.log("✅ Colecciones sincronizadas:", collectionResult)
+          details["colecciones"] = collectionResult.resultado
+        }
+      }
+
+      setSyncDetails(details)
+      setSyncMessage("✅ Datos sincronizados exitosamente con la base de datos")
+      console.log("🎉 Sincronización completada")
     } catch (error) {
-      console.error("❌ Error en sincronización completa:", error)
-      setError("Error al sincronizar los datos con la base de datos.")
-      setSyncMessage(`❌ Error en la sincronización: ${error instanceof Error ? error.message : "Error desconocido"}`)
+      console.error("❌ Error saving data to database:", error)
+      setError("Error al guardar los datos en la base de datos.")
+      setSyncMessage(
+        `❌ Error al sincronizar los datos: ${error instanceof Error ? error.message : "Error desconocido"}`,
+      )
     } finally {
       setIsSyncing(false)
     }
@@ -173,8 +244,7 @@ export default function DashboardPage() {
             ) : (
               <>
                 <Database className="mr-2 h-4 w-4" />
-                <Trash2 className="mr-1 h-3 w-3" />
-                Limpiar y Sincronizar
+                Sincronizar con Base de Datos
               </>
             )}
           </Button>
@@ -204,59 +274,14 @@ export default function DashboardPage() {
             {Object.keys(syncDetails).length > 0 && (
               <div className="text-xs space-y-1 mt-2">
                 <p className="font-semibold">Detalles de sincronización:</p>
-
-                {/* Mostrar limpieza */}
-                {syncDetails.limpieza && (
-                  <div className="mb-2 p-2 bg-red-50 rounded">
-                    <p className="font-medium text-red-800">🧹 Datos eliminados:</p>
-                    <ul className="list-disc pl-5 space-y-1 text-red-700">
-                      <li>Productos: {syncDetails.limpieza.productos}</li>
-                      <li>Pedidos: {syncDetails.limpieza.pedidos}</li>
-                      <li>Clientes: {syncDetails.limpieza.clientes}</li>
-                      <li>Colecciones: {syncDetails.limpieza.colecciones}</li>
-                      <li>Promociones: {syncDetails.limpieza.promociones}</li>
-                    </ul>
-                  </div>
-                )}
-
-                {/* Mostrar inserciones */}
-                <div className="p-2 bg-green-50 rounded">
-                  <p className="font-medium text-green-800">📥 Datos insertados:</p>
-                  <ul className="list-disc pl-5 space-y-1 text-green-700">
-                    {Object.entries(syncDetails).map(([tipo, resultado]: [string, any]) => {
-                      if (typeof resultado === "object" && resultado.insertados !== undefined && tipo !== "limpieza") {
-                        return (
-                          <li key={tipo}>
-                            {tipo.charAt(0).toUpperCase() + tipo.slice(1)}: {resultado.insertados} insertados
-                            {resultado.errores > 0 && `, ${resultado.errores} errores`}
-                          </li>
-                        )
-                      }
-                      return null
-                    })}
-                  </ul>
-                </div>
-
-                {/* Mostrar configuraciones */}
-                <div className="p-2 bg-blue-50 rounded">
-                  <p className="font-medium text-blue-800">⚙️ Configuraciones:</p>
-                  <ul className="list-disc pl-5 space-y-1 text-blue-700">
-                    {Object.entries(syncDetails).map(([tipo, resultado]: [string, any]) => {
-                      if (
-                        typeof resultado === "boolean" ||
-                        (typeof resultado === "object" && resultado.guardada !== undefined)
-                      ) {
-                        const guardada = typeof resultado === "boolean" ? resultado : resultado.guardada
-                        return (
-                          <li key={tipo}>
-                            {tipo.charAt(0).toUpperCase() + tipo.slice(1)}: {guardada ? "✅ Guardado" : "❌ Error"}
-                          </li>
-                        )
-                      }
-                      return null
-                    })}
-                  </ul>
-                </div>
+                <ul className="list-disc pl-5 space-y-1">
+                  {Object.entries(syncDetails).map(([tipo, resultado]: [string, any]) => (
+                    <li key={tipo}>
+                      {tipo.charAt(0).toUpperCase() + tipo.slice(1)}: {resultado.insertados} insertados,{" "}
+                      {resultado.actualizados} actualizados, {resultado.errores} errores
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </CardContent>
