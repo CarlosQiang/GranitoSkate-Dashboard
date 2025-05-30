@@ -4,6 +4,7 @@ import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { LoadingState } from "@/components/loading-state"
 import { CollectionsList } from "@/components/collections-list"
+import { SyncCollectionsOnly } from "@/components/sync-collections-only"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -27,6 +28,11 @@ export default function CollectionsPage() {
       <Suspense fallback={<LoadingState message="Cargando colecciones..." />}>
         <CollectionsList />
       </Suspense>
+
+      {/* Componente de reemplazo de colecciones al final */}
+      <div className="mt-8">
+        <SyncCollectionsOnly onSyncComplete={() => {}} />
+      </div>
     </div>
   )
 }

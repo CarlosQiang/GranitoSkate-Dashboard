@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Package } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+import { SyncProductsOnly } from "@/components/sync-products-only"
 
 // Marcar la página como dinámica para evitar errores de renderizado estático
 export const dynamic = "force-dynamic"
@@ -427,6 +428,10 @@ export default function ProductsPage() {
           </div>
         </CardContent>
       </Card>
+      {/* Componente de reemplazo de productos al final */}
+      <div className="mt-8">
+        <SyncProductsOnly onSyncComplete={() => {}} />
+      </div>
     </div>
   )
 }

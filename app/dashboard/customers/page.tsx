@@ -14,6 +14,7 @@ import { formatDate, formatCurrency } from "@/lib/utils"
 import { MoreHorizontal, Pencil, ShoppingCart, UserPlus, RefreshCw } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { CustomerDetail } from "@/components/customer-detail"
+import { SyncCustomersOnly } from "@/components/sync-customers-only"
 
 interface Customer {
   id: string
@@ -379,6 +380,11 @@ export default function CustomersPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Componente de reemplazo de clientes al final */}
+      <div className="mt-8">
+        <SyncCustomersOnly onSyncComplete={() => {}} />
+      </div>
     </div>
   )
 }

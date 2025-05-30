@@ -13,6 +13,7 @@ import { fetchRecentOrders } from "@/lib/api/orders"
 import { useToast } from "@/components/ui/use-toast"
 import { formatDate, formatCurrency } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { SyncOrdersOnly } from "@/components/sync-orders-only"
 
 export default function OrdersPage() {
   const router = useRouter()
@@ -244,6 +245,10 @@ export default function OrdersPage() {
           </Table>
         </div>
       )}
+      {/* Componente de reemplazo de pedidos al final */}
+      <div className="mt-8">
+        <SyncOrdersOnly onSyncComplete={() => {}} />
+      </div>
     </div>
   )
 }
