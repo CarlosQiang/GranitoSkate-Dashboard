@@ -5,6 +5,24 @@ export async function POST(request: Request) {
   try {
     console.log("🔄 Iniciando REEMPLAZO COMPLETO de clientes...")
 
+    // Obtener datos del dashboard
+    const dashboardResponse = await fetch(
+      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/dashboard/summary`,
+      {
+        cache: "no-store",
+      },
+    )
+
+    if (!dashboardResponse.ok) {
+      throw new Error("Error al obtener datos del dashboard")
+    }
+
+    const dashboardData = await dashboardResponse.json()
+
+    // Extraer clientes del dashboard
+    const clientes = dashboardData.allCustomers || []
+    console.log(`📊 Clientes obtenidos del dashboard: ${clientes.length}`)
+
     const results = {
       borrados: 0,
       insertados: 0,
@@ -12,7 +30,7 @@ export async function POST(request: Request) {
       detalles: [],
     }
 
-    // PASO 1: Verificar/crear tabla clientes (ultra-simplificada)
+    // PASO 1: Verificar/crear tabla clientes
     try {
       console.log("🔍 Verificando tabla clientes...")
       const tableCheck = await sql`
@@ -27,7 +45,12 @@ export async function POST(request: Request) {
         await sql`
           CREATE TABLE clientes (
             id SERIAL PRIMARY KEY,
-            shopify_id VARCHAR(255) UNIQUE NOT NULL
+            shopify_id VARCHAR(255) UNIQUE NOT NULL,
+            email VARCHAR(255),
+            nombre VARCHAR(255),
+            telefono VARCHAR(50),
+            creado_en TIMESTAMP DEFAULT NOW(),
+            actualizado_en TIMESTAMP DEFAULT NOW()
           );
         `
         console.log("✅ Tabla clientes creada")
@@ -52,19 +75,46 @@ export async function POST(request: Request) {
       results.detalles.push(`Error borrando clientes: ${error}`)
     }
 
-    // PASO 3: Insertar un cliente de prueba
-    try {
-      console.log("➕ Insertando cliente de prueba...")
-      await sql`
-        INSERT INTO clientes (shopify_id) 
-        VALUES ('test_customer_1')
-      `
-      results.insertados = 1
-      results.detalles.push("✅ Insertado: Cliente de prueba")
-    } catch (error) {
-      console.error("❌ Error insertando cliente de prueba:", error)
-      results.errores++
-      results.detalles.push(`Error insertando cliente de prueba: ${error}`)
+    // PASO 3: Insertar clientes
+    if (clientes.length === 0) {
+      console.log("⚠️ No hay clientes en el dashboard, insertando cliente de prueba...")
+      try {
+        await sql`
+          INSERT INTO clientes (shopify_id, email, nombre, telefono, creado_en, actualizado_en) 
+          VALUES ('test_customer_1', 'test@example.com', 'Cliente de Prueba', '123456789', NOW(), NOW())
+        `
+        results.insertados = 1
+        results.detalles.push("✅ Insertado: Cliente de prueba")
+      } catch (error) {
+        console.error("❌ Error insertando cliente de prueba:", error)
+        results.errores++
+        results.detalles.push(`Error insertando cliente de prueba: ${error}`)
+      }
+    } else {
+      console.log(`➕ Insertando ${clientes.length} clientes reales...`)
+
+      for (const cliente of clientes) {
+        try {
+          // Extraer datos del cliente
+          const shopifyId = cliente.id?.toString().replace("gid://shopify/Customer/", "") || `unknown_${Date.now()}`
+          const email = cliente.email || ""
+          const nombre = `${cliente.firstName || ""} ${cliente.lastName || ""}`.trim() || "Sin nombre"
+          const telefono = cliente.phone || ""
+
+          // Insertar cliente
+          await sql`
+            INSERT INTO clientes (shopify_id, email, nombre, telefono, creado_en, actualizado_en) 
+            VALUES (${shopifyId}, ${email}, ${nombre}, ${telefono}, NOW(), NOW())
+          `
+
+          results.insertados++
+          results.detalles.push(`✅ Insertado: ${nombre} (${email})`)
+        } catch (error) {
+          console.error(`❌ Error insertando cliente:`, error)
+          results.errores++
+          results.detalles.push(`Error insertando cliente: ${error}`)
+        }
+      }
     }
 
     // PASO 4: Verificar resultado final
