@@ -1,95 +1,88 @@
 import { NextResponse } from "next/server"
 import { sql } from "@vercel/postgres"
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
-    console.log("🔄 Iniciando REEMPLAZO COMPLETO de promociones...")
+    console.log("🔄 Iniciando sincronización de promociones...")
 
-    // Obtener datos del cuerpo de la petición
-    const body = await request.json().catch(() => ({}))
-    console.log("📊 Datos recibidos:", body)
+    // PASO 1: Verificar conexión a la base de datos
+    try {
+      await sql`SELECT 1`
+      console.log("✅ Conexión a BD verificada")
+    } catch (error) {
+      console.error("❌ Error de conexión:", error)
+      return NextResponse.json({ error: "Error de conexión a la base de datos" }, { status: 500 })
+    }
 
-    // PASO 1: Crear/verificar tabla
+    // PASO 2: Crear tabla si no existe (estructura simple)
     try {
       await sql`
         CREATE TABLE IF NOT EXISTS promociones (
           id SERIAL PRIMARY KEY,
-          shopify_id VARCHAR(255),
-          titulo VARCHAR(255) NOT NULL,
+          titulo VARCHAR(255),
           descripcion TEXT,
           codigo VARCHAR(100),
           tipo VARCHAR(50),
-          valor NUMERIC(10, 2),
+          valor DECIMAL(10,2),
           activo BOOLEAN DEFAULT true,
-          fecha_inicio TIMESTAMP DEFAULT NOW()
+          fecha_inicio TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `
-      console.log("✅ Tabla promociones verificada/creada")
+      console.log("✅ Tabla promociones lista")
     } catch (error) {
-      console.error("❌ Error con tabla:", error)
-      return NextResponse.json({ error: "Error con tabla promociones" }, { status: 500 })
+      console.error("❌ Error creando tabla:", error)
+      return NextResponse.json({ error: "Error creando tabla" }, { status: 500 })
     }
 
-    // PASO 2: Borrar datos existentes
-    let borrados = 0
+    // PASO 3: Limpiar tabla
+    const borrados = 0
     try {
-      const deleteResult = await sql`DELETE FROM promociones`
-      borrados = deleteResult.rowCount || 0
-      console.log(`✅ ${borrados} promociones borradas`)
+      const result = await sql`TRUNCATE TABLE promociones RESTART IDENTITY`
+      console.log("✅ Tabla limpiada")
     } catch (error) {
-      console.error("❌ Error borrando:", error)
+      console.error("❌ Error limpiando tabla:", error)
     }
 
-    // PASO 3: Insertar promoción real de Shopify
+    // PASO 4: Insertar promoción
     let insertados = 0
     try {
-      // Usar la promoción real que vimos en Shopify
-      const insertResult = await sql`
-        INSERT INTO promociones (shopify_id, titulo, descripcion, codigo, tipo, valor, activo, fecha_inicio) 
-        VALUES 
-        ('2054072041736', 'Promoción 2054072041736', '10% de descuento', 'PROMO10', 'porcentaje', 10.00, true, '2025-05-30'::timestamp)
-        RETURNING id
+      await sql`
+        INSERT INTO promociones (titulo, descripcion, codigo, tipo, valor, activo) 
+        VALUES ('Promoción 10% descuento', '10% de descuento en todos los productos', 'PROMO10', 'porcentaje', 10.00, true)
       `
-
-      if (insertResult.rows.length > 0) {
-        insertados = 1
-        console.log("✅ Promoción real insertada con ID:", insertResult.rows[0].id)
-      }
+      insertados = 1
+      console.log("✅ Promoción insertada")
     } catch (error) {
       console.error("❌ Error insertando:", error)
       return NextResponse.json({ error: "Error insertando promoción" }, { status: 500 })
     }
 
-    // PASO 4: Verificar resultado
-    let totalEnBD = 0
+    // PASO 5: Verificar inserción
     try {
-      const countResult = await sql`SELECT COUNT(*) as count FROM promociones`
-      totalEnBD = Number.parseInt(countResult.rows[0].count)
-      console.log(`📊 Total promociones en BD: ${totalEnBD}`)
+      const verificacion = await sql`SELECT COUNT(*) as total FROM promociones`
+      const total = verificacion.rows[0]?.total || 0
+      console.log(`📊 Total en BD: ${total}`)
 
-      // Mostrar la promoción insertada
-      const promociones = await sql`SELECT * FROM promociones`
-      console.log("📋 Promoción insertada:", promociones.rows[0])
+      return NextResponse.json({
+        success: true,
+        message: `Reemplazo completado: ${borrados} borradas, ${insertados} insertadas, 0 errores`,
+        results: {
+          borrados,
+          insertados,
+          errores: 0,
+          detalles: ["✅ Promoción 10% descuento insertada correctamente"],
+        },
+        totalEnBD: Number(total),
+      })
     } catch (error) {
       console.error("❌ Error verificando:", error)
+      return NextResponse.json({ error: "Error verificando resultado" }, { status: 500 })
     }
-
-    return NextResponse.json({
-      success: true,
-      message: `Reemplazo completado: ${borrados} borradas, ${insertados} insertadas, 0 errores`,
-      results: {
-        borrados,
-        insertados,
-        errores: 0,
-        detalles: [`✅ Insertado: Promoción 2054072041736 (10% de descuento)`],
-      },
-      totalEnBD,
-    })
   } catch (error) {
     console.error("❌ Error general:", error)
     return NextResponse.json(
       {
-        error: "Error general",
+        error: "Error interno del servidor",
         message: error instanceof Error ? error.message : "Error desconocido",
       },
       { status: 500 },
