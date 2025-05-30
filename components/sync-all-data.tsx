@@ -37,7 +37,7 @@ export function SyncAllData({ onSyncComplete }: SyncAllDataProps) {
     setSteps((prev) => prev.map((step, i) => (i === index ? { ...step, status, result, error } : step)))
   }
 
-  const syncEntity = async (entityName: string, apiEndpoint: string) => {
+  const syncEntity = async (entityName: string, apiEndpoint: string, data?: any) => {
     try {
       console.log(`🔄 Sincronizando ${entityName}...`)
 
@@ -46,6 +46,7 @@ export function SyncAllData({ onSyncComplete }: SyncAllDataProps) {
         headers: {
           "Content-Type": "application/json",
         },
+        body: JSON.stringify(data || {}),
       })
 
       if (!response.ok) {
@@ -57,7 +58,7 @@ export function SyncAllData({ onSyncComplete }: SyncAllDataProps) {
       console.log(`✅ ${entityName} sincronizado:`, result)
 
       return {
-        borrados: result.borrados || 0,
+        borrados: result.borrados || result.results?.borrados || 0,
         insertados: result.insertados || result.results?.insertados || 0,
         errores: result.errores?.length || result.results?.errores || 0,
       }
@@ -74,36 +75,61 @@ export function SyncAllData({ onSyncComplete }: SyncAllDataProps) {
     // Resetear todos los pasos
     setSteps((prev) => prev.map((step) => ({ ...step, status: "pending", result: undefined, error: undefined })))
 
-    const syncConfigs = [
-      { name: "products", endpoint: "/api/sync/products-replace" },
-      { name: "collections", endpoint: "/api/sync/collections-replace" },
-      { name: "orders", endpoint: "/api/sync/orders-replace" },
-      { name: "customers", endpoint: "/api/sync/customers-replace" },
-      { name: "promotions", endpoint: "/api/sync/promotions-replace" },
-    ]
+    try {
+      // Obtener datos del dashboard primero
+      console.log("🔍 Obteniendo datos del dashboard...")
+      const dashboardResponse = await fetch("/api/dashboard/summary", {
+        cache: "no-store",
+      })
 
-    for (let i = 0; i < syncConfigs.length; i++) {
-      const config = syncConfigs[i]
-      setCurrentStep(i)
-      updateStepStatus(i, "running")
-
-      try {
-        const result = await syncEntity(steps[i].label, config.endpoint)
-        updateStepStatus(i, "completed", result)
-
-        // Pequeña pausa entre sincronizaciones
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Error desconocido"
-        updateStepStatus(i, "error", undefined, errorMessage)
-
-        // Continuar con el siguiente paso incluso si hay error
-        console.warn(`⚠️ Continuando con el siguiente paso después del error en ${steps[i].label}`)
+      if (!dashboardResponse.ok) {
+        throw new Error("Error al obtener datos del dashboard")
       }
+
+      const dashboardData = await dashboardResponse.json()
+      console.log("📊 Datos del dashboard obtenidos:", dashboardData)
+
+      const syncConfigs = [
+        {
+          name: "products",
+          endpoint: "/api/sync/products-replace",
+          data: { products: dashboardData.recentProducts || [] },
+        },
+        {
+          name: "collections",
+          endpoint: "/api/sync/collections-replace",
+          data: { collections: dashboardData.allCollections || [] },
+        },
+        { name: "orders", endpoint: "/api/sync/orders-replace", data: { orders: dashboardData.recentOrders || [] } },
+        { name: "customers", endpoint: "/api/sync/customers-replace", data: {} },
+        { name: "promotions", endpoint: "/api/sync/promotions-replace", data: {} },
+      ]
+
+      for (let i = 0; i < syncConfigs.length; i++) {
+        const config = syncConfigs[i]
+        setCurrentStep(i)
+        updateStepStatus(i, "running")
+
+        try {
+          const result = await syncEntity(steps[i].label, config.endpoint, config.data)
+          updateStepStatus(i, "completed", result)
+
+          // Pequeña pausa entre sincronizaciones
+          await new Promise((resolve) => setTimeout(resolve, 1000))
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : "Error desconocido"
+          updateStepStatus(i, "error", undefined, errorMessage)
+
+          // Continuar con el siguiente paso incluso si hay error
+          console.warn(`⚠️ Continuando con el siguiente paso después del error en ${steps[i].label}`)
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error general:", error)
     }
 
     setIsRunning(false)
-    setCurrentStep(syncConfigs.length)
+    setCurrentStep(steps.length)
 
     // Actualizar el estado de la base de datos
     setTimeout(() => {

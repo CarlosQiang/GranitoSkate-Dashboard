@@ -46,8 +46,6 @@ export async function POST(request: Request) {
             id SERIAL PRIMARY KEY,
             shopify_id VARCHAR(255) UNIQUE NOT NULL,
             email VARCHAR(255),
-            nombre VARCHAR(255),
-            telefono VARCHAR(50),
             creado_en TIMESTAMP DEFAULT NOW(),
             actualizado_en TIMESTAMP DEFAULT NOW()
           );
@@ -88,8 +86,6 @@ export async function POST(request: Request) {
         // Limpiar y validar datos
         const shopifyId = String(cliente.id || "").replace("gid://shopify/Customer/", "")
         const email = String(cliente.email || `cliente_${shopifyId}@ejemplo.com`)
-        const nombre = String(cliente.first_name || cliente.displayName || "Sin nombre")
-        const telefono = String(cliente.phone || "")
 
         if (!shopifyId) {
           console.warn("⚠️ Cliente sin ID válido, saltando...")
@@ -103,22 +99,18 @@ export async function POST(request: Request) {
           INSERT INTO clientes (
             shopify_id,
             email,
-            nombre,
-            telefono,
             creado_en,
             actualizado_en
           ) VALUES (
             ${shopifyId},
             ${email},
-            ${nombre},
-            ${telefono},
             NOW(),
             NOW()
           )
         `
 
         results.insertados++
-        results.detalles.push(`✅ Insertado: ${nombre} (${email})`)
+        results.detalles.push(`✅ Insertado: ${email}`)
         console.log(`✅ Cliente ${i + 1} insertado correctamente`)
       } catch (error) {
         console.error(`❌ Error insertando cliente ${i + 1}:`, error)

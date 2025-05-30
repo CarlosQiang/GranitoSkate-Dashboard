@@ -5,23 +5,6 @@ export async function POST(request: Request) {
   try {
     console.log("🔄 Iniciando REEMPLAZO COMPLETO de promociones...")
 
-    // Obtener datos del dashboard
-    const dashboardResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/dashboard/summary`,
-      {
-        cache: "no-store",
-      },
-    )
-
-    if (!dashboardResponse.ok) {
-      throw new Error("Error al obtener datos del dashboard")
-    }
-
-    const dashboardData = await dashboardResponse.json()
-    const promociones = dashboardData.allPromotions || []
-
-    console.log(`📊 Promociones obtenidas del dashboard: ${promociones.length}`)
-
     const results = {
       borrados: 0,
       insertados: 0,
@@ -46,13 +29,7 @@ export async function POST(request: Request) {
             id SERIAL PRIMARY KEY,
             shopify_id VARCHAR(255) UNIQUE NOT NULL,
             titulo VARCHAR(500) NOT NULL,
-            descripcion TEXT,
             codigo VARCHAR(100),
-            tipo VARCHAR(50),
-            valor DECIMAL(10,2),
-            activo BOOLEAN DEFAULT true,
-            fecha_inicio TIMESTAMP,
-            fecha_fin TIMESTAMP,
             creado_en TIMESTAMP DEFAULT NOW(),
             actualizado_en TIMESTAMP DEFAULT NOW()
           );
@@ -79,80 +56,9 @@ export async function POST(request: Request) {
       results.detalles.push(`Error borrando promociones: ${error}`)
     }
 
-    // PASO 3: INSERTAR todas las promociones nuevas
-    if (promociones.length === 0) {
-      console.log("ℹ️ No hay promociones para sincronizar")
-      results.detalles.push("ℹ️ No hay promociones disponibles en Shopify")
-    } else {
-      console.log("➕ Insertando promociones nuevas...")
-
-      for (let i = 0; i < promociones.length; i++) {
-        const promocion = promociones[i]
-
-        try {
-          console.log(`\n📝 Insertando promoción ${i + 1}/${promociones.length}:`)
-          console.log("- ID:", promocion.id)
-          console.log("- Código:", promocion.code)
-
-          // Limpiar y validar datos
-          const shopifyId = String(promocion.id || "").replace("gid://shopify/DiscountCode/", "")
-          const titulo = String(promocion.title || promocion.code || "Promoción sin título")
-          const descripcion = String(promocion.description || "")
-          const codigo = String(promocion.code || "")
-          const tipo = String(promocion.type || "percentage")
-          const valor = Number.parseFloat(String(promocion.value || "0"))
-          const activo = Boolean(promocion.status === "active")
-          const fechaInicio = promocion.starts_at || promocion.created_at || new Date().toISOString()
-          const fechaFin = promocion.ends_at || null
-
-          if (!shopifyId || !codigo) {
-            console.warn("⚠️ Promoción sin ID o código válido, saltando...")
-            results.errores++
-            results.detalles.push(`Error: Promoción ${i + 1} sin ID o código válido`)
-            continue
-          }
-
-          // Insertar promoción
-          await sql`
-            INSERT INTO promociones (
-              shopify_id,
-              titulo,
-              descripcion,
-              codigo,
-              tipo,
-              valor,
-              activo,
-              fecha_inicio,
-              fecha_fin,
-              creado_en,
-              actualizado_en
-            ) VALUES (
-              ${shopifyId},
-              ${titulo},
-              ${descripcion},
-              ${codigo},
-              ${tipo},
-              ${valor},
-              ${activo},
-              ${fechaInicio},
-              ${fechaFin},
-              NOW(),
-              NOW()
-            )
-          `
-
-          results.insertados++
-          results.detalles.push(`✅ Insertado: ${codigo} (${titulo})`)
-          console.log(`✅ Promoción ${i + 1} insertada correctamente`)
-        } catch (error) {
-          console.error(`❌ Error insertando promoción ${i + 1}:`, error)
-          results.errores++
-          results.detalles.push(
-            `❌ Error en promoción ${i + 1}: ${error instanceof Error ? error.message : "Error desconocido"}`,
-          )
-        }
-      }
-    }
+    // PASO 3: No hay promociones para insertar
+    console.log("ℹ️ No hay promociones para sincronizar desde Shopify")
+    results.detalles.push("ℹ️ No hay promociones disponibles en Shopify para sincronizar")
 
     // PASO 4: Verificar resultado final
     const finalCount = await sql`SELECT COUNT(*) as count FROM promociones`

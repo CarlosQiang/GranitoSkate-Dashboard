@@ -3,14 +3,24 @@ import { sql } from "@vercel/postgres"
 
 export async function POST(request: Request) {
   try {
-    const { orders } = await request.json()
+    console.log("🔄 Iniciando REEMPLAZO COMPLETO de pedidos...")
 
-    if (!orders || !Array.isArray(orders)) {
-      return NextResponse.json({ error: "No se proporcionaron pedidos para sincronizar" }, { status: 400 })
+    // Obtener datos del dashboard
+    const dashboardResponse = await fetch(
+      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/dashboard/summary`,
+      {
+        cache: "no-store",
+      },
+    )
+
+    if (!dashboardResponse.ok) {
+      throw new Error("Error al obtener datos del dashboard")
     }
 
-    console.log("🔄 Iniciando REEMPLAZO COMPLETO de pedidos...")
-    console.log("📦 Pedidos recibidos:", orders.length)
+    const dashboardData = await dashboardResponse.json()
+    const pedidos = dashboardData.recentOrders || []
+
+    console.log(`📊 Pedidos obtenidos del dashboard: ${pedidos.length}`)
 
     const results = {
       borrados: 0,
@@ -35,16 +45,7 @@ export async function POST(request: Request) {
           CREATE TABLE pedidos (
             id SERIAL PRIMARY KEY,
             shopify_id VARCHAR(255) UNIQUE NOT NULL,
-            cliente_nombre VARCHAR(500),
-            cliente_email VARCHAR(255),
             total DECIMAL(10,2) DEFAULT 0,
-            subtotal DECIMAL(10,2) DEFAULT 0,
-            impuestos DECIMAL(10,2) DEFAULT 0,
-            fecha_creacion TIMESTAMP,
-            fecha_actualizacion TIMESTAMP,
-            moneda VARCHAR(10) DEFAULT 'EUR',
-            items_count INTEGER DEFAULT 0,
-            notas TEXT,
             creado_en TIMESTAMP DEFAULT NOW(),
             actualizado_en TIMESTAMP DEFAULT NOW()
           );
@@ -74,28 +75,16 @@ export async function POST(request: Request) {
     // PASO 3: INSERTAR todos los pedidos nuevos
     console.log("➕ Insertando pedidos nuevos...")
 
-    for (let i = 0; i < orders.length; i++) {
-      const pedido = orders[i]
+    for (let i = 0; i < pedidos.length; i++) {
+      const pedido = pedidos[i]
 
       try {
-        console.log(`\n📝 Insertando pedido ${i + 1}/${orders.length}:`)
+        console.log(`\n📝 Insertando pedido ${i + 1}/${pedidos.length}:`)
         console.log("- ID:", pedido.id)
-        console.log("- Número:", pedido.name || pedido.order_number)
 
         // Limpiar y validar datos
         const shopifyId = String(pedido.id || "").replace("gid://shopify/Order/", "")
-        const clienteNombre = pedido.customer?.displayName || pedido.customer?.first_name || "Cliente sin nombre"
-        const clienteEmail = pedido.customer?.email || ""
         const total = Number.parseFloat(String(pedido.totalPriceSet?.shopMoney?.amount || pedido.total_price || "0"))
-        const subtotal = Number.parseFloat(
-          String(pedido.subtotalPriceSet?.shopMoney?.amount || pedido.subtotal_price || "0"),
-        )
-        const impuestos = Number.parseFloat(String(pedido.totalTaxSet?.shopMoney?.amount || pedido.total_tax || "0"))
-        const fechaCreacion = pedido.createdAt || pedido.created_at || new Date().toISOString()
-        const fechaActualizacion = pedido.updatedAt || pedido.updated_at || new Date().toISOString()
-        const moneda = String(pedido.totalPriceSet?.shopMoney?.currencyCode || pedido.currency || "EUR")
-        const itemsCount = Number.parseInt(String(pedido.lineItems?.length || pedido.line_items?.length || "0"))
-        const notas = String(pedido.note || "")
 
         if (!shopifyId) {
           console.warn("⚠️ Pedido sin ID válido, saltando...")
@@ -108,30 +97,12 @@ export async function POST(request: Request) {
         await sql`
           INSERT INTO pedidos (
             shopify_id,
-            cliente_nombre,
-            cliente_email,
             total,
-            subtotal,
-            impuestos,
-            fecha_creacion,
-            fecha_actualizacion,
-            moneda,
-            items_count,
-            notas,
             creado_en,
             actualizado_en
           ) VALUES (
             ${shopifyId},
-            ${clienteNombre},
-            ${clienteEmail},
             ${total},
-            ${subtotal},
-            ${impuestos},
-            ${fechaCreacion},
-            ${fechaActualizacion},
-            ${moneda},
-            ${itemsCount},
-            ${notas},
             NOW(),
             NOW()
           )
