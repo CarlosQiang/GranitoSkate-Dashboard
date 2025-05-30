@@ -38,8 +38,6 @@ export async function POST(request: Request) {
             titulo VARCHAR(500) NOT NULL,
             descripcion TEXT,
             imagen_url TEXT,
-            estado VARCHAR(50) DEFAULT 'ACTIVE',
-            productos_count INTEGER DEFAULT 0,
             creado_en TIMESTAMP DEFAULT NOW(),
             actualizado_en TIMESTAMP DEFAULT NOW()
           );
@@ -81,8 +79,6 @@ export async function POST(request: Request) {
         const shopifyId = String(coleccion.id || "").replace("gid://shopify/Collection/", "")
         const titulo = String(coleccion.title || "Sin título")
         const descripcion = String(coleccion.description || "")
-        const productosCount = Number.parseInt(String(coleccion.products_count || "0"))
-        const estado = coleccion.status || "ACTIVE"
 
         if (!shopifyId || !titulo) {
           console.warn("⚠️ Colección sin ID o título válido, saltando...")
@@ -98,7 +94,6 @@ export async function POST(request: Request) {
             titulo, 
             descripcion, 
             imagen_url,
-            productos_count,
             creado_en, 
             actualizado_en
           ) VALUES (
@@ -106,7 +101,6 @@ export async function POST(request: Request) {
             ${titulo},
             ${descripcion},
             ${coleccion.image || null},
-            ${productosCount},
             NOW(),
             NOW()
           )

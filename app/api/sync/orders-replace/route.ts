@@ -35,14 +35,11 @@ export async function POST(request: Request) {
           CREATE TABLE pedidos (
             id SERIAL PRIMARY KEY,
             shopify_id VARCHAR(255) UNIQUE NOT NULL,
-            numero VARCHAR(100),
-            cliente_id VARCHAR(255),
             cliente_nombre VARCHAR(500),
             cliente_email VARCHAR(255),
             total DECIMAL(10,2) DEFAULT 0,
             subtotal DECIMAL(10,2) DEFAULT 0,
             impuestos DECIMAL(10,2) DEFAULT 0,
-            estado VARCHAR(50),
             fecha_creacion TIMESTAMP,
             fecha_actualizacion TIMESTAMP,
             moneda VARCHAR(10) DEFAULT 'EUR',
@@ -87,8 +84,6 @@ export async function POST(request: Request) {
 
         // Limpiar y validar datos
         const shopifyId = String(pedido.id || "").replace("gid://shopify/Order/", "")
-        const numero = String(pedido.name || pedido.order_number || "")
-        const clienteId = String(pedido.customer?.id || "").replace("gid://shopify/Customer/", "")
         const clienteNombre = pedido.customer?.displayName || pedido.customer?.first_name || "Cliente sin nombre"
         const clienteEmail = pedido.customer?.email || ""
         const total = Number.parseFloat(String(pedido.totalPriceSet?.shopMoney?.amount || pedido.total_price || "0"))
@@ -96,17 +91,16 @@ export async function POST(request: Request) {
           String(pedido.subtotalPriceSet?.shopMoney?.amount || pedido.subtotal_price || "0"),
         )
         const impuestos = Number.parseFloat(String(pedido.totalTaxSet?.shopMoney?.amount || pedido.total_tax || "0"))
-        const estado = String(pedido.displayFinancialStatus || pedido.financial_status || "pending")
         const fechaCreacion = pedido.createdAt || pedido.created_at || new Date().toISOString()
         const fechaActualizacion = pedido.updatedAt || pedido.updated_at || new Date().toISOString()
         const moneda = String(pedido.totalPriceSet?.shopMoney?.currencyCode || pedido.currency || "EUR")
         const itemsCount = Number.parseInt(String(pedido.lineItems?.length || pedido.line_items?.length || "0"))
         const notas = String(pedido.note || "")
 
-        if (!shopifyId || !numero) {
-          console.warn("⚠️ Pedido sin ID o número válido, saltando...")
+        if (!shopifyId) {
+          console.warn("⚠️ Pedido sin ID válido, saltando...")
           results.errores++
-          results.detalles.push(`Error: Pedido ${i + 1} sin ID o número válido`)
+          results.detalles.push(`Error: Pedido ${i + 1} sin ID válido`)
           continue
         }
 
@@ -114,7 +108,6 @@ export async function POST(request: Request) {
         await sql`
           INSERT INTO pedidos (
             shopify_id,
-            cliente_id,
             cliente_nombre,
             cliente_email,
             total,
@@ -129,7 +122,6 @@ export async function POST(request: Request) {
             actualizado_en
           ) VALUES (
             ${shopifyId},
-            ${clienteId},
             ${clienteNombre},
             ${clienteEmail},
             ${total},
@@ -146,7 +138,7 @@ export async function POST(request: Request) {
         `
 
         results.insertados++
-        results.detalles.push(`✅ Insertado: Pedido ${numero}`)
+        results.detalles.push(`✅ Insertado: Pedido ${shopifyId}`)
         console.log(`✅ Pedido ${i + 1} insertado correctamente`)
       } catch (error) {
         console.error(`❌ Error insertando pedido ${i + 1}:`, error)

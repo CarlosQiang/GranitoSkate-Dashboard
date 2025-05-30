@@ -3,14 +3,24 @@ import { sql } from "@vercel/postgres"
 
 export async function POST(request: Request) {
   try {
-    const { promotions } = await request.json()
+    console.log("🔄 Iniciando REEMPLAZO COMPLETO de promociones...")
 
-    if (!promotions || !Array.isArray(promotions)) {
-      return NextResponse.json({ error: "No se proporcionaron promociones para sincronizar" }, { status: 400 })
+    // Obtener datos del dashboard
+    const dashboardResponse = await fetch(
+      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/dashboard/summary`,
+      {
+        cache: "no-store",
+      },
+    )
+
+    if (!dashboardResponse.ok) {
+      throw new Error("Error al obtener datos del dashboard")
     }
 
-    console.log("🔄 Iniciando REEMPLAZO COMPLETO de promociones...")
-    console.log("📦 Promociones recibidas:", promotions.length)
+    const dashboardData = await dashboardResponse.json()
+    const promociones = dashboardData.allPromotions || []
+
+    console.log(`📊 Promociones obtenidas del dashboard: ${promociones.length}`)
 
     const results = {
       borrados: 0,
@@ -35,16 +45,14 @@ export async function POST(request: Request) {
           CREATE TABLE promociones (
             id SERIAL PRIMARY KEY,
             shopify_id VARCHAR(255) UNIQUE NOT NULL,
-            codigo VARCHAR(100) NOT NULL,
-            titulo VARCHAR(500),
+            titulo VARCHAR(500) NOT NULL,
             descripcion TEXT,
+            codigo VARCHAR(100),
             tipo VARCHAR(50),
-            valor DECIMAL(10,2) DEFAULT 0,
+            valor DECIMAL(10,2),
+            activo BOOLEAN DEFAULT true,
             fecha_inicio TIMESTAMP,
             fecha_fin TIMESTAMP,
-            estado VARCHAR(50) DEFAULT 'active',
-            usos_totales INTEGER DEFAULT 0,
-            usos_por_cliente INTEGER DEFAULT 1,
             creado_en TIMESTAMP DEFAULT NOW(),
             actualizado_en TIMESTAMP DEFAULT NOW()
           );
@@ -72,78 +80,77 @@ export async function POST(request: Request) {
     }
 
     // PASO 3: INSERTAR todas las promociones nuevas
-    console.log("➕ Insertando promociones nuevas...")
+    if (promociones.length === 0) {
+      console.log("ℹ️ No hay promociones para sincronizar")
+      results.detalles.push("ℹ️ No hay promociones disponibles en Shopify")
+    } else {
+      console.log("➕ Insertando promociones nuevas...")
 
-    for (let i = 0; i < promotions.length; i++) {
-      const promocion = promotions[i]
+      for (let i = 0; i < promociones.length; i++) {
+        const promocion = promociones[i]
 
-      try {
-        console.log(`\n📝 Insertando promoción ${i + 1}/${promotions.length}:`)
-        console.log("- ID:", promocion.id)
-        console.log("- Código:", promocion.code)
+        try {
+          console.log(`\n📝 Insertando promoción ${i + 1}/${promociones.length}:`)
+          console.log("- ID:", promocion.id)
+          console.log("- Código:", promocion.code)
 
-        // Limpiar y validar datos
-        const shopifyId = String(promocion.id || "").replace("gid://shopify/DiscountCode/", "")
-        const codigo = String(promocion.code || "")
-        const titulo = String(promocion.title || promocion.code || "")
-        const descripcion = String(promocion.summary || promocion.description || "")
-        const tipo = String(promocion.type || "percentage")
-        const valor = Number.parseFloat(String(promocion.value || promocion.amount || "0"))
-        const fechaInicio = promocion.starts_at || promocion.created_at || new Date().toISOString()
-        const fechaFin = promocion.ends_at || null
-        const estado = String(promocion.status || "active")
-        const usosTotales = Number.parseInt(String(promocion.usage_limit || "0"))
-        const usosPorCliente = Number.parseInt(String(promocion.once_per_customer || "1"))
+          // Limpiar y validar datos
+          const shopifyId = String(promocion.id || "").replace("gid://shopify/DiscountCode/", "")
+          const titulo = String(promocion.title || promocion.code || "Promoción sin título")
+          const descripcion = String(promocion.description || "")
+          const codigo = String(promocion.code || "")
+          const tipo = String(promocion.type || "percentage")
+          const valor = Number.parseFloat(String(promocion.value || "0"))
+          const activo = Boolean(promocion.status === "active")
+          const fechaInicio = promocion.starts_at || promocion.created_at || new Date().toISOString()
+          const fechaFin = promocion.ends_at || null
 
-        if (!shopifyId || !codigo) {
-          console.warn("⚠️ Promoción sin ID o código válido, saltando...")
+          if (!shopifyId || !codigo) {
+            console.warn("⚠️ Promoción sin ID o código válido, saltando...")
+            results.errores++
+            results.detalles.push(`Error: Promoción ${i + 1} sin ID o código válido`)
+            continue
+          }
+
+          // Insertar promoción
+          await sql`
+            INSERT INTO promociones (
+              shopify_id,
+              titulo,
+              descripcion,
+              codigo,
+              tipo,
+              valor,
+              activo,
+              fecha_inicio,
+              fecha_fin,
+              creado_en,
+              actualizado_en
+            ) VALUES (
+              ${shopifyId},
+              ${titulo},
+              ${descripcion},
+              ${codigo},
+              ${tipo},
+              ${valor},
+              ${activo},
+              ${fechaInicio},
+              ${fechaFin},
+              NOW(),
+              NOW()
+            )
+          `
+
+          results.insertados++
+          results.detalles.push(`✅ Insertado: ${codigo} (${titulo})`)
+          console.log(`✅ Promoción ${i + 1} insertada correctamente`)
+        } catch (error) {
+          console.error(`❌ Error insertando promoción ${i + 1}:`, error)
           results.errores++
-          results.detalles.push(`Error: Promoción ${i + 1} sin ID o código válido`)
-          continue
-        }
-
-        // Insertar promoción
-        await sql`
-          INSERT INTO promociones (
-            shopify_id,
-            codigo,
-            titulo,
-            descripcion,
-            tipo,
-            valor,
-            fecha_inicio,
-            fecha_fin,
-            estado,
-            usos_totales,
-            usos_por_cliente,
-            creado_en,
-            actualizado_en
-          ) VALUES (
-            ${shopifyId},
-            ${codigo},
-            ${titulo},
-            ${descripcion},
-            ${tipo},
-            ${valor},
-            ${fechaInicio},
-            ${fechaFin},
-            ${estado},
-            ${usosTotales},
-            ${usosPorCliente},
-            NOW(),
-            NOW()
+          results.detalles.push(
+            `❌ Error en promoción ${i + 1}: ${error instanceof Error ? error.message : "Error desconocido"}`,
           )
-        `
-
-        results.insertados++
-        results.detalles.push(`✅ Insertado: ${codigo}`)
-        console.log(`✅ Promoción ${i + 1} insertada correctamente`)
-      } catch (error) {
-        console.error(`❌ Error insertando promoción ${i + 1}:`, error)
-        results.errores++
-        results.detalles.push(
-          `❌ Error en promoción ${i + 1}: ${error instanceof Error ? error.message : "Error desconocido"}`,
-        )
+        }
       }
     }
 

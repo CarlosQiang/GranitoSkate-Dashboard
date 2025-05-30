@@ -1,11 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+import { NextResponse } from "next/server"
+import { sql } from "@vercel/postgres"
 
-const sql = neon(process.env.POSTGRES_URL!)
-
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    console.log("🔄 Iniciando reemplazo completo de clientes...")
+    console.log("🔄 Iniciando REEMPLAZO COMPLETO de clientes...")
 
     // Obtener datos del dashboard
     const dashboardResponse = await fetch(
@@ -24,96 +22,135 @@ export async function POST(request: NextRequest) {
 
     console.log(`📊 Clientes obtenidos del dashboard: ${clientes.length}`)
 
-    // Verificar/crear tabla
-    await sql`
-      CREATE TABLE IF NOT EXISTS clientes (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        shopify_id VARCHAR(255) UNIQUE NOT NULL,
-        email VARCHAR(255),
-        nombre VARCHAR(255),
-        apellido VARCHAR(255),
-        telefono VARCHAR(50),
-        estado VARCHAR(50) DEFAULT 'enabled',
-        total_gastado DECIMAL(10,2) DEFAULT 0.00,
-        numero_pedidos INTEGER DEFAULT 0,
-        pais VARCHAR(100),
-        provincia VARCHAR(100),
-        fecha_creacion TIMESTAMP,
-        fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `
-
-    // Borrar todos los clientes existentes
-    const deleteResult = await sql`DELETE FROM clientes`
-    const borrados = deleteResult.length || 0
-    console.log(`🗑️ Clientes borrados: ${borrados}`)
-
-    let insertados = 0
-    const errores: string[] = []
-    const detalles: string[] = []
-
-    if (borrados > 0) {
-      detalles.push(`Borrados: ${borrados} clientes existentes`)
-    } else {
-      detalles.push(`Borrados: 0 clientes existentes`)
+    const results = {
+      borrados: 0,
+      insertados: 0,
+      errores: 0,
+      detalles: [],
     }
 
-    // Insertar nuevos clientes
-    for (const cliente of clientes) {
-      try {
-        const shopifyId = cliente.id?.toString() || `temp_${Date.now()}_${Math.random()}`
-        const email = cliente.email || `cliente_${shopifyId}@ejemplo.com`
-        const nombre = cliente.first_name || "Sin nombre"
-        const apellido = cliente.last_name || "Sin apellido"
-        const telefono = cliente.phone || null
-        const estado = cliente.state || "enabled"
-        const totalGastado = Number.parseFloat(cliente.total_spent || "0.00")
-        const numeroPedidos = Number.parseInt(cliente.orders_count || "0")
-        const pais = cliente.default_address?.country || null
-        const provincia = cliente.default_address?.province || null
-        const fechaCreacion = cliente.created_at ? new Date(cliente.created_at) : new Date()
+    // PASO 1: Verificar/crear tabla clientes
+    try {
+      console.log("🔍 Verificando tabla clientes...")
+      const tableCheck = await sql`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_name = 'clientes'
+        );
+      `
 
+      if (!tableCheck.rows[0].exists) {
+        console.log("📝 Creando tabla clientes...")
+        await sql`
+          CREATE TABLE clientes (
+            id SERIAL PRIMARY KEY,
+            shopify_id VARCHAR(255) UNIQUE NOT NULL,
+            email VARCHAR(255),
+            nombre VARCHAR(255),
+            telefono VARCHAR(50),
+            creado_en TIMESTAMP DEFAULT NOW(),
+            actualizado_en TIMESTAMP DEFAULT NOW()
+          );
+        `
+        console.log("✅ Tabla clientes creada")
+      } else {
+        console.log("✅ Tabla clientes ya existe")
+      }
+    } catch (error) {
+      console.error("❌ Error con tabla clientes:", error)
+      return NextResponse.json({ error: "Error con la tabla clientes" }, { status: 500 })
+    }
+
+    // PASO 2: BORRAR TODOS los clientes existentes
+    try {
+      console.log("🗑️ Borrando TODOS los clientes existentes...")
+      const deleteResult = await sql`DELETE FROM clientes`
+      results.borrados = deleteResult.rowCount || 0
+      console.log(`✅ ${results.borrados} clientes borrados`)
+      results.detalles.push(`Borrados: ${results.borrados} clientes existentes`)
+    } catch (error) {
+      console.error("❌ Error borrando clientes:", error)
+      results.errores++
+      results.detalles.push(`Error borrando clientes: ${error}`)
+    }
+
+    // PASO 3: INSERTAR todos los clientes nuevos
+    console.log("➕ Insertando clientes nuevos...")
+
+    for (let i = 0; i < clientes.length; i++) {
+      const cliente = clientes[i]
+
+      try {
+        console.log(`\n📝 Insertando cliente ${i + 1}/${clientes.length}:`)
+        console.log("- ID:", cliente.id)
+        console.log("- Email:", cliente.email)
+
+        // Limpiar y validar datos
+        const shopifyId = String(cliente.id || "").replace("gid://shopify/Customer/", "")
+        const email = String(cliente.email || `cliente_${shopifyId}@ejemplo.com`)
+        const nombre = String(cliente.first_name || cliente.displayName || "Sin nombre")
+        const telefono = String(cliente.phone || "")
+
+        if (!shopifyId) {
+          console.warn("⚠️ Cliente sin ID válido, saltando...")
+          results.errores++
+          results.detalles.push(`Error: Cliente ${i + 1} sin ID válido`)
+          continue
+        }
+
+        // Insertar cliente
         await sql`
           INSERT INTO clientes (
-            shopify_id, email, nombre, apellido, telefono, estado,
-            total_gastado, numero_pedidos, pais, provincia, fecha_creacion
+            shopify_id,
+            email,
+            nombre,
+            telefono,
+            creado_en,
+            actualizado_en
           ) VALUES (
-            ${shopifyId}, ${email}, ${nombre}, ${apellido}, ${telefono}, ${estado},
-            ${totalGastado}, ${numeroPedidos}, ${pais}, ${provincia}, ${fechaCreacion}
+            ${shopifyId},
+            ${email},
+            ${nombre},
+            ${telefono},
+            NOW(),
+            NOW()
           )
         `
 
-        insertados++
-        detalles.push(`Insertado: ${nombre} ${apellido} (${email})`)
-        console.log(`✅ Cliente insertado: ${nombre} ${apellido}`)
+        results.insertados++
+        results.detalles.push(`✅ Insertado: ${nombre} (${email})`)
+        console.log(`✅ Cliente ${i + 1} insertado correctamente`)
       } catch (error) {
-        const errorMsg = `Error en cliente ${cliente.email || cliente.id}: ${error instanceof Error ? error.message : "Error desconocido"}`
-        errores.push(errorMsg)
-        detalles.push(`❌ ${errorMsg}`)
-        console.error(`❌ ${errorMsg}`)
+        console.error(`❌ Error insertando cliente ${i + 1}:`, error)
+        results.errores++
+        results.detalles.push(
+          `❌ Error en cliente ${i + 1}: ${error instanceof Error ? error.message : "Error desconocido"}`,
+        )
       }
     }
 
-    console.log(`✅ Reemplazo completado: ${borrados} borrados, ${insertados} insertados, ${errores.length} errores`)
+    // PASO 4: Verificar resultado final
+    const finalCount = await sql`SELECT COUNT(*) as count FROM clientes`
+    const totalFinal = Number.parseInt(finalCount.rows[0].count)
+
+    console.log("📊 RESUMEN FINAL:")
+    console.log("- Clientes borrados:", results.borrados)
+    console.log("- Clientes insertados:", results.insertados)
+    console.log("- Errores:", results.errores)
+    console.log("- Total en BD:", totalFinal)
 
     return NextResponse.json({
       success: true,
-      message: `Reemplazo completado: ${borrados} borrados, ${insertados} insertados, ${errores.length} errores`,
-      borrados,
-      insertados,
-      errores,
-      detalles,
-      totalClientes: clientes.length,
+      message: `Reemplazo completado: ${results.borrados} borrados, ${results.insertados} insertados, ${results.errores} errores`,
+      results,
+      totalEnBD: totalFinal,
     })
   } catch (error) {
-    console.error("❌ Error en reemplazo de clientes:", error)
+    console.error("❌ Error general en reemplazo de clientes:", error)
     return NextResponse.json(
       {
-        success: false,
-        message: error instanceof Error ? error.message : "Error desconocido en reemplazo de clientes",
-        error: error instanceof Error ? error.message : "Error desconocido",
+        error: "Error en el reemplazo de clientes",
+        message: error instanceof Error ? error.message : "Error desconocido",
       },
       { status: 500 },
     )
