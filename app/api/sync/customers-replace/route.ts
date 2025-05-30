@@ -18,7 +18,8 @@ export async function POST() {
         CREATE TABLE IF NOT EXISTS clientes (
           id SERIAL PRIMARY KEY,
           shopify_id VARCHAR(255) UNIQUE NOT NULL,
-          email VARCHAR(255)
+          email VARCHAR(255),
+          nombre VARCHAR(255)
         );
       `
     } catch (error) {
@@ -36,22 +37,22 @@ export async function POST() {
       results.detalles.push(`Error borrando: ${error}`)
     }
 
-    // PASO 3: Insertar clientes de Shopify
+    // PASO 3: Insertar clientes reales de Shopify
     try {
       const clientesShopify = [
-        { id: "7346709065555", email: "prueba@gamail.com" },
-        { id: "7346709032787", email: "granitoskate@gmail.com" },
-        { id: "7346709000019", email: "earererr@gmail.com" },
-        { id: "7346708967251", email: "sdasd@gmail.com" },
+        { id: "7346709065555", email: "prueba@gamail.com", nombre: "cliente de prueba sad" },
+        { id: "7346709032787", email: "granitoskate@gmail.com", nombre: "cliente de prueba sad" },
+        { id: "7346709000019", email: "earererr@gmail.com", nombre: "cliente de prueba dsfsdf" },
+        { id: "7346708967251", email: "sdasd@gmail.com", nombre: "cliente de prueba dsfsdf" },
       ]
 
       for (const cliente of clientesShopify) {
         await sql`
-          INSERT INTO clientes (shopify_id, email) 
-          VALUES (${cliente.id}, ${cliente.email})
+          INSERT INTO clientes (shopify_id, email, nombre) 
+          VALUES (${cliente.id}, ${cliente.email}, ${cliente.nombre})
         `
         results.insertados++
-        results.detalles.push(`✅ Insertado: ${cliente.email}`)
+        results.detalles.push(`✅ Insertado: ${cliente.nombre} (${cliente.email})`)
       }
     } catch (error) {
       results.errores++

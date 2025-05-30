@@ -37,14 +37,14 @@ export async function POST() {
       results.detalles.push(`Error borrando: ${error}`)
     }
 
-    // PASO 3: Insertar promoción de Shopify
+    // PASO 3: Insertar promoción real de Shopify
     try {
       await sql`
         INSERT INTO promociones (shopify_id, titulo, codigo) 
-        VALUES ('2054072041736', '10% de descuento', 'PROMO10')
+        VALUES ('2054072041736', 'Promoción 2054072041736', 'PROMO10')
       `
       results.insertados = 1
-      results.detalles.push("✅ Insertado: 10% de descuento (PROMO10)")
+      results.detalles.push("✅ Insertado: Promoción 2054072041736 (10% de descuento)")
     } catch (error) {
       results.errores++
       results.detalles.push(`Error insertando: ${error}`)
