@@ -41,18 +41,23 @@ export async function POST() {
       results.detalles.push(`Error borrando promociones: ${error}`)
     }
 
-    // PASO 3: Insertar promoción real
+    // PASO 3: Insertar promoción real que vimos en Shopify
     try {
-      console.log("➕ Insertando promoción real...")
+      console.log("➕ Insertando promoción real de Shopify...")
 
-      await sql`
+      const insertResult = await sql`
         INSERT INTO promociones (shopify_id, titulo, codigo, creado_en) 
-        VALUES ('2054072041736', 'Promoción 10% de descuento', 'PROMO10', NOW())
+        VALUES ('2054072041736', 'Promoción 2054072041736 - 10% de descuento', 'PROMO10', NOW())
+        RETURNING id
       `
 
-      results.insertados = 1
-      results.detalles.push("✅ Insertado: Promoción 10% de descuento (PROMO10)")
-      console.log("✅ Promoción insertada correctamente")
+      if (insertResult.rowCount && insertResult.rowCount > 0) {
+        results.insertados = 1
+        results.detalles.push("✅ Insertado: Promoción 2054072041736 (10% de descuento)")
+        console.log("✅ Promoción insertada correctamente con ID:", insertResult.rows[0].id)
+      } else {
+        throw new Error("No se pudo insertar la promoción")
+      }
     } catch (error) {
       console.error("❌ Error insertando promoción:", error)
       results.errores++
@@ -67,6 +72,14 @@ export async function POST() {
       const finalCount = await sql`SELECT COUNT(*) as count FROM promociones`
       totalFinal = Number.parseInt(finalCount.rows[0].count)
       console.log(`📊 Total final en BD: ${totalFinal}`)
+
+      // Verificar que la promoción se insertó correctamente
+      const verificacion = await sql`SELECT * FROM promociones WHERE shopify_id = '2054072041736'`
+      if (verificacion.rows.length > 0) {
+        console.log("✅ Promoción verificada en BD:", verificacion.rows[0])
+      } else {
+        console.log("⚠️ Promoción no encontrada en verificación")
+      }
     } catch (error) {
       console.error("❌ Error verificando resultado:", error)
     }
@@ -75,6 +88,7 @@ export async function POST() {
     console.log("- Promociones borradas:", results.borrados)
     console.log("- Promociones insertadas:", results.insertados)
     console.log("- Errores:", results.errores)
+    console.log("- Total en BD:", totalFinal)
 
     return NextResponse.json({
       success: true,
