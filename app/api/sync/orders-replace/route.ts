@@ -5,6 +5,24 @@ export async function POST(request: Request) {
   try {
     console.log("🔄 Iniciando REEMPLAZO COMPLETO de pedidos...")
 
+    // Obtener datos del dashboard
+    const dashboardResponse = await fetch(
+      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/dashboard/summary`,
+      {
+        cache: "no-store",
+      },
+    )
+
+    if (!dashboardResponse.ok) {
+      throw new Error("Error al obtener datos del dashboard")
+    }
+
+    const dashboardData = await dashboardResponse.json()
+
+    // Extraer pedidos del dashboard
+    const pedidos = dashboardData.recentOrders || []
+    console.log(`📊 Pedidos obtenidos del dashboard: ${pedidos.length}`)
+
     const results = {
       borrados: 0,
       insertados: 0,
@@ -12,7 +30,7 @@ export async function POST(request: Request) {
       detalles: [],
     }
 
-    // PASO 1: Verificar/crear tabla pedidos (ultra-simplificada)
+    // PASO 1: Verificar/crear tabla pedidos
     try {
       console.log("🔍 Verificando tabla pedidos...")
       const tableCheck = await sql`
@@ -27,7 +45,13 @@ export async function POST(request: Request) {
         await sql`
           CREATE TABLE pedidos (
             id SERIAL PRIMARY KEY,
-            shopify_id VARCHAR(255) UNIQUE NOT NULL
+            shopify_id VARCHAR(255) UNIQUE NOT NULL,
+            numero_pedido VARCHAR(100),
+            email_cliente VARCHAR(255),
+            estado VARCHAR(100),
+            total DECIMAL(10,2),
+            creado_en TIMESTAMP DEFAULT NOW(),
+            actualizado_en TIMESTAMP DEFAULT NOW()
           );
         `
         console.log("✅ Tabla pedidos creada")
@@ -52,19 +76,53 @@ export async function POST(request: Request) {
       results.detalles.push(`Error borrando pedidos: ${error}`)
     }
 
-    // PASO 3: Insertar un pedido de prueba
-    try {
-      console.log("➕ Insertando pedido de prueba...")
-      await sql`
-        INSERT INTO pedidos (shopify_id) 
-        VALUES ('test_order_1')
-      `
-      results.insertados = 1
-      results.detalles.push("✅ Insertado: Pedido de prueba")
-    } catch (error) {
-      console.error("❌ Error insertando pedido de prueba:", error)
-      results.errores++
-      results.detalles.push(`Error insertando pedido de prueba: ${error}`)
+    // PASO 3: Insertar pedidos reales
+    if (pedidos.length === 0) {
+      console.log("⚠️ No hay pedidos en el dashboard")
+      results.detalles.push("ℹ️ No hay pedidos disponibles para sincronizar")
+    } else {
+      console.log(`➕ Insertando ${pedidos.length} pedidos reales...`)
+
+      for (const pedido of pedidos) {
+        try {
+          // Extraer datos del pedido
+          const shopifyId = pedido.id?.toString().replace("gid://shopify/Order/", "") || `unknown_${Date.now()}`
+          const numeroPedido = pedido.name || pedido.orderNumber || ""
+          const emailCliente = pedido.customer?.email || pedido.email || ""
+          const estado = pedido.displayFulfillmentStatus || pedido.financialStatus || "pendiente"
+          const total = Number.parseFloat(pedido.totalPriceSet?.shopMoney?.amount || pedido.totalPrice || "0")
+
+          console.log(`📝 Insertando pedido: ${numeroPedido} - ${emailCliente} - ${total}€`)
+
+          // Insertar pedido
+          await sql`
+            INSERT INTO pedidos (
+              shopify_id, 
+              numero_pedido, 
+              email_cliente, 
+              estado, 
+              total, 
+              creado_en, 
+              actualizado_en
+            ) VALUES (
+              ${shopifyId}, 
+              ${numeroPedido}, 
+              ${emailCliente}, 
+              ${estado}, 
+              ${total}, 
+              NOW(), 
+              NOW()
+            )
+          `
+
+          results.insertados++
+          results.detalles.push(`✅ Insertado: ${numeroPedido} (${emailCliente}) - ${total}€`)
+        } catch (error) {
+          console.error(`❌ Error insertando pedido:`, error)
+          results.errores++
+          results.detalles.push(`Error insertando pedido: ${error}`)
+        }
+      }
     }
 
     // PASO 4: Verificar resultado final
