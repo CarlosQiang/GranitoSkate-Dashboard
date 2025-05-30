@@ -114,14 +114,12 @@ export async function POST(request: Request) {
         await sql`
           INSERT INTO pedidos (
             shopify_id,
-            numero,
             cliente_id,
             cliente_nombre,
             cliente_email,
             total,
             subtotal,
             impuestos,
-            estado,
             fecha_creacion,
             fecha_actualizacion,
             moneda,
@@ -131,14 +129,12 @@ export async function POST(request: Request) {
             actualizado_en
           ) VALUES (
             ${shopifyId},
-            ${numero},
             ${clienteId},
             ${clienteNombre},
             ${clienteEmail},
             ${total},
             ${subtotal},
             ${impuestos},
-            ${estado},
             ${fechaCreacion},
             ${fechaActualizacion},
             ${moneda},

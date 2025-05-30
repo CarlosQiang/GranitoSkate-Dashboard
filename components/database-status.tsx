@@ -11,6 +11,7 @@ import { SyncCollectionsOnly } from "@/components/sync-collections-only"
 import { SyncOrdersOnly } from "@/components/sync-orders-only"
 import { SyncPromotionsOnly } from "@/components/sync-promotions-only"
 import { SyncCustomersOnly } from "@/components/sync-customers-only"
+import { SyncAllData } from "@/components/sync-all-data"
 
 interface TableStatus {
   exists: boolean
@@ -118,6 +119,7 @@ export function DatabaseStatus({ onRefresh }: DatabaseStatusProps) {
         </div>
       </CardHeader>
       <CardContent>
+        <SyncAllData onSyncComplete={handleSyncComplete} />
         <InitTablesButton />
         <SyncProductsOnly onSyncComplete={handleSyncComplete} />
         <SyncCollectionsOnly onSyncComplete={handleSyncComplete} />

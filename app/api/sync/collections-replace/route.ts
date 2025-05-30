@@ -98,7 +98,6 @@ export async function POST(request: Request) {
             titulo, 
             descripcion, 
             imagen_url,
-            estado,
             productos_count,
             creado_en, 
             actualizado_en
@@ -107,7 +106,6 @@ export async function POST(request: Request) {
             ${titulo},
             ${descripcion},
             ${coleccion.image || null},
-            ${estado},
             ${productosCount},
             NOW(),
             NOW()
