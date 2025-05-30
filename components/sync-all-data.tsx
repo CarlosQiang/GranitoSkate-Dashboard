@@ -68,6 +68,26 @@ export function SyncAllData({ onSyncComplete }: SyncAllDataProps) {
     }
   }
 
+  const getAllProducts = async () => {
+    try {
+      console.log("🔍 Obteniendo TODOS los productos de Shopify...")
+      const response = await fetch("/api/shopify/products", {
+        cache: "no-store",
+      })
+
+      if (!response.ok) {
+        throw new Error("Error al obtener productos de Shopify")
+      }
+
+      const data = await response.json()
+      console.log("📦 Productos obtenidos:", data.products?.length || 0)
+      return data.products || []
+    } catch (error) {
+      console.error("❌ Error obteniendo productos:", error)
+      return []
+    }
+  }
+
   const handleSyncAll = async () => {
     setIsRunning(true)
     setCurrentStep(0)
@@ -89,11 +109,15 @@ export function SyncAllData({ onSyncComplete }: SyncAllDataProps) {
       const dashboardData = await dashboardResponse.json()
       console.log("📊 Datos del dashboard obtenidos:", dashboardData)
 
+      // Obtener TODOS los productos (no solo los recientes)
+      const allProducts = await getAllProducts()
+      console.log("📦 Total de productos para sincronizar:", allProducts.length)
+
       const syncConfigs = [
         {
           name: "products",
           endpoint: "/api/sync/products-replace",
-          data: { products: dashboardData.recentProducts || [] },
+          data: { products: allProducts }, // Usar TODOS los productos
         },
         {
           name: "collections",
