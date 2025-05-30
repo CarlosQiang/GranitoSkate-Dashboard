@@ -5,23 +5,6 @@ export async function POST(request: Request) {
   try {
     console.log("🔄 Iniciando REEMPLAZO COMPLETO de clientes...")
 
-    // Obtener datos del dashboard
-    const dashboardResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/dashboard/summary`,
-      {
-        cache: "no-store",
-      },
-    )
-
-    if (!dashboardResponse.ok) {
-      throw new Error("Error al obtener datos del dashboard")
-    }
-
-    const dashboardData = await dashboardResponse.json()
-    const clientes = dashboardData.allCustomers || []
-
-    console.log(`📊 Clientes obtenidos del dashboard: ${clientes.length}`)
-
     const results = {
       borrados: 0,
       insertados: 0,
@@ -29,7 +12,7 @@ export async function POST(request: Request) {
       detalles: [],
     }
 
-    // PASO 1: Verificar/crear tabla clientes
+    // PASO 1: Verificar/crear tabla clientes (ultra-simplificada)
     try {
       console.log("🔍 Verificando tabla clientes...")
       const tableCheck = await sql`
@@ -44,10 +27,7 @@ export async function POST(request: Request) {
         await sql`
           CREATE TABLE clientes (
             id SERIAL PRIMARY KEY,
-            shopify_id VARCHAR(255) UNIQUE NOT NULL,
-            email VARCHAR(255),
-            creado_en TIMESTAMP DEFAULT NOW(),
-            actualizado_en TIMESTAMP DEFAULT NOW()
+            shopify_id VARCHAR(255) UNIQUE NOT NULL
           );
         `
         console.log("✅ Tabla clientes creada")
@@ -72,53 +52,19 @@ export async function POST(request: Request) {
       results.detalles.push(`Error borrando clientes: ${error}`)
     }
 
-    // PASO 3: INSERTAR todos los clientes nuevos
-    console.log("➕ Insertando clientes nuevos...")
-
-    for (let i = 0; i < clientes.length; i++) {
-      const cliente = clientes[i]
-
-      try {
-        console.log(`\n📝 Insertando cliente ${i + 1}/${clientes.length}:`)
-        console.log("- ID:", cliente.id)
-        console.log("- Email:", cliente.email)
-
-        // Limpiar y validar datos
-        const shopifyId = String(cliente.id || "").replace("gid://shopify/Customer/", "")
-        const email = String(cliente.email || `cliente_${shopifyId}@ejemplo.com`)
-
-        if (!shopifyId) {
-          console.warn("⚠️ Cliente sin ID válido, saltando...")
-          results.errores++
-          results.detalles.push(`Error: Cliente ${i + 1} sin ID válido`)
-          continue
-        }
-
-        // Insertar cliente
-        await sql`
-          INSERT INTO clientes (
-            shopify_id,
-            email,
-            creado_en,
-            actualizado_en
-          ) VALUES (
-            ${shopifyId},
-            ${email},
-            NOW(),
-            NOW()
-          )
-        `
-
-        results.insertados++
-        results.detalles.push(`✅ Insertado: ${email}`)
-        console.log(`✅ Cliente ${i + 1} insertado correctamente`)
-      } catch (error) {
-        console.error(`❌ Error insertando cliente ${i + 1}:`, error)
-        results.errores++
-        results.detalles.push(
-          `❌ Error en cliente ${i + 1}: ${error instanceof Error ? error.message : "Error desconocido"}`,
-        )
-      }
+    // PASO 3: Insertar un cliente de prueba
+    try {
+      console.log("➕ Insertando cliente de prueba...")
+      await sql`
+        INSERT INTO clientes (shopify_id) 
+        VALUES ('test_customer_1')
+      `
+      results.insertados = 1
+      results.detalles.push("✅ Insertado: Cliente de prueba")
+    } catch (error) {
+      console.error("❌ Error insertando cliente de prueba:", error)
+      results.errores++
+      results.detalles.push(`Error insertando cliente de prueba: ${error}`)
     }
 
     // PASO 4: Verificar resultado final

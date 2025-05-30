@@ -5,23 +5,6 @@ export async function POST(request: Request) {
   try {
     console.log("🔄 Iniciando REEMPLAZO COMPLETO de pedidos...")
 
-    // Obtener datos del dashboard
-    const dashboardResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/dashboard/summary`,
-      {
-        cache: "no-store",
-      },
-    )
-
-    if (!dashboardResponse.ok) {
-      throw new Error("Error al obtener datos del dashboard")
-    }
-
-    const dashboardData = await dashboardResponse.json()
-    const pedidos = dashboardData.recentOrders || []
-
-    console.log(`📊 Pedidos obtenidos del dashboard: ${pedidos.length}`)
-
     const results = {
       borrados: 0,
       insertados: 0,
@@ -29,7 +12,7 @@ export async function POST(request: Request) {
       detalles: [],
     }
 
-    // PASO 1: Verificar/crear tabla pedidos
+    // PASO 1: Verificar/crear tabla pedidos (ultra-simplificada)
     try {
       console.log("🔍 Verificando tabla pedidos...")
       const tableCheck = await sql`
@@ -44,10 +27,7 @@ export async function POST(request: Request) {
         await sql`
           CREATE TABLE pedidos (
             id SERIAL PRIMARY KEY,
-            shopify_id VARCHAR(255) UNIQUE NOT NULL,
-            total DECIMAL(10,2) DEFAULT 0,
-            creado_en TIMESTAMP DEFAULT NOW(),
-            actualizado_en TIMESTAMP DEFAULT NOW()
+            shopify_id VARCHAR(255) UNIQUE NOT NULL
           );
         `
         console.log("✅ Tabla pedidos creada")
@@ -72,52 +52,19 @@ export async function POST(request: Request) {
       results.detalles.push(`Error borrando pedidos: ${error}`)
     }
 
-    // PASO 3: INSERTAR todos los pedidos nuevos
-    console.log("➕ Insertando pedidos nuevos...")
-
-    for (let i = 0; i < pedidos.length; i++) {
-      const pedido = pedidos[i]
-
-      try {
-        console.log(`\n📝 Insertando pedido ${i + 1}/${pedidos.length}:`)
-        console.log("- ID:", pedido.id)
-
-        // Limpiar y validar datos
-        const shopifyId = String(pedido.id || "").replace("gid://shopify/Order/", "")
-        const total = Number.parseFloat(String(pedido.totalPriceSet?.shopMoney?.amount || pedido.total_price || "0"))
-
-        if (!shopifyId) {
-          console.warn("⚠️ Pedido sin ID válido, saltando...")
-          results.errores++
-          results.detalles.push(`Error: Pedido ${i + 1} sin ID válido`)
-          continue
-        }
-
-        // Insertar pedido
-        await sql`
-          INSERT INTO pedidos (
-            shopify_id,
-            total,
-            creado_en,
-            actualizado_en
-          ) VALUES (
-            ${shopifyId},
-            ${total},
-            NOW(),
-            NOW()
-          )
-        `
-
-        results.insertados++
-        results.detalles.push(`✅ Insertado: Pedido ${shopifyId}`)
-        console.log(`✅ Pedido ${i + 1} insertado correctamente`)
-      } catch (error) {
-        console.error(`❌ Error insertando pedido ${i + 1}:`, error)
-        results.errores++
-        results.detalles.push(
-          `❌ Error en pedido ${i + 1}: ${error instanceof Error ? error.message : "Error desconocido"}`,
-        )
-      }
+    // PASO 3: Insertar un pedido de prueba
+    try {
+      console.log("➕ Insertando pedido de prueba...")
+      await sql`
+        INSERT INTO pedidos (shopify_id) 
+        VALUES ('test_order_1')
+      `
+      results.insertados = 1
+      results.detalles.push("✅ Insertado: Pedido de prueba")
+    } catch (error) {
+      console.error("❌ Error insertando pedido de prueba:", error)
+      results.errores++
+      results.detalles.push(`Error insertando pedido de prueba: ${error}`)
     }
 
     // PASO 4: Verificar resultado final
