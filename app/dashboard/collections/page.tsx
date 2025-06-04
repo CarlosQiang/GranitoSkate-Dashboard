@@ -1,5 +1,3 @@
-"use client"
-
 import { Suspense } from "react"
 import Link from "next/link"
 import { Plus } from "lucide-react"
@@ -7,20 +5,9 @@ import { Button } from "@/components/ui/button"
 import { LoadingState } from "@/components/loading-state"
 import { CollectionsList } from "@/components/collections-list"
 import { SyncCollectionsOnly } from "@/components/sync-collections-only"
-import { ErrorBoundary } from "react-error-boundary"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
-
-function ErrorFallback({ error, resetErrorBoundary }) {
-  return (
-    <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
-      <h2 className="text-xl font-bold text-red-800 mb-2">Error en la página de colecciones</h2>
-      <p className="text-red-700 mb-4">{error.message || "Ha ocurrido un error inesperado"}</p>
-      <Button onClick={resetErrorBoundary}>Intentar de nuevo</Button>
-    </div>
-  )
-}
 
 export default function CollectionsPage() {
   return (
@@ -38,11 +25,9 @@ export default function CollectionsPage() {
         </Button>
       </div>
 
-      <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => window.location.reload()}>
-        <Suspense fallback={<LoadingState message="Cargando colecciones..." />}>
-          <CollectionsList />
-        </Suspense>
-      </ErrorBoundary>
+      <Suspense fallback={<LoadingState message="Cargando colecciones..." />}>
+        <CollectionsList />
+      </Suspense>
 
       {/* Componente de reemplazo de colecciones al final */}
       <div className="mt-8 border-t pt-8">

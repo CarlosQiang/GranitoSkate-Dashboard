@@ -1,53 +1,33 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useEffect } from "react"
+import { AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { AlertCircle, RefreshCw } from "lucide-react"
 
 interface ErrorHandlerProps {
-  error: Error | null
-  resetError?: () => void
-  message?: string
+  error: Error
+  reset: () => void
 }
 
-export function ErrorHandler({ error, resetError, message }: ErrorHandlerProps) {
-  const [showDetails, setShowDetails] = useState(false)
-
+export function ErrorHandler({ error, reset }: ErrorHandlerProps) {
   useEffect(() => {
-    // Registrar el error en la consola para depuración
-    if (error) {
-      console.error("Error capturado:", error)
-    }
+    // Log the error to an error reporting service
+    console.error("Error no controlado:", error)
   }, [error])
 
-  if (!error) return null
-
   return (
-    <Alert variant="destructive" className="my-4">
-      <AlertCircle className="h-4 w-4" />
-      <AlertTitle>Error</AlertTitle>
-      <AlertDescription>
-        <p>{message || "Ha ocurrido un error al cargar los datos."}</p>
-
-        {showDetails && (
-          <div className="mt-2 p-2 bg-destructive/10 rounded text-sm font-mono overflow-auto max-h-32">
-            {error.message}
-          </div>
-        )}
-
-        <div className="mt-4 flex gap-2">
-          {resetError && (
-            <Button variant="outline" size="sm" onClick={resetError} className="flex items-center gap-1">
-              <RefreshCw className="h-3 w-3" /> Reintentar
-            </Button>
-          )}
-
-          <Button variant="link" size="sm" onClick={() => setShowDetails(!showDetails)}>
-            {showDetails ? "Ocultar detalles" : "Mostrar detalles"}
-          </Button>
-        </div>
-      </AlertDescription>
-    </Alert>
+    <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
+      <div className="flex items-center mb-4">
+        <AlertCircle className="h-6 w-6 text-red-600 mr-2" />
+        <h2 className="text-xl font-bold text-red-800">Algo salió mal</h2>
+      </div>
+      <p className="text-red-700 mb-4">Ha ocurrido un error inesperado. Nuestro equipo ha sido notificado.</p>
+      <div className="flex gap-2">
+        <Button onClick={reset}>Intentar de nuevo</Button>
+        <Button variant="outline" onClick={() => (window.location.href = "/dashboard")}>
+          Volver al inicio
+        </Button>
+      </div>
+    </div>
   )
 }

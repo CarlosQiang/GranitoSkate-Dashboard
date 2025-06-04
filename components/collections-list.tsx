@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Edit, Package } from "lucide-react"
+import { Edit, Package, AlertCircle } from "lucide-react"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -115,28 +115,14 @@ export function CollectionsList() {
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4 mb-4">
-        <h3 className="text-lg font-semibold mb-2">Error al cargar las colecciones</h3>
+        <div className="flex items-center mb-2">
+          <AlertCircle className="h-5 w-5 mr-2" />
+          <h3 className="text-lg font-semibold">Error al cargar las colecciones</h3>
+        </div>
         <p className="mb-2">{error}</p>
-        <details className="text-sm">
-          <summary className="cursor-pointer">Información técnica</summary>
-          <pre className="mt-2 p-2 bg-red-100 rounded overflow-auto text-xs">
-            {JSON.stringify(
-              {
-                path: "/dashboard/collections",
-                component: "CollectionsList",
-                timestamp: new Date().toISOString(),
-              },
-              null,
-              2,
-            )}
-          </pre>
-        </details>
         <div className="mt-4 flex gap-2">
           <Button variant="outline" onClick={() => window.location.reload()}>
             Reintentar
-          </Button>
-          <Button variant="outline" onClick={() => console.log("Colecciones debug:", { collections, error })}>
-            Debug en consola
           </Button>
         </div>
       </div>
