@@ -9,16 +9,9 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, CheckCircle } from "lucide-react"
+import { AlertCircle, CheckCircle, Database, Cloud } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import {
-  getProductSeoSettings,
-  saveProductSeoSettings,
-  getCollectionSeoSettings,
-  saveCollectionSeoSettings,
-  saveShopSeoSettings,
-  getShopSeoSettings,
-} from "@/lib/api/seo"
+import { Switch } from "@/components/ui/switch"
 
 // Esquema de validación para el formulario SEO
 const seoFormSchema = z.object({
@@ -28,6 +21,7 @@ const seoFormSchema = z.object({
     .min(1, "La descripción es obligatoria")
     .max(160, "La descripción debe tener máximo 160 caracteres"),
   keywords: z.string().optional(),
+  syncWithShopify: z.boolean().default(false),
 })
 
 type SeoFormValues = z.infer<typeof seoFormSchema>
@@ -52,6 +46,7 @@ export function SeoForm({
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [loadingData, setLoadingData] = useState(true)
   const { toast } = useToast()
 
   // Inicializar el formulario con react-hook-form
@@ -61,6 +56,7 @@ export function SeoForm({
       title: defaultTitle,
       description: defaultDescription,
       keywords: defaultKeywords,
+      syncWithShopify: false,
     },
   })
 
@@ -70,44 +66,58 @@ export function SeoForm({
       if (!ownerId) return
 
       try {
-        setIsLoading(true)
+        setLoadingData(true)
         setError(null)
 
-        let seoSettings = null
+        const response = await fetch(`/api/seo?tipo_entidad=${ownerType}&id_entidad=${ownerId}`)
 
-        if (ownerType === "PRODUCT") {
-          seoSettings = await getProductSeoSettings(ownerId)
-        } else if (ownerType === "COLLECTION") {
-          seoSettings = await getCollectionSeoSettings(ownerId)
-        } else if (ownerType === "SHOP") {
-          seoSettings = await getShopSeoSettings()
-        }
+        if (response.ok) {
+          const result = await response.json()
 
-        if (seoSettings) {
-          form.reset({
-            title: seoSettings.title || defaultTitle,
-            description: seoSettings.description || defaultDescription,
-            keywords: Array.isArray(seoSettings.keywords) ? seoSettings.keywords.join(", ") : defaultKeywords,
-          })
+          if (result.success && result.data) {
+            form.reset({
+              title: result.data.titulo || defaultTitle,
+              description: result.data.descripcion || defaultDescription,
+              keywords: Array.isArray(result.data.palabras_clave)
+                ? result.data.palabras_clave.join(", ")
+                : defaultKeywords,
+              syncWithShopify: false,
+            })
+          } else {
+            // Si no hay datos, usar los valores por defecto
+            form.reset({
+              title: defaultTitle,
+              description: defaultDescription,
+              keywords: defaultKeywords,
+              syncWithShopify: false,
+            })
+          }
         } else {
+          console.warn("No se pudieron cargar los datos SEO existentes")
           form.reset({
             title: defaultTitle,
             description: defaultDescription,
             keywords: defaultKeywords,
+            syncWithShopify: false,
           })
         }
       } catch (err: any) {
         console.error("Error loading SEO settings:", err)
         // No mostramos el error al usuario para no bloquear la interfaz
+        form.reset({
+          title: defaultTitle,
+          description: defaultDescription,
+          keywords: defaultKeywords,
+          syncWithShopify: false,
+        })
       } finally {
-        setIsLoading(false)
+        setLoadingData(false)
       }
     }
 
     loadSeoSettings()
   }, [ownerId, ownerType, defaultTitle, defaultDescription, defaultKeywords, form])
 
-  // Modificar la función onSubmit para siempre mostrar éxito
   const onSubmit = async (data: SeoFormValues) => {
     try {
       setIsLoading(true)
@@ -118,51 +128,61 @@ export function SeoForm({
       const keywordsArray = data.keywords ? data.keywords.split(",").map((k) => k.trim()) : []
 
       // Crear objeto con datos SEO
-      const seoSettings = {
-        title: data.title,
-        description: data.description,
-        keywords: keywordsArray,
+      const seoData = {
+        tipo_entidad: ownerType,
+        id_entidad: ownerId,
+        titulo: data.title,
+        descripcion: data.description,
+        palabras_clave: keywordsArray,
+        sincronizar_shopify: data.syncWithShopify,
       }
 
-      // Intentar guardar según el tipo de propietario
-      try {
-        if (ownerType === "PRODUCT") {
-          await saveProductSeoSettings(ownerId, seoSettings)
-        } else if (ownerType === "COLLECTION") {
-          await saveCollectionSeoSettings(ownerId, seoSettings)
-        } else if (ownerType === "SHOP") {
-          await saveShopSeoSettings(seoSettings)
-        }
-      } catch (saveError) {
-        console.error("Error específico al guardar:", saveError)
-        // Continuamos para mostrar éxito al usuario
-      }
-
-      // Siempre mostramos éxito al usuario
-      setSuccess(true)
-      toast({
-        title: "Configuración SEO guardada",
-        description: "Los datos SEO se han guardado correctamente",
+      const response = await fetch("/api/seo", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(seoData),
       })
 
-      if (onSuccess) {
-        onSuccess()
+      const result = await response.json()
+
+      if (response.ok && result.success) {
+        setSuccess(true)
+        toast({
+          title: "Configuración SEO guardada",
+          description: data.syncWithShopify
+            ? "Los datos SEO se han guardado y sincronizado con Shopify"
+            : "Los datos SEO se han guardado en la base de datos local",
+        })
+
+        if (onSuccess) {
+          onSuccess()
+        }
+      } else {
+        throw new Error(result.error || "Error al guardar la configuración SEO")
       }
     } catch (err: any) {
       console.error("Error saving SEO settings:", err)
-      // Aún así mostramos éxito al usuario
-      setSuccess(true)
+      setError(err.message || "Error al guardar la configuración SEO")
       toast({
-        title: "Configuración SEO guardada",
-        description: "Los datos SEO se han guardado correctamente",
+        title: "Error",
+        description: err.message || "Error al guardar la configuración SEO",
+        variant: "destructive",
       })
-
-      if (onSuccess) {
-        onSuccess()
-      }
     } finally {
       setIsLoading(false)
     }
+  }
+
+  if (loadingData) {
+    return (
+      <div className="space-y-4">
+        <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
+        <div className="h-20 bg-gray-200 rounded animate-pulse"></div>
+        <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
+      </div>
+    )
   }
 
   return (
@@ -237,9 +257,31 @@ export function SeoForm({
           )}
         />
 
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? "Guardando..." : "Guardar SEO"}
-        </Button>
+        <FormField
+          control={form.control}
+          name="syncWithShopify"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <FormLabel className="text-base flex items-center gap-2">
+                  <Cloud className="h-4 w-4" />
+                  Sincronizar con Shopify
+                </FormLabel>
+                <FormDescription>Guardar también estos datos SEO como metafields en Shopify</FormDescription>
+              </div>
+              <FormControl>
+                <Switch checked={field.value} onCheckedChange={field.onChange} />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+
+        <div className="flex gap-2">
+          <Button type="submit" disabled={isLoading} className="flex items-center gap-2">
+            <Database className="h-4 w-4" />
+            {isLoading ? "Guardando..." : "Guardar SEO"}
+          </Button>
+        </div>
       </form>
     </Form>
   )
