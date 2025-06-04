@@ -44,6 +44,7 @@ export async function POST() {
         { id: "7346709032787", email: "granitoskate@gmail.com", nombre: "cliente de prueba sad" },
         { id: "7346709000019", email: "earererr@gmail.com", nombre: "cliente de prueba dsfsdf" },
         { id: "7346708967251", email: "sdasd@gmail.com", nombre: "cliente de prueba dsfsdf" },
+        { id: "7412345678901", email: "carlosqiang@gmail.com", nombre: "Carlos Qiang" },
       ]
 
       for (const cliente of clientesShopify) {

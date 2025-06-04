@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
-import { Menu, X, LogOut, ChevronRight } from "lucide-react"
+import { Menu, LogOut, ChevronRight } from "lucide-react"
 import { signOut } from "next-auth/react"
 import { cn } from "@/lib/utils"
 import { navigationItems } from "@/config/navigation"
@@ -96,17 +96,18 @@ export function DashboardNav() {
 
   return (
     <>
-      {/* Botón de menú móvil con animación mejorada */}
+      {/* Botón de menú móvil - solo para abrir */}
       <Button
         variant="ghost"
         className="md:hidden fixed top-4 right-4 z-50 transition-all duration-200 bg-background/80 backdrop-blur-sm"
         onClick={toggleMenu}
-        aria-label={isMenuOpen ? "Cerrar menú" : "Abrir menú"}
+        aria-label="Abrir menú"
+        style={{ display: isMenuOpen ? "none" : "flex" }}
       >
-        {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        <Menu className="h-5 w-5" />
       </Button>
 
-      {/* Navegación para escritorio y móvil con animaciones mejoradas */}
+      {/* Navegación para escritorio y móvil */}
       <nav
         id="mobile-nav"
         className={cn(
@@ -118,7 +119,7 @@ export function DashboardNav() {
           isCollapsed && "sidebar-collapsed",
         )}
       >
-        <div className="flex flex-col gap-1 p-4 pt-16 md:pt-4 overflow-y-auto hide-scrollbar h-full">
+        <div className="flex flex-col gap-1 p-4 pt-4 overflow-y-auto hide-scrollbar h-full">
           {/* Logo o título en la parte superior del menú */}
           <div className="mb-6 flex items-center justify-center md:justify-start">
             <div
@@ -178,12 +179,13 @@ export function DashboardNav() {
         </div>
       </nav>
 
-      {/* Overlay para cerrar el menú en móvil con animación de fade */}
+      {/* Overlay para cerrar el menú en móvil - área clickeable para cerrar */}
       {isMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-30 md:hidden backdrop-blur-sm fade-in"
+          className="fixed inset-0 bg-black/50 z-30 md:hidden backdrop-blur-sm fade-in cursor-pointer"
           onClick={toggleMenu}
           aria-hidden="true"
+          aria-label="Cerrar menú"
         />
       )}
     </>
