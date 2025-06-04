@@ -30,8 +30,10 @@ export function CollectionsList() {
     const loadCollections = async () => {
       try {
         setLoading(true)
+        console.log("Iniciando carga de colecciones...")
         const data = await fetchCollections()
-        setCollections(data)
+        console.log("Colecciones recibidas:", data)
+        setCollections(data || [])
         setError(null)
       } catch (err) {
         console.error("Error loading collections:", err)
@@ -114,10 +116,29 @@ export function CollectionsList() {
     return (
       <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4 mb-4">
         <h3 className="text-lg font-semibold mb-2">Error al cargar las colecciones</h3>
-        <p>{error}</p>
-        <Button variant="outline" className="mt-2" onClick={() => window.location.reload()}>
-          Reintentar
-        </Button>
+        <p className="mb-2">{error}</p>
+        <details className="text-sm">
+          <summary className="cursor-pointer">Información técnica</summary>
+          <pre className="mt-2 p-2 bg-red-100 rounded overflow-auto text-xs">
+            {JSON.stringify(
+              {
+                path: "/dashboard/collections",
+                component: "CollectionsList",
+                timestamp: new Date().toISOString(),
+              },
+              null,
+              2,
+            )}
+          </pre>
+        </details>
+        <div className="mt-4 flex gap-2">
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            Reintentar
+          </Button>
+          <Button variant="outline" onClick={() => console.log("Colecciones debug:", { collections, error })}>
+            Debug en consola
+          </Button>
+        </div>
       </div>
     )
   }

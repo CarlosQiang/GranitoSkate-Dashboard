@@ -5,6 +5,7 @@ import { gql } from "graphql-request"
 // Función para obtener todas las colecciones
 export async function fetchCollections() {
   try {
+    console.log("Iniciando fetchCollections...")
     const query = gql`
       query {
         collections(first: 50) {
@@ -45,15 +46,28 @@ export async function fetchCollections() {
       }
     `
 
+    console.log("Enviando consulta GraphQL a Shopify...")
     const data = await shopifyClient.request(query)
+    console.log("Respuesta recibida de Shopify:", data ? "Datos recibidos" : "Sin datos")
+
+    if (!data || !data.collections || !data.collections.edges) {
+      console.error("Respuesta de Shopify inválida:", data)
+      throw new Error("La respuesta de Shopify no tiene el formato esperado")
+    }
 
     // Transformar los datos para mantener compatibilidad con el código existente
-    return data.collections.edges.map((edge) => ({
+    const transformedData = data.collections.edges.map((edge) => ({
       ...edge.node,
       productsCount: edge.node.productsCount.count,
     }))
+
+    console.log(`Se encontraron ${transformedData.length} colecciones`)
+    return transformedData
   } catch (error) {
-    console.error("Error fetching collections:", error)
+    console.error("Error en fetchCollections:", error)
+    if (error.response) {
+      console.error("Detalles de la respuesta:", error.response)
+    }
     throw new Error(`Error al obtener colecciones: ${error.message}`)
   }
 }
