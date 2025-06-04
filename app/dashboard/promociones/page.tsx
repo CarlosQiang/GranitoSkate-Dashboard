@@ -1,35 +1,14 @@
-"use client"
-
-import { useEffect, useState } from "react"
+import { Suspense } from "react"
 import Link from "next/link"
 import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { PromocionesListWrapper } from "@/components/promociones-list-wrapper"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 60
 
 export default function PromocionesPage() {
-  const [isLoading, setIsLoading] = useState(true)
-  const [promociones, setPromociones] = useState([])
-
-  useEffect(() => {
-    // Simulamos carga de datos
-    setTimeout(() => {
-      setIsLoading(false)
-      // Datos de ejemplo
-      setPromociones([
-        {
-          id: "2054072041736",
-          titulo: "Promoción 10% de descuento",
-          codigo: "PROMO10",
-          valor: 10,
-          tipo: "porcentaje",
-          activo: true,
-          fecha_inicio: "2025-05-30",
-        },
-      ])
-    }, 1000)
-  }, [])
-
   return (
     <div className="flex flex-col gap-4 w-full">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
@@ -52,69 +31,37 @@ export default function PromocionesPage() {
           <TabsTrigger value="programadas">Programadas</TabsTrigger>
           <TabsTrigger value="expiradas">Expiradas</TabsTrigger>
         </TabsList>
+
         <TabsContent value="todas" className="mt-4">
-          {isLoading ? (
-            <div className="flex justify-center items-center h-40">
-              <p>Cargando promociones...</p>
-            </div>
-          ) : promociones.length > 0 ? (
-            <div className="grid gap-4">
-              {promociones.map((promo) => (
-                <Card key={promo.id}>
-                  <CardHeader className="pb-2">
-                    <CardTitle>{promo.titulo}</CardTitle>
-                    <CardDescription>
-                      {promo.tipo === "porcentaje" ? `${promo.valor}% de descuento` : `${promo.valor}€ de descuento`}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">Desde {promo.fecha_inicio}</span>
-                      <span
-                        className={`px-2 py-1 text-xs rounded-full ${promo.activo ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}
-                      >
-                        {promo.activo ? "Activa" : "Inactiva"}
-                      </span>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link href={`/dashboard/promociones/${promo.id}`}>Ver detalles</Link>
-                      </Button>
-                      <Button variant="destructive" size="sm">
-                        Eliminar
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="flex justify-center items-center h-40">
-              <p>No hay promociones disponibles</p>
-            </div>
-          )}
+          <Suspense fallback={<div className="flex justify-center items-center h-40">Cargando promociones...</div>}>
+            <PromocionesListWrapper filter="todas" />
+          </Suspense>
         </TabsContent>
-        <TabsContent value="activas">
-          <div className="flex justify-center items-center h-40">
-            <p>Promociones activas</p>
-          </div>
+
+        <TabsContent value="activas" className="mt-4">
+          <Suspense
+            fallback={<div className="flex justify-center items-center h-40">Cargando promociones activas...</div>}
+          >
+            <PromocionesListWrapper filter="activas" />
+          </Suspense>
         </TabsContent>
-        <TabsContent value="programadas">
-          <div className="flex justify-center items-center h-40">
-            <p>Promociones programadas</p>
-          </div>
+
+        <TabsContent value="programadas" className="mt-4">
+          <Suspense
+            fallback={<div className="flex justify-center items-center h-40">Cargando promociones programadas...</div>}
+          >
+            <PromocionesListWrapper filter="programadas" />
+          </Suspense>
         </TabsContent>
-        <TabsContent value="expiradas">
-          <div className="flex justify-center items-center h-40">
-            <p>Promociones expiradas</p>
-          </div>
+
+        <TabsContent value="expiradas" className="mt-4">
+          <Suspense
+            fallback={<div className="flex justify-center items-center h-40">Cargando promociones expiradas...</div>}
+          >
+            <PromocionesListWrapper filter="expiradas" />
+          </Suspense>
         </TabsContent>
       </Tabs>
-
-      {/* Aquí iría el componente de sincronización, pero lo comentamos por ahora */}
-      {/* <div className="mt-8">
-        <SyncPromotionsOnly onSyncComplete={() => {}} />
-      </div> */}
     </div>
   )
 }
