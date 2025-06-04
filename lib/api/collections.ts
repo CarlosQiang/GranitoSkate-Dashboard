@@ -47,28 +47,40 @@ export async function fetchCollections() {
     `
 
     console.log("Enviando consulta GraphQL a Shopify...")
-    const data = await shopifyClient.request(query)
+
+    // Usar un timeout para evitar que la solicitud se quede colgada indefinidamente
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("Timeout al conectar con Shopify")), 15000)
+    })
+
+    // Realizar la solicitud con un timeout
+    const responsePromise = shopifyClient.request(query)
+    const data = await Promise.race([responsePromise, timeoutPromise])
+
     console.log("Respuesta recibida de Shopify:", data ? "Datos recibidos" : "Sin datos")
 
+    // Verificar que la respuesta tenga la estructura esperada
     if (!data || !data.collections || !data.collections.edges) {
       console.error("Respuesta de Shopify inválida:", data)
-      throw new Error("La respuesta de Shopify no tiene el formato esperado")
+      return []
     }
 
     // Transformar los datos para mantener compatibilidad con el código existente
-    const transformedData = data.collections.edges.map((edge) => ({
+    return data.collections.edges.map((edge) => ({
       ...edge.node,
       productsCount: edge.node.productsCount.count,
     }))
-
-    console.log(`Se encontraron ${transformedData.length} colecciones`)
-    return transformedData
   } catch (error) {
-    console.error("Error en fetchCollections:", error)
-    if (error.response) {
-      console.error("Detalles de la respuesta:", error.response)
+    console.error("Error fetching collections:", error)
+
+    // Verificar si es un error de red o de autenticación
+    if (error.message && error.message.includes("401")) {
+      throw new Error("Error de autenticación con Shopify. Verifica tus credenciales.")
+    } else if (error.message && error.message.includes("Timeout")) {
+      throw new Error("Tiempo de espera agotado al conectar con Shopify. Intenta de nuevo más tarde.")
+    } else {
+      throw new Error(`Error al obtener colecciones: ${error.message}`)
     }
-    throw new Error(`Error al obtener colecciones: ${error.message}`)
   }
 }
 

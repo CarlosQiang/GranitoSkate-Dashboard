@@ -6,8 +6,9 @@ import { LoadingState } from "@/components/loading-state"
 import { CollectionsList } from "@/components/collections-list"
 import { SyncCollectionsOnly } from "@/components/sync-collections-only"
 
+// Cambiamos la configuración de revalidación para evitar conflictos
 export const dynamic = "force-dynamic"
-export const revalidate = 0
+export const revalidate = 60 // Cambiamos a un valor numérico en segundos en lugar de 0
 
 export default function CollectionsPage() {
   return (
@@ -31,7 +32,7 @@ export default function CollectionsPage() {
 
       {/* Componente de reemplazo de colecciones al final */}
       <div className="mt-8 border-t pt-8">
-        <SyncCollectionsOnly onSyncComplete={() => window.location.reload()} />
+        <SyncCollectionsOnly />
       </div>
     </div>
   )

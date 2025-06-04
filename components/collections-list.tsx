@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Edit, Package, AlertCircle } from "lucide-react"
+import { Edit, Package, AlertCircle, RefreshCw } from "lucide-react"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -26,28 +26,39 @@ export function CollectionsList() {
   })
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
 
-  useEffect(() => {
-    const loadCollections = async () => {
-      try {
-        setLoading(true)
-        console.log("Iniciando carga de colecciones...")
-        const data = await fetchCollections()
-        console.log("Colecciones recibidas:", data)
-        setCollections(data || [])
-        setError(null)
-      } catch (err) {
-        console.error("Error loading collections:", err)
-        setError(err.message || "Error al cargar las colecciones")
-      } finally {
-        setLoading(false)
-      }
-    }
+  // Función para cargar colecciones
+  const loadCollections = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      console.log("Iniciando carga de colecciones...")
 
+      const data = await fetchCollections()
+      console.log("Colecciones recibidas:", data ? `${data.length} colecciones` : "No hay datos")
+
+      if (Array.isArray(data)) {
+        setCollections(data)
+      } else {
+        console.error("Formato de datos inesperado:", data)
+        setCollections([])
+        setError("Los datos recibidos no tienen el formato esperado")
+      }
+    } catch (err) {
+      console.error("Error loading collections:", err)
+      setError(err.message || "Error al cargar las colecciones")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
     loadCollections()
   }, [])
 
   // Función para filtrar y ordenar colecciones
   const filteredAndSortedCollections = useMemo(() => {
+    if (!collections || collections.length === 0) return []
+
     let filtered = [...collections]
 
     // Filtro por búsqueda de nombre de colección
@@ -55,7 +66,7 @@ export function CollectionsList() {
       filtered = filtered.filter(
         (collection) =>
           collection.title.toLowerCase().includes(filters.search.toLowerCase()) ||
-          collection.description?.toLowerCase().includes(filters.search.toLowerCase()),
+          (collection.description && collection.description.toLowerCase().includes(filters.search.toLowerCase())),
       )
     }
 
@@ -119,17 +130,16 @@ export function CollectionsList() {
           <AlertCircle className="h-5 w-5 mr-2" />
           <h3 className="text-lg font-semibold">Error al cargar las colecciones</h3>
         </div>
-        <p className="mb-2">{error}</p>
-        <div className="mt-4 flex gap-2">
-          <Button variant="outline" onClick={() => window.location.reload()}>
-            Reintentar
-          </Button>
-        </div>
+        <p className="mb-4">{error}</p>
+        <Button variant="outline" className="flex items-center gap-2" onClick={loadCollections}>
+          <RefreshCw className="h-4 w-4" />
+          Reintentar
+        </Button>
       </div>
     )
   }
 
-  if (collections.length === 0) {
+  if (!collections || collections.length === 0) {
     return (
       <div className="text-center p-8 border border-dashed rounded-lg">
         <Package className="mx-auto h-12 w-12 text-gray-400" />
