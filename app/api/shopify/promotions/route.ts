@@ -1,79 +1,25 @@
 import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { obtenerPromociones } from "@/lib/api/promociones"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    console.log("🔍 Obteniendo promociones de Shopify...")
-
-    const shopifyUrl = process.env.SHOPIFY_API_URL
-    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
-
-    if (!shopifyUrl || !accessToken) {
-      throw new Error("Credenciales de Shopify no configuradas")
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    // Obtener códigos de descuento (promociones)
-    const response = await fetch(`${shopifyUrl}/admin/api/2023-10/discount_codes.json`, {
-      headers: {
-        "X-Shopify-Access-Token": accessToken,
-        "Content-Type": "application/json",
-      },
-    })
+    // Obtener promociones de Shopify
+    const promociones = await obtenerPromociones()
 
-    if (!response.ok) {
-      throw new Error(`Error de Shopify: ${response.status}`)
-    }
-
-    const data = await response.json()
-    console.log("📊 Promociones obtenidas:", data)
-
-    // Formatear promociones
-    const promociones =
-      data.discount_codes?.map((promo: any) => ({
-        id: promo.id,
-        titulo: `Promoción ${promo.id}`,
-        codigo: promo.code,
-        valor: promo.value || 10,
-        tipo: promo.value_type || "percentage",
-        activo: promo.usage_count < promo.usage_limit,
-        fecha_inicio: promo.created_at,
-      })) || []
-
-    // Si no hay promociones de la API, usar la promoción real que vimos
-    if (promociones.length === 0) {
-      promociones.push({
-        id: "2054072041736",
-        titulo: "Promoción 2054072041736",
-        codigo: "PROMO10",
-        valor: 10,
-        tipo: "percentage",
-        activo: true,
-        fecha_inicio: "2025-05-30",
-      })
-    }
-
-    return NextResponse.json({
-      success: true,
-      promociones,
-      total: promociones.length,
-    })
+    return NextResponse.json(promociones)
   } catch (error) {
-    console.error("❌ Error obteniendo promociones:", error)
-
-    // Fallback: devolver la promoción real que vimos en Shopify
-    return NextResponse.json({
-      success: true,
-      promociones: [
-        {
-          id: "2054072041736",
-          titulo: "Promoción 2054072041736",
-          codigo: "PROMO10",
-          valor: 10,
-          tipo: "percentage",
-          activo: true,
-          fecha_inicio: "2025-05-30",
-        },
-      ],
-      total: 1,
-    })
+    console.error("Error al obtener promociones de Shopify:", error)
+    return NextResponse.json(
+      { error: `Error al obtener promociones: ${error instanceof Error ? error.message : "Error desconocido"}` },
+      { status: 500 },
+    )
   }
 }

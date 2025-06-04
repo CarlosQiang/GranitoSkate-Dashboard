@@ -4,6 +4,7 @@ import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PromocionesListWrapper } from "@/components/promociones-list-wrapper"
+import { SyncPromotionsOnly } from "@/components/sincronizacion-promociones"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 60
@@ -62,6 +63,11 @@ export default function PromocionesPage() {
           </Suspense>
         </TabsContent>
       </Tabs>
+
+      {/* Componente de sincronización */}
+      <div className="mt-8">
+        <SyncPromotionsOnly />
+      </div>
     </div>
   )
 }
