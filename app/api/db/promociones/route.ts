@@ -4,19 +4,60 @@ import { authOptions } from "@/lib/auth"
 import * as promocionesRepository from "@/lib/db/repositories/promociones-repository"
 import { logSyncEvent } from "@/lib/db/repositories/registro-repository"
 
+export async function OPTIONS() {
+  // Manejar la solicitud OPTIONS para CORS
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Max-Age": "86400",
+    },
+  })
+}
+
 export async function GET(request: Request) {
   try {
     // Verificar autenticación
     const session = await getServerSession(authOptions)
     if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+      return NextResponse.json(
+        { error: "No autorizado" },
+        {
+          status: 401,
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+          },
+        },
+      )
     }
 
     const promociones = await promocionesRepository.getAllPromociones()
-    return NextResponse.json(promociones)
+
+    return NextResponse.json(promociones, {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      },
+    })
   } catch (error) {
     console.error("Error al obtener promociones:", error)
-    return NextResponse.json({ error: "Error al obtener promociones" }, { status: 500 })
+
+    return NextResponse.json(
+      { error: "Error al obtener promociones" },
+      {
+        status: 500,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        },
+      },
+    )
   }
 }
 
@@ -25,14 +66,34 @@ export async function POST(request: Request) {
     // Verificar autenticación
     const session = await getServerSession(authOptions)
     if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+      return NextResponse.json(
+        { error: "No autorizado" },
+        {
+          status: 401,
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+          },
+        },
+      )
     }
 
     const data = await request.json()
 
     // Validar datos
     if (!data.titulo || !data.tipo) {
-      return NextResponse.json({ error: "El título y tipo son obligatorios" }, { status: 400 })
+      return NextResponse.json(
+        { error: "El título y tipo son obligatorios" },
+        {
+          status: 400,
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+          },
+        },
+      )
     }
 
     // Crear promoción
@@ -47,7 +108,14 @@ export async function POST(request: Request) {
       mensaje: `Promoción creada: ${data.titulo}`,
     })
 
-    return NextResponse.json(promocion, { status: 201 })
+    return NextResponse.json(promocion, {
+      status: 201,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      },
+    })
   } catch (error) {
     console.error("Error al crear promoción:", error)
 
@@ -59,6 +127,16 @@ export async function POST(request: Request) {
       mensaje: `Error al crear promoción: ${(error as Error).message}`,
     })
 
-    return NextResponse.json({ error: "Error al crear promoción" }, { status: 500 })
+    return NextResponse.json(
+      { error: "Error al crear promoción" },
+      {
+        status: 500,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        },
+      },
+    )
   }
 }

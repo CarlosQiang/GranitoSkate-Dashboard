@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  swcMinify: true,
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -8,56 +9,30 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    domains: ['cdn.shopify.com', 'via.placeholder.com'],
+    domains: ['cdn.shopify.com', 'granito-skate.myshopify.com'],
     unoptimized: true,
-  },
-  async rewrites() {
-    return [
-      {
-        source: '/api/sync/products',
-        destination: '/api/sync/productos',
-      },
-      {
-        source: '/api/products',
-        destination: '/api/shopify/products',
-      },
-    ]
   },
   async headers() {
     return [
       {
-        source: '/site.webmanifest',
+        // Aplicar estos encabezados a todas las rutas
+        source: '/:path*',
         headers: [
           {
-            key: 'Content-Type',
-            value: 'application/manifest+json',
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
           },
-        ],
-      },
-      {
-        source: '/android-chrome-192x192.png',
-        headers: [
           {
-            key: 'Content-Type',
-            value: 'image/png',
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, POST, PUT, DELETE, OPTIONS',
           },
-        ],
-      },
-      {
-        source: '/android-chrome-512x512.png',
-        headers: [
           {
-            key: 'Content-Type',
-            value: 'image/png',
+            key: 'Access-Control-Allow-Headers',
+            value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization',
           },
         ],
       },
     ]
-  },
-  experimental: {
-    serverActions: {
-      allowedOrigins: ['localhost:3000', '*.vercel.app'],
-    },
   },
 }
 
