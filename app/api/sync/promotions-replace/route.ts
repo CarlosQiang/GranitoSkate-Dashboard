@@ -15,16 +15,16 @@ export async function POST(request: Request) {
 
     // Obtener el cuerpo de la petición
     let requestBody = {}
-    try {
-      const text = await request.text()
-      if (text) {
-        requestBody = JSON.parse(text)
-      }
-    } catch (error) {
-      console.log("No hay cuerpo en la petición o no es JSON válido, continuando con datos por defecto")
-    }
+    let promociones = []
 
-    console.log("📦 Datos recibidos:", requestBody)
+    try {
+      requestBody = await request.json()
+      promociones = requestBody.promociones || []
+      console.log(`📦 Recibidas ${promociones.length} promociones para sincronizar`)
+    } catch (error) {
+      console.error("❌ Error al parsear el cuerpo de la petición:", error)
+      return NextResponse.json({ error: "Formato de datos inválido" }, { status: 400 })
+    }
 
     // PASO 1: Verificar conexión a la base de datos
     try {
@@ -55,6 +55,7 @@ export async function POST(request: Request) {
           limite_uso INTEGER,
           contador_uso INTEGER DEFAULT 0,
           es_automatica BOOLEAN DEFAULT false,
+          monto_minimo DECIMAL(10,2),
           fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -76,32 +77,34 @@ export async function POST(request: Request) {
       // Continuar aunque falle la limpieza
     }
 
-    // PASO 4: Obtener promociones de Shopify
-    let promociones = []
-    try {
-      console.log("🔍 Obteniendo promociones de Shopify...")
-      const shopifyResponse = await fetch(
-        `${process.env.NEXTAUTH_URL || process.env.VERCEL_URL || "http://localhost:3000"}/api/shopify/promotions`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      )
+    // PASO 4: Si no hay promociones, intentar obtenerlas directamente
+    if (promociones.length === 0) {
+      try {
+        console.log("🔍 No se recibieron promociones, intentando obtenerlas directamente...")
 
-      if (shopifyResponse.ok) {
-        const shopifyData = await shopifyResponse.json()
-        promociones = shopifyData.promociones || []
-        console.log(`📦 Promociones obtenidas de Shopify: ${promociones.length}`)
-      } else {
-        console.warn("⚠️ No se pudieron obtener promociones de Shopify, usando datos por defecto")
+        const shopifyResponse = await fetch(
+          `${process.env.NEXTAUTH_URL || process.env.VERCEL_URL || "http://localhost:3000"}/api/shopify/promotions`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        )
+
+        if (shopifyResponse.ok) {
+          const shopifyData = await shopifyResponse.json()
+          promociones = shopifyData.promociones || []
+          console.log(`📦 Promociones obtenidas directamente: ${promociones.length}`)
+        } else {
+          console.warn("⚠️ No se pudieron obtener promociones directamente")
+        }
+      } catch (error) {
+        console.warn("⚠️ Error obteniendo promociones directamente:", error)
       }
-    } catch (error) {
-      console.warn("⚠️ Error obteniendo promociones de Shopify:", error)
     }
 
-    // PASO 5: Si no hay promociones de Shopify, crear una promoción por defecto
+    // PASO 5: Si aún no hay promociones, crear una promoción por defecto
     if (promociones.length === 0) {
       promociones = [
         {
@@ -140,7 +143,7 @@ export async function POST(request: Request) {
           INSERT INTO promociones (
             shopify_id, titulo, descripcion, tipo, valor, codigo,
             objetivo, objetivo_id, condiciones, fecha_inicio, fecha_fin,
-            activa, limite_uso, contador_uso, es_automatica
+            activa, limite_uso, contador_uso, es_automatica, monto_minimo
           ) VALUES (
             ${shopifyId},
             ${promo.titulo || `Promoción ${shopifyId}`},
@@ -156,12 +159,13 @@ export async function POST(request: Request) {
             ${promo.activa !== undefined ? promo.activa : true},
             ${promo.limite_uso || null},
             ${promo.contador_uso || 0},
-            ${promo.es_automatica !== undefined ? promo.es_automatica : false}
+            ${promo.es_automatica !== undefined ? promo.es_automatica : false},
+            ${promo.monto_minimo || null}
           )
         `
 
         insertados++
-        console.log(`✅ Promoción insertada: ${promo.titulo}`)
+        console.log(`✅ Promoción insertada: ${promo.titulo || shopifyId}`)
       } catch (error) {
         console.error(`❌ Error al insertar promoción ${promo.titulo || promo.id}:`, error)
         errores.push(
