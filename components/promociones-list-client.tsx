@@ -1,227 +1,183 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { format } from "date-fns"
+import { es } from "date-fns/locale"
+import { Edit, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { AlertTriangle, Calendar, Percent, DollarSign, Gift, Trash2 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-
-interface Promocion {
-  id: number
-  shopify_id?: string
-  titulo: string
-  descripcion?: string
-  tipo: string
-  valor: number
-  codigo?: string
-  objetivo?: string
-  objetivo_id?: string
-  condiciones?: any
-  fecha_inicio?: string
-  fecha_fin?: string
-  activa: boolean
-  limite_uso?: number
-  contador_uso?: number
-  es_automatica: boolean
-  fecha_creacion: string
-  fecha_actualizacion?: string
-}
+import { obtenerPromociones } from "@/lib/api/promociones"
 
 interface PromocionesListClientProps {
-  promociones: Promocion[]
   filter: string
+  initialPromociones?: any[]
 }
 
-export function PromocionesListClient({ promociones: initialPromociones, filter }: PromocionesListClientProps) {
-  const [promociones, setPromociones] = useState<Promocion[]>(initialPromociones)
-  const [isDeleting, setIsDeleting] = useState<number | null>(null)
-  const { toast } = useToast()
+export function PromocionesListClient({ filter, initialPromociones = [] }: PromocionesListClientProps) {
+  const [promociones, setPromociones] = useState(initialPromociones)
+  const [loading, setLoading] = useState(!initialPromociones.length)
+  const [error, setError] = useState<Error | null>(null)
 
-  const handleDelete = async (id: number, titulo: string) => {
-    if (!confirm(`¿Estás seguro de que quieres eliminar la promoción "${titulo}"?`)) {
-      return
+  useEffect(() => {
+    if (!initialPromociones.length) {
+      fetchPromociones()
     }
+  }, [filter, initialPromociones])
 
-    setIsDeleting(id)
-
+  const fetchPromociones = async () => {
+    setLoading(true)
+    setError(null)
     try {
-      const response = await fetch(`/api/db/promociones/${id}`, {
-        method: "DELETE",
-      })
-
-      if (!response.ok) {
-        throw new Error("Error al eliminar la promoción")
-      }
-
-      setPromociones((prev) => prev.filter((p) => p.id !== id))
-
-      toast({
-        title: "Promoción eliminada",
-        description: `La promoción "${titulo}" ha sido eliminada correctamente.`,
-      })
-    } catch (error) {
-      console.error("Error deleting promocion:", error)
-      toast({
-        title: "Error",
-        description: "No se pudo eliminar la promoción. Inténtalo de nuevo.",
-        variant: "destructive",
-      })
+      const data = await obtenerPromociones(filter)
+      setPromociones(data)
+    } catch (err) {
+      console.error("Error al cargar promociones:", err)
+      setError(err instanceof Error ? err : new Error("Error desconocido al cargar promociones"))
     } finally {
-      setIsDeleting(null)
+      setLoading(false)
     }
   }
 
-  const getStatusBadge = (promocion: Promocion) => {
-    const now = new Date()
-    const fechaInicio = promocion.fecha_inicio ? new Date(promocion.fecha_inicio) : null
-    const fechaFin = promocion.fecha_fin ? new Date(promocion.fecha_fin) : null
-
-    if (!promocion.activa) {
-      return <Badge variant="secondary">Inactiva</Badge>
-    }
-
-    if (fechaInicio && fechaInicio > now) {
-      return <Badge variant="outline">Programada</Badge>
-    }
-
-    if (fechaFin && fechaFin < now) {
-      return <Badge variant="destructive">Expirada</Badge>
-    }
-
-    return <Badge variant="default">Activa</Badge>
-  }
-
-  const getTypeIcon = (tipo: string) => {
-    switch (tipo.toLowerCase()) {
-      case "porcentaje_descuento":
-      case "percentage_discount":
-        return <Percent className="h-4 w-4" />
-      case "cantidad_fija_descuento":
-      case "fixed_amount_discount":
-        return <DollarSign className="h-4 w-4" />
-      case "envio_gratis":
-      case "free_shipping":
-        return <Gift className="h-4 w-4" />
-      default:
-        return <Gift className="h-4 w-4" />
-    }
-  }
-
-  const formatValue = (promocion: Promocion) => {
-    switch (promocion.tipo.toLowerCase()) {
-      case "porcentaje_descuento":
-      case "percentage_discount":
-        return `${promocion.valor}% de descuento`
-      case "cantidad_fija_descuento":
-      case "fixed_amount_discount":
-        return `${promocion.valor}€ de descuento`
-      case "envio_gratis":
-      case "free_shipping":
-        return "Envío gratis"
-      default:
-        return `${promocion.valor}% de descuento`
-    }
-  }
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "No definida"
-    return new Date(dateString).toLocaleDateString("es-ES", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    })
-  }
-
-  if (promociones.length === 0) {
+  if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-40 text-center">
-        <AlertTriangle className="h-12 w-12 text-muted-foreground mb-4" />
-        <h3 className="text-lg font-medium">No hay promociones</h3>
-        <p className="text-muted-foreground">
-          {filter === "todas"
-            ? "No se encontraron promociones en la base de datos."
-            : `No hay promociones ${filter} en este momento.`}
-        </p>
-        <Button asChild className="mt-4">
-          <Link href="/dashboard/promociones/asistente">Crear primera promoción</Link>
-        </Button>
+      <div className="flex justify-center items-center h-40">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="h-8 w-8 rounded-full bg-gray-300 mb-2"></div>
+          <div className="h-4 w-32 bg-gray-300 rounded"></div>
+        </div>
       </div>
     )
   }
 
+  if (error) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="h-5 w-5" />
+            Error al cargar promociones
+          </CardTitle>
+          <CardDescription>No se pudieron cargar las promociones.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">Error: {error.message}</p>
+          <Button onClick={fetchPromociones} variant="outline">
+            Intentar de nuevo
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (promociones.length === 0) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>No hay promociones</CardTitle>
+          <CardDescription>
+            {filter === "todas"
+              ? "No hay promociones creadas."
+              : filter === "activas"
+                ? "No hay promociones activas."
+                : filter === "programadas"
+                  ? "No hay promociones programadas."
+                  : "No hay promociones expiradas."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild>
+            <Link href="/dashboard/promociones/asistente">Crear nueva promoción</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {promociones.map((promocion) => (
-        <Card key={promocion.id} className="hover:shadow-md transition-shadow">
+        <Card key={promocion.id} className="overflow-hidden">
           <CardHeader className="pb-2">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2">
-                {getTypeIcon(promocion.tipo)}
+            <div className="flex justify-between items-start">
+              <div>
                 <CardTitle className="text-lg">{promocion.titulo}</CardTitle>
+                <CardDescription className="mt-1">{promocion.descripcion}</CardDescription>
               </div>
-              {getStatusBadge(promocion)}
+              <Badge
+                variant={
+                  promocion.estado === "ACTIVE" ? "default" : promocion.estado === "SCHEDULED" ? "outline" : "secondary"
+                }
+              >
+                {promocion.estado === "ACTIVE"
+                  ? "Activa"
+                  : promocion.estado === "SCHEDULED"
+                    ? "Programada"
+                    : "Expirada"}
+              </Badge>
             </div>
-            <CardDescription className="flex items-center gap-4">
-              <span>{formatValue(promocion)}</span>
-              {promocion.codigo && (
-                <span className="font-mono text-sm bg-muted px-2 py-1 rounded">{promocion.codigo}</span>
-              )}
-            </CardDescription>
           </CardHeader>
-
-          <CardContent>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div className="flex flex-col gap-2 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  <span>
-                    Desde {formatDate(promocion.fecha_inicio)}
-                    {promocion.fecha_fin && ` hasta ${formatDate(promocion.fecha_fin)}`}
-                  </span>
+          <CardContent className="space-y-4">
+            {promocion.codigo && (
+              <div>
+                <p className="text-sm font-medium">Código:</p>
+                <p className="text-sm font-mono bg-muted p-1 rounded">{promocion.codigo}</p>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <p className="font-medium">Tipo:</p>
+                <p>
+                  {promocion.tipoDescuento === "PERCENTAGE"
+                    ? "Porcentaje"
+                    : promocion.tipoDescuento === "FIXED_AMOUNT"
+                      ? "Monto fijo"
+                      : promocion.tipoDescuento === "FREE_SHIPPING"
+                        ? "Envío gratis"
+                        : promocion.tipoDescuento === "BUY_X_GET_Y"
+                          ? "Compra X lleva Y"
+                          : "Automático"}
+                </p>
+              </div>
+              <div>
+                <p className="font-medium">Valor:</p>
+                <p>
+                  {promocion.valorDescuento
+                    ? promocion.tipoDescuento === "PERCENTAGE"
+                      ? `${promocion.valorDescuento}%`
+                      : promocion.tipoDescuento === "FIXED_AMOUNT"
+                        ? `$${promocion.valorDescuento}`
+                        : promocion.valorDescuento
+                    : "N/A"}
+                </p>
+              </div>
+              {promocion.fechaInicio && (
+                <div>
+                  <p className="font-medium">Inicio:</p>
+                  <p>{format(new Date(promocion.fechaInicio), "dd/MM/yyyy", { locale: es })}</p>
                 </div>
-
-                {promocion.limite_uso && (
-                  <div className="flex items-center gap-2">
-                    <span>
-                      Usos: {promocion.contador_uso || 0} / {promocion.limite_uso}
-                    </span>
-                  </div>
-                )}
-
-                {promocion.es_automatica && (
-                  <Badge variant="outline" className="w-fit">
-                    Automática
-                  </Badge>
-                )}
-              </div>
-
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={`/dashboard/promociones/${promocion.id}`}>Ver detalles</Link>
-                </Button>
-
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={`/dashboard/promociones/${promocion.id}/edit`}>Editar</Link>
-                </Button>
-
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => handleDelete(promocion.id, promocion.titulo)}
-                  disabled={isDeleting === promocion.id}
-                >
-                  {isDeleting === promocion.id ? (
-                    "Eliminando..."
-                  ) : (
-                    <>
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Eliminar
-                    </>
-                  )}
-                </Button>
-              </div>
+              )}
+              {promocion.fechaFin && (
+                <div>
+                  <p className="font-medium">Fin:</p>
+                  <p>{format(new Date(promocion.fechaFin), "dd/MM/yyyy", { locale: es })}</p>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/dashboard/promociones/${promocion.id}`}>
+                  <Edit className="h-4 w-4 mr-1" />
+                  Ver
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/dashboard/promociones/${promocion.id}/edit`}>
+                  <Edit className="h-4 w-4 mr-1" />
+                  Editar
+                </Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
