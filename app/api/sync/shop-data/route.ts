@@ -1,228 +1,242 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { guardarConfiguracionTienda, guardarMetadatosSeo } from "@/lib/db/repositories/seo-repository"
+import { sql } from "@vercel/postgres"
 import { registrarEvento } from "@/lib/db/repositories/registro-repository"
 
 export async function POST(request: Request) {
   try {
+    console.log("🔄 Iniciando sincronización de datos de la tienda...")
+
     // Verificar autenticación
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    console.log("🏪 Iniciando sincronización de datos de la tienda...")
-
-    // Registrar inicio de sincronización
-    await registrarEvento({
-      tipo: "sync_shop_data",
-      descripcion: "Iniciando sincronización de datos de la tienda",
-      detalles: { usuario: session.user?.email },
-    })
-
-    const resultados = {
-      configuracion_tienda: { actualizado: false, error: null as string | null },
-      seo_tienda: { actualizado: false, error: null as string | null },
-      informacion_negocio: { actualizado: false, error: null as string | null },
+    // PASO 1: Verificar conexión a la base de datos
+    try {
+      await sql`SELECT 1`
+      console.log("✅ Conexión a BD verificada")
+    } catch (error) {
+      console.error("❌ Error de conexión:", error)
+      return NextResponse.json({ error: "Error de conexión a la base de datos" }, { status: 500 })
     }
 
-    // 1. Obtener información básica de la tienda desde Shopify
+    // PASO 2: Obtener información de la tienda desde Shopify
+    let tiendaInfo = {}
     try {
-      console.log("📋 Obteniendo información básica de la tienda...")
+      console.log("🔍 Obteniendo información de la tienda desde Shopify...")
 
-      const shopQuery = `
-        query getShop {
-          shop {
-            id
-            name
-            description
-            url
-            primaryDomain {
-              url
-              host
-            }
-            contactEmail
-            customerEmail
-            phone
-            address {
-              address1
-              address2
-              city
-              province
-              country
-              zip
-            }
-            currencyCode
-            timezoneAbbreviation
-            plan {
-              displayName
-            }
-          }
-        }
-      `
+      const shopifyUrl = process.env.SHOPIFY_API_URL
+      const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
 
-      const shopResponse = await fetch("/api/shopify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: shopQuery }),
+      if (!shopifyUrl || !accessToken) {
+        throw new Error("Credenciales de Shopify no configuradas")
+      }
+
+      const response = await fetch(`${shopifyUrl}/admin/api/2023-10/shop.json`, {
+        headers: {
+          "X-Shopify-Access-Token": accessToken,
+          "Content-Type": "application/json",
+        },
       })
 
-      if (shopResponse.ok) {
-        const shopData = await shopResponse.json()
-        const shop = shopData.data?.shop
-
-        if (shop) {
-          // Guardar configuración básica de la tienda
-          const configuracionTienda = {
-            nombre_tienda: shop.name || "Granito Skate Shop",
-            url_tienda: shop.primaryDomain?.url || shop.url || "",
-            clave_api: process.env.SHOPIFY_API_KEY || "",
-            secreto_api: process.env.SHOPIFY_API_SECRET || "",
-            token_acceso: process.env.SHOPIFY_ACCESS_TOKEN || "",
-            activo: true,
-            datos_negocio_local: {
-              email: shop.contactEmail || shop.customerEmail,
-              telefono: shop.phone,
-              direccion: shop.address,
-              moneda: shop.currencyCode,
-              zona_horaria: shop.timezoneAbbreviation,
-              plan: shop.plan?.displayName,
-            },
-          }
-
-          const guardadoConfig = await guardarConfiguracionTienda(configuracionTienda)
-          resultados.configuracion_tienda.actualizado = guardadoConfig
-
-          // Guardar SEO básico de la tienda
-          const seoTienda = {
-            tipo_entidad: "shop",
-            id_entidad: "main",
-            titulo: shop.name || "Granito Skate Shop - Tienda de skate online",
-            descripcion:
-              shop.description ||
-              "Tienda especializada en productos de skate. Encuentra tablas, ruedas, trucks y accesorios de las mejores marcas.",
-            palabras_clave: ["skate", "skateboard", "tienda", "online", shop.name?.toLowerCase()].filter(Boolean),
-            datos_adicionales: {
-              url_canonical: shop.primaryDomain?.url,
-              email_contacto: shop.contactEmail,
-              telefono: shop.phone,
-              direccion_completa: shop.address,
-            },
-          }
-
-          const guardadoSeo = await guardarMetadatosSeo(seoTienda)
-          resultados.seo_tienda.actualizado = guardadoSeo
-
-          console.log("✅ Información de la tienda sincronizada correctamente")
-        }
+      if (!response.ok) {
+        throw new Error(`Error de Shopify: ${response.status}`)
       }
+
+      const data = await response.json()
+      tiendaInfo = data.shop || {}
+      console.log("📊 Información de la tienda obtenida:", tiendaInfo)
+
+      // Registrar evento
+      await registrarEvento("SYNC", "Información de la tienda obtenida de Shopify", {
+        tienda: tiendaInfo.name,
+        dominio: tiendaInfo.domain,
+      })
     } catch (error) {
-      console.error("❌ Error sincronizando información de la tienda:", error)
-      resultados.configuracion_tienda.error = error instanceof Error ? error.message : "Error desconocido"
-    }
+      console.error("❌ Error obteniendo información de la tienda:", error)
 
-    // 2. Obtener metafields de SEO de la tienda (si existen)
-    try {
-      console.log("🔍 Obteniendo metafields de SEO...")
-
-      const metafieldsQuery = `
-        query getShopMetafields {
-          shop {
-            metafields(first: 50, namespace: "seo") {
-              edges {
-                node {
-                  id
-                  namespace
-                  key
-                  value
-                  type
-                }
-              }
-            }
-          }
-        }
-      `
-
-      const metafieldsResponse = await fetch("/api/shopify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: metafieldsQuery }),
+      // Registrar evento de error
+      await registrarEvento("ERROR", "Error obteniendo información de la tienda", {
+        error: error instanceof Error ? error.message : "Error desconocido",
       })
 
-      if (metafieldsResponse.ok) {
-        const metafieldsData = await metafieldsResponse.json()
-        const metafields = metafieldsData.data?.shop?.metafields?.edges || []
-
-        if (metafields.length > 0) {
-          console.log(`📝 Encontrados ${metafields.length} metafields de SEO`)
-
-          // Procesar metafields y actualizar SEO
-          const seoData: any = {}
-          metafields.forEach((edge: any) => {
-            const metafield = edge.node
-            seoData[metafield.key] = metafield.value
-          })
-
-          // Actualizar metadatos SEO con información de Shopify
-          if (Object.keys(seoData).length > 0) {
-            const seoActualizado = {
-              tipo_entidad: "shop",
-              id_entidad: "main",
-              titulo: seoData.title || "Granito Skate Shop - Tienda de skate online",
-              descripcion: seoData.description || "Tienda especializada en productos de skate",
-              palabras_clave: seoData.keywords
-                ? seoData.keywords.split(",").map((k: string) => k.trim())
-                : ["skate", "skateboard"],
-              datos_adicionales: {
-                ...seoData,
-                sincronizado_desde_shopify: true,
-                fecha_sincronizacion: new Date().toISOString(),
-              },
-            }
-
-            const guardadoSeoShopify = await guardarMetadatosSeo(seoActualizado)
-            resultados.informacion_negocio.actualizado = guardadoSeoShopify
-          }
-        }
-      }
-    } catch (error) {
-      console.error("❌ Error obteniendo metafields de SEO:", error)
-      resultados.informacion_negocio.error = error instanceof Error ? error.message : "Error desconocido"
+      // Continuar con el proceso aunque falle esta parte
     }
 
-    // Registrar resultado de la sincronización
-    await registrarEvento({
-      tipo: "sync_shop_data",
-      descripcion: "Sincronización de datos de la tienda completada",
-      detalles: { resultados, usuario: session.user?.email },
-    })
+    // PASO 3: Crear o actualizar la configuración de la tienda
+    try {
+      console.log("🔄 Guardando configuración de la tienda en la base de datos...")
 
-    const totalActualizados = Object.values(resultados).filter((r) => r.actualizado).length
-    const totalErrores = Object.values(resultados).filter((r) => r.error).length
+      // Crear tabla si no existe
+      await sql`
+        CREATE TABLE IF NOT EXISTS configuracion_shopify (
+          id SERIAL PRIMARY KEY,
+          nombre_tienda VARCHAR(255),
+          url_tienda VARCHAR(255),
+          clave_api VARCHAR(255),
+          secreto_api VARCHAR(255),
+          token_acceso TEXT,
+          activo BOOLEAN DEFAULT true,
+          creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `
 
-    console.log("🏪 Sincronización de datos de la tienda completada:", resultados)
+      // Verificar si ya existe configuración
+      const configExistente = await sql`SELECT id FROM configuracion_shopify LIMIT 1`
+
+      if (configExistente.rows.length > 0) {
+        // Actualizar configuración existente
+        await sql`
+          UPDATE configuracion_shopify SET
+            nombre_tienda = ${tiendaInfo.name || null},
+            url_tienda = ${tiendaInfo.domain || null},
+            activo = true
+          WHERE id = ${configExistente.rows[0].id}
+        `
+        console.log("✅ Configuración de la tienda actualizada")
+
+        // Registrar evento
+        await registrarEvento("SYNC", "Configuración de la tienda actualizada", {
+          tienda: tiendaInfo.name,
+          dominio: tiendaInfo.domain,
+        })
+      } else {
+        // Crear nueva configuración
+        await sql`
+          INSERT INTO configuracion_shopify (
+            nombre_tienda, url_tienda, clave_api, secreto_api, token_acceso, activo
+          ) VALUES (
+            ${tiendaInfo.name || null},
+            ${tiendaInfo.domain || null},
+            ${process.env.SHOPIFY_API_KEY || null},
+            ${process.env.SHOPIFY_API_SECRET || null},
+            ${process.env.SHOPIFY_ACCESS_TOKEN || null},
+            true
+          )
+        `
+        console.log("✅ Configuración de la tienda creada")
+
+        // Registrar evento
+        await registrarEvento("SYNC", "Configuración de la tienda creada", {
+          tienda: tiendaInfo.name,
+          dominio: tiendaInfo.domain,
+        })
+      }
+    } catch (error) {
+      console.error("❌ Error guardando configuración de la tienda:", error)
+
+      // Registrar evento de error
+      await registrarEvento("ERROR", "Error guardando configuración de la tienda", {
+        error: error instanceof Error ? error.message : "Error desconocido",
+      })
+
+      // Continuar con el proceso aunque falle esta parte
+    }
+
+    // PASO 4: Guardar metadatos SEO de la tienda
+    try {
+      console.log("🔄 Guardando metadatos SEO de la tienda...")
+
+      // Crear tabla si no existe
+      await sql`
+        CREATE TABLE IF NOT EXISTS metadatos_seo (
+          id SERIAL PRIMARY KEY,
+          tipo_entidad VARCHAR(50),
+          id_entidad VARCHAR(255),
+          titulo VARCHAR(255),
+          descripcion TEXT,
+          palabras_clave TEXT,
+          datos_adicionales JSONB,
+          creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `
+
+      // Verificar si ya existen metadatos para la tienda
+      const metadatosExistentes = await sql`
+        SELECT id FROM metadatos_seo 
+        WHERE tipo_entidad = 'tienda' AND id_entidad = 'principal'
+        LIMIT 1
+      `
+
+      const seoData = {
+        titulo: tiendaInfo.name || "Tienda Online",
+        descripcion: tiendaInfo.description || "Tienda online con los mejores productos",
+        palabras_clave: "tienda, online, ecommerce, productos",
+        datos_adicionales: JSON.stringify({
+          url: tiendaInfo.domain,
+          email: tiendaInfo.email,
+          telefono: tiendaInfo.phone,
+          direccion: tiendaInfo.address1,
+          ciudad: tiendaInfo.city,
+          pais: tiendaInfo.country_name,
+        }),
+      }
+
+      if (metadatosExistentes.rows.length > 0) {
+        // Actualizar metadatos existentes
+        await sql`
+          UPDATE metadatos_seo SET
+            titulo = ${seoData.titulo},
+            descripcion = ${seoData.descripcion},
+            palabras_clave = ${seoData.palabras_clave},
+            datos_adicionales = ${seoData.datos_adicionales}
+          WHERE id = ${metadatosExistentes.rows[0].id}
+        `
+        console.log("✅ Metadatos SEO de la tienda actualizados")
+
+        // Registrar evento
+        await registrarEvento("SYNC", "Metadatos SEO de la tienda actualizados")
+      } else {
+        // Crear nuevos metadatos
+        await sql`
+          INSERT INTO metadatos_seo (
+            tipo_entidad, id_entidad, titulo, descripcion, palabras_clave, datos_adicionales
+          ) VALUES (
+            'tienda',
+            'principal',
+            ${seoData.titulo},
+            ${seoData.descripcion},
+            ${seoData.palabras_clave},
+            ${seoData.datos_adicionales}
+          )
+        `
+        console.log("✅ Metadatos SEO de la tienda creados")
+
+        // Registrar evento
+        await registrarEvento("SYNC", "Metadatos SEO de la tienda creados")
+      }
+    } catch (error) {
+      console.error("❌ Error guardando metadatos SEO de la tienda:", error)
+
+      // Registrar evento de error
+      await registrarEvento("ERROR", "Error guardando metadatos SEO de la tienda", {
+        error: error instanceof Error ? error.message : "Error desconocido",
+      })
+
+      // Continuar con el proceso aunque falle esta parte
+    }
 
     return NextResponse.json({
       success: true,
-      message: `Datos de la tienda sincronizados: ${totalActualizados} actualizados, ${totalErrores} errores`,
-      resultados,
-      totalActualizados,
-      totalErrores,
+      message: "Datos de la tienda sincronizados correctamente",
+      tiendaInfo,
     })
   } catch (error) {
-    console.error("❌ Error en sincronización de datos de la tienda:", error)
+    console.error("❌ Error general en sincronización de datos de la tienda:", error)
 
-    await registrarEvento({
-      tipo: "sync_shop_data",
-      descripcion: "Error en sincronización de datos de la tienda",
-      detalles: { error: error instanceof Error ? error.message : "Error desconocido" },
+    // Registrar evento de error
+    await registrarEvento("ERROR", "Error general en sincronización de datos de la tienda", {
+      error: error instanceof Error ? error.message : "Error desconocido",
     })
 
     return NextResponse.json(
       {
-        error: "Error en la sincronización de datos de la tienda",
+        error: "Error interno del servidor",
         message: error instanceof Error ? error.message : "Error desconocido",
+        details: "Error en la sincronización de datos de la tienda",
       },
       { status: 500 },
     )
