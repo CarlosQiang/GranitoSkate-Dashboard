@@ -10,6 +10,11 @@ export const dynamic = "force-dynamic"
 export const revalidate = 60
 
 export default function PromocionesPage() {
+  const handleSyncComplete = () => {
+    // Recargar la página para mostrar las nuevas promociones
+    window.location.reload()
+  }
+
   return (
     <div className="flex flex-col gap-4 w-full">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
@@ -64,9 +69,9 @@ export default function PromocionesPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Componente de sincronización */}
+      {/* Componente de sincronización con el diseño correcto */}
       <div className="mt-8">
-        <SyncPromotionsOnly />
+        <SyncPromotionsOnly onSyncComplete={handleSyncComplete} />
       </div>
     </div>
   )
