@@ -31,6 +31,7 @@ export function SyncAllData({ onSyncComplete }: SyncAllDataProps) {
     { name: "orders", label: "Pedidos", status: "pending" },
     { name: "customers", label: "Clientes", status: "pending" },
     { name: "promotions", label: "Promociones", status: "pending" },
+    { name: "shop-data", label: "Datos de la Tienda", status: "pending" },
   ])
 
   const updateStepStatus = (index: number, status: SyncStep["status"], result?: any, error?: string) => {
@@ -50,8 +51,14 @@ export function SyncAllData({ onSyncComplete }: SyncAllDataProps) {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || `Error HTTP: ${response.status}`)
+        let errorMessage = `Error HTTP: ${response.status}`
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.message || errorData.error || errorMessage
+        } catch (e) {
+          // Si no se puede parsear el JSON del error, usar el mensaje por defecto
+        }
+        throw new Error(errorMessage)
       }
 
       const result = await response.json()
@@ -117,7 +124,7 @@ export function SyncAllData({ onSyncComplete }: SyncAllDataProps) {
         {
           name: "products",
           endpoint: "/api/sync/products-replace",
-          data: { products: allProducts }, // Usar TODOS los productos
+          data: { products: allProducts },
         },
         {
           name: "collections",
@@ -127,6 +134,7 @@ export function SyncAllData({ onSyncComplete }: SyncAllDataProps) {
         { name: "orders", endpoint: "/api/sync/orders-replace", data: { orders: dashboardData.recentOrders || [] } },
         { name: "customers", endpoint: "/api/sync/customers-replace", data: {} },
         { name: "promotions", endpoint: "/api/sync/promotions-replace", data: {} },
+        { name: "shop-data", endpoint: "/api/sync/shop-data", data: {} },
       ]
 
       for (let i = 0; i < syncConfigs.length; i++) {
@@ -186,8 +194,8 @@ export function SyncAllData({ onSyncComplete }: SyncAllDataProps) {
           Sincronización Completa de Todos los Datos
         </CardTitle>
         <CardDescription>
-          Ejecuta la sincronización de todas las entidades secuencialmente: productos, colecciones, pedidos, clientes y
-          promociones
+          Ejecuta la sincronización de todas las entidades secuencialmente: productos, colecciones, pedidos, clientes,
+          promociones y datos de la tienda (SEO, configuración, información del negocio)
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -198,8 +206,9 @@ export function SyncAllData({ onSyncComplete }: SyncAllDataProps) {
               <div>
                 <h3 className="text-sm font-medium text-blue-800">Sincronización Secuencial</h3>
                 <p className="mt-1 text-sm text-blue-700">
-                  Este proceso ejecutará la sincronización de cada entidad una por una. Borrará todos los datos
-                  existentes y los reemplazará con los datos actuales de Shopify.
+                  Este proceso ejecutará la sincronización de cada entidad una por una, incluyendo los datos de
+                  configuración de la tienda. Borrará todos los datos existentes y los reemplazará con los datos
+                  actuales de Shopify.
                 </p>
               </div>
             </div>

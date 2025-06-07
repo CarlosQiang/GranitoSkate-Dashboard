@@ -1,34 +1,57 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Search, MoreHorizontal, Eye, AlertCircle, RefreshCw } from "lucide-react"
+import { MoreHorizontal, Eye, AlertCircle, RefreshCw } from "lucide-react"
 import { fetchRecentOrders } from "@/lib/api/orders"
 import { useToast } from "@/components/ui/use-toast"
 import { formatDate, formatCurrency } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { SyncOrdersOnly } from "@/components/sync-orders-only"
+import { OrdersFilters } from "@/components/orders-filters"
+
+interface OrderFilters {
+  search: string
+  status: string
+  sortBy: string
+  sortOrder: "asc" | "desc"
+  dateFrom: Date | undefined
+  dateTo: Date | undefined
+  minAmount: string
+  maxAmount: string
+  period: string
+}
 
 export default function OrdersPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [orders, setOrders] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState("")
   const [error, setError] = useState<string | null>(null)
+
+  const [filters, setFilters] = useState<OrderFilters>({
+    search: "",
+    status: "",
+    sortBy: "date",
+    sortOrder: "desc",
+    dateFrom: undefined,
+    dateTo: undefined,
+    minAmount: "",
+    maxAmount: "",
+    period: "all",
+  })
 
   useEffect(() => {
     const getOrders = async () => {
       try {
         setIsLoading(true)
         setError(null)
-        const data = await fetchRecentOrders(50)
+        const data = await fetchRecentOrders(100) // Obtener más pedidos para filtrar
         setOrders(data)
       } catch (error) {
         console.error("Error fetching orders:", error)
@@ -45,6 +68,95 @@ export default function OrdersPage() {
 
     getOrders()
   }, [toast])
+
+  // Filtrar y ordenar pedidos
+  const filteredOrders = useMemo(() => {
+    let filtered = [...orders]
+
+    // Filtro de búsqueda
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase()
+      filtered = filtered.filter(
+        (order) =>
+          order.name?.toLowerCase().includes(searchLower) ||
+          `${order.customer?.firstName || ""} ${order.customer?.lastName || ""}`.toLowerCase().includes(searchLower) ||
+          order.customer?.email?.toLowerCase().includes(searchLower),
+      )
+    }
+
+    // Filtro de estado
+    if (filters.status) {
+      filtered = filtered.filter((order) => order.displayFulfillmentStatus === filters.status)
+    }
+
+    // Filtro de fechas
+    if (filters.dateFrom) {
+      filtered = filtered.filter((order) => {
+        const orderDate = new Date(order.processedAt)
+        return orderDate >= filters.dateFrom!
+      })
+    }
+
+    if (filters.dateTo) {
+      filtered = filtered.filter((order) => {
+        const orderDate = new Date(order.processedAt)
+        return orderDate <= filters.dateTo!
+      })
+    }
+
+    // Filtro de montos
+    if (filters.minAmount) {
+      const minAmount = Number.parseFloat(filters.minAmount)
+      filtered = filtered.filter((order) => Number.parseFloat(order.totalPrice) >= minAmount)
+    }
+
+    if (filters.maxAmount) {
+      const maxAmount = Number.parseFloat(filters.maxAmount)
+      filtered = filtered.filter((order) => Number.parseFloat(order.totalPrice) <= maxAmount)
+    }
+
+    // Ordenamiento
+    filtered.sort((a, b) => {
+      let aValue, bValue
+
+      switch (filters.sortBy) {
+        case "amount":
+          aValue = Number.parseFloat(a.totalPrice)
+          bValue = Number.parseFloat(b.totalPrice)
+          break
+        case "customer":
+          aValue = `${a.customer?.firstName || ""} ${a.customer?.lastName || ""}`.toLowerCase()
+          bValue = `${b.customer?.firstName || ""} ${b.customer?.lastName || ""}`.toLowerCase()
+          break
+        case "number":
+          aValue = a.name
+          bValue = b.name
+          break
+        case "date":
+        default:
+          aValue = new Date(a.processedAt).getTime()
+          bValue = new Date(b.processedAt).getTime()
+          break
+      }
+
+      if (filters.sortOrder === "asc") {
+        return aValue > bValue ? 1 : -1
+      } else {
+        return aValue < bValue ? 1 : -1
+      }
+    })
+
+    return filtered
+  }, [orders, filters])
+
+  // Estadísticas de los pedidos filtrados
+  const stats = useMemo(() => {
+    const totalAmount = filteredOrders.reduce((sum, order) => sum + Number.parseFloat(order.totalPrice), 0)
+    return {
+      totalOrders: filteredOrders.length,
+      totalAmount,
+    }
+  }, [filteredOrders])
 
   const getStatusColor = (status: string) => {
     if (!status) return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100"
@@ -67,19 +179,11 @@ export default function OrdersPage() {
     }
   }
 
-  const filteredOrders = orders.filter(
-    (order) =>
-      order.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      `${order.customer?.firstName || ""} ${order.customer?.lastName || ""}`
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase()),
-  )
-
   const handleRetry = async () => {
     try {
       setIsLoading(true)
       setError(null)
-      const data = await fetchRecentOrders(50)
+      const data = await fetchRecentOrders(100)
       setOrders(data)
     } catch (error) {
       console.error("Error fetching orders:", error)
@@ -92,6 +196,20 @@ export default function OrdersPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const clearFilters = () => {
+    setFilters({
+      search: "",
+      status: "",
+      sortBy: "date",
+      sortOrder: "desc",
+      dateFrom: undefined,
+      dateTo: undefined,
+      minAmount: "",
+      maxAmount: "",
+      period: "all",
+    })
   }
 
   if (error) {
@@ -132,18 +250,13 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      <div className="flex items-center">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Buscar pedidos..."
-            className="pl-8"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-      </div>
+      <OrdersFilters
+        filters={filters}
+        onFiltersChange={setFilters}
+        onClearFilters={clearFilters}
+        totalOrders={stats.totalOrders}
+        totalAmount={stats.totalAmount}
+      />
 
       {isLoading ? (
         <div className="rounded-md border">
@@ -201,7 +314,7 @@ export default function OrdersPage() {
               {filteredOrders.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-6">
-                    No se encontraron pedidos
+                    No se encontraron pedidos con los filtros aplicados
                   </TableCell>
                 </TableRow>
               ) : (
@@ -221,7 +334,9 @@ export default function OrdersPage() {
                         {order.displayFulfillmentStatus || "PENDIENTE"}
                       </Badge>
                     </TableCell>
-                    <TableCell>{formatCurrency(order.totalPrice, order.currencyCode)}</TableCell>
+                    <TableCell className="font-medium">
+                      {formatCurrency(order.totalPrice, order.currencyCode)}
+                    </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -245,6 +360,7 @@ export default function OrdersPage() {
           </Table>
         </div>
       )}
+
       {/* Componente de reemplazo de pedidos al final */}
       <div className="mt-8">
         <SyncOrdersOnly onSyncComplete={() => {}} />

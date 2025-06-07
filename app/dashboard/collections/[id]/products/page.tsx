@@ -15,7 +15,7 @@ export default function CollectionProductsPage({ params }: { params: { id: strin
   const [collection, setCollection] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState("add")
+  const [activeTab, setActiveTab] = useState("view")
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
@@ -103,9 +103,18 @@ export default function CollectionProductsPage({ params }: { params: { id: strin
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="mb-4">
+              <TabsTrigger value="view">Ver productos</TabsTrigger>
               <TabsTrigger value="add">Añadir productos</TabsTrigger>
               <TabsTrigger value="remove">Eliminar productos</TabsTrigger>
             </TabsList>
+            <TabsContent value="view">
+              <CollectionProductManager
+                collectionId={params.id}
+                onComplete={handleComplete}
+                mode="view"
+                key={`view-${refreshKey}`}
+              />
+            </TabsContent>
             <TabsContent value="add">
               <CollectionProductManager
                 collectionId={params.id}

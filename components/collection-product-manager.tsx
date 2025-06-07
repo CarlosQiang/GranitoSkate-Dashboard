@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
@@ -13,7 +12,7 @@ import {
   removeProductsFromCollection,
   fetchProductsNotInCollection,
 } from "@/lib/api/colecciones"
-import { Loader2, Package } from "lucide-react"
+import { Loader2, Package, Eye, Plus, Minus } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import Image from "next/image"
 
@@ -21,13 +20,12 @@ interface CollectionProductManagerProps {
   productId?: string
   collectionId?: string
   onComplete?: () => void
-  mode: "add" | "remove"
+  mode: "add" | "remove" | "view"
 }
 
 export function CollectionProductManager({ productId, collectionId, onComplete, mode }: CollectionProductManagerProps) {
   const { toast } = useToast()
   const [products, setProducts] = useState<any[]>([])
-  const [collectionProducts, setCollectionProducts] = useState<any[]>([])
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -40,7 +38,6 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
       setError(null)
 
       try {
-        // Ensure we have a clean ID (remove any Shopify prefixes)
         const cleanCollectionId = collectionId
           ? collectionId.includes("/")
             ? collectionId
@@ -53,25 +50,18 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
             : `gid://shopify/Product/${productId}`
           : undefined
 
-        // If we're in "add" mode, we need products not in the collection
         if (mode === "add" && cleanCollectionId) {
           const productsNotInCollection = await fetchProductsNotInCollection(cleanCollectionId)
           setProducts(productsNotInCollection.edges.map((edge) => edge.node))
-        }
-        // If we're in "remove" mode, we need products in the collection
-        else if (mode === "remove" && cleanCollectionId) {
+        } else if ((mode === "remove" || mode === "view") && cleanCollectionId) {
           const productsInCollection = await fetchCollectionProducts(cleanCollectionId)
-          // Extract the actual product nodes from the edges
           const collectionProductNodes = productsInCollection?.edges?.map((edge) => edge.node) || []
           setProducts(collectionProductNodes)
-        }
-        // Fallback to all products if we can't determine which to show
-        else {
+        } else {
           const allProducts = await fetchProducts()
           setProducts(allProducts)
         }
 
-        // If we have a product ID, pre-select it
         if (cleanProductId) {
           setSelectedProducts([cleanProductId])
         }
@@ -92,6 +82,8 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
   }, [collectionId, productId, mode, toast])
 
   const handleProductSelection = (productId: string) => {
+    if (mode === "view") return // No permitir selección en modo vista
+
     setSelectedProducts((prev) => {
       if (prev.includes(productId)) {
         return prev.filter((id) => id !== productId)
@@ -115,7 +107,6 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
     setError(null)
 
     try {
-      // Ensure we have a clean collection ID
       const cleanCollectionId = collectionId
         ? collectionId.includes("/")
           ? collectionId
@@ -132,7 +123,7 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
           title: "Productos añadidos",
           description: `${selectedProducts.length} productos añadidos a la colección`,
         })
-      } else {
+      } else if (mode === "remove") {
         await removeProductsFromCollection(cleanCollectionId, selectedProducts)
         toast({
           title: "Productos eliminados",
@@ -140,10 +131,8 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
         })
       }
 
-      // Reset selection
       setSelectedProducts([])
 
-      // Call the onComplete callback if provided
       if (onComplete) {
         onComplete()
       }
@@ -160,27 +149,49 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
     }
   }
 
-  // Get image URL from product
   const getProductImageUrl = (product) => {
     if (!product) return null
-
     if (product.featuredImage) return product.featuredImage.url
     if (product.images && product.images.edges && product.images.edges.length > 0)
       return product.images.edges[0].node.url
     if (product.image) return typeof product.image === "string" ? product.image : product.image?.url
-
     return null
   }
 
-  // Filter products based on search term
   const filteredProducts = products.filter((product) => {
-    // Filter by search term
     if (searchTerm) {
       return product.title.toLowerCase().includes(searchTerm.toLowerCase())
     }
-
     return true
   })
+
+  const getModeConfig = () => {
+    switch (mode) {
+      case "view":
+        return {
+          title: "Productos en la colección",
+          icon: Eye,
+          description: "Vista de todos los productos en esta colección",
+          showActions: false,
+        }
+      case "add":
+        return {
+          title: "Añadir productos",
+          icon: Plus,
+          description: "Selecciona productos para añadir a la colección",
+          showActions: true,
+        }
+      case "remove":
+        return {
+          title: "Eliminar productos",
+          icon: Minus,
+          description: "Selecciona productos para eliminar de la colección",
+          showActions: true,
+        }
+    }
+  }
+
+  const config = getModeConfig()
 
   if (isLoading) {
     return (
@@ -194,9 +205,12 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4">
-        <h3 className="text-lg font-semibold mb-2">Error</h3>
-        <p>{error}</p>
-        <Button variant="outline" className="mt-2" onClick={() => window.location.reload()}>
+        <div className="flex items-center mb-2">
+          <config.icon className="h-5 w-5 mr-2" />
+          <h3 className="text-lg font-semibold">Error</h3>
+        </div>
+        <p className="mb-4">{error}</p>
+        <Button variant="outline" onClick={() => window.location.reload()}>
           Reintentar
         </Button>
       </div>
@@ -205,6 +219,14 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center gap-2 mb-4">
+        <config.icon className="h-5 w-5" />
+        <div>
+          <h3 className="font-semibold">{config.title}</h3>
+          <p className="text-sm text-muted-foreground">{config.description}</p>
+        </div>
+      </div>
+
       <Input
         placeholder="Buscar productos..."
         value={searchTerm}
@@ -212,61 +234,73 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
         className="mb-4"
       />
 
-      <Card>
-        <CardContent className="p-4">
-          <ScrollArea className="h-[400px] w-full rounded-md border">
-            <div className="p-4 space-y-2">
-              {filteredProducts.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  {mode === "add"
-                    ? "No hay productos disponibles para añadir a esta colección"
+      {/* Eliminamos el Card wrapper para quitar el doble marco */}
+      <div className="border rounded-md">
+        <ScrollArea className="h-[400px] w-full">
+          <div className="p-4 space-y-2">
+            {filteredProducts.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                {mode === "add"
+                  ? "No hay productos disponibles para añadir a esta colección"
+                  : mode === "view"
+                    ? "No hay productos en esta colección"
                     : "No hay productos en esta colección"}
-                </div>
-              ) : (
-                filteredProducts.map((product) => (
-                  <div key={product.id} className="flex items-center space-x-3 p-2 hover:bg-muted rounded-md">
+              </div>
+            ) : (
+              filteredProducts.map((product) => (
+                <div key={product.id} className="flex items-center space-x-3 p-2 hover:bg-muted rounded-md">
+                  {config.showActions && (
                     <Checkbox
                       id={`product-${product.id}`}
                       checked={selectedProducts.includes(product.id)}
                       onCheckedChange={() => handleProductSelection(product.id)}
                     />
-                    <div className="relative h-10 w-10 overflow-hidden rounded-md">
-                      {getProductImageUrl(product) ? (
-                        <Image
-                          src={getProductImageUrl(product) || "/placeholder.svg"}
-                          alt={product.title}
-                          fill
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="h-full w-full flex items-center justify-center bg-gray-100">
-                          <Package className="h-5 w-5 text-muted-foreground" />
-                        </div>
-                      )}
-                    </div>
-                    <label
-                      htmlFor={`product-${product.id}`}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
-                    >
-                      {product.title}
-                    </label>
+                  )}
+                  <div className="relative h-10 w-10 overflow-hidden rounded-md">
+                    {getProductImageUrl(product) ? (
+                      <Image
+                        src={getProductImageUrl(product) || "/placeholder.svg"}
+                        alt={product.title}
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center bg-gray-100">
+                        <Package className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                    )}
                   </div>
-                ))
-              )}
-            </div>
-          </ScrollArea>
-        </CardContent>
-      </Card>
-
-      <div className="flex justify-between">
-        <div>
-          <span className="text-sm text-muted-foreground">{selectedProducts.length} productos seleccionados</span>
-        </div>
-        <Button onClick={handleCompleteAction} disabled={isProcessing || selectedProducts.length === 0}>
-          {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {mode === "add" ? "Añadir productos" : "Eliminar productos"}
-        </Button>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium leading-none">{product.title}</p>
+                    {product.vendor && <p className="text-xs text-muted-foreground mt-1">{product.vendor}</p>}
+                  </div>
+                  {mode === "view" && (
+                    <div className="text-xs text-muted-foreground">{product.totalInventory || 0} en stock</div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </ScrollArea>
       </div>
+
+      {config.showActions && (
+        <div className="flex justify-between items-center">
+          <div>
+            <span className="text-sm text-muted-foreground">{selectedProducts.length} productos seleccionados</span>
+          </div>
+          <Button onClick={handleCompleteAction} disabled={isProcessing || selectedProducts.length === 0}>
+            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {mode === "add" ? "Añadir productos" : "Eliminar productos"}
+          </Button>
+        </div>
+      )}
+
+      {mode === "view" && (
+        <div className="text-center text-sm text-muted-foreground">
+          {filteredProducts.length} producto{filteredProducts.length !== 1 ? "s" : ""} en esta colección
+        </div>
+      )}
     </div>
   )
 }
