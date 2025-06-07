@@ -1,50 +1,86 @@
-import { sql } from "@vercel/postgres"
+import { getApiUrl } from "@/lib/utils"
 
 // Función para obtener todas las promociones
-export async function obtenerPromociones() {
+export async function obtenerPromociones(filtro = "todas") {
   try {
-    console.log("🔍 Obteniendo promociones...")
+    console.log(`🔍 Obteniendo promociones con filtro: ${filtro}...`)
 
-    // Intentar obtener promociones de la base de datos
-    const result = await sql`SELECT * FROM promociones ORDER BY fecha_creacion DESC`
+    // Primero intentamos obtener las promociones de la base de datos local
+    const dbResponse = await fetch(getApiUrl("/api/db/promociones"), {
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
 
-    if (result.rows.length > 0) {
-      console.log(`✅ Se encontraron ${result.rows.length} promociones en la base de datos`)
-      return {
-        success: true,
-        promociones: result.rows,
-        total: result.rows.length,
+    if (dbResponse.ok) {
+      const dbData = await dbResponse.json()
+      console.log(`✅ Promociones obtenidas de BD: ${dbData.length || 0}`)
+
+      // Si hay promociones en la base de datos, las devolvemos filtradas
+      if (dbData && dbData.length > 0) {
+        return filtrarPromociones(dbData, filtro)
       }
+    } else {
+      console.warn(`⚠️ Error al obtener promociones de BD: ${dbResponse.status}`)
     }
 
-    // Si no hay promociones en la base de datos, crear una promoción por defecto
-    console.log("⚠️ No se encontraron promociones en la base de datos, devolviendo promoción por defecto")
-    return {
-      success: true,
-      promociones: [
-        {
-          id: 1,
-          shopify_id: "default_promo_1",
-          titulo: "Promoción 10% descuento",
-          descripcion: "10% de descuento en todos los productos",
-          tipo: "PORCENTAJE_DESCUENTO",
-          valor: 10.0,
-          codigo: "PROMO10",
-          activa: true,
-          fecha_inicio: new Date().toISOString(),
-          es_automatica: false,
-        },
-      ],
-      total: 1,
+    // Si no hay promociones en la base de datos, las obtenemos directamente de Shopify
+    console.log("🔄 Intentando obtener promociones de Shopify...")
+    const shopifyResponse = await fetch(getApiUrl("/api/shopify/promotions"), {
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+
+    if (!shopifyResponse.ok) {
+      console.error(`❌ Error al obtener promociones de Shopify: ${shopifyResponse.status}`)
+      // Si no podemos obtener promociones de ninguna fuente, devolvemos un array vacío
+      return []
     }
+
+    const shopifyData = await shopifyResponse.json()
+
+    if (shopifyData.success && shopifyData.promociones && shopifyData.promociones.length > 0) {
+      console.log(`✅ Promociones obtenidas de Shopify: ${shopifyData.promociones.length}`)
+      return filtrarPromociones(shopifyData.promociones, filtro)
+    }
+
+    // Si llegamos aquí, no hay promociones disponibles
+    console.log("⚠️ No se encontraron promociones en ninguna fuente")
+    return []
   } catch (error) {
-    console.error("❌ Error obteniendo promociones:", error)
-    return {
-      success: false,
-      error: `Error obteniendo promociones: ${error instanceof Error ? error.message : "Error desconocido"}`,
-      promociones: [],
-      total: 0,
-    }
+    console.error("❌ Error al obtener promociones:", error)
+    throw new Error("No se pudieron obtener las promociones. Por favor, inténtalo de nuevo.")
+  }
+}
+
+// Función para filtrar promociones según el filtro seleccionado
+function filtrarPromociones(promociones, filtro) {
+  const ahora = new Date()
+
+  switch (filtro) {
+    case "activas":
+      return promociones.filter((promo) => {
+        const fechaInicio = promo.fecha_inicio ? new Date(promo.fecha_inicio) : null
+        const fechaFin = promo.fecha_fin ? new Date(promo.fecha_fin) : null
+
+        return promo.activa && (!fechaInicio || fechaInicio <= ahora) && (!fechaFin || fechaFin >= ahora)
+      })
+    case "programadas":
+      return promociones.filter((promo) => {
+        const fechaInicio = promo.fecha_inicio ? new Date(promo.fecha_inicio) : null
+        return fechaInicio && fechaInicio > ahora
+      })
+    case "expiradas":
+      return promociones.filter((promo) => {
+        const fechaFin = promo.fecha_fin ? new Date(promo.fecha_fin) : null
+        return (fechaFin && fechaFin < ahora) || !promo.activa
+      })
+    case "todas":
+    default:
+      return promociones
   }
 }
 
@@ -53,18 +89,28 @@ export async function obtenerPromocionPorId(id: string) {
   try {
     console.log(`🔍 Obteniendo promoción con ID ${id}...`)
 
-    const result = await sql`SELECT * FROM promociones WHERE id = ${id} OR shopify_id = ${id}`
+    const response = await fetch(getApiUrl(`/api/db/promociones/${id}`), {
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
 
-    if (result.rows.length > 0) {
-      console.log(`✅ Promoción encontrada: ${result.rows[0].titulo}`)
-      return result.rows[0]
+    if (!response.ok) {
+      throw new Error(`Error al obtener promoción: ${response.status}`)
     }
 
-    console.log(`⚠️ No se encontró promoción con ID ${id}`)
-    return null
+    const data = await response.json()
+
+    if (data) {
+      console.log(`✅ Promoción encontrada: ${data.titulo || id}`)
+      return data
+    }
+
+    throw new Error(`No se encontró promoción con ID ${id}`)
   } catch (error) {
     console.error(`❌ Error obteniendo promoción con ID ${id}:`, error)
-    throw new Error(`Error obteniendo promoción: ${error instanceof Error ? error.message : "Error desconocido"}`)
+    throw error
   }
 }
 
@@ -78,40 +124,22 @@ export async function crearPromocion(datos: any) {
       throw new Error("El título de la promoción es obligatorio")
     }
 
-    // Valores por defecto
-    const tipo = datos.tipo || "PORCENTAJE_DESCUENTO"
-    const valor = datos.valor || 10
-    const codigo = datos.codigo || ""
-    const fechaInicio = datos.fecha_inicio || new Date().toISOString()
-    const fechaFin = datos.fecha_fin || null
-    const activa = datos.activa !== undefined ? datos.activa : true
+    const response = await fetch(getApiUrl("/api/db/promociones"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(datos),
+    })
 
-    // Insertar en la base de datos
-    const result = await sql`
-      INSERT INTO promociones (
-        shopify_id, titulo, descripcion, tipo, valor, codigo,
-        fecha_inicio, fecha_fin, activa, es_automatica
-      ) VALUES (
-        ${datos.shopify_id || `manual_${Date.now()}`},
-        ${datos.titulo},
-        ${datos.descripcion || ""},
-        ${tipo},
-        ${valor},
-        ${codigo},
-        ${fechaInicio},
-        ${fechaFin},
-        ${activa},
-        ${datos.es_automatica || false}
-      )
-      RETURNING *
-    `
-
-    if (result.rows.length > 0) {
-      console.log(`✅ Promoción creada: ${result.rows[0].titulo}`)
-      return result.rows[0]
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || `Error al crear promoción: ${response.status}`)
     }
 
-    throw new Error("Error al crear la promoción")
+    const data = await response.json()
+    console.log(`✅ Promoción creada: ${data.titulo || "Sin título"}`)
+    return data
   } catch (error) {
     console.error("❌ Error creando promoción:", error)
     throw error
@@ -123,34 +151,22 @@ export async function actualizarPromocion(id: string, datos: any) {
   try {
     console.log(`🔍 Actualizando promoción con ID ${id}...`, datos)
 
-    // Validar que la promoción existe
-    const existeResult = await sql`SELECT id FROM promociones WHERE id = ${id}`
-    if (existeResult.rows.length === 0) {
-      throw new Error(`No se encontró promoción con ID ${id}`)
+    const response = await fetch(getApiUrl(`/api/db/promociones/${id}`), {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(datos),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || `Error al actualizar promoción: ${response.status}`)
     }
 
-    // Construir la consulta de actualización
-    const result = await sql`
-      UPDATE promociones SET
-        titulo = COALESCE(${datos.titulo}, titulo),
-        descripcion = COALESCE(${datos.descripcion}, descripcion),
-        tipo = COALESCE(${datos.tipo}, tipo),
-        valor = COALESCE(${datos.valor}, valor),
-        codigo = COALESCE(${datos.codigo}, codigo),
-        fecha_inicio = COALESCE(${datos.fechaInicio}, fecha_inicio),
-        fecha_fin = COALESCE(${datos.fechaFin}, fecha_fin),
-        activa = COALESCE(${datos.activa}, activa),
-        fecha_actualizacion = CURRENT_TIMESTAMP
-      WHERE id = ${id}
-      RETURNING *
-    `
-
-    if (result.rows.length > 0) {
-      console.log(`✅ Promoción actualizada: ${result.rows[0].titulo}`)
-      return result.rows[0]
-    }
-
-    throw new Error("Error al actualizar la promoción")
+    const data = await response.json()
+    console.log(`✅ Promoción actualizada: ${data.titulo || id}`)
+    return data
   } catch (error) {
     console.error(`❌ Error actualizando promoción con ID ${id}:`, error)
     throw error
@@ -162,17 +178,21 @@ export async function eliminarPromocion(id: string) {
   try {
     console.log(`🔍 Eliminando promoción con ID ${id}...`)
 
-    const result = await sql`DELETE FROM promociones WHERE id = ${id} RETURNING id, titulo`
+    const response = await fetch(getApiUrl(`/api/db/promociones/${id}`), {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
 
-    if (result.rows.length > 0) {
-      console.log(`✅ Promoción eliminada: ${result.rows[0].titulo}`)
-      return {
-        success: true,
-        message: `Promoción "${result.rows[0].titulo}" eliminada correctamente`,
-      }
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || `Error al eliminar promoción: ${response.status}`)
     }
 
-    throw new Error(`No se encontró promoción con ID ${id}`)
+    const data = await response.json()
+    console.log(`✅ Promoción eliminada: ${id}`)
+    return data
   } catch (error) {
     console.error(`❌ Error eliminando promoción con ID ${id}:`, error)
     throw error

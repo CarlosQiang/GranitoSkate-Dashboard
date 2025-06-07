@@ -13,8 +13,13 @@ async function fetchPromociones(filter: string) {
   try {
     console.log(`🔍 Obteniendo promociones con filtro: ${filter}`)
 
+    // Usar la URL base correcta en producción o desarrollo
+    const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL
+      ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+      : process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+
     // Primero intentar obtener de la base de datos local
-    const response = await fetch(`${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/db/promociones`, {
+    const response = await fetch(`${baseUrl}/api/db/promociones`, {
       cache: "no-store",
       headers: {
         "Content-Type": "application/json",
@@ -26,29 +31,38 @@ async function fetchPromociones(filter: string) {
     if (response.ok) {
       promociones = await response.json()
       console.log(`📊 Promociones de BD local: ${promociones.length}`)
+    } else {
+      console.warn(`⚠️ Error al obtener promociones de BD local: ${response.status}`)
     }
 
     // Si no hay promociones en la BD local, intentar obtener de Shopify
     if (promociones.length === 0) {
       console.log("🔄 Obteniendo promociones de Shopify...")
 
-      const shopifyResponse = await fetch(
-        `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/shopify/promotions`,
-        {
-          cache: "no-store",
-          headers: {
-            "Content-Type": "application/json",
-          },
+      const shopifyResponse = await fetch(`${baseUrl}/api/shopify/promotions`, {
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json",
         },
-      )
+      })
 
       if (shopifyResponse.ok) {
         const shopifyData = await shopifyResponse.json()
         if (shopifyData.success && shopifyData.promociones) {
           promociones = shopifyData.promociones
           console.log(`📊 Promociones de Shopify: ${promociones.length}`)
+        } else {
+          console.warn("⚠️ Respuesta de Shopify sin promociones:", shopifyData)
         }
+      } else {
+        console.warn(`⚠️ Error al obtener promociones de Shopify: ${shopifyResponse.status}`)
       }
+    }
+
+    // Si aún no hay promociones, devolver un array vacío
+    if (promociones.length === 0) {
+      console.log("⚠️ No se encontraron promociones en ninguna fuente")
+      return []
     }
 
     // Filtrar según el tipo solicitado

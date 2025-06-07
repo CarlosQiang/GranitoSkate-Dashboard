@@ -5,57 +5,37 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatDate(date: Date | string): string {
-  const d = new Date(date)
-  return d.toLocaleDateString("es-ES", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  })
+/**
+ * Obtiene la URL base de la aplicación, funcionando tanto en desarrollo como en producción
+ */
+export function getBaseUrl() {
+  if (typeof window !== "undefined") {
+    // En el cliente, usar window.location.origin
+    return window.location.origin
+  }
+
+  // En el servidor, usar las variables de entorno
+  if (process.env.NEXT_PUBLIC_VERCEL_URL) {
+    return `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+  }
+
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL
+  }
+
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`
+  }
+
+  // Fallback a localhost
+  return "http://localhost:3000"
 }
 
-export function formatDateTime(date: Date | string): string {
-  const d = new Date(date)
-  return d.toLocaleDateString("es-ES", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-}
-
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("es-ES", {
-    style: "currency",
-    currency: "EUR",
-  }).format(amount)
-}
-
-export function truncateText(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text
-  return text.slice(0, maxLength) + "..."
-}
-
-export function slugify(text: string): string {
-  return text
-    .toString()
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/[^\w-]+/g, "")
-    .replace(/--+/g, "-")
-}
-
-export function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2)
-}
-
-export function logError(message: string, error: unknown): void {
-  console.error(`${message}:`, error)
+/**
+ * Construye una URL completa para una ruta de API
+ */
+export function getApiUrl(path: string) {
+  const baseUrl = getBaseUrl()
+  const apiPath = path.startsWith("/") ? path : `/${path}`
+  return `${baseUrl}${apiPath}`
 }
