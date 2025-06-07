@@ -1,10 +1,38 @@
+"use client"
+
 import { Suspense } from "react"
 import Link from "next/link"
-import { Plus } from "lucide-react"
+import { Plus, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PromocionesListWrapper } from "@/components/promociones-list-wrapper"
 import { SyncPromotionsOnly } from "@/components/sincronizacion-promociones"
+
+function ErrorFallback({ error, retry }: { error: Error; retry: () => void }) {
+  return (
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-destructive">
+          <AlertTriangle className="h-5 w-5" />
+          Error al cargar promociones
+        </CardTitle>
+        <CardDescription>Ha ocurrido un error al cargar la página de promociones.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">Error: {error.message}</p>
+        <div className="flex gap-2">
+          <Button onClick={retry} variant="outline">
+            Intentar de nuevo
+          </Button>
+          <Button asChild>
+            <Link href="/dashboard/promociones/asistente">Crear nueva promoción</Link>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
 
 export const dynamic = "force-dynamic"
 export const revalidate = 60

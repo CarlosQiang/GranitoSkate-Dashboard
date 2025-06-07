@@ -1,4 +1,9 @@
+"use client"
+
 import { PromocionesListClient } from "./promociones-list-client"
+import { AlertTriangle } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
 interface PromocionesListWrapperProps {
   filter: "todas" | "activas" | "programadas" | "expiradas"
@@ -6,6 +11,9 @@ interface PromocionesListWrapperProps {
 
 async function fetchPromociones(filter: string) {
   try {
+    console.log(`🔍 Obteniendo promociones con filtro: ${filter}`)
+
+    // Primero intentar obtener de la base de datos local
     const response = await fetch(`${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/db/promociones`, {
       cache: "no-store",
       headers: {
@@ -13,11 +21,35 @@ async function fetchPromociones(filter: string) {
       },
     })
 
-    if (!response.ok) {
-      throw new Error(`Error al cargar promociones: ${response.status}`)
+    let promociones = []
+
+    if (response.ok) {
+      promociones = await response.json()
+      console.log(`📊 Promociones de BD local: ${promociones.length}`)
     }
 
-    const promociones = await response.json()
+    // Si no hay promociones en la BD local, intentar obtener de Shopify
+    if (promociones.length === 0) {
+      console.log("🔄 Obteniendo promociones de Shopify...")
+
+      const shopifyResponse = await fetch(
+        `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/shopify/promotions`,
+        {
+          cache: "no-store",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      if (shopifyResponse.ok) {
+        const shopifyData = await shopifyResponse.json()
+        if (shopifyData.success && shopifyData.promociones) {
+          promociones = shopifyData.promociones
+          console.log(`📊 Promociones de Shopify: ${promociones.length}`)
+        }
+      }
+    }
 
     // Filtrar según el tipo solicitado
     const now = new Date()
@@ -47,13 +79,34 @@ async function fetchPromociones(filter: string) {
         return promociones
     }
   } catch (error) {
-    console.error("Error fetching promociones:", error)
-    return []
+    console.error("❌ Error fetching promociones:", error)
+    throw error
   }
 }
 
 export async function PromocionesListWrapper({ filter }: PromocionesListWrapperProps) {
-  const promociones = await fetchPromociones(filter)
+  try {
+    const promociones = await fetchPromociones(filter)
+    return <PromocionesListClient promociones={promociones} filter={filter} />
+  } catch (error) {
+    console.error("❌ Error en PromocionesListWrapper:", error)
 
-  return <PromocionesListClient promociones={promociones} filter={filter} />
+    return (
+      <div className="flex flex-col items-center justify-center h-40 text-center">
+        <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
+        <h3 className="text-lg font-medium text-destructive">Error al cargar promociones</h3>
+        <p className="text-muted-foreground mb-4">
+          {error instanceof Error ? error.message : "Ha ocurrido un error inesperado"}
+        </p>
+        <div className="flex gap-2">
+          <Button onClick={() => window.location.reload()} variant="outline">
+            Reintentar
+          </Button>
+          <Button asChild>
+            <Link href="/dashboard/promociones/asistente">Crear promoción</Link>
+          </Button>
+        </div>
+      </div>
+    )
+  }
 }
