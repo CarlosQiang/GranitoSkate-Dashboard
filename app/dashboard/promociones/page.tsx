@@ -4,9 +4,10 @@ import { Suspense } from "react"
 import Link from "next/link"
 import { Plus, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { PromocionesListWrapper } from "@/components/promociones-list-wrapper"
 import { SyncPromotionsOnly } from "@/components/sincronizacion-promociones"
-import { PromocionesClient } from "@/components/promociones-client"
 
 function ErrorFallback({ error, retry }: { error: Error; retry: () => void }) {
   return (
@@ -33,10 +34,6 @@ function ErrorFallback({ error, retry }: { error: Error; retry: () => void }) {
   )
 }
 
-// Estas son directivas de servidor y deben estar en un archivo de servidor
-export const dynamic = "force-dynamic"
-export const revalidate = 60
-
 export default function PromocionesPage() {
   const handleSyncComplete = () => {
     // Recargar la página para mostrar las nuevas promociones
@@ -58,9 +55,44 @@ export default function PromocionesPage() {
         </Button>
       </div>
 
-      <Suspense fallback={<div className="flex justify-center items-center h-40">Cargando promociones...</div>}>
-        <PromocionesClient />
-      </Suspense>
+      <Tabs defaultValue="todas" className="w-full">
+        <TabsList>
+          <TabsTrigger value="todas">Todas</TabsTrigger>
+          <TabsTrigger value="activas">Activas</TabsTrigger>
+          <TabsTrigger value="programadas">Programadas</TabsTrigger>
+          <TabsTrigger value="expiradas">Expiradas</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="todas" className="mt-4">
+          <Suspense fallback={<div className="flex justify-center items-center h-40">Cargando promociones...</div>}>
+            <PromocionesListWrapper filter="todas" />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="activas" className="mt-4">
+          <Suspense
+            fallback={<div className="flex justify-center items-center h-40">Cargando promociones activas...</div>}
+          >
+            <PromocionesListWrapper filter="activas" />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="programadas" className="mt-4">
+          <Suspense
+            fallback={<div className="flex justify-center items-center h-40">Cargando promociones programadas...</div>}
+          >
+            <PromocionesListWrapper filter="programadas" />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="expiradas" className="mt-4">
+          <Suspense
+            fallback={<div className="flex justify-center items-center h-40">Cargando promociones expiradas...</div>}
+          >
+            <PromocionesListWrapper filter="expiradas" />
+          </Suspense>
+        </TabsContent>
+      </Tabs>
 
       {/* Componente de sincronización con el diseño correcto */}
       <div className="mt-8">

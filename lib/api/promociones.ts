@@ -1,286 +1,186 @@
-import { shopifyFetch } from "@/lib/shopify"
+import { sql } from "@vercel/postgres"
 
-export async function obtenerPromociones(filtro = "todas") {
+// Función para obtener todas las promociones
+export async function obtenerPromociones() {
   try {
-    // Primero intentamos obtener las promociones de la base de datos local
-    const dbResponse = await fetch(`/api/db/promociones`)
+    console.log("🔍 Obteniendo promociones...")
 
-    if (!dbResponse.ok) {
-      throw new Error("Error al obtener promociones de la base de datos")
-    }
+    // Intentar obtener promociones de la base de datos
+    const result = await sql`SELECT * FROM promociones ORDER BY fecha_creacion DESC`
 
-    const dbData = await dbResponse.json()
-
-    // Si hay promociones en la base de datos, las devolvemos filtradas
-    if (dbData && dbData.length > 0) {
-      return filtrarPromociones(dbData, filtro)
-    }
-
-    // Si no hay promociones en la base de datos, las obtenemos directamente de Shopify
-    // Usamos GraphQL para obtener los descuentos
-    const query = `
-      query {
-        discountNodes(first: 50) {
-          edges {
-            node {
-              id
-              discount {
-                ... on DiscountCodeBasic {
-                  title
-                  summary
-                  status
-                  codes(first: 1) {
-                    nodes {
-                      code
-                      id
-                    }
-                  }
-                  startsAt
-                  endsAt
-                  usageLimit
-                  appliesOncePerCustomer
-                }
-                ... on DiscountCodeFreeShipping {
-                  title
-                  summary
-                  status
-                  codes(first: 1) {
-                    nodes {
-                      code
-                      id
-                    }
-                  }
-                  startsAt
-                  endsAt
-                  usageLimit
-                  appliesOncePerCustomer
-                }
-                ... on DiscountCodeBxgy {
-                  title
-                  summary
-                  status
-                  codes(first: 1) {
-                    nodes {
-                      code
-                      id
-                    }
-                  }
-                  startsAt
-                  endsAt
-                  usageLimit
-                  appliesOncePerCustomer
-                }
-                ... on DiscountAutomaticBasic {
-                  title
-                  summary
-                  status
-                  startsAt
-                  endsAt
-                }
-                ... on DiscountAutomaticBxgy {
-                  title
-                  summary
-                  status
-                  startsAt
-                  endsAt
-                }
-              }
-            }
-          }
-        }
-      }
-    `
-
-    const graphqlResponse = await shopifyFetch({
-      query,
-      variables: {},
-    })
-
-    if (!graphqlResponse.ok) {
-      // Si falla GraphQL, intentamos con la API REST como fallback
-      console.warn("Error al obtener promociones con GraphQL, intentando con REST API")
-      return await obtenerPromocionesREST(filtro)
-    }
-
-    const data = await graphqlResponse.json()
-
-    if (data.errors) {
-      console.error("Errores en la respuesta GraphQL:", data.errors)
-      // Si hay errores en GraphQL, intentamos con la API REST como fallback
-      return await obtenerPromocionesREST(filtro)
-    }
-
-    // Transformamos los datos de GraphQL al formato que espera nuestra aplicación
-    const promociones = data.data.discountNodes.edges.map((edge) => {
-      const { node } = edge
-      const { discount } = node
-
-      // Obtenemos el código si existe
-      let code = ""
-      if (discount.codes && discount.codes.nodes && discount.codes.nodes.length > 0) {
-        code = discount.codes.nodes[0].code
-      }
-
+    if (result.rows.length > 0) {
+      console.log(`✅ Se encontraron ${result.rows.length} promociones en la base de datos`)
       return {
-        id: node.id,
-        titulo: discount.title || "Sin título",
-        descripcion: discount.summary || "",
-        codigo: code,
-        estado: discount.status || "INACTIVE",
-        fechaInicio: discount.startsAt || null,
-        fechaFin: discount.endsAt || null,
-        tipoDescuento: determinarTipoDescuento(discount),
-        valorDescuento: extraerValorDescuento(discount.summary),
-        usoMaximo: discount.usageLimit || null,
-        usoUnicoCliente: discount.appliesOncePerCustomer || false,
+        success: true,
+        promociones: result.rows,
+        total: result.rows.length,
       }
-    })
+    }
 
-    return filtrarPromociones(promociones, filtro)
+    // Si no hay promociones en la base de datos, crear una promoción por defecto
+    console.log("⚠️ No se encontraron promociones en la base de datos, devolviendo promoción por defecto")
+    return {
+      success: true,
+      promociones: [
+        {
+          id: 1,
+          shopify_id: "default_promo_1",
+          titulo: "Promoción 10% descuento",
+          descripcion: "10% de descuento en todos los productos",
+          tipo: "PORCENTAJE_DESCUENTO",
+          valor: 10.0,
+          codigo: "PROMO10",
+          activa: true,
+          fecha_inicio: new Date().toISOString(),
+          es_automatica: false,
+        },
+      ],
+      total: 1,
+    }
   } catch (error) {
-    console.error("Error al obtener promociones:", error)
-    throw new Error("No se pudieron obtener las promociones. Por favor, inténtalo de nuevo.")
+    console.error("❌ Error obteniendo promociones:", error)
+    return {
+      success: false,
+      error: `Error obteniendo promociones: ${error instanceof Error ? error.message : "Error desconocido"}`,
+      promociones: [],
+      total: 0,
+    }
   }
 }
 
-// Función para obtener promociones usando la API REST como fallback
-async function obtenerPromocionesREST(filtro = "todas") {
+// Función para obtener una promoción por ID
+export async function obtenerPromocionPorId(id: string) {
   try {
-    const response = await fetch(`/api/shopify/promotions`)
+    console.log(`🔍 Obteniendo promoción con ID ${id}...`)
 
-    if (!response.ok) {
-      throw new Error("Error al obtener promociones de Shopify")
+    const result = await sql`SELECT * FROM promociones WHERE id = ${id} OR shopify_id = ${id}`
+
+    if (result.rows.length > 0) {
+      console.log(`✅ Promoción encontrada: ${result.rows[0].titulo}`)
+      return result.rows[0]
     }
 
-    const data = await response.json()
-    return filtrarPromociones(data, filtro)
+    console.log(`⚠️ No se encontró promoción con ID ${id}`)
+    return null
   } catch (error) {
-    console.error("Error al obtener promociones con REST API:", error)
-    throw error
+    console.error(`❌ Error obteniendo promoción con ID ${id}:`, error)
+    throw new Error(`Error obteniendo promoción: ${error instanceof Error ? error.message : "Error desconocido"}`)
   }
-}
-
-// Función para filtrar promociones según el filtro seleccionado
-function filtrarPromociones(promociones, filtro) {
-  const ahora = new Date()
-
-  switch (filtro) {
-    case "activas":
-      return promociones.filter((promo) => {
-        const fechaInicio = promo.fechaInicio ? new Date(promo.fechaInicio) : null
-        const fechaFin = promo.fechaFin ? new Date(promo.fechaFin) : null
-
-        return promo.estado === "ACTIVE" && (!fechaInicio || fechaInicio <= ahora) && (!fechaFin || fechaFin >= ahora)
-      })
-    case "programadas":
-      return promociones.filter((promo) => {
-        const fechaInicio = promo.fechaInicio ? new Date(promo.fechaInicio) : null
-        return fechaInicio && fechaInicio > ahora
-      })
-    case "expiradas":
-      return promociones.filter((promo) => {
-        const fechaFin = promo.fechaFin ? new Date(promo.fechaFin) : null
-        return (fechaFin && fechaFin < ahora) || promo.estado === "EXPIRED"
-      })
-    case "todas":
-    default:
-      return promociones
-  }
-}
-
-// Función para determinar el tipo de descuento basado en el objeto de descuento
-function determinarTipoDescuento(discount) {
-  if (discount.__typename) {
-    switch (discount.__typename) {
-      case "DiscountCodeBasic":
-        return "PERCENTAGE" // Asumimos porcentaje por defecto, pero podría ser FIXED_AMOUNT
-      case "DiscountCodeFreeShipping":
-        return "FREE_SHIPPING"
-      case "DiscountCodeBxgy":
-        return "BUY_X_GET_Y"
-      case "DiscountAutomaticBasic":
-        return "AUTOMATIC"
-      case "DiscountAutomaticBxgy":
-        return "AUTOMATIC_BXGY"
-      default:
-        return "PERCENTAGE"
-    }
-  }
-
-  // Si no tenemos __typename, intentamos inferir del resumen
-  const summary = discount.summary || ""
-  if (summary.includes("envío gratis") || summary.includes("free shipping")) {
-    return "FREE_SHIPPING"
-  } else if (summary.includes("%")) {
-    return "PERCENTAGE"
-  } else if (summary.includes("$")) {
-    return "FIXED_AMOUNT"
-  } else if (summary.includes("compra") && summary.includes("lleva")) {
-    return "BUY_X_GET_Y"
-  }
-
-  return "PERCENTAGE" // Valor por defecto
-}
-
-// Función para extraer el valor del descuento del resumen
-function extraerValorDescuento(summary) {
-  if (!summary) return null
-
-  // Intentamos extraer un porcentaje
-  const porcentajeMatch = summary.match(/(\d+)%/)
-  if (porcentajeMatch) {
-    return Number.parseInt(porcentajeMatch[1], 10)
-  }
-
-  // Intentamos extraer un valor monetario
-  const valorMatch = summary.match(/\$(\d+(\.\d+)?)/)
-  if (valorMatch) {
-    return Number.parseFloat(valorMatch[1])
-  }
-
-  return null
 }
 
 // Función para crear una promoción
-export async function crearPromocion(datosPromocion) {
+export async function crearPromocion(datos: any) {
   try {
-    // Primero creamos la promoción en Shopify
-    const shopifyResponse = await fetch("/api/shopify/rest/discount_codes", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(datosPromocion),
-    })
+    console.log("🔍 Creando nueva promoción...", datos)
 
-    if (!shopifyResponse.ok) {
-      const errorData = await shopifyResponse.json()
-      throw new Error(errorData.message || "Error al crear la promoción en Shopify")
+    // Validar datos mínimos
+    if (!datos.titulo) {
+      throw new Error("El título de la promoción es obligatorio")
     }
 
-    const shopifyData = await shopifyResponse.json()
+    // Valores por defecto
+    const tipo = datos.tipo || "PORCENTAJE_DESCUENTO"
+    const valor = datos.valor || 10
+    const codigo = datos.codigo || ""
+    const fechaInicio = datos.fecha_inicio || new Date().toISOString()
+    const fechaFin = datos.fecha_fin || null
+    const activa = datos.activa !== undefined ? datos.activa : true
 
-    // Luego guardamos la promoción en nuestra base de datos
-    const dbResponse = await fetch("/api/db/promociones", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        ...datosPromocion,
-        shopifyId: shopifyData.id,
-      }),
-    })
+    // Insertar en la base de datos
+    const result = await sql`
+      INSERT INTO promociones (
+        shopify_id, titulo, descripcion, tipo, valor, codigo,
+        fecha_inicio, fecha_fin, activa, es_automatica
+      ) VALUES (
+        ${datos.shopify_id || `manual_${Date.now()}`},
+        ${datos.titulo},
+        ${datos.descripcion || ""},
+        ${tipo},
+        ${valor},
+        ${codigo},
+        ${fechaInicio},
+        ${fechaFin},
+        ${activa},
+        ${datos.es_automatica || false}
+      )
+      RETURNING *
+    `
 
-    if (!dbResponse.ok) {
-      const errorData = await dbResponse.json()
-      throw new Error(errorData.message || "Error al guardar la promoción en la base de datos")
+    if (result.rows.length > 0) {
+      console.log(`✅ Promoción creada: ${result.rows[0].titulo}`)
+      return result.rows[0]
     }
 
-    const dbData = await dbResponse.json()
-    return dbData
+    throw new Error("Error al crear la promoción")
   } catch (error) {
-    console.error("Error al crear promoción:", error)
+    console.error("❌ Error creando promoción:", error)
     throw error
   }
 }
+
+// Función para actualizar una promoción
+export async function actualizarPromocion(id: string, datos: any) {
+  try {
+    console.log(`🔍 Actualizando promoción con ID ${id}...`, datos)
+
+    // Validar que la promoción existe
+    const existeResult = await sql`SELECT id FROM promociones WHERE id = ${id}`
+    if (existeResult.rows.length === 0) {
+      throw new Error(`No se encontró promoción con ID ${id}`)
+    }
+
+    // Construir la consulta de actualización
+    const result = await sql`
+      UPDATE promociones SET
+        titulo = COALESCE(${datos.titulo}, titulo),
+        descripcion = COALESCE(${datos.descripcion}, descripcion),
+        tipo = COALESCE(${datos.tipo}, tipo),
+        valor = COALESCE(${datos.valor}, valor),
+        codigo = COALESCE(${datos.codigo}, codigo),
+        fecha_inicio = COALESCE(${datos.fechaInicio}, fecha_inicio),
+        fecha_fin = COALESCE(${datos.fechaFin}, fecha_fin),
+        activa = COALESCE(${datos.activa}, activa),
+        fecha_actualizacion = CURRENT_TIMESTAMP
+      WHERE id = ${id}
+      RETURNING *
+    `
+
+    if (result.rows.length > 0) {
+      console.log(`✅ Promoción actualizada: ${result.rows[0].titulo}`)
+      return result.rows[0]
+    }
+
+    throw new Error("Error al actualizar la promoción")
+  } catch (error) {
+    console.error(`❌ Error actualizando promoción con ID ${id}:`, error)
+    throw error
+  }
+}
+
+// Función para eliminar una promoción
+export async function eliminarPromocion(id: string) {
+  try {
+    console.log(`🔍 Eliminando promoción con ID ${id}...`)
+
+    const result = await sql`DELETE FROM promociones WHERE id = ${id} RETURNING id, titulo`
+
+    if (result.rows.length > 0) {
+      console.log(`✅ Promoción eliminada: ${result.rows[0].titulo}`)
+      return {
+        success: true,
+        message: `Promoción "${result.rows[0].titulo}" eliminada correctamente`,
+      }
+    }
+
+    throw new Error(`No se encontró promoción con ID ${id}`)
+  } catch (error) {
+    console.error(`❌ Error eliminando promoción con ID ${id}:`, error)
+    throw error
+  }
+}
+
+// Mantener los alias existentes para compatibilidad
+export const fetchPromociones = obtenerPromociones
+export const fetchPriceListById = obtenerPromocionPorId
+export const updatePriceList = actualizarPromocion
+export const deletePriceList = eliminarPromocion
