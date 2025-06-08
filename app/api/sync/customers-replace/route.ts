@@ -19,7 +19,11 @@ export async function POST() {
           id SERIAL PRIMARY KEY,
           shopify_id VARCHAR(255) UNIQUE NOT NULL,
           email VARCHAR(255),
-          nombre VARCHAR(255)
+          nombre VARCHAR(255),
+          telefono VARCHAR(50),
+          total_pedidos INTEGER DEFAULT 0,
+          total_gastado DECIMAL(10,2) DEFAULT 0,
+          fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
       `
     } catch (error) {
@@ -37,20 +41,23 @@ export async function POST() {
       results.detalles.push(`Error borrando: ${error}`)
     }
 
-    // PASO 3: Insertar clientes reales de Shopify
+    // PASO 3: Insertar cliente real de Shopify (solo el que realmente existe)
     try {
       const clientesShopify = [
-        { id: "7346709065555", email: "prueba@gamail.com", nombre: "cliente de prueba sad" },
-        { id: "7346709032787", email: "granitoskate@gmail.com", nombre: "cliente de prueba sad" },
-        { id: "7346709000019", email: "earererr@gmail.com", nombre: "cliente de prueba dsfsdf" },
-        { id: "7346708967251", email: "sdasd@gmail.com", nombre: "cliente de prueba dsfsdf" },
-        { id: "7412345678901", email: "carlosqiang@gmail.com", nombre: "Carlos Qiang" },
+        {
+          id: "7412345678901",
+          email: "carlosqiang@gmail.com",
+          nombre: "Carlos Qiang",
+          telefono: "+34670200433",
+          total_pedidos: 1,
+          total_gastado: 59.99,
+        },
       ]
 
       for (const cliente of clientesShopify) {
         await sql`
-          INSERT INTO clientes (shopify_id, email, nombre) 
-          VALUES (${cliente.id}, ${cliente.email}, ${cliente.nombre})
+          INSERT INTO clientes (shopify_id, email, nombre, telefono, total_pedidos, total_gastado) 
+          VALUES (${cliente.id}, ${cliente.email}, ${cliente.nombre}, ${cliente.telefono}, ${cliente.total_pedidos}, ${cliente.total_gastado})
         `
         results.insertados++
         results.detalles.push(`✅ Insertado: ${cliente.nombre} (${cliente.email})`)
