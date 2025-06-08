@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     }
 
     const data = await request.json()
-    console.log(`🆕 Creando promoción en Shopify:`, data)
+    console.log(`📝 Creando promoción en Shopify:`, data)
 
     // Determinar si es un descuento automático o con código
     const isCodeDiscount = data.codigo && data.codigo.trim() !== ""
@@ -34,19 +34,6 @@ export async function POST(request: Request) {
                       code
                     }
                   }
-                  customerGets {
-                    value {
-                      ... on DiscountPercentage {
-                        percentage
-                      }
-                      ... on DiscountAmount {
-                        amount {
-                          amount
-                          currencyCode
-                        }
-                      }
-                    }
-                  }
                 }
               }
             }
@@ -66,7 +53,7 @@ export async function POST(request: Request) {
           endsAt: data.fechaFin,
           customerGets: {
             value:
-              data.tipo === "PERCENTAGE_DISCOUNT"
+              data.tipo === "PERCENTAGE_DISCOUNT" || data.tipo === "PORCENTAJE_DESCUENTO"
                 ? { percentage: Number.parseFloat(data.valor) / 100 }
                 : {
                     discountAmount: {
@@ -81,7 +68,6 @@ export async function POST(request: Request) {
           customerSelection: {
             all: true,
           },
-          usageLimit: data.limitarUsos ? Number.parseInt(data.limiteUsos) : null,
         },
       }
     } else {
@@ -95,21 +81,7 @@ export async function POST(request: Request) {
                 ... on DiscountAutomaticBasic {
                   title
                   status
-                  startsAt
-                  endsAt
-                  customerGets {
-                    value {
-                      ... on DiscountPercentage {
-                        percentage
-                      }
-                      ... on DiscountAmount {
-                        amount {
-                          amount
-                          currencyCode
-                        }
-                      }
-                    }
-                  }
+                  summary
                 }
               }
             }
@@ -128,7 +100,7 @@ export async function POST(request: Request) {
           endsAt: data.fechaFin,
           customerGets: {
             value:
-              data.tipo === "PERCENTAGE_DISCOUNT"
+              data.tipo === "PERCENTAGE_DISCOUNT" || data.tipo === "PORCENTAJE_DESCUENTO"
                 ? { percentage: Number.parseFloat(data.valor) / 100 }
                 : {
                     discountAmount: {
@@ -143,19 +115,11 @@ export async function POST(request: Request) {
           customerSelection: {
             all: true,
           },
-          minimumRequirement: data.compraMinima
-            ? {
-                greaterThanOrEqualToSubtotal: {
-                  amount: Number.parseFloat(data.compraMinima).toString(),
-                  currencyCode: "EUR",
-                },
-              }
-            : null,
         },
       }
     }
 
-    console.log(`🔄 Enviando mutación de creación a Shopify:`, {
+    console.log(`🔄 Enviando mutación a Shopify:`, {
       mutation: mutation.substring(0, 100) + "...",
       variables,
     })
@@ -177,7 +141,7 @@ export async function POST(request: Request) {
 
     const result = await response.json()
 
-    console.log(`📥 Respuesta de creación de Shopify:`, result)
+    console.log(`📥 Respuesta de Shopify:`, result)
 
     if (result.errors) {
       throw new Error(`Shopify GraphQL errors: ${JSON.stringify(result.errors)}`)
@@ -190,27 +154,46 @@ export async function POST(request: Request) {
     }
 
     const createdNode = isCodeDiscount ? createResult.codeDiscountNode : createResult.automaticDiscountNode
-    const discount = createdNode.codeDiscount || createdNode.automaticDiscount
 
     console.log(`✅ Promoción creada en Shopify exitosamente:`, createdNode)
 
-    const promocion = {
-      id: createdNode.id,
-      shopify_id: createdNode.id,
-      titulo: discount.title,
-      descripcion: data.descripcion || "",
-      tipo: data.tipo,
-      valor: Number.parseFloat(data.valor),
-      codigo: discount.codes?.nodes?.[0]?.code || null,
-      fechaInicio: discount.startsAt,
-      fechaFin: discount.endsAt,
-      activa: discount.status === "ACTIVE",
-      estado: discount.status,
+    // También guardar en la base de datos local
+    try {
+      const dbData = {
+        ...data,
+        shopify_id: createdNode.id,
+      }
+
+      const dbResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/db/promociones`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(dbData),
+      })
+
+      if (dbResponse.ok) {
+        console.log("✅ Promoción guardada en base de datos local")
+      }
+    } catch (dbError) {
+      console.error("⚠️ Error guardando en base de datos local:", dbError)
+      // Continuamos aunque falle la BD local
     }
 
     return NextResponse.json({
       success: true,
-      promocion,
+      promocion: {
+        id: createdNode.id,
+        shopify_id: createdNode.id,
+        titulo: data.titulo,
+        descripcion: data.descripcion,
+        tipo: data.tipo,
+        valor: Number.parseFloat(data.valor),
+        fechaInicio: data.fechaInicio,
+        fechaFin: data.fechaFin,
+        codigo: data.codigo,
+        activa: true,
+      },
     })
   } catch (error) {
     console.error("❌ Error creando promoción en Shopify:", error)
