@@ -1,242 +1,147 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 
-const SHOPIFY_GRAPHQL_URL = `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-10/graphql.json`
+export async function GET() {
+  try {
+    console.log("🔍 Obteniendo promociones de Shopify...")
 
-const DISCOUNTS_QUERY = `
-  query getDiscounts($first: Int!) {
-    discountNodes(first: $first) {
-      edges {
-        node {
-          id
-          discount {
-            ... on DiscountCodeApp {
-              title
-              status
-              startsAt
-              endsAt
-              usageLimit
-              codes(first: 1) {
-                edges {
-                  node {
-                    code
+    const query = `
+      query {
+        discountNodes(first: 50) {
+          edges {
+            node {
+              id
+              discount {
+                ... on DiscountAutomaticBasic {
+                  title
+                  status
+                  startsAt
+                  endsAt
+                  summary
+                  customerGets {
+                    value {
+                      ... on DiscountPercentage {
+                        percentage
+                      }
+                      ... on DiscountAmount {
+                        amount {
+                          amount
+                          currencyCode
+                        }
+                      }
+                    }
+                  }
+                  minimumRequirement {
+                    ... on DiscountMinimumQuantity {
+                      greaterThanOrEqualToQuantity
+                    }
+                    ... on DiscountMinimumSubtotal {
+                      greaterThanOrEqualToSubtotal {
+                        amount
+                        currencyCode
+                      }
+                    }
+                  }
+                }
+                ... on DiscountCodeBasic {
+                  title
+                  status
+                  startsAt
+                  endsAt
+                  summary
+                  codes(first: 1) {
+                    nodes {
+                      code
+                    }
+                  }
+                  customerGets {
+                    value {
+                      ... on DiscountPercentage {
+                        percentage
+                      }
+                      ... on DiscountAmount {
+                        amount {
+                          amount
+                          currencyCode
+                        }
+                      }
+                    }
+                  }
+                  minimumRequirement {
+                    ... on DiscountMinimumQuantity {
+                      greaterThanOrEqualToQuantity
+                    }
+                    ... on DiscountMinimumSubtotal {
+                      greaterThanOrEqualToSubtotal {
+                        amount
+                        currencyCode
+                      }
+                    }
                   }
                 }
               }
-              discountClass
-            }
-            ... on DiscountCodeBasic {
-              title
-              status
-              startsAt
-              endsAt
-              usageLimit
-              codes(first: 1) {
-                edges {
-                  node {
-                    code
-                  }
-                }
-              }
-              summary
-            }
-            ... on DiscountCodeBxgy {
-              title
-              status
-              startsAt
-              endsAt
-              usageLimit
-              codes(first: 1) {
-                edges {
-                  node {
-                    code
-                  }
-                }
-              }
-              summary
-            }
-            ... on DiscountCodeFreeShipping {
-              title
-              status
-              startsAt
-              endsAt
-              usageLimit
-              codes(first: 1) {
-                edges {
-                  node {
-                    code
-                  }
-                }
-              }
-              summary
-            }
-            ... on DiscountAutomaticApp {
-              title
-              status
-              startsAt
-              endsAt
-              discountClass
-            }
-            ... on DiscountAutomaticBasic {
-              title
-              status
-              startsAt
-              endsAt
-              summary
-            }
-            ... on DiscountAutomaticBxgy {
-              title
-              status
-              startsAt
-              endsAt
-              summary
-            }
-            ... on DiscountAutomaticFreeShipping {
-              title
-              status
-              startsAt
-              endsAt
-              summary
             }
           }
         }
       }
-    }
-  }
-`
+    `
 
-export async function GET(request: Request) {
-  try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
-
-    const { searchParams } = new URL(request.url)
-    const filter = searchParams.get("filter") || "todas"
-
-    console.log("🔍 Obteniendo promociones de Shopify GraphQL...")
-
-    // Verificar credenciales
-    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
-      console.error("❌ Credenciales de Shopify no configuradas")
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Credenciales de Shopify no configuradas",
-          promociones: [],
+    const response = await fetch(
+      `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-10/graphql.json`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN!,
         },
-        { status: 500 },
-      )
-    }
-
-    // Hacer consulta GraphQL
-    const response = await fetch(SHOPIFY_GRAPHQL_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
+        body: JSON.stringify({ query }),
       },
-      body: JSON.stringify({
-        query: DISCOUNTS_QUERY,
-        variables: {
-          first: 50,
-        },
-      }),
-    })
+    )
 
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error("❌ Error en GraphQL:", response.status, errorText)
-      throw new Error(`Error GraphQL: ${response.status}`)
+      throw new Error(`HTTP error! status: ${response.status}`)
     }
 
     const data = await response.json()
 
     if (data.errors) {
-      console.error("❌ Errores GraphQL:", data.errors)
       throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`)
     }
 
-    const discountNodes = data.data?.discountNodes?.edges || []
-    console.log(`✅ Descuentos obtenidos: ${discountNodes.length}`)
-
-    // Procesar descuentos
-    const promociones = discountNodes.map((edge: any) => {
+    const promociones = data.data.discountNodes.edges.map((edge: any) => {
       const node = edge.node
       const discount = node.discount
-
-      // Extraer código si existe
-      let codigo = null
-      if (discount.codes?.edges?.length > 0) {
-        codigo = discount.codes.edges[0].node.code
-      }
-
-      // Determinar tipo de descuento
-      let tipo = "AUTOMATICO"
-      let valor = 0
-
-      if (discount.summary) {
-        const summary = discount.summary.toLowerCase()
-        if (summary.includes("%")) {
-          tipo = "PORCENTAJE_DESCUENTO"
-          const match = summary.match(/(\d+)%/)
-          if (match) valor = Number.parseInt(match[1])
-        } else if (summary.includes("€") || summary.includes("$")) {
-          tipo = "CANTIDAD_FIJA"
-          const match = summary.match(/(\d+(?:\.\d+)?)[€$]/)
-          if (match) valor = Number.parseFloat(match[1])
-        } else if (summary.includes("shipping") || summary.includes("envío")) {
-          tipo = "ENVIO_GRATIS"
-        } else if (summary.includes("buy") && summary.includes("get")) {
-          tipo = "COMPRA_X_LLEVA_Y"
-        }
-      }
 
       return {
         id: node.id,
         shopify_id: node.id,
-        titulo: discount.title || "Promoción sin título",
+        titulo: discount.title,
         descripcion: discount.summary || "",
-        tipo,
-        valor,
-        codigo,
+        tipo: discount.customerGets?.value?.percentage ? "PORCENTAJE_DESCUENTO" : "CANTIDAD_FIJA_DESCUENTO",
+        valor:
+          discount.customerGets?.value?.percentage ||
+          Number.parseFloat(discount.customerGets?.value?.amount?.amount || "0"),
+        codigo: discount.codes?.nodes?.[0]?.code || null,
         fechaInicio: discount.startsAt,
         fechaFin: discount.endsAt,
-        estado: discount.status,
         activa: discount.status === "ACTIVE",
-        limite_uso: discount.usageLimit,
-        es_automatica: !codigo,
+        estado: discount.status,
+        compraMinima: discount.minimumRequirement?.greaterThanOrEqualToSubtotal?.amount || null,
       }
     })
 
-    // Filtrar según el parámetro
-    let promocionesFiltradas = promociones
-    if (filter === "activas") {
-      promocionesFiltradas = promociones.filter((p) => p.estado === "ACTIVE")
-    } else if (filter === "programadas") {
-      promocionesFiltradas = promociones.filter((p) => p.estado === "SCHEDULED")
-    } else if (filter === "expiradas") {
-      promocionesFiltradas = promociones.filter((p) => p.estado === "EXPIRED")
-    }
-
-    console.log(`✅ Promociones filtradas (${filter}): ${promocionesFiltradas.length}`)
+    console.log(`✅ Promociones obtenidas de Shopify: ${promociones.length}`)
 
     return NextResponse.json({
       success: true,
-      promociones: promocionesFiltradas,
-      total: promocionesFiltradas.length,
+      promociones: promociones,
     })
   } catch (error) {
-    console.error("❌ Error al obtener promociones:", error)
+    console.error("❌ Error obteniendo promociones de Shopify:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Error al obtener promociones",
-        details: error instanceof Error ? error.message : "Error desconocido",
-        promociones: [],
+        error: "Error al obtener promociones de Shopify",
+        details: (error as Error).message,
       },
       { status: 500 },
     )

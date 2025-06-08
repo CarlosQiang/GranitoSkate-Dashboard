@@ -1,60 +1,102 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { getAllPromociones, createPromocion } from "@/lib/db/repositories/promociones-repository"
+import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
-export async function GET(request: NextRequest) {
+// Simulación de base de datos en memoria para promociones
+const promocionesDB = new Map<string, any>()
+
+export async function GET(request: Request) {
   try {
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const filter = searchParams.get("filter") || "todas"
 
-    console.log(`🔍 Obteniendo promociones de BD con filtro: ${filter}`)
+    console.log(`🔍 Obteniendo promociones con filtro: ${filter}`)
 
-    const promociones = await getAllPromociones()
+    // Obtener todas las promociones de la "base de datos" en memoria
+    const todasLasPromociones = Array.from(promocionesDB.values())
 
-    // Aplicar filtros
-    let promocionesFiltradas = promociones
+    // Filtrar según el parámetro
+    let promocionesFiltradas = todasLasPromociones
     if (filter === "activas") {
-      promocionesFiltradas = promociones.filter((p) => p.activa)
+      promocionesFiltradas = todasLasPromociones.filter((p) => p.activa === true)
     } else if (filter === "programadas") {
-      const now = new Date()
-      promocionesFiltradas = promociones.filter((p) => p.fecha_inicio && new Date(p.fecha_inicio) > now)
+      promocionesFiltradas = todasLasPromociones.filter((p) => {
+        const fechaInicio = new Date(p.fechaInicio)
+        return fechaInicio > new Date()
+      })
     } else if (filter === "expiradas") {
-      const now = new Date()
-      promocionesFiltradas = promociones.filter((p) => p.fecha_fin && new Date(p.fecha_fin) < now)
+      promocionesFiltradas = todasLasPromociones.filter((p) => {
+        const fechaFin = p.fechaFin ? new Date(p.fechaFin) : null
+        return fechaFin && fechaFin < new Date()
+      })
     }
 
-    console.log(`✅ Promociones encontradas en BD: ${promocionesFiltradas.length}`)
-
+    console.log(`✅ Promociones filtradas (${filter}): ${promocionesFiltradas.length}`)
     return NextResponse.json(promocionesFiltradas)
   } catch (error) {
-    console.error("❌ Error obteniendo promociones de BD:", error)
+    console.error("❌ Error al obtener promociones:", error)
     return NextResponse.json({ error: "Error al obtener promociones" }, { status: 500 })
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
     const data = await request.json()
-    console.log(`📝 Creando promoción en BD:`, data)
 
-    const promocion = await createPromocion({
+    console.log(`📝 Creando nueva promoción con datos:`, data)
+
+    // Validar datos requeridos
+    if (!data.titulo) {
+      return NextResponse.json({ error: "El título es obligatorio" }, { status: 400 })
+    }
+
+    // Generar ID único
+    const id = Date.now().toString()
+
+    // Preparar datos para creación
+    const nuevaPromocion = {
+      id: id,
       titulo: data.titulo,
-      descripcion: data.descripcion,
-      tipo: data.tipo,
-      objetivo: data.objetivo,
-      valor: Number.parseFloat(data.valor),
-      codigo: data.codigo,
-      fecha_inicio: data.fechaInicio ? new Date(data.fechaInicio) : null,
-      fecha_fin: data.fechaFin ? new Date(data.fechaFin) : null,
-      activa: true,
-      limite_uso: data.limitarUsos ? Number.parseInt(data.limiteUsos) : null,
-      es_automatica: !data.codigo,
-    })
+      descripcion: data.descripcion || data.titulo,
+      tipo: data.tipo || "PORCENTAJE_DESCUENTO",
+      objetivo: data.objetivo || "TODOS_LOS_PRODUCTOS",
+      valor: data.valor ? Number.parseFloat(data.valor) : 0,
+      fechaInicio: data.fechaInicio || new Date().toISOString(),
+      fechaFin: data.fechaFin || null,
+      codigo: data.codigo || null,
+      activa: data.activa !== undefined ? data.activa : true,
+      limitarUsos: data.limitarUsos || false,
+      limiteUsos: data.limiteUsos ? Number.parseInt(data.limiteUsos) : null,
+      compraMinima: data.compraMinima ? Number.parseFloat(data.compraMinima) : null,
+      fechaCreacion: new Date().toISOString(),
+    }
 
-    console.log(`✅ Promoción creada en BD:`, promocion)
+    // Guardar en la "base de datos" en memoria
+    promocionesDB.set(id, nuevaPromocion)
 
-    return NextResponse.json(promocion)
+    console.log(`✅ Promoción creada exitosamente:`, nuevaPromocion)
+    return NextResponse.json(nuevaPromocion)
   } catch (error) {
-    console.error("❌ Error creando promoción en BD:", error)
-    return NextResponse.json({ error: "Error al crear promoción" }, { status: 500 })
+    console.error("❌ Error al crear promoción:", error)
+
+    return NextResponse.json(
+      {
+        error: "Error al crear promoción",
+        details: (error as Error).message,
+      },
+      { status: 500 },
+    )
   }
 }
