@@ -12,7 +12,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     const { id } = params
     console.log(`🔍 Obteniendo promoción de Shopify: ${id}`)
 
-    // Formatear el ID de Shopify
+    // Formatear el ID de Shopify correctamente
     let shopifyId = id
     if (!id.startsWith("gid://")) {
       shopifyId = `gid://shopify/DiscountAutomaticNode/${id}`
@@ -99,6 +99,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     const data = await response.json()
 
     if (data.errors) {
+      console.error("❌ GraphQL errors:", data.errors)
       throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`)
     }
 
@@ -154,20 +155,73 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
     console.log(`📝 Actualizando promoción en Shopify ${id}:`, data)
 
-    // Formatear el ID de Shopify
+    // Formatear el ID de Shopify correctamente
     let shopifyId = id
     if (!id.startsWith("gid://")) {
       shopifyId = `gid://shopify/DiscountAutomaticNode/${id}`
     }
 
-    // Determinar si es un descuento automático o con código
-    const isCodeDiscount = data.codigo && data.codigo.trim() !== ""
+    // Primero, obtener la promoción actual para determinar su tipo
+    const getQuery = `
+      query getDiscount($id: ID!) {
+        discountNode(id: $id) {
+          id
+          discount {
+            __typename
+            ... on DiscountAutomaticBasic {
+              title
+            }
+            ... on DiscountCodeBasic {
+              title
+              codes(first: 1) {
+                nodes {
+                  code
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const getResponse = await fetch(
+      `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-10/graphql.json`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN!,
+        },
+        body: JSON.stringify({
+          query: getQuery,
+          variables: { id: shopifyId },
+        }),
+      },
+    )
+
+    const getCurrentData = await getResponse.json()
+
+    if (getCurrentData.errors) {
+      throw new Error(`Error obteniendo promoción actual: ${JSON.stringify(getCurrentData.errors)}`)
+    }
+
+    const currentDiscount = getCurrentData.data?.discountNode?.discount
+    if (!currentDiscount) {
+      throw new Error("Promoción no encontrada")
+    }
+
+    const isCodeDiscount = currentDiscount.__typename === "DiscountCodeBasic"
+    const isAutomaticDiscount = currentDiscount.__typename === "DiscountAutomaticBasic"
+
+    console.log(`🔍 Tipo de descuento detectado: ${currentDiscount.__typename}`)
 
     let mutation: string
     let variables: any
 
     if (isCodeDiscount) {
       // Actualizar descuento con código
+      const codeId = shopifyId.replace("DiscountAutomaticNode", "DiscountCodeNode")
+
       mutation = `
         mutation discountCodeBasicUpdate($basicCodeDiscount: DiscountCodeBasicInput!, $id: ID!) {
           discountCodeBasicUpdate(basicCodeDiscount: $basicCodeDiscount, id: $id) {
@@ -194,10 +248,10 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       `
 
       variables = {
-        id: shopifyId.replace("DiscountAutomaticNode", "DiscountCodeNode"),
+        id: codeId,
         basicCodeDiscount: {
           title: data.titulo,
-          code: data.codigo,
+          code: data.codigo || currentDiscount.codes?.nodes?.[0]?.code || "DESCUENTO",
           startsAt: data.fechaInicio,
           endsAt: data.fechaFin,
           customerGets: {
@@ -206,7 +260,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
                 ? { percentage: Number.parseFloat(data.valor) / 100 }
                 : {
                     discountAmount: {
-                      amount: Number.parseFloat(data.valor),
+                      amount: Number.parseFloat(data.valor).toString(),
                       appliesOnEachItem: false,
                     },
                   },
@@ -219,7 +273,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
           },
         },
       }
-    } else {
+    } else if (isAutomaticDiscount) {
       // Actualizar descuento automático
       mutation = `
         mutation discountAutomaticBasicUpdate($automaticBasicDiscount: DiscountAutomaticBasicInput!, $id: ID!) {
@@ -254,7 +308,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
                 ? { percentage: Number.parseFloat(data.valor) / 100 }
                 : {
                     discountAmount: {
-                      amount: Number.parseFloat(data.valor),
+                      amount: Number.parseFloat(data.valor).toString(),
                       appliesOnEachItem: false,
                     },
                   },
@@ -267,9 +321,14 @@ export async function PUT(request: Request, { params }: { params: { id: string }
           },
         },
       }
+    } else {
+      throw new Error(`Tipo de descuento no soportado: ${currentDiscount.__typename}`)
     }
 
-    console.log(`🔄 Enviando mutación a Shopify:`, { mutation, variables })
+    console.log(`🔄 Enviando mutación a Shopify:`, {
+      mutation: mutation.substring(0, 100) + "...",
+      variables,
+    })
 
     const response = await fetch(
       `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-10/graphql.json`,
