@@ -1,37 +1,73 @@
-import { clsx, type ClassValue } from "clsx"
+import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
+/**
+ * Combina clases de Tailwind de manera eficiente
+ */
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Función para obtener la URL base de la API
-export function getApiUrl(path = ""): string {
-  // En el cliente, usar la URL actual del navegador
-  if (typeof window !== "undefined") {
-    const baseUrl = window.location.origin
-    return `${baseUrl}${path}`
-  }
-
-  // En el servidor, usar las variables de entorno en orden de prioridad
-  const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL
-    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-    : process.env.NEXT_PUBLIC_APP_URL
-      ? process.env.NEXT_PUBLIC_APP_URL
-      : process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "http://localhost:3000"
-
-  return `${baseUrl}${path}`
+/**
+ * Formatea un valor numérico como moneda
+ * @param value Valor a formatear
+ * @param currency Código de moneda (default: USD)
+ * @param locale Configuración regional (default: es-ES)
+ */
+export function formatCurrency(value: number, currency = "USD", locale = "es-ES"): string {
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)
 }
 
-// Función alternativa más simple para el cliente
-export function getBaseUrl(): string {
-  if (typeof window !== "undefined") {
-    return window.location.origin
-  }
+/**
+ * Formatea una fecha en formato legible
+ * @param date Fecha a formatear
+ * @param locale Configuración regional (default: es-ES)
+ */
+export function formatDate(date: Date | string, locale = "es-ES"): string {
+  const dateObj = typeof date === "string" ? new Date(date) : date
 
-  return process.env.NEXT_PUBLIC_VERCEL_URL
-    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-    : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+  return new Intl.DateTimeFormat(locale, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(dateObj)
+}
+
+/**
+ * Formatea una fecha en formato corto
+ * @param date Fecha a formatear
+ * @param locale Configuración regional (default: es-ES)
+ */
+export function formatShortDate(date: Date | string, locale = "es-ES"): string {
+  const dateObj = typeof date === "string" ? new Date(date) : date
+
+  return new Intl.DateTimeFormat(locale, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(dateObj)
+}
+
+/**
+ * Genera un ID único
+ */
+export function generateId(): string {
+  return Math.random().toString(36).substring(2, 9)
+}
+
+/**
+ * Trunca un texto a una longitud máxima
+ * @param text Texto a truncar
+ * @param maxLength Longitud máxima
+ */
+export function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text
+  return text.slice(0, maxLength) + "..."
 }

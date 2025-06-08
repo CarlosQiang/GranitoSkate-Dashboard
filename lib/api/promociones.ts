@@ -160,3 +160,10 @@ export async function deletePromocion(id: string): Promise<any> {
     throw error
   }
 }
+
+// Exportar alias para compatibilidad con código existente
+export const obtenerPromociones = fetchPromociones
+export const obtenerPromocionPorId = fetchPromocionById
+export const crearPromocion = createPromocion
+export const actualizarPromocion = updatePromocion
+export const eliminarPromocion = deletePromocion

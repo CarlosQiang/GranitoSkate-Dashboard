@@ -1,28 +1,44 @@
 import { Pool } from "pg"
-import { sql } from "@vercel/postgres"
 
-// Obtener la URL de conexión de las variables de entorno
-const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL
+// Configuración de la conexión a la base de datos
+const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL
 
 if (!connectionString) {
   console.error("Error: No se ha definido la variable de entorno POSTGRES_URL o DATABASE_URL")
 }
 
 // Crear un pool de conexiones
-export const pool = new Pool({
-  connectionString: connectionString || "",
-  ssl: {
-    rejectUnauthorized: false,
-  },
-  max: 10, // Máximo número de conexiones en el pool
+export const db = new Pool({
+  connectionString,
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+  max: 20, // Máximo número de conexiones en el pool
   idleTimeoutMillis: 30000, // Tiempo máximo que una conexión puede estar inactiva antes de ser cerrada
-  connectionTimeoutMillis: 5000, // Tiempo máximo para establecer una conexión
+  connectionTimeoutMillis: 2000, // Tiempo máximo para establecer una conexión
 })
 
 // Manejar errores de conexión
-pool.on("error", (err) => {
+db.on("error", (err) => {
   console.error("Error inesperado en el cliente de PostgreSQL:", err)
 })
+
+/**
+ * Ejecuta una consulta SQL
+ * @param text Consulta SQL
+ * @param params Parámetros de la consulta
+ * @returns Resultado de la consulta
+ */
+export async function query(text: string, params?: any[]) {
+  const start = Date.now()
+  try {
+    const res = await db.query(text, params)
+    const duration = Date.now() - start
+    console.log("Consulta ejecutada:", { text, duration, rows: res.rowCount })
+    return res
+  } catch (error) {
+    console.error("Error en consulta:", error)
+    throw error
+  }
+}
 
 // Verificar la conexión
 export async function testConnection() {
@@ -32,7 +48,7 @@ export async function testConnection() {
   }
 
   try {
-    const client = await pool.connect()
+    const client = await db.connect()
     console.log("Conexión a la base de datos establecida correctamente")
     client.release()
     return true
@@ -42,30 +58,29 @@ export async function testConnection() {
   }
 }
 
-// Función para ejecutar consultas
-export async function query(text: string, params: any[] = []) {
+/**
+ * Verifica la conexión a la base de datos
+ * @returns Estado de la conexión
+ */
+export async function checkConnection() {
   try {
-    console.log("🔍 Ejecutando consulta SQL:", text)
-    console.log("📝 Parámetros:", params)
-
-    const result = await sql.query(text, params)
-
-    console.log("✅ Consulta ejecutada exitosamente")
-    console.log("📊 Filas afectadas:", result.rowCount)
-
-    return result
+    const client = await db.connect()
+    client.release()
+    return { connected: true, message: "Conexión exitosa a la base de datos" }
   } catch (error) {
-    console.error("❌ Error en consulta SQL:", error)
-    console.error("🔍 Consulta que falló:", text)
-    console.error("📝 Parámetros:", params)
-    throw error
+    console.error("Error al conectar a la base de datos:", error)
+    return {
+      connected: false,
+      message: "Error al conectar a la base de datos",
+      error: (error as Error).message,
+    }
   }
 }
 
 // Función para cerrar la conexión
 export async function closeConnection() {
   try {
-    await pool.end()
+    await db.end()
     console.log("Conexión a la base de datos cerrada correctamente")
   } catch (error) {
     console.error("Error al cerrar la conexión a la base de datos:", error)
@@ -171,8 +186,8 @@ export async function logSyncEvent(
 }
 
 // Export por defecto para compatibilidad
-const db = {
-  pool,
+const database = {
+  db,
   testConnection,
   query,
   closeConnection,
@@ -185,4 +200,4 @@ const db = {
   logSyncEvent,
 }
 
-export default db
+export default database
