@@ -280,7 +280,7 @@ export default function DashboardPage() {
           <DatabaseStatus onRefresh={loadDashboardData} />
         </div>
 
-        {/* Sincronización completa al final */}
+        {/* SOLO UNA sincronización completa al final */}
         <div className="mt-8">
           <SyncAllData onSyncComplete={loadDashboardData} />
         </div>
