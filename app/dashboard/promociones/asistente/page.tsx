@@ -29,8 +29,8 @@ interface DatosPromocion {
     clientesSeleccionados: string[]
   }
   programacion: {
-    fechaInicio: string
-    fechaFin: string | null
+    fechaInicio: Date
+    fechaFin: Date | null
     horaInicio: string
     horaFin: string
     limitarUsos: boolean
@@ -63,7 +63,7 @@ export default function AsistentePromocionesPage() {
       clientesSeleccionados: [],
     },
     programacion: {
-      fechaInicio: new Date().toISOString(),
+      fechaInicio: new Date(),
       fechaFin: null,
       horaInicio: "00:00",
       horaFin: "23:59",
@@ -121,8 +121,8 @@ export default function AsistentePromocionesPage() {
         tipo: datosPromocion.tipo,
         objetivo: datosPromocion.objetivo,
         valor: datosPromocion.valor,
-        fechaInicio: datosPromocion.programacion.fechaInicio,
-        fechaFin: datosPromocion.programacion.fechaFin,
+        fechaInicio: datosPromocion.programacion.fechaInicio.toISOString(),
+        fechaFin: datosPromocion.programacion.fechaFin?.toISOString() || null,
         codigo: datosPromocion.codigo.usarCodigo ? datosPromocion.codigo.codigo : null,
         limitarUsos: datosPromocion.programacion.limitarUsos,
         limiteUsos: datosPromocion.programacion.limitarUsos

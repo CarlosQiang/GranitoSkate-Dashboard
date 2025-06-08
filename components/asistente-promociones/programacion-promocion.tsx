@@ -2,13 +2,8 @@
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { CalendarIcon, Clock, Users } from "lucide-react"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
-import { cn } from "@/lib/utils"
+import { DatePicker } from "@/components/ui/date-picker"
+import { Clock, Users } from "lucide-react"
 
 interface FormularioProgramacionPromocionProps {
   tieneFechaFin: boolean
@@ -44,25 +39,11 @@ export function FormularioProgramacionPromocion({
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Fecha de inicio</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn("w-full justify-start text-left font-normal", !fechaInicio && "text-muted-foreground")}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {fechaInicio ? format(fechaInicio, "PPP", { locale: es }) : <span>Selecciona una fecha</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={fechaInicio}
-                  onSelect={(fecha) => fecha && onChange({ fechaInicio: fecha })}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+            <DatePicker
+              date={fechaInicio}
+              onSelect={(fecha) => fecha && onChange({ fechaInicio: fecha })}
+              placeholder="Selecciona fecha de inicio"
+            />
             <p className="text-sm text-muted-foreground">La promoción estará activa a partir de esta fecha</p>
           </div>
 
@@ -83,26 +64,11 @@ export function FormularioProgramacionPromocion({
 
           {tieneFechaFin && (
             <div className="ml-7 space-y-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn("w-full justify-start text-left font-normal", !fechaFin && "text-muted-foreground")}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {fechaFin ? format(fechaFin, "PPP", { locale: es }) : <span>Selecciona una fecha</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={fechaFin}
-                    onSelect={(fecha) => fecha && onChange({ fechaFin: fecha })}
-                    initialFocus
-                    disabled={(fecha) => fecha < fechaInicio}
-                  />
-                </PopoverContent>
-              </Popover>
+              <DatePicker
+                date={fechaFin}
+                onSelect={(fecha) => fecha && onChange({ fechaFin: fecha })}
+                placeholder="Selecciona fecha de fin"
+              />
               <p className="text-sm text-muted-foreground">La promoción dejará de estar activa después de esta fecha</p>
             </div>
           )}
