@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Plus } from "lucide-react"
 import { PromocionesListClient } from "@/components/promociones-list-client"
-import { SyncPromotionsOnly } from "@/components/sync-promotions-only"
 
 export default function PromocionesPage() {
   return (
@@ -55,11 +54,6 @@ export default function PromocionesPage() {
           </Suspense>
         </TabsContent>
       </Tabs>
-
-      {/* Reemplazo Completo de Promociones - Al final de la página */}
-      <div className="mt-8">
-        <SyncPromotionsOnly onSyncComplete={() => window.location.reload()} />
-      </div>
     </div>
   )
 }
