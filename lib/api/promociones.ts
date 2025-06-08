@@ -1,12 +1,10 @@
-import { getApiUrl } from "@/lib/utils"
-
 // Función para obtener todas las promociones
 export async function obtenerPromociones(filtro = "todas") {
   try {
     console.log(`🔍 Obteniendo promociones con filtro: ${filtro}...`)
 
     // Primero intentamos obtener las promociones de la base de datos local
-    const dbResponse = await fetch(getApiUrl("/api/db/promociones"), {
+    const dbResponse = await fetch("/api/db/promociones", {
       cache: "no-store",
       headers: {
         "Content-Type": "application/json",
@@ -27,7 +25,7 @@ export async function obtenerPromociones(filtro = "todas") {
 
     // Si no hay promociones en la base de datos, las obtenemos directamente de Shopify
     console.log("🔄 Intentando obtener promociones de Shopify...")
-    const shopifyResponse = await fetch(getApiUrl("/api/shopify/promotions"), {
+    const shopifyResponse = await fetch("/api/shopify/promotions", {
       cache: "no-store",
       headers: {
         "Content-Type": "application/json",
@@ -40,7 +38,7 @@ export async function obtenerPromociones(filtro = "todas") {
 
       // Intentar con REST API directamente
       console.log("🔄 Intentando con REST API directamente...")
-      const restResponse = await fetch(getApiUrl("/api/shopify/promotions/rest"), {
+      const restResponse = await fetch("/api/shopify/promotions/rest", {
         cache: "no-store",
         headers: {
           "Content-Type": "application/json",
@@ -74,7 +72,7 @@ export async function obtenerPromociones(filtro = "todas") {
 
     // Como último recurso, intentar obtener de la base de datos sin cache
     try {
-      const fallbackResponse = await fetch(getApiUrl("/api/db/promociones"), {
+      const fallbackResponse = await fetch("/api/db/promociones", {
         cache: "no-cache",
         headers: {
           "Content-Type": "application/json",
@@ -127,7 +125,7 @@ export async function obtenerPromocionPorId(id: string) {
   try {
     console.log(`🔍 Obteniendo promoción con ID ${id}...`)
 
-    const response = await fetch(getApiUrl(`/api/db/promociones/${id}`), {
+    const response = await fetch(`/api/db/promociones/${id}`, {
       cache: "no-store",
       headers: {
         "Content-Type": "application/json",
@@ -162,7 +160,7 @@ export async function crearPromocion(datos: any) {
       throw new Error("El título de la promoción es obligatorio")
     }
 
-    const response = await fetch(getApiUrl("/api/db/promociones"), {
+    const response = await fetch("/api/db/promociones", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -189,7 +187,7 @@ export async function actualizarPromocion(id: string, datos: any) {
   try {
     console.log(`🔍 Actualizando promoción con ID ${id}...`, datos)
 
-    const response = await fetch(getApiUrl(`/api/db/promociones/${id}`), {
+    const response = await fetch(`/api/db/promociones/${id}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -216,7 +214,7 @@ export async function eliminarPromocion(id: string) {
   try {
     console.log(`🔍 Eliminando promoción con ID ${id}...`)
 
-    const response = await fetch(getApiUrl(`/api/db/promociones/${id}`), {
+    const response = await fetch(`/api/db/promociones/${id}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",

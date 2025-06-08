@@ -13,13 +13,8 @@ async function fetchPromociones(filter: string) {
   try {
     console.log(`🔍 Obteniendo promociones con filtro: ${filter}`)
 
-    // Usar la URL base correcta en producción o desarrollo
-    const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL
-      ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-      : process.env.NEXT_PUBLIC_APP_URL || window.location.origin
-
     // Primero intentar obtener de la base de datos local
-    const response = await fetch(`${baseUrl}/api/db/promociones`, {
+    const response = await fetch("/api/db/promociones", {
       cache: "no-store",
       headers: {
         "Content-Type": "application/json",
@@ -39,7 +34,7 @@ async function fetchPromociones(filter: string) {
     if (promociones.length === 0) {
       console.log("🔄 Obteniendo promociones de Shopify...")
 
-      const shopifyResponse = await fetch(`${baseUrl}/api/shopify/promotions`, {
+      const shopifyResponse = await fetch("/api/shopify/promotions", {
         cache: "no-store",
         headers: {
           "Content-Type": "application/json",

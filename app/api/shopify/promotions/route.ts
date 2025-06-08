@@ -2,7 +2,8 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import shopifyClient from "@/lib/shopify"
-import { getBaseUrl } from "@/lib/utils"
+// Remover esta línea:
+// import { getBaseUrl } from "@/lib/utils"
 
 export async function GET(request: Request) {
   try {
@@ -211,10 +212,11 @@ export async function GET(request: Request) {
       console.error("Error en la consulta GraphQL:", graphqlError)
 
       // Intentar con la API REST como fallback
+      // Y cambiar esta parte en el catch de GraphQL:
       try {
         console.log("🔄 Intentando obtener promociones con REST API...")
 
-        const restResponse = await fetch(`${getBaseUrl()}/api/shopify/promotions/rest`, {
+        const restResponse = await fetch("/api/shopify/promotions/rest", {
           headers: {
             "Content-Type": "application/json",
             Cookie: request.headers.get("Cookie") || "",
