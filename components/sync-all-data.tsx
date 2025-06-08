@@ -65,9 +65,9 @@ export function SyncAllData({ onSyncComplete }: SyncAllDataProps) {
       console.log(`✅ ${entityName} sincronizado:`, result)
 
       return {
-        borrados: result.borrados || result.results?.borrados || 0,
-        insertados: result.insertados || result.results?.insertados || 0,
-        errores: result.errores?.length || result.results?.errores || 0,
+        borrados: result.borrados || 0,
+        insertados: result.total || 0,
+        errores: result.errores || 0,
       }
     } catch (error) {
       console.error(`❌ Error sincronizando ${entityName}:`, error)
@@ -131,10 +131,26 @@ export function SyncAllData({ onSyncComplete }: SyncAllDataProps) {
           endpoint: "/api/sync/collections-replace",
           data: { collections: dashboardData.allCollections || [] },
         },
-        { name: "orders", endpoint: "/api/sync/orders-replace", data: { orders: dashboardData.recentOrders || [] } },
-        { name: "customers", endpoint: "/api/sync/customers-replace", data: {} },
-        { name: "promotions", endpoint: "/api/sync/promotions-replace", data: {} },
-        { name: "shop-data", endpoint: "/api/sync/shop-data", data: {} },
+        {
+          name: "orders",
+          endpoint: "/api/sync/orders-replace",
+          data: { orders: dashboardData.recentOrders || [] },
+        },
+        {
+          name: "customers",
+          endpoint: "/api/sync/customers-replace",
+          data: {},
+        },
+        {
+          name: "promotions",
+          endpoint: "/api/sync/promotions-replace",
+          data: {},
+        },
+        {
+          name: "shop-data",
+          endpoint: "/api/sync/shop-data",
+          data: {},
+        },
       ]
 
       for (let i = 0; i < syncConfigs.length; i++) {
