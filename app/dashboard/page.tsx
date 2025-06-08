@@ -9,7 +9,6 @@ import { RecentOrders } from "@/components/recent-orders"
 import { RecentProducts } from "@/components/recent-products"
 import { InventoryStatus } from "@/components/inventory-status"
 import { DatabaseStatus } from "@/components/database-status"
-import { SyncAllData } from "@/components/sync-all-data"
 
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
@@ -275,15 +274,12 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Database status - full width on mobile */}
+        {/* SOLO Database status - que incluye la sincronización con checklist */}
         <div className="mt-8">
           <DatabaseStatus onRefresh={loadDashboardData} />
         </div>
 
-        {/* SOLO UNA sincronización completa al final */}
-        <div className="mt-8">
-          <SyncAllData onSyncComplete={loadDashboardData} />
-        </div>
+        {/* ELIMINÉ la segunda sección de SyncAllData duplicada */}
       </div>
     </div>
   )

@@ -42,7 +42,10 @@ export async function POST(request: Request) {
     }
 
     const shopifyData = await shopifyResponse.json()
-    const promociones = shopifyData.promociones || []
+    console.log("📦 Datos de Shopify recibidos:", shopifyData)
+
+    // Manejar diferentes formatos de respuesta
+    const promociones = shopifyData.promociones || shopifyData.promotions || shopifyData.data || []
 
     console.log(`📦 Obtenidas ${promociones.length} promociones de Shopify`)
 
@@ -103,49 +106,69 @@ export async function POST(request: Request) {
 
     for (const promocion of promociones) {
       try {
+        console.log("🔍 Procesando promoción:", promocion)
+
         // Extraer el ID numérico de Shopify del gid si es necesario
         let shopifyId = promocion.shopify_id || promocion.id
         if (typeof shopifyId === "string" && shopifyId.includes("/")) {
           shopifyId = shopifyId.split("/").pop()
         }
 
-        // Preparar fechas
-        const fechaInicio = promocion.fecha_inicio || promocion.fechaInicio || new Date().toISOString()
-        const fechaFin = promocion.fecha_fin || promocion.fechaFin || null
+        // Manejar diferentes formatos de título
+        const titulo = promocion.titulo || promocion.title || promocion.name || `Promoción ${shopifyId}`
 
-        // Insertar en la base de datos
+        // Manejar diferentes formatos de descripción
+        const descripcion = promocion.descripcion || promocion.description || promocion.summary || null
+
+        // Manejar diferentes formatos de tipo
+        const tipo = promocion.tipo || promocion.type || "PORCENTAJE_DESCUENTO"
+
+        // Manejar diferentes formatos de valor
+        let valor = promocion.valor || promocion.value || promocion.percentage || 0
+        if (typeof valor === "string") {
+          valor = Number.parseFloat(valor) || 0
+        }
+
+        // Preparar fechas con manejo robusto
+        let fechaInicio = promocion.fecha_inicio || promocion.fechaInicio || promocion.starts_at || promocion.startsAt
+        if (!fechaInicio) {
+          fechaInicio = new Date().toISOString()
+        }
+
+        const fechaFin = promocion.fecha_fin || promocion.fechaFin || promocion.ends_at || promocion.endsAt || null
+
+        // Insertar en la base de datos con manejo de errores mejorado
         await sql`
           INSERT INTO promociones (
             shopify_id, titulo, descripcion, tipo, valor, codigo,
             objetivo, objetivo_id, condiciones, fecha_inicio, fecha_fin,
             activa, limite_uso, contador_uso, es_automatica, monto_minimo
           ) VALUES (
-            ${shopifyId},
-            ${promocion.titulo || `Promoción ${shopifyId}`},
-            ${promocion.descripcion || null},
-            ${promocion.tipo || "PORCENTAJE_DESCUENTO"},
-            ${promocion.valor || 0},
-            ${promocion.codigo || null},
-            ${promocion.objetivo || null},
-            ${promocion.objetivo_id || null},
+            ${shopifyId || `temp_${Date.now()}`},
+            ${titulo},
+            ${descripcion},
+            ${tipo},
+            ${valor},
+            ${promocion.codigo || promocion.code || null},
+            ${promocion.objetivo || promocion.target || null},
+            ${promocion.objetivo_id || promocion.target_id || null},
             ${promocion.condiciones ? JSON.stringify(promocion.condiciones) : null},
             ${fechaInicio},
             ${fechaFin},
-            ${promocion.activa !== undefined ? promocion.activa : true},
-            ${promocion.limite_uso || null},
-            ${promocion.contador_uso || 0},
-            ${promocion.es_automatica !== undefined ? promocion.es_automatica : false},
-            ${promocion.monto_minimo || null}
+            ${promocion.activa !== undefined ? promocion.activa : promocion.active !== undefined ? promocion.active : true},
+            ${promocion.limite_uso || promocion.usage_limit || null},
+            ${promocion.contador_uso || promocion.usage_count || 0},
+            ${promocion.es_automatica !== undefined ? promocion.es_automatica : promocion.automatic !== undefined ? promocion.automatic : false},
+            ${promocion.monto_minimo || promocion.minimum_amount || null}
           )
         `
 
         insertados++
-        console.log(`✅ Promoción insertada: ${promocion.titulo || shopifyId}`)
+        console.log(`✅ Promoción insertada: ${titulo}`)
       } catch (error) {
-        console.error(`❌ Error al insertar promoción ${promocion.titulo || promocion.id}:`, error)
-        errores.push(
-          `Error al insertar ${promocion.titulo || promocion.id}: ${error instanceof Error ? error.message : "Error desconocido"}`,
-        )
+        console.error(`❌ Error al insertar promoción:`, error)
+        console.error(`❌ Datos de la promoción problemática:`, promocion)
+        errores.push(`Error al insertar promoción: ${error instanceof Error ? error.message : "Error desconocido"}`)
       }
     }
 
@@ -162,6 +185,7 @@ export async function POST(request: Request) {
         insertados,
         errores: errores.length,
         totalEnBD: Number(total),
+        detallesErrores: errores.length > 0 ? errores : undefined,
       })
     } catch (error) {
       console.error("❌ Error verificando resultado:", error)
