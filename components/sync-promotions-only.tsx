@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, Trash2, CheckCircle, XCircle, AlertTriangle } from "lucide-react"
+import { RefreshCw, Tag, Trash2 } from "lucide-react"
 
 interface SyncResult {
   borrados: number
@@ -42,12 +42,22 @@ export function SyncPromotionsOnly({ onSyncComplete }: SyncPromotionsOnlyProps) 
       }
 
       const data = await response.json()
-      console.log("✅ Reemplazo completado:", data)
+      console.log("✅ Reemplazo de promociones completado:", data)
 
-      setResult(data.results)
-      onSyncComplete?.()
+      // Usar la estructura correcta de la respuesta
+      setResult({
+        borrados: data.results?.borrados || 0,
+        insertados: data.results?.insertados || 0,
+        errores: data.results?.errores || 0,
+        detalles: data.results?.detalles || [],
+      })
+
+      // Llamar al callback para actualizar el estado
+      if (onSyncComplete) {
+        onSyncComplete()
+      }
     } catch (error) {
-      console.error("❌ Error en reemplazo:", error)
+      console.error("❌ Error en reemplazo de promociones:", error)
       setError(error instanceof Error ? error.message : "Error desconocido")
     } finally {
       setIsLoading(false)
@@ -55,10 +65,10 @@ export function SyncPromotionsOnly({ onSyncComplete }: SyncPromotionsOnlyProps) 
   }
 
   return (
-    <Card className="mb-6">
+    <Card className="mb-4">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Trash2 className="h-5 w-5" />
+          <Tag className="h-5 w-5" />
           Reemplazo Completo de Promociones
         </CardTitle>
         <CardDescription>
@@ -66,88 +76,95 @@ export function SyncPromotionsOnly({ onSyncComplete }: SyncPromotionsOnlyProps) 
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-            <div className="flex items-start">
-              <AlertTriangle className="h-5 w-5 text-yellow-500 mt-0.5 mr-3" />
-              <div>
-                <h3 className="text-sm font-medium text-yellow-800">¡Atención!</h3>
-                <p className="mt-1 text-sm text-yellow-700">
-                  Esta acción borrará TODAS las promociones existentes en la base de datos.
+        <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mb-4">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  fillRule="evenodd"
+                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-amber-800">¡Atención!</h3>
+              <div className="mt-2 text-sm text-amber-700">
+                <p>
+                  Esta acción borrará TODAS las promociones existentes en la base de datos y las reemplazará con los
+                  datos actuales de Shopify.
                 </p>
               </div>
             </div>
           </div>
+        </div>
 
-          <Button onClick={handleSync} disabled={isLoading} className="w-full" variant="destructive">
-            {isLoading ? (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Procesando...
-              </>
-            ) : (
-              <>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Borrar y Reemplazar Promociones
-              </>
-            )}
-          </Button>
-
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-800 text-sm">
-              <div className="flex items-center">
-                <XCircle className="h-4 w-4 mr-2" />
-                <span className="font-medium">Error: {error}</span>
-              </div>
-            </div>
-          )}
-
-          {result && (
+        <Button onClick={handleSync} disabled={isLoading} className="w-full bg-red-600 hover:bg-red-700 text-white">
+          {isLoading ? (
             <>
-              <div className="p-3 bg-green-50 border border-green-200 rounded-md text-green-800 text-sm">
-                <div className="flex items-center">
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  <span className="font-medium">
-                    Reemplazo completado: {result.borrados} borradas, {result.insertados} insertadas, {result.errores}{" "}
-                    errores
-                  </span>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-2">Resultados del reemplazo:</h4>
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="text-center p-3 bg-red-50 rounded-lg">
-                    <div className="text-2xl font-bold text-red-600">{result.borrados}</div>
-                    <div className="text-sm text-red-600">Borradas</div>
-                  </div>
-                  <div className="text-center p-3 bg-green-50 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">{result.insertados}</div>
-                    <div className="text-sm text-green-600">Insertadas</div>
-                  </div>
-                  <div className="text-center p-3 bg-red-50 rounded-lg">
-                    <div className="text-2xl font-bold text-red-600">{result.errores}</div>
-                    <div className="text-sm text-red-600">Errores</div>
-                  </div>
-                </div>
-
-                {result.detalles.length > 0 && (
-                  <div>
-                    <h5 className="font-medium mb-2">Detalles:</h5>
-                    <div className="max-h-40 overflow-y-auto space-y-1">
-                      {result.detalles.map((detalle, index) => (
-                        <div key={index} className="text-sm p-2 bg-gray-50 rounded flex items-center">
-                          <CheckCircle className="h-3 w-3 text-green-500 mr-2 flex-shrink-0" />
-                          {detalle}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              Procesando...
+            </>
+          ) : (
+            <>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Borrar y Reemplazar Promociones
             </>
           )}
-        </div>
+        </Button>
+
+        {result && (
+          <div className="mt-4">
+            <div className="bg-green-50 border border-green-200 rounded-md p-3 mb-4">
+              <p className="text-sm text-green-800">
+                ✅ Reemplazo completado: {result.borrados} borrados, {result.insertados} insertados, {result.errores}{" "}
+                errores
+              </p>
+            </div>
+
+            <div className="mb-4">
+              <h4 className="text-sm font-medium mb-2">Resultados del reemplazo:</h4>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-red-50 p-3 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-red-600">{result.borrados}</div>
+                  <div className="text-sm text-red-600">Borrados</div>
+                </div>
+                <div className="bg-green-50 p-3 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-green-600">{result.insertados}</div>
+                  <div className="text-sm text-green-600">Insertados</div>
+                </div>
+                <div className="bg-red-50 p-3 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-red-600">{result.errores}</div>
+                  <div className="text-sm text-red-600">Errores</div>
+                </div>
+              </div>
+            </div>
+
+            {result.detalles.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium mb-2">Detalles:</h4>
+                <div className="max-h-32 overflow-y-auto bg-gray-50 p-2 rounded text-xs space-y-1">
+                  {result.detalles.map((detalle, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      {detalle.includes("Error") ? (
+                        <span className="text-red-500">❌</span>
+                      ) : (
+                        <span className="text-green-500">✅</span>
+                      )}
+                      <span>{detalle}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {error && (
+          <div className="mt-4 bg-red-50 border border-red-200 rounded-md p-3">
+            <p className="text-sm text-red-800">❌ Error: {error}</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

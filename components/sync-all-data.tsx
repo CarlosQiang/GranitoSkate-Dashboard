@@ -269,14 +269,7 @@ export function SyncAllData({ onSyncComplete }: SyncAllDataProps) {
                     {step.error && <p className="text-xs text-red-600">{step.error}</p>}
                   </div>
                 </div>
-                <div className="text-right text-sm">
-                  {step.result && (
-                    <div className="space-y-1">
-                      <div className="text-green-600">+{step.result.insertados} insertados</div>
-                      {step.result.errores > 0 && <div className="text-red-600">{step.result.errores} errores</div>}
-                    </div>
-                  )}
-                </div>
+                {/* ELIMINÉ la sección de la derecha con "+0 insertados" */}
               </div>
             ))}
           </div>

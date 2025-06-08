@@ -44,11 +44,12 @@ export function SyncCustomersOnly({ onSyncComplete }: SyncCustomersOnlyProps) {
       const data = await response.json()
       console.log("✅ Reemplazo de clientes completado:", data)
 
+      // Usar la estructura correcta de la respuesta
       setResult({
-        borrados: data.borrados || 0,
-        insertados: data.insertados || 0,
-        errores: data.errores?.length || 0,
-        detalles: data.detalles || [],
+        borrados: data.results?.borrados || 0,
+        insertados: data.results?.insertados || 0,
+        errores: data.results?.errores || 0,
+        detalles: data.results?.detalles || [],
       })
 
       // Llamar al callback para actualizar el estado
