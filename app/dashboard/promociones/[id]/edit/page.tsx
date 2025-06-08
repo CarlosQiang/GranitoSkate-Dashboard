@@ -10,8 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { DatePicker } from "@/components/ui/date-picker"
-import { obtenerPromocionPorId, actualizarPromocion } from "@/lib/api/promociones"
-import { useToast } from "@/components/ui/use-toast"
+import { fetchPromocionById, actualizarPromocion } from "@/lib/api/promociones"
+import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, ArrowLeft } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -50,17 +50,18 @@ export default function EditarPromocionPage({ params }: { params: { id: string }
     async function loadPromotion() {
       try {
         setIsLoading(true)
+        setError(null)
         console.log(`🔍 Cargando promoción para editar: ${params.id}`)
 
-        const data = await obtenerPromocionPorId(params.id)
+        const data = await fetchPromocionById(params.id)
 
         if (data) {
           console.log("📋 Datos de promoción cargados:", data)
 
           setPromocion({
             id: data.id || params.id,
-            titulo: data.titulo || "",
-            descripcion: data.descripcion || "",
+            titulo: data.titulo || data.title || "",
+            descripcion: data.descripcion || data.description || "",
             tipo: data.tipo || "PORCENTAJE_DESCUENTO",
             valor: data.valor?.toString() || "0",
             fechaInicio: data.fechaInicio ? new Date(data.fechaInicio) : new Date(),
@@ -71,19 +72,20 @@ export default function EditarPromocionPage({ params }: { params: { id: string }
             limiteUsos: data.limiteUsos?.toString() || "100",
             compraMinima: data.compraMinima?.toString() || "0",
           })
-          setError(null)
         } else {
-          throw new Error("No se pudo obtener la información de la promoción")
+          throw new Error("No se encontró la promoción")
         }
       } catch (err) {
         console.error("❌ Error cargando promoción:", err)
-        setError(`No se pudo cargar la promoción: ${(err as Error).message}`)
+        setError(`Error cargando promoción: ${(err as Error).message}`)
       } finally {
         setIsLoading(false)
       }
     }
 
-    loadPromotion()
+    if (params.id) {
+      loadPromotion()
+    }
   }, [params.id])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -147,7 +149,7 @@ export default function EditarPromocionPage({ params }: { params: { id: string }
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon">
+          <Button variant="outline" size="icon" onClick={() => router.back()}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <Skeleton className="h-8 w-48" />
@@ -183,7 +185,12 @@ export default function EditarPromocionPage({ params }: { params: { id: string }
           <AlertDescription>{error}</AlertDescription>
         </Alert>
 
-        <Button onClick={() => router.push("/dashboard/promociones")}>Volver a promociones</Button>
+        <div className="flex gap-2">
+          <Button onClick={() => window.location.reload()}>Reintentar</Button>
+          <Button variant="outline" onClick={() => router.push("/dashboard/promociones")}>
+            Volver a promociones
+          </Button>
+        </div>
       </div>
     )
   }

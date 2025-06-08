@@ -65,16 +65,30 @@ export async function fetchPromocionById(id: string) {
     console.log(`🔍 Obteniendo promoción por ID: ${id}`)
 
     // Intentar obtener de Shopify primero
-    const shopifyResponse = await fetch(`${API_BASE_URL}/api/shopify/promotions/${id}`)
+    const shopifyResponse = await fetch(`/api/shopify/promotions/${id}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    })
 
     if (shopifyResponse.ok) {
       const shopifyData = await shopifyResponse.json()
-      console.log(`✅ Promoción encontrada en Shopify`)
-      return shopifyData
+      if (shopifyData.success && shopifyData.promocion) {
+        console.log(`✅ Promoción encontrada en Shopify`)
+        return shopifyData.promocion
+      }
     }
 
     // Si Shopify falla, intentar base de datos local
-    const dbResponse = await fetch(`${API_BASE_URL}/api/db/promociones/${id}`)
+    const dbResponse = await fetch(`/api/db/promociones/${id}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    })
 
     if (dbResponse.ok) {
       const dbData = await dbResponse.json()
@@ -93,7 +107,7 @@ export async function crearPromocion(data: PromocionData) {
   try {
     console.log(`📝 Creando promoción:`, data)
 
-    const response = await fetch(`${API_BASE_URL}/api/db/promociones`, {
+    const response = await fetch(`/api/db/promociones`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -119,7 +133,7 @@ export async function actualizarPromocion(id: string, data: Partial<PromocionDat
   try {
     console.log(`📝 Actualizando promoción ${id}:`, data)
 
-    const response = await fetch(`${API_BASE_URL}/api/db/promociones/${id}`, {
+    const response = await fetch(`/api/db/promociones/${id}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -140,3 +154,35 @@ export async function actualizarPromocion(id: string, data: Partial<PromocionDat
     throw error
   }
 }
+
+export async function eliminarPromocion(id: string) {
+  try {
+    console.log(`🗑️ Eliminando promoción ${id}`)
+
+    const response = await fetch(`/api/db/promociones/${id}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || "Error al eliminar promoción")
+    }
+
+    const result = await response.json()
+    console.log(`✅ Promoción eliminada exitosamente`)
+    return result
+  } catch (error) {
+    console.error("❌ Error al eliminar promoción:", error)
+    throw error
+  }
+}
+
+// Exportar alias para compatibilidad con código existente
+export const obtenerPromociones = fetchPromociones
+export const obtenerPromocionPorId = fetchPromocionById
+export const createPromocion = crearPromocion
+export const updatePromocion = actualizarPromocion
+export const deletePromocion = eliminarPromocion
