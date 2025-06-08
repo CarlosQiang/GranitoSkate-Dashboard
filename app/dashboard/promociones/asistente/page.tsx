@@ -15,7 +15,8 @@ import { FormularioResumenPromocion } from "@/components/asistente-promociones/r
 import { crearPromocion } from "@/lib/api/promociones"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, ArrowLeft } from "lucide-react"
-import type { TipoPromocion } from "@/types/promociones"
+import type { TipoPromocion } from "@/components/asistente-promociones/tipo-promocion"
+import type { ObjetivoPromocion } from "@/components/asistente-promociones/objetivo-promocion"
 import { useToast } from "@/components/ui/use-toast"
 
 export default function AsistentePromocionesPage() {
@@ -29,7 +30,7 @@ export default function AsistentePromocionesPage() {
   const [datosPromocion, setDatosPromocion] = useState({
     titulo: "Nueva promoción",
     tipo: "PORCENTAJE_DESCUENTO" as TipoPromocion,
-    objetivo: "TODOS_LOS_PRODUCTOS",
+    objetivo: "TODOS_LOS_PRODUCTOS" as ObjetivoPromocion,
     valor: "10", // Valor por defecto
     condiciones: {
       cantidadMinima: "0",
@@ -93,19 +94,28 @@ export default function AsistentePromocionesPage() {
       // Preparar los datos para la API
       const promocionData = {
         titulo: datosPromocion.titulo,
+        descripcion: `Promoción ${datosPromocion.tipo} con ${valor}${datosPromocion.tipo === "PORCENTAJE_DESCUENTO" ? "%" : "€"} de descuento`,
         tipo: datosPromocion.tipo,
+        objetivo: datosPromocion.objetivo,
         valor: datosPromocion.valor,
         fechaInicio: datosPromocion.programacion.fechaInicio,
         fechaFin: datosPromocion.programacion.fechaFin,
         codigo: datosPromocion.codigo.usarCodigo ? datosPromocion.codigo.codigo : null,
+        limitarUsos: datosPromocion.programacion.limitarUsos,
+        limiteUsos: datosPromocion.programacion.limitarUsos
+          ? Number.parseInt(datosPromocion.programacion.limiteUsos)
+          : null,
+        compraMinima: datosPromocion.condiciones.cantidadMinima
+          ? Number.parseFloat(datosPromocion.condiciones.cantidadMinima)
+          : null,
       }
 
-      console.log("Datos de promoción a enviar:", promocionData)
+      console.log("📝 Datos de promoción a enviar:", promocionData)
 
       // Llamar a la API para crear la promoción
       const resultado = await crearPromocion(promocionData)
 
-      console.log("Promoción creada:", resultado)
+      console.log("✅ Promoción creada:", resultado)
 
       // Mostrar mensaje de éxito
       toast({
@@ -116,8 +126,9 @@ export default function AsistentePromocionesPage() {
       // Redirigir a la página de promociones
       router.push("/dashboard/promociones")
     } catch (err) {
-      console.error("Error al crear promoción:", err)
+      console.error("❌ Error al crear promoción:", err)
       setError(`Error al crear promoción: ${(err as Error).message}`)
+    } finally {
       setIsLoading(false)
     }
   }

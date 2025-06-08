@@ -5,48 +5,66 @@
  */
 export async function fetchPromociones(filter = "todas"): Promise<any[]> {
   try {
-    // Intentar primero con la API de Shopify
-    console.log("Obteniendo promociones con filtro:", filter)
+    console.log("🔍 Obteniendo promociones con filtro:", filter)
 
-    // Usar ruta relativa para evitar problemas de CORS
+    // Primero intentar con Shopify GraphQL
     const shopifyResponse = await fetch(`/api/shopify/promotions?filter=${filter}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
       },
+      cache: "no-store",
     })
 
-    if (!shopifyResponse.ok) {
-      throw new Error(`Error al obtener promociones de Shopify: ${shopifyResponse.statusText}`)
-    }
-
-    const data = await shopifyResponse.json()
-    return data
-  } catch (shopifyError) {
-    console.error("Error al obtener promociones de Shopify:", shopifyError)
-
-    try {
-      // Fallback: intentar con la base de datos local
-      console.log("Intentando obtener promociones desde la base de datos local")
-
-      // Usar ruta relativa para evitar problemas de CORS
-      const dbResponse = await fetch(`/api/db/promociones?filter=${filter}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (!dbResponse.ok) {
-        throw new Error(`Error al obtener promociones de la base de datos: ${dbResponse.statusText}`)
+    if (shopifyResponse.ok) {
+      const shopifyData = await shopifyResponse.json()
+      if (shopifyData.success && Array.isArray(shopifyData.promociones)) {
+        console.log(`✅ Promociones de Shopify: ${shopifyData.promociones.length}`)
+        return shopifyData.promociones
       }
-
-      const data = await dbResponse.json()
-      return data
-    } catch (dbError) {
-      console.error("Error al obtener promociones de la base de datos:", dbError)
-      throw new Error("No se pudieron cargar las promociones. Intente nuevamente más tarde.")
     }
+
+    // Fallback: intentar con REST API
+    console.log("⚠️ Intentando con REST API...")
+    const restResponse = await fetch(`/api/shopify/promotions/rest?filter=${filter}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    })
+
+    if (restResponse.ok) {
+      const restData = await restResponse.json()
+      if (restData.success && Array.isArray(restData.promociones)) {
+        console.log(`✅ Promociones REST: ${restData.promociones.length}`)
+        return restData.promociones
+      }
+    }
+
+    // Último fallback: base de datos local
+    console.log("⚠️ Intentando con base de datos local...")
+    const dbResponse = await fetch(`/api/db/promociones?filter=${filter}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    })
+
+    if (dbResponse.ok) {
+      const dbData = await dbResponse.json()
+      if (Array.isArray(dbData)) {
+        console.log(`✅ Promociones DB: ${dbData.length}`)
+        return dbData
+      }
+    }
+
+    console.log("⚠️ No se encontraron promociones")
+    return []
+  } catch (error) {
+    console.error("❌ Error al obtener promociones:", error)
+    throw new Error("No se pudieron cargar las promociones. Intente nuevamente más tarde.")
   }
 }
 

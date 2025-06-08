@@ -1,28 +1,22 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import shopifyClient from "@/lib/shopify"
-// Remover esta línea:
-// import { getBaseUrl } from "@/lib/utils"
 
-export async function GET(request: Request) {
-  try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
+const SHOPIFY_GRAPHQL_URL = `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-10/graphql.json`
 
-    // Consulta GraphQL simplificada para obtener descuentos
-    const query = `
+const DISCOUNTS_QUERY = `
   query getDiscounts($first: Int!) {
-    codeDiscountNodes(first: $first) {
+    discountNodes(first: $first) {
       edges {
         node {
           id
-          codeDiscount {
-            ... on DiscountCodeBasic {
+          discount {
+            ... on DiscountCodeApp {
               title
+              status
+              startsAt
+              endsAt
+              usageLimit
               codes(first: 1) {
                 edges {
                   node {
@@ -30,32 +24,29 @@ export async function GET(request: Request) {
                   }
                 }
               }
+              discountClass
+            }
+            ... on DiscountCodeBasic {
+              title
+              status
               startsAt
               endsAt
-              status
-              summary
               usageLimit
-              customerGets {
-                value {
-                  ... on DiscountPercentage {
-                    percentage
-                  }
-                  ... on DiscountAmount {
-                    amount {
-                      amount
-                      currencyCode
-                    }
+              codes(first: 1) {
+                edges {
+                  node {
+                    code
                   }
                 }
               }
-              customerSelection {
-                ... on DiscountCustomerAll {
-                  allCustomers
-                }
-              }
+              summary
             }
             ... on DiscountCodeBxgy {
               title
+              status
+              startsAt
+              endsAt
+              usageLimit
               codes(first: 1) {
                 edges {
                   node {
@@ -63,14 +54,14 @@ export async function GET(request: Request) {
                   }
                 }
               }
-              startsAt
-              endsAt
-              status
               summary
-              usageLimit
             }
             ... on DiscountCodeFreeShipping {
               title
+              status
+              startsAt
+              endsAt
+              usageLimit
               codes(first: 1) {
                 edges {
                   node {
@@ -78,53 +69,34 @@ export async function GET(request: Request) {
                   }
                 }
               }
+              summary
+            }
+            ... on DiscountAutomaticApp {
+              title
+              status
               startsAt
               endsAt
-              status
-              summary
-              usageLimit
+              discountClass
             }
-          }
-        }
-      }
-    }
-    automaticDiscountNodes(first: $first) {
-      edges {
-        node {
-          id
-          automaticDiscount {
             ... on DiscountAutomaticBasic {
               title
+              status
               startsAt
               endsAt
-              status
               summary
-              customerGets {
-                value {
-                  ... on DiscountPercentage {
-                    percentage
-                  }
-                  ... on DiscountAmount {
-                    amount {
-                      amount
-                      currencyCode
-                    }
-                  }
-                }
-              }
             }
             ... on DiscountAutomaticBxgy {
               title
+              status
               startsAt
               endsAt
-              status
               summary
             }
             ... on DiscountAutomaticFreeShipping {
               title
+              status
               startsAt
               endsAt
-              status
               summary
             }
           }
@@ -134,119 +106,138 @@ export async function GET(request: Request) {
   }
 `
 
-    try {
-      // Cambiar la llamada para usar variables
-      const variables = { first: 50 }
-      const data = await shopifyClient.request(query, variables)
-
-      if (!data || (!data.codeDiscountNodes && !data.automaticDiscountNodes)) {
-        console.warn("Respuesta de GraphQL sin datos de descuentos")
-        return NextResponse.json({
-          success: true,
-          promociones: [],
-          message: "No se encontraron promociones en Shopify",
-        })
-      }
-
-      const codeDiscountNodes = data.codeDiscountNodes?.edges?.map((edge) => edge.node) || []
-      const automaticDiscountNodes = data.automaticDiscountNodes?.edges?.map((edge) => edge.node) || []
-
-      const discountNodes = [...codeDiscountNodes, ...automaticDiscountNodes]
-
-      // Transformar los datos a un formato más amigable
-      const promociones = discountNodes.map((node) => {
-        const discount = node.codeDiscount || node.automaticDiscount
-        const idPart = node.id.split("/").pop() || node.id
-        const isAutomatic = !!node.automaticDiscount
-
-        // Determinar el tipo de descuento
-        let tipo = "PORCENTAJE_DESCUENTO"
-        let valor = 0
-
-        if (discount.customerGets && discount.customerGets.value) {
-          if (discount.customerGets.value.percentage) {
-            tipo = "PORCENTAJE_DESCUENTO"
-            valor = Number.parseFloat(discount.customerGets.value.percentage)
-          } else if (discount.customerGets.value.amount) {
-            tipo = "CANTIDAD_FIJA_DESCUENTO"
-            valor = Number.parseFloat(discount.customerGets.value.amount.amount)
-          }
-        }
-
-        // Obtener código si existe
-        let codigo = null
-        if (!isAutomatic && discount.codes && discount.codes.edges && discount.codes.edges.length > 0) {
-          codigo = discount.codes.edges[0].node.code
-        }
-
-        // Determinar estado
-        const activa = discount.status === "ACTIVE"
-
-        return {
-          id: node.id,
-          shopify_id: idPart,
-          titulo: discount.title || `Promoción ${idPart}`,
-          descripcion: discount.summary || "",
-          tipo,
-          valor,
-          codigo,
-          objetivo: null,
-          objetivo_id: null,
-          condiciones: null,
-          fecha_inicio: discount.startsAt,
-          fecha_fin: discount.endsAt || null,
-          activa,
-          limite_uso: discount.usageLimit || null,
-          contador_uso:
-            !isAutomatic && discount.codes && discount.codes.edges ? discount.codes.edges[0].node.usageCount : 0,
-          es_automatica: isAutomatic,
-        }
-      })
-
-      return NextResponse.json({
-        success: true,
-        promociones,
-        total: promociones.length,
-      })
-    } catch (graphqlError) {
-      console.error("Error en la consulta GraphQL:", graphqlError)
-
-      // Intentar con la API REST como fallback
-      // Y cambiar esta parte en el catch de GraphQL:
-      try {
-        console.log("🔄 Intentando obtener promociones con REST API...")
-
-        const restResponse = await fetch("/api/shopify/promotions/rest", {
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: request.headers.get("Cookie") || "",
-          },
-        })
-
-        if (restResponse.ok) {
-          const restData = await restResponse.json()
-          return NextResponse.json(restData)
-        }
-
-        throw new Error(`REST API falló: ${restResponse.status}`)
-      } catch (restError) {
-        console.error("Error en la API REST:", restError)
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Error al obtener promociones de Shopify",
-            details: "Tanto GraphQL como REST API fallaron",
-          },
-          { status: 500 },
-        )
-      }
+export async function GET(request: Request) {
+  try {
+    // Verificar autenticación
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
+
+    const { searchParams } = new URL(request.url)
+    const filter = searchParams.get("filter") || "todas"
+
+    console.log("🔍 Obteniendo promociones de Shopify GraphQL...")
+
+    // Verificar credenciales
+    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
+      console.error("❌ Credenciales de Shopify no configuradas")
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Credenciales de Shopify no configuradas",
+          promociones: [],
+        },
+        { status: 500 },
+      )
+    }
+
+    // Hacer consulta GraphQL
+    const response = await fetch(SHOPIFY_GRAPHQL_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
+      },
+      body: JSON.stringify({
+        query: DISCOUNTS_QUERY,
+        variables: {
+          first: 50,
+        },
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error("❌ Error en GraphQL:", response.status, errorText)
+      throw new Error(`Error GraphQL: ${response.status}`)
+    }
+
+    const data = await response.json()
+
+    if (data.errors) {
+      console.error("❌ Errores GraphQL:", data.errors)
+      throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`)
+    }
+
+    const discountNodes = data.data?.discountNodes?.edges || []
+    console.log(`✅ Descuentos obtenidos: ${discountNodes.length}`)
+
+    // Procesar descuentos
+    const promociones = discountNodes.map((edge: any) => {
+      const node = edge.node
+      const discount = node.discount
+
+      // Extraer código si existe
+      let codigo = null
+      if (discount.codes?.edges?.length > 0) {
+        codigo = discount.codes.edges[0].node.code
+      }
+
+      // Determinar tipo de descuento
+      let tipo = "AUTOMATICO"
+      let valor = 0
+
+      if (discount.summary) {
+        // Parsear el summary para obtener información del descuento
+        const summary = discount.summary.toLowerCase()
+        if (summary.includes("%")) {
+          tipo = "PORCENTAJE_DESCUENTO"
+          const match = summary.match(/(\d+)%/)
+          if (match) valor = Number.parseInt(match[1])
+        } else if (summary.includes("€") || summary.includes("$")) {
+          tipo = "CANTIDAD_FIJA"
+          const match = summary.match(/(\d+(?:\.\d+)?)[€$]/)
+          if (match) valor = Number.parseFloat(match[1])
+        } else if (summary.includes("shipping") || summary.includes("envío")) {
+          tipo = "ENVIO_GRATIS"
+        } else if (summary.includes("buy") && summary.includes("get")) {
+          tipo = "COMPRA_X_LLEVA_Y"
+        }
+      }
+
+      return {
+        id: node.id,
+        shopify_id: node.id,
+        titulo: discount.title || "Promoción sin título",
+        descripcion: discount.summary || "",
+        tipo,
+        valor,
+        codigo,
+        fecha_inicio: discount.startsAt,
+        fecha_fin: discount.endsAt,
+        estado: discount.status,
+        activa: discount.status === "ACTIVE",
+        limite_uso: discount.usageLimit,
+        es_automatica: !codigo,
+      }
+    })
+
+    // Filtrar según el parámetro
+    let promocionesFiltradas = promociones
+    if (filter === "activas") {
+      promocionesFiltradas = promociones.filter((p) => p.estado === "ACTIVE")
+    } else if (filter === "programadas") {
+      promocionesFiltradas = promociones.filter((p) => p.estado === "SCHEDULED")
+    } else if (filter === "expiradas") {
+      promocionesFiltradas = promociones.filter((p) => p.estado === "EXPIRED")
+    }
+
+    console.log(`✅ Promociones filtradas (${filter}): ${promocionesFiltradas.length}`)
+
+    return NextResponse.json({
+      success: true,
+      promociones: promocionesFiltradas,
+      total: promocionesFiltradas.length,
+    })
   } catch (error) {
-    console.error("Error al obtener promociones:", error)
+    console.error("❌ Error al obtener promociones:", error)
     return NextResponse.json(
       {
         success: false,
         error: "Error al obtener promociones",
+        details: error instanceof Error ? error.message : "Error desconocido",
+        promociones: [],
       },
       { status: 500 },
     )
