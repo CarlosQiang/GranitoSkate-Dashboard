@@ -141,6 +141,28 @@ export async function crearPromocion(data: PromocionData) {
   try {
     console.log(`📝 Creando promoción:`, data)
 
+    // Intentar crear en Shopify primero
+    try {
+      const shopifyResponse = await fetch(`/api/shopify/promotions/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      })
+
+      if (shopifyResponse.ok) {
+        const shopifyData = await shopifyResponse.json()
+        if (shopifyData.success) {
+          console.log(`✅ Promoción creada en Shopify:`, shopifyData.promocion)
+          return shopifyData.promocion
+        }
+      }
+    } catch (shopifyError) {
+      console.error("Error al crear promoción en Shopify:", shopifyError)
+    }
+
+    // Si Shopify falla, crear localmente
     const response = await fetch(`/api/db/promociones`, {
       method: "POST",
       headers: {
@@ -167,6 +189,28 @@ export async function actualizarPromocion(id: string, data: Partial<PromocionDat
   try {
     console.log(`📝 Actualizando promoción ${id}:`, data)
 
+    // Intentar actualizar en Shopify primero
+    try {
+      const shopifyResponse = await fetch(`/api/shopify/promotions/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      })
+
+      if (shopifyResponse.ok) {
+        const shopifyData = await shopifyResponse.json()
+        if (shopifyData.success) {
+          console.log(`✅ Promoción actualizada en Shopify:`, shopifyData.promocion)
+          return shopifyData.promocion
+        }
+      }
+    } catch (shopifyError) {
+      console.error("Error al actualizar promoción en Shopify:", shopifyError)
+    }
+
+    // Si Shopify falla, actualizar localmente
     const response = await fetch(`/api/db/promociones/${id}`, {
       method: "PUT",
       headers: {
@@ -193,6 +237,27 @@ export async function eliminarPromocion(id: string) {
   try {
     console.log(`🗑️ Eliminando promoción ${id}`)
 
+    // Intentar eliminar de Shopify primero
+    try {
+      const shopifyResponse = await fetch(`/api/shopify/promotions/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (shopifyResponse.ok) {
+        const shopifyData = await shopifyResponse.json()
+        if (shopifyData.success) {
+          console.log(`✅ Promoción eliminada de Shopify`)
+          return shopifyData
+        }
+      }
+    } catch (shopifyError) {
+      console.error("Error al eliminar promoción de Shopify:", shopifyError)
+    }
+
+    // Si Shopify falla, eliminar localmente
     const response = await fetch(`/api/db/promociones/${id}`, {
       method: "DELETE",
       headers: {
@@ -210,31 +275,6 @@ export async function eliminarPromocion(id: string) {
     return result
   } catch (error) {
     console.error("❌ Error al eliminar promoción:", error)
-    throw error
-  }
-}
-
-export async function sincronizarPromociones() {
-  try {
-    console.log(`🔄 Sincronizando promociones con Shopify`)
-
-    const response = await fetch(`/api/sync/promociones`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || "Error al sincronizar promociones")
-    }
-
-    const result = await response.json()
-    console.log(`✅ Sincronización completada:`, result)
-    return result
-  } catch (error) {
-    console.error("❌ Error al sincronizar promociones:", error)
     throw error
   }
 }
