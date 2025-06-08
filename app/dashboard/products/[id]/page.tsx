@@ -15,7 +15,6 @@ import { fetchProductById, updateProduct, deleteProduct } from "@/lib/api/produc
 import { generateSeoMetafields } from "@/lib/seo-utils"
 import { SeoPreview } from "@/components/seo-preview"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { ImageUpload } from "@/components/image-upload"
 import { LoadingState } from "@/components/loading-state"
 import { InventoryEditor } from "@/components/inventory-editor"
 import {
@@ -37,7 +36,6 @@ export default function ProductPage({ params }) {
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState(null)
-  const [productImage, setProductImage] = useState(null)
   const [product, setProduct] = useState(null)
   const [inventoryQuantity, setInventoryQuantity] = useState(0)
   const [variantId, setVariantId] = useState(null)
@@ -90,11 +88,6 @@ export default function ProductPage({ params }) {
             },
           ],
         })
-
-        // Establecer la imagen si existe
-        if (productData.featuredImage?.url) {
-          setProductImage(productData.featuredImage.url)
-        }
       } catch (err) {
         console.error("Error loading product:", err)
         setError(err.message || "No se pudo cargar el producto")
@@ -135,10 +128,6 @@ export default function ProductPage({ params }) {
     })
   }
 
-  const handleImageChange = (imageData) => {
-    setProductImage(imageData)
-  }
-
   const handleInventoryUpdate = (newQuantity) => {
     setInventoryQuantity(newQuantity)
   }
@@ -155,8 +144,6 @@ export default function ProductPage({ params }) {
         status: formData.status,
         vendor: formData.vendor,
         productType: formData.productType,
-        // Añadir la imagen si existe y ha cambiado
-        ...(productImage !== product?.featuredImage?.url && { image: productImage }),
         // Generar automáticamente los metafields de SEO
         metafields: generateSeoMetafields(formData.title, formData.description),
       }
@@ -286,7 +273,6 @@ export default function ProductPage({ params }) {
         <TabsList>
           <TabsTrigger value="general">Información básica</TabsTrigger>
           <TabsTrigger value="variants">Precio y stock</TabsTrigger>
-          <TabsTrigger value="images">Imágenes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
@@ -422,24 +408,6 @@ export default function ProductPage({ params }) {
             initialQuantity={inventoryQuantity}
             onUpdate={handleInventoryUpdate}
           />
-        </TabsContent>
-
-        <TabsContent value="images" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Imágenes del producto</CardTitle>
-              <CardDescription>Añade imágenes para mostrar tu producto</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-4">
-                <Label>Imagen principal</Label>
-                <ImageUpload onImageChange={handleImageChange} initialImage={productImage} />
-                <p className="text-sm text-muted-foreground">
-                  Esta imagen se mostrará como la principal en la tienda y en los listados de productos.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
     </div>

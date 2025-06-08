@@ -179,7 +179,6 @@ export async function GET(request: Request) {
       let valor = 0
 
       if (discount.summary) {
-        // Parsear el summary para obtener información del descuento
         const summary = discount.summary.toLowerCase()
         if (summary.includes("%")) {
           tipo = "PORCENTAJE_DESCUENTO"
@@ -204,8 +203,8 @@ export async function GET(request: Request) {
         tipo,
         valor,
         codigo,
-        fecha_inicio: discount.startsAt,
-        fecha_fin: discount.endsAt,
+        fechaInicio: discount.startsAt,
+        fechaFin: discount.endsAt,
         estado: discount.status,
         activa: discount.status === "ACTIVE",
         limite_uso: discount.usageLimit,

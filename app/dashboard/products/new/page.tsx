@@ -12,7 +12,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Save, AlertCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { createProduct } from "@/lib/api/products"
-import { ImageUpload } from "@/components/image-upload"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function NewProductPage() {
@@ -20,7 +19,6 @@ export default function NewProductPage() {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [productImage, setProductImage] = useState(null)
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -49,10 +47,6 @@ export default function NewProductPage() {
     })
   }
 
-  const handleImageChange = (imageData) => {
-    setProductImage(imageData)
-  }
-
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
@@ -75,7 +69,6 @@ export default function NewProductPage() {
       // Preparar los datos para la API
       const productData = {
         ...formData,
-        image: productImage,
       }
 
       console.log("Enviando datos para crear producto:", productData)
@@ -138,7 +131,6 @@ export default function NewProductPage() {
         <TabsList>
           <TabsTrigger value="basic">Información básica</TabsTrigger>
           <TabsTrigger value="price">Precio y stock</TabsTrigger>
-          <TabsTrigger value="images">Imágenes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="basic" className="space-y-6">
@@ -272,24 +264,6 @@ export default function NewProductPage() {
                     placeholder="10"
                   />
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="images" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Imágenes del producto</CardTitle>
-              <CardDescription>Añade imágenes para mostrar tu producto</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-4">
-                <Label>Imagen principal</Label>
-                <ImageUpload onImageChange={handleImageChange} />
-                <p className="text-sm text-muted-foreground">
-                  Esta imagen se mostrará como la principal en la tienda y en los listados de productos.
-                </p>
               </div>
             </CardContent>
           </Card>

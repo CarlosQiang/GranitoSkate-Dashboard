@@ -19,27 +19,44 @@ export async function fetchPromociones(filter = "todas") {
     console.log(`🔍 Obteniendo promociones con filtro: ${filter}`)
 
     // Intentar obtener de Shopify primero
-    const shopifyResponse = await fetch(`${API_BASE_URL}/api/shopify/promotions?filter=${filter}`)
+    const shopifyResponse = await fetch(`/api/shopify/promotions?filter=${filter}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    })
 
     if (shopifyResponse.ok) {
       const shopifyData = await shopifyResponse.json()
-      console.log(`✅ Promociones de Shopify: ${shopifyData.length}`)
-      return shopifyData
+      if (shopifyData.success && Array.isArray(shopifyData.promociones)) {
+        console.log(`✅ Promociones de Shopify: ${shopifyData.promociones.length}`)
+        return shopifyData.promociones
+      }
     }
 
     // Si Shopify falla, intentar base de datos local
-    const dbResponse = await fetch(`${API_BASE_URL}/api/db/promociones?filter=${filter}`)
+    const dbResponse = await fetch(`/api/db/promociones?filter=${filter}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    })
 
     if (dbResponse.ok) {
       const dbData = await dbResponse.json()
-      console.log(`✅ Promociones de BD local: ${dbData.length}`)
-      return dbData
+      if (Array.isArray(dbData)) {
+        console.log(`✅ Promociones de BD local: ${dbData.length}`)
+        return dbData
+      }
     }
 
-    throw new Error("No se pudieron cargar las promociones")
+    console.log("⚠️ No se encontraron promociones")
+    return []
   } catch (error) {
     console.error("❌ Error al obtener promociones:", error)
-    throw error
+    throw new Error("No se pudieron cargar las promociones. Intente nuevamente más tarde.")
   }
 }
 

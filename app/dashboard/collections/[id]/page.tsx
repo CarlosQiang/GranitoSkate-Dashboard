@@ -281,25 +281,7 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2">
-            <div>
-              <div className="aspect-square rounded-md overflow-hidden bg-muted mb-4">
-                {collection.image ? (
-                  <Image
-                    src={collection.image.url || "/placeholder.svg"}
-                    alt={collection.title}
-                    width={500}
-                    height={500}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="h-full w-full flex items-center justify-center bg-muted">
-                    <Tags className="h-12 w-12 text-muted-foreground" />
-                  </div>
-                )}
-              </div>
-            </div>
-
+          <div className="space-y-6">
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="title">

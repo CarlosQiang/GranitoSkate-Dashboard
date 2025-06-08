@@ -12,24 +12,16 @@ import Link from "next/link"
 
 interface Promocion {
   id: string
-  titulo?: string
-  title?: string
+  titulo: string
   descripcion?: string
-  description?: string
   tipo?: string
-  valueType?: string
   valor?: number | string
-  value?: number | string
   fechaInicio?: string
-  startsAt?: string
   fechaFin?: string | null
-  endsAt?: string | null
   codigo?: string | null
-  code?: string | null
   activa?: boolean
-  status?: string
-  usageCount?: number
-  usageLimit?: number
+  estado?: string
+  limite_uso?: number
 }
 
 interface PromocionesListClientProps {
@@ -50,9 +42,15 @@ export function PromocionesListClient({ filter }: PromocionesListClientProps) {
       const data = await fetchPromociones(filter)
       console.log(`✅ Promociones cargadas:`, data)
 
-      // Asegurar que data es un array
-      const promocionesArray = Array.isArray(data) ? data : []
-      setPromociones(promocionesArray)
+      // Validar que data es un array y tiene elementos válidos
+      if (Array.isArray(data)) {
+        const promocionesValidas = data.filter((p) => p && typeof p === "object" && p.id)
+        setPromociones(promocionesValidas)
+        console.log(`✅ Promociones válidas: ${promocionesValidas.length}`)
+      } else {
+        console.warn("⚠️ Data no es un array:", data)
+        setPromociones([])
+      }
     } catch (err) {
       console.error("❌ Error al cargar promociones:", err)
       setError("Error al cargar promociones. Intente nuevamente.")
@@ -66,69 +64,48 @@ export function PromocionesListClient({ filter }: PromocionesListClientProps) {
     cargarPromociones()
   }, [filter])
 
-  // Función para obtener el título de manera segura
-  const obtenerTitulo = (promocion: Promocion): string => {
-    return promocion?.titulo || promocion?.title || "Sin título"
-  }
-
-  // Función para obtener la descripción de manera segura
-  const obtenerDescripcion = (promocion: Promocion): string => {
-    return promocion?.descripcion || promocion?.description || "Sin descripción"
-  }
-
   // Función para obtener el valor de manera segura
   const obtenerValor = (promocion: Promocion): string => {
-    const valor = promocion?.valor || promocion?.value || 0
-    const tipo = promocion?.tipo || promocion?.valueType || "PERCENTAGE_DISCOUNT"
+    const valor = promocion.valor || 0
+    const tipo = promocion.tipo || "AUTOMATICO"
 
-    if (tipo === "PERCENTAGE_DISCOUNT" || tipo === "percentage") {
+    if (tipo.includes("PORCENTAJE") || tipo === "percentage") {
       return `${valor}%`
-    } else if (tipo === "FIXED_AMOUNT_DISCOUNT" || tipo === "fixed_amount") {
+    } else if (tipo.includes("CANTIDAD") || tipo === "fixed_amount") {
       return `€${valor}`
-    } else if (tipo === "FREE_SHIPPING" || tipo === "free_shipping") {
+    } else if (tipo.includes("ENVIO") || tipo === "free_shipping") {
       return "Envío gratis"
     }
     return `${valor}`
   }
 
   // Función para obtener el estado de manera segura
-  const obtenerEstado = (
-    promocion: Promocion,
-  ): { texto: string; variant: "default" | "secondary" | "destructive" | "outline" } => {
-    if (promocion?.activa === true || promocion?.status === "active") {
-      return { texto: "Activa", variant: "default" }
-    } else if (promocion?.status === "expired") {
-      return { texto: "Expirada", variant: "destructive" }
-    } else if (promocion?.status === "scheduled") {
-      return { texto: "Programada", variant: "secondary" }
+  const obtenerEstado = (promocion: Promocion) => {
+    if (promocion.activa === true || promocion.estado === "ACTIVE") {
+      return { texto: "Activa", variant: "default" as const }
+    } else if (promocion.estado === "EXPIRED") {
+      return { texto: "Expirada", variant: "destructive" as const }
+    } else if (promocion.estado === "SCHEDULED") {
+      return { texto: "Programada", variant: "secondary" as const }
     } else {
-      return { texto: "Inactiva", variant: "outline" }
+      return { texto: "Inactiva", variant: "outline" as const }
     }
   }
 
   // Función para obtener las fechas de manera segura
   const obtenerFechas = (promocion: Promocion): string => {
-    const fechaInicio = promocion?.fechaInicio || promocion?.startsAt
-    const fechaFin = promocion?.fechaFin || promocion?.endsAt
-
-    if (!fechaInicio) return "Sin fecha"
+    if (!promocion.fechaInicio) return "Sin fecha"
 
     try {
-      const inicio = new Date(fechaInicio).toLocaleDateString()
-      if (fechaFin) {
-        const fin = new Date(fechaFin).toLocaleDateString()
+      const inicio = new Date(promocion.fechaInicio).toLocaleDateString()
+      if (promocion.fechaFin) {
+        const fin = new Date(promocion.fechaFin).toLocaleDateString()
         return `${inicio} - ${fin}`
       }
       return `Desde ${inicio}`
     } catch {
       return "Fecha inválida"
     }
-  }
-
-  // Función para obtener el ID limpio
-  const obtenerIdLimpio = (promocion: Promocion): string => {
-    if (!promocion?.id) return ""
-    return extractShopifyId(promocion.id)
   }
 
   if (loading) {
@@ -193,24 +170,18 @@ export function PromocionesListClient({ filter }: PromocionesListClientProps) {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {promociones.map((promocion) => {
-        if (!promocion) return null
-
         const estado = obtenerEstado(promocion)
-        const idLimpio = obtenerIdLimpio(promocion)
-
-        // Si no podemos obtener un ID válido, no mostrar la promoción
-        if (!idLimpio) {
-          console.warn("Promoción sin ID válido:", promocion)
-          return null
-        }
+        const idLimpio = extractShopifyId(promocion.id)
 
         return (
           <Card key={promocion.id} className="overflow-hidden hover:shadow-md transition-shadow">
             <CardHeader className="pb-2">
               <div className="flex justify-between items-start">
                 <div>
-                  <CardTitle className="text-lg">{obtenerTitulo(promocion)}</CardTitle>
-                  <CardDescription className="mt-1 line-clamp-2">{obtenerDescripcion(promocion)}</CardDescription>
+                  <CardTitle className="text-lg">{promocion.titulo}</CardTitle>
+                  <CardDescription className="mt-1 line-clamp-2">
+                    {promocion.descripcion || "Sin descripción"}
+                  </CardDescription>
                 </div>
                 <Badge variant={estado.variant}>{estado.texto}</Badge>
               </div>
@@ -228,20 +199,17 @@ export function PromocionesListClient({ filter }: PromocionesListClientProps) {
                 </div>
               </div>
 
-              {(promocion.codigo || promocion.code) && (
+              {promocion.codigo && (
                 <div>
                   <p className="text-sm font-medium">Código:</p>
-                  <p className="text-sm font-mono bg-muted p-1 rounded">{promocion.codigo || promocion.code}</p>
+                  <p className="text-sm font-mono bg-muted p-1 rounded">{promocion.codigo}</p>
                 </div>
               )}
 
-              {(promocion.usageCount !== undefined || promocion.usageLimit !== undefined) && (
+              {promocion.limite_uso && (
                 <div className="flex justify-between items-center text-sm">
-                  <span className="font-medium">Usos:</span>
-                  <span>
-                    {promocion.usageCount || 0}
-                    {promocion.usageLimit ? ` / ${promocion.usageLimit}` : ""}
-                  </span>
+                  <span className="font-medium">Límite de usos:</span>
+                  <span>{promocion.limite_uso}</span>
                 </div>
               )}
 
