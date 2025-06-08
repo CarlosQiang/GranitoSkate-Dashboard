@@ -1,29 +1,28 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { CalendarIcon, ArrowLeft, Loader2 } from "lucide-react"
+import { format } from "date-fns"
+import { es } from "date-fns/locale"
+import { cn } from "@/lib/utils"
 import { crearPromocion } from "@/lib/api/promociones"
-import { ArrowLeft, Loader2, Calendar, Tag, Percent, DollarSign, ShoppingBag } from "lucide-react"
-import Link from "next/link"
-import { useToast } from "@/hooks/use-toast"
-import { SelectorProductos } from "@/components/asistente-promociones/selector-productos"
-import { SelectorColecciones } from "@/components/asistente-promociones/selector-colecciones"
+import { toast } from "sonner"
 
-export default function AsistentePromocionPage() {
+export default function AsistentePromocionesPage() {
   const router = useRouter()
-  const { toast } = useToast()
   const [loading, setLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState("informacion")
-
   const [formData, setFormData] = useState({
     titulo: "",
     descripcion: "",
@@ -31,437 +30,255 @@ export default function AsistentePromocionPage() {
     objetivo: "TODOS_LOS_PRODUCTOS",
     valor: "",
     codigo: "",
-    usarCodigo: true,
-    fechaInicio: "",
-    fechaFin: "",
+    fechaInicio: new Date(),
+    fechaFin: null as Date | null,
     limitarUsos: false,
-    limiteUsos: "100",
+    limiteUsos: "",
     compraMinima: "",
-    productosSeleccionados: [],
-    coleccionesSeleccionadas: [],
   })
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.titulo.trim()) {
-      toast({
-        title: "Error",
-        description: "El título es obligatorio",
-        variant: "destructive",
-      })
+    if (!formData.titulo || !formData.valor) {
+      toast.error("Por favor completa los campos obligatorios")
       return
     }
 
-    if (!formData.valor && formData.tipo !== "ENVIO_GRATIS") {
-      toast({
-        title: "Error",
-        description: "El valor del descuento es obligatorio",
-        variant: "destructive",
-      })
-      return
-    }
-
+    setLoading(true)
     try {
-      setLoading(true)
+      console.log("📝 Creando promoción:", formData)
 
       const promocionData = {
         titulo: formData.titulo,
-        descripcion: formData.descripcion || formData.titulo,
+        descripcion: formData.descripcion,
         tipo: formData.tipo,
         objetivo: formData.objetivo,
-        valor: formData.tipo === "ENVIO_GRATIS" ? 0 : formData.valor,
-        fechaInicio: formData.fechaInicio || new Date().toISOString(),
-        fechaFin: formData.fechaFin || null,
-        codigo: formData.usarCodigo ? formData.codigo : null,
+        valor: formData.valor,
+        codigo: formData.codigo || null,
+        fechaInicio: formData.fechaInicio.toISOString(),
+        fechaFin: formData.fechaFin ? formData.fechaFin.toISOString() : null,
         limitarUsos: formData.limitarUsos,
         limiteUsos: formData.limitarUsos ? Number.parseInt(formData.limiteUsos) : null,
         compraMinima: formData.compraMinima ? Number.parseFloat(formData.compraMinima) : null,
-        productosSeleccionados: formData.productosSeleccionados,
-        coleccionesSeleccionadas: formData.coleccionesSeleccionadas,
       }
 
-      const resultado = await crearPromocion(promocionData)
-      console.log("Promoción creada:", resultado)
+      const result = await crearPromocion(promocionData)
+      console.log("Promoción creada:", result)
 
-      toast({
-        title: "¡Éxito!",
-        description: "Promoción creada correctamente",
-      })
-
-      // Redirigir a la página de promociones después de un breve retraso
-      setTimeout(() => {
-        router.push("/dashboard/promociones")
-      }, 1000)
+      toast.success("Promoción creada exitosamente")
+      router.push("/dashboard/promociones")
     } catch (error) {
-      console.error("Error al crear promoción:", error)
-      toast({
-        title: "Error",
-        description: "No se pudo crear la promoción. Intente nuevamente.",
-        variant: "destructive",
-      })
+      console.error("Error creando promoción:", error)
+      toast.error("Error al crear la promoción")
     } finally {
       setLoading(false)
     }
   }
 
-  const nextTab = () => {
-    if (activeTab === "informacion") setActiveTab("configuracion")
-    else if (activeTab === "configuracion") setActiveTab("condiciones")
-    else if (activeTab === "condiciones") setActiveTab("resumen")
-  }
-
-  const prevTab = () => {
-    if (activeTab === "resumen") setActiveTab("condiciones")
-    else if (activeTab === "condiciones") setActiveTab("configuracion")
-    else if (activeTab === "configuracion") setActiveTab("informacion")
-  }
-
-  const getTabIcon = (tab) => {
-    switch (tab) {
-      case "informacion":
-        return <Tag className="h-4 w-4" />
-      case "configuracion":
-        return <Percent className="h-4 w-4" />
-      case "condiciones":
-        return <Calendar className="h-4 w-4" />
-      case "resumen":
-        return <ShoppingBag className="h-4 w-4" />
-      default:
-        return null
-    }
-  }
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/dashboard/promociones">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Volver
-          </Link>
+    <div className="container max-w-2xl py-10">
+      <div className="flex items-center gap-4 mb-8">
+        <Button variant="outline" size="icon" onClick={() => router.back()}>
+          <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Crear Promoción</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Nueva Promoción</h1>
           <p className="text-muted-foreground">Crea una nueva promoción para tu tienda</p>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Asistente de Promociones</CardTitle>
-          <CardDescription>Completa los pasos para crear una nueva promoción</CardDescription>
+          <CardTitle>Información de la Promoción</CardTitle>
+          <CardDescription>Completa los datos para crear tu promoción</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid grid-cols-4 mb-8">
-              <TabsTrigger value="informacion">
-                {getTabIcon("informacion")}
-                <span className="ml-2">Información</span>
-              </TabsTrigger>
-              <TabsTrigger value="configuracion">
-                {getTabIcon("configuracion")}
-                <span className="ml-2">Configuración</span>
-              </TabsTrigger>
-              <TabsTrigger value="condiciones">
-                {getTabIcon("condiciones")}
-                <span className="ml-2">Condiciones</span>
-              </TabsTrigger>
-              <TabsTrigger value="resumen">
-                {getTabIcon("resumen")}
-                <span className="ml-2">Resumen</span>
-              </TabsTrigger>
-            </TabsList>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Título */}
+            <div className="space-y-2">
+              <Label htmlFor="titulo">Título de la promoción *</Label>
+              <Input
+                id="titulo"
+                value={formData.titulo}
+                onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
+                placeholder="Ej: Descuento de verano 20%"
+                required
+              />
+            </div>
 
-            <TabsContent value="informacion" className="space-y-6">
-              <div className="space-y-4">
+            {/* Descripción */}
+            <div className="space-y-2">
+              <Label htmlFor="descripcion">Descripción</Label>
+              <Textarea
+                id="descripcion"
+                value={formData.descripcion}
+                onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+                placeholder="Describe tu promoción..."
+                rows={3}
+              />
+            </div>
+
+            {/* Tipo de descuento */}
+            <div className="space-y-2">
+              <Label>Tipo de descuento</Label>
+              <Select value={formData.tipo} onValueChange={(value) => setFormData({ ...formData, tipo: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PORCENTAJE_DESCUENTO">Porcentaje de descuento</SelectItem>
+                  <SelectItem value="CANTIDAD_FIJA_DESCUENTO">Cantidad fija de descuento</SelectItem>
+                  <SelectItem value="ENVIO_GRATIS">Envío gratis</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Valor del descuento */}
+            {formData.tipo !== "ENVIO_GRATIS" && (
+              <div className="space-y-2">
+                <Label htmlFor="valor">
+                  Valor del descuento * {formData.tipo === "PORCENTAJE_DESCUENTO" ? "(%)" : "(€)"}
+                </Label>
+                <Input
+                  id="valor"
+                  type="number"
+                  value={formData.valor}
+                  onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
+                  placeholder={formData.tipo === "PORCENTAJE_DESCUENTO" ? "20" : "10.00"}
+                  min="0"
+                  step={formData.tipo === "PORCENTAJE_DESCUENTO" ? "1" : "0.01"}
+                  required
+                />
+              </div>
+            )}
+
+            {/* Código de descuento */}
+            <div className="space-y-2">
+              <Label htmlFor="codigo">Código de descuento (opcional)</Label>
+              <Input
+                id="codigo"
+                value={formData.codigo}
+                onChange={(e) => setFormData({ ...formData, codigo: e.target.value })}
+                placeholder="VERANO2024"
+              />
+              <p className="text-sm text-muted-foreground">Si no especificas un código, será un descuento automático</p>
+            </div>
+
+            {/* Fechas */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Fecha de inicio *</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !formData.fechaInicio && "text-muted-foreground",
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {formData.fechaInicio ? (
+                        format(formData.fechaInicio, "PPP", { locale: es })
+                      ) : (
+                        <span>Seleccionar fecha</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={formData.fechaInicio}
+                      onSelect={(date) => date && setFormData({ ...formData, fechaInicio: date })}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Fecha de fin (opcional)</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !formData.fechaFin && "text-muted-foreground",
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {formData.fechaFin ? (
+                        format(formData.fechaFin, "PPP", { locale: es })
+                      ) : (
+                        <span>Sin fecha límite</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={formData.fechaFin}
+                      onSelect={(date) => setFormData({ ...formData, fechaFin: date })}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
+            {/* Límite de usos */}
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="limitarUsos"
+                  checked={formData.limitarUsos}
+                  onCheckedChange={(checked) => setFormData({ ...formData, limitarUsos: checked })}
+                />
+                <Label htmlFor="limitarUsos">Limitar número de usos</Label>
+              </div>
+
+              {formData.limitarUsos && (
                 <div className="space-y-2">
-                  <Label htmlFor="titulo">Título de la promoción *</Label>
+                  <Label htmlFor="limiteUsos">Número máximo de usos</Label>
                   <Input
-                    id="titulo"
-                    value={formData.titulo}
-                    onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
-                    placeholder="Ej: Descuento de verano 20%"
-                    required
+                    id="limiteUsos"
+                    type="number"
+                    value={formData.limiteUsos}
+                    onChange={(e) => setFormData({ ...formData, limiteUsos: e.target.value })}
+                    placeholder="100"
+                    min="1"
                   />
                 </div>
+              )}
+            </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="descripcion">Descripción</Label>
-                  <Textarea
-                    id="descripcion"
-                    value={formData.descripcion}
-                    onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                    placeholder="Describe tu promoción..."
-                    rows={3}
-                  />
-                </div>
+            {/* Compra mínima */}
+            <div className="space-y-2">
+              <Label htmlFor="compraMinima">Compra mínima (€) (opcional)</Label>
+              <Input
+                id="compraMinima"
+                type="number"
+                value={formData.compraMinima}
+                onChange={(e) => setFormData({ ...formData, compraMinima: e.target.value })}
+                placeholder="50.00"
+                min="0"
+                step="0.01"
+              />
+            </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="objetivo">Aplicar a</Label>
-                  <Select
-                    value={formData.objetivo}
-                    onValueChange={(value) => setFormData({ ...formData, objetivo: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="TODOS_LOS_PRODUCTOS">Todos los productos</SelectItem>
-                      <SelectItem value="PRODUCTOS_ESPECIFICOS">Productos específicos</SelectItem>
-                      <SelectItem value="COLECCIONES">Colecciones</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {formData.objetivo === "PRODUCTOS_ESPECIFICOS" && (
-                  <SelectorProductos
-                    productosSeleccionados={formData.productosSeleccionados}
-                    onChange={(productos) => setFormData({ ...formData, productosSeleccionados: productos })}
-                  />
-                )}
-
-                {formData.objetivo === "COLECCIONES" && (
-                  <SelectorColecciones
-                    coleccionesSeleccionadas={formData.coleccionesSeleccionadas}
-                    onChange={(colecciones) => setFormData({ ...formData, coleccionesSeleccionadas: colecciones })}
-                  />
-                )}
-
-                <div className="flex justify-end">
-                  <Button onClick={nextTab}>Siguiente</Button>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="configuracion" className="space-y-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Tipo de descuento</Label>
-                  <RadioGroup
-                    value={formData.tipo}
-                    onValueChange={(value) => setFormData({ ...formData, tipo: value })}
-                    className="grid grid-cols-1 gap-4 sm:grid-cols-3"
-                  >
-                    <div className="flex items-center space-x-2 rounded-md border p-4">
-                      <RadioGroupItem value="PORCENTAJE_DESCUENTO" id="porcentaje" />
-                      <Label htmlFor="porcentaje" className="flex items-center">
-                        <Percent className="mr-2 h-4 w-4" />
-                        Porcentaje
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2 rounded-md border p-4">
-                      <RadioGroupItem value="CANTIDAD_FIJA" id="cantidad" />
-                      <Label htmlFor="cantidad" className="flex items-center">
-                        <DollarSign className="mr-2 h-4 w-4" />
-                        Cantidad fija
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2 rounded-md border p-4">
-                      <RadioGroupItem value="ENVIO_GRATIS" id="envio" />
-                      <Label htmlFor="envio" className="flex items-center">
-                        <ShoppingBag className="mr-2 h-4 w-4" />
-                        Envío gratis
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                {formData.tipo !== "ENVIO_GRATIS" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="valor">
-                      {formData.tipo === "PORCENTAJE_DESCUENTO"
-                        ? "Porcentaje de descuento *"
-                        : "Cantidad a descontar *"}
-                    </Label>
-                    <div className="flex items-center">
-                      <Input
-                        id="valor"
-                        type="number"
-                        value={formData.valor}
-                        onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
-                        placeholder={formData.tipo === "PORCENTAJE_DESCUENTO" ? "20" : "10"}
-                        required
-                        className="flex-1"
-                      />
-                      <span className="ml-2 text-lg font-medium">
-                        {formData.tipo === "PORCENTAJE_DESCUENTO" ? "%" : "€"}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="usarCodigo">Usar código de descuento</Label>
-                    <Switch
-                      id="usarCodigo"
-                      checked={formData.usarCodigo}
-                      onCheckedChange={(checked) => setFormData({ ...formData, usarCodigo: checked })}
-                    />
-                  </div>
-
-                  {formData.usarCodigo && (
-                    <div className="space-y-2">
-                      <Label htmlFor="codigo">Código de descuento</Label>
-                      <Input
-                        id="codigo"
-                        value={formData.codigo}
-                        onChange={(e) => setFormData({ ...formData, codigo: e.target.value })}
-                        placeholder="VERANO2024"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex justify-between">
-                  <Button variant="outline" onClick={prevTab}>
-                    Anterior
-                  </Button>
-                  <Button onClick={nextTab}>Siguiente</Button>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="condiciones" className="space-y-6">
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="fechaInicio">Fecha de inicio</Label>
-                    <Input
-                      id="fechaInicio"
-                      type="datetime-local"
-                      value={formData.fechaInicio}
-                      onChange={(e) => setFormData({ ...formData, fechaInicio: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="fechaFin">Fecha de fin (opcional)</Label>
-                    <Input
-                      id="fechaFin"
-                      type="datetime-local"
-                      value={formData.fechaFin}
-                      onChange={(e) => setFormData({ ...formData, fechaFin: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="limitarUsos">Limitar número de usos</Label>
-                    <Switch
-                      id="limitarUsos"
-                      checked={formData.limitarUsos}
-                      onCheckedChange={(checked) => setFormData({ ...formData, limitarUsos: checked })}
-                    />
-                  </div>
-
-                  {formData.limitarUsos && (
-                    <div className="space-y-2">
-                      <Label htmlFor="limiteUsos">Número máximo de usos</Label>
-                      <Input
-                        id="limiteUsos"
-                        type="number"
-                        value={formData.limiteUsos}
-                        onChange={(e) => setFormData({ ...formData, limiteUsos: e.target.value })}
-                        min="1"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="compraMinima">Compra mínima (opcional)</Label>
-                  <div className="flex items-center">
-                    <Input
-                      id="compraMinima"
-                      type="number"
-                      value={formData.compraMinima}
-                      onChange={(e) => setFormData({ ...formData, compraMinima: e.target.value })}
-                      placeholder="50"
-                      className="flex-1"
-                    />
-                    <span className="ml-2 text-lg font-medium">€</span>
-                  </div>
-                </div>
-
-                <div className="flex justify-between">
-                  <Button variant="outline" onClick={prevTab}>
-                    Anterior
-                  </Button>
-                  <Button onClick={nextTab}>Siguiente</Button>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="resumen" className="space-y-6">
-              <div className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Resumen de la promoción</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <h3 className="font-medium">Título</h3>
-                        <p>{formData.titulo || "Sin título"}</p>
-                      </div>
-                      <div>
-                        <h3 className="font-medium">Tipo</h3>
-                        <p>
-                          {formData.tipo === "PORCENTAJE_DESCUENTO" && "Porcentaje de descuento"}
-                          {formData.tipo === "CANTIDAD_FIJA" && "Cantidad fija"}
-                          {formData.tipo === "ENVIO_GRATIS" && "Envío gratis"}
-                        </p>
-                      </div>
-                      {formData.tipo !== "ENVIO_GRATIS" && (
-                        <div>
-                          <h3 className="font-medium">Valor</h3>
-                          <p>
-                            {formData.valor} {formData.tipo === "PORCENTAJE_DESCUENTO" ? "%" : "€"}
-                          </p>
-                        </div>
-                      )}
-                      <div>
-                        <h3 className="font-medium">Aplicado a</h3>
-                        <p>
-                          {formData.objetivo === "TODOS_LOS_PRODUCTOS" && "Todos los productos"}
-                          {formData.objetivo === "PRODUCTOS_ESPECIFICOS" && "Productos específicos"}
-                          {formData.objetivo === "COLECCIONES" && "Colecciones"}
-                        </p>
-                      </div>
-                      {formData.usarCodigo && (
-                        <div>
-                          <h3 className="font-medium">Código</h3>
-                          <p>{formData.codigo || "Sin código"}</p>
-                        </div>
-                      )}
-                      <div>
-                        <h3 className="font-medium">Período</h3>
-                        <p>
-                          {formData.fechaInicio ? new Date(formData.fechaInicio).toLocaleDateString() : "Desde hoy"}
-                          {formData.fechaFin
-                            ? ` hasta ${new Date(formData.fechaFin).toLocaleDateString()}`
-                            : " sin fecha de fin"}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <div className="flex justify-between">
-                  <Button variant="outline" onClick={prevTab}>
-                    Anterior
-                  </Button>
-                  <Button onClick={handleSubmit} disabled={loading} className="bg-granito hover:bg-granito/90">
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Crear promoción
-                  </Button>
-                </div>
-              </div>
-            </TabsContent>
-          </Tabs>
+            {/* Botones */}
+            <div className="flex justify-end gap-4 pt-6">
+              <Button type="button" variant="outline" onClick={() => router.back()}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Crear Promoción
+              </Button>
+            </div>
+          </form>
         </CardContent>
       </Card>
     </div>
