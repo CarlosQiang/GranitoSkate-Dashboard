@@ -11,9 +11,10 @@ interface DatePickerProps {
   date: Date | null
   setDate: (date: Date | null) => void
   className?: string
+  placeholder?: string
 }
 
-export function DatePicker({ date, setDate, className }: DatePickerProps) {
+export function DatePicker({ date, setDate, className, placeholder = "Seleccionar fecha" }: DatePickerProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -22,10 +23,10 @@ export function DatePicker({ date, setDate, className }: DatePickerProps) {
           className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground", className)}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(date, "PPP", { locale: es }) : <span>Seleccionar fecha</span>}
+          {date ? format(date, "PPP", { locale: es }) : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0">
+      <PopoverContent className="w-auto p-0" align="start">
         <Calendar mode="single" selected={date || undefined} onSelect={setDate} initialFocus />
       </PopoverContent>
     </Popover>

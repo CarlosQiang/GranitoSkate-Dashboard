@@ -13,8 +13,23 @@ import { DatePicker } from "@/components/ui/date-picker"
 import { obtenerPromocionPorId, actualizarPromocion } from "@/lib/api/promociones"
 import { useToast } from "@/components/ui/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, ArrowLeft, Calendar } from "lucide-react"
+import { AlertCircle, ArrowLeft } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+
+interface PromocionData {
+  id?: string
+  titulo: string
+  descripcion?: string
+  tipo: string
+  valor: string
+  fechaInicio: Date | null
+  fechaFin: Date | null
+  codigo?: string
+  activa: boolean
+  limitarUsos?: boolean
+  limiteUsos?: string
+  compraMinima?: string
+}
 
 export default function EditarPromocionPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -22,27 +37,46 @@ export default function EditarPromocionPage({ params }: { params: { id: string }
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [promocion, setPromocion] = useState<any>(null)
+  const [promocion, setPromocion] = useState<PromocionData>({
+    titulo: "",
+    tipo: "PORCENTAJE_DESCUENTO",
+    valor: "0",
+    fechaInicio: new Date(),
+    fechaFin: null,
+    activa: true,
+  })
 
-  // Actualizar el useEffect:
   useEffect(() => {
     async function loadPromotion() {
       try {
         setIsLoading(true)
-        console.log(`Obteniendo promoción para editar: ${params.id}`)
+        console.log(`🔍 Cargando promoción para editar: ${params.id}`)
 
-        // Intentar obtener la promoción usando la función actualizada
         const data = await obtenerPromocionPorId(params.id)
 
         if (data) {
-          console.log("Datos de promoción cargados:", data)
-          setPromocion(data)
+          console.log("📋 Datos de promoción cargados:", data)
+
+          setPromocion({
+            id: data.id || params.id,
+            titulo: data.titulo || "",
+            descripcion: data.descripcion || "",
+            tipo: data.tipo || "PORCENTAJE_DESCUENTO",
+            valor: data.valor?.toString() || "0",
+            fechaInicio: data.fechaInicio ? new Date(data.fechaInicio) : new Date(),
+            fechaFin: data.fechaFin ? new Date(data.fechaFin) : null,
+            codigo: data.codigo || "",
+            activa: data.activa !== undefined ? data.activa : true,
+            limitarUsos: data.limitarUsos || false,
+            limiteUsos: data.limiteUsos?.toString() || "100",
+            compraMinima: data.compraMinima?.toString() || "0",
+          })
           setError(null)
         } else {
           throw new Error("No se pudo obtener la información de la promoción")
         }
       } catch (err) {
-        console.error("Error obteniendo detalles del descuento:", err)
+        console.error("❌ Error cargando promoción:", err)
         setError(`No se pudo cargar la promoción: ${(err as Error).message}`)
       } finally {
         setIsLoading(false)
@@ -59,35 +93,50 @@ export default function EditarPromocionPage({ params }: { params: { id: string }
       setIsSaving(true)
       setError(null)
 
-      // Validar que el valor sea un número positivo
-      const valor = Number.parseFloat(promocion.valor)
-      if (isNaN(valor) || valor <= 0) {
-        setError("El valor de la promoción debe ser un número mayor que cero")
-        setIsSaving(false)
+      // Validaciones
+      if (!promocion.titulo.trim()) {
+        setError("El título es obligatorio")
         return
       }
 
-      // Preparar los datos para la API
+      const valor = Number.parseFloat(promocion.valor)
+      if (isNaN(valor) || valor < 0) {
+        setError("El valor debe ser un número válido mayor o igual a 0")
+        return
+      }
+
+      if (!promocion.fechaInicio) {
+        setError("La fecha de inicio es obligatoria")
+        return
+      }
+
+      // Preparar datos para envío
       const datosActualizados = {
-        titulo: promocion.titulo,
+        titulo: promocion.titulo.trim(),
+        descripcion: promocion.descripcion?.trim() || promocion.titulo.trim(),
         tipo: promocion.tipo,
         valor: promocion.valor,
-        fechaInicio: promocion.fechaInicio,
-        fechaFin: promocion.fechaFin,
-        codigo: promocion.codigo,
+        fechaInicio: promocion.fechaInicio.toISOString(),
+        fechaFin: promocion.fechaFin ? promocion.fechaFin.toISOString() : null,
+        codigo: promocion.codigo?.trim() || null,
         activa: promocion.activa,
+        limitarUsos: promocion.limitarUsos,
+        limiteUsos: promocion.limitarUsos ? promocion.limiteUsos : null,
+        compraMinima: promocion.compraMinima || null,
       }
+
+      console.log("📤 Enviando datos actualizados:", datosActualizados)
 
       await actualizarPromocion(params.id, datosActualizados)
 
       toast({
-        title: "Promoción actualizada",
+        title: "✅ Promoción actualizada",
         description: "La promoción ha sido actualizada correctamente",
       })
 
       router.push(`/dashboard/promociones/${params.id}`)
     } catch (err) {
-      console.error("Error al actualizar la promoción:", err)
+      console.error("❌ Error al actualizar promoción:", err)
       setError(`Error al actualizar la promoción: ${(err as Error).message}`)
     } finally {
       setIsSaving(false)
@@ -118,7 +167,7 @@ export default function EditarPromocionPage({ params }: { params: { id: string }
     )
   }
 
-  if (error || !promocion) {
+  if (error && !promocion.titulo) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2">
@@ -163,28 +212,41 @@ export default function EditarPromocionPage({ params }: { params: { id: string }
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="titulo">Título</Label>
+              <Label htmlFor="titulo">Título *</Label>
               <Input
                 id="titulo"
-                value={promocion.titulo || ""}
+                value={promocion.titulo}
                 onChange={(e) => setPromocion({ ...promocion, titulo: e.target.value })}
                 required
+                placeholder="Nombre de la promoción"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="valor">Valor del descuento</Label>
+              <Label htmlFor="descripcion">Descripción</Label>
+              <Input
+                id="descripcion"
+                value={promocion.descripcion || ""}
+                onChange={(e) => setPromocion({ ...promocion, descripcion: e.target.value })}
+                placeholder="Descripción opcional"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="valor">Valor del descuento *</Label>
               <div className="flex items-center gap-2">
                 <Input
                   id="valor"
                   type="number"
-                  min="0.01"
+                  min="0"
                   step="0.01"
-                  value={promocion.valor || ""}
+                  value={promocion.valor}
                   onChange={(e) => setPromocion({ ...promocion, valor: e.target.value })}
                   required
                 />
-                <div className="w-24 flex-shrink-0">{promocion.tipo === "PORCENTAJE_DESCUENTO" ? "%" : "€"}</div>
+                <div className="w-24 flex-shrink-0 text-sm text-muted-foreground">
+                  {promocion.tipo === "PORCENTAJE_DESCUENTO" ? "%" : "€"}
+                </div>
               </div>
             </div>
 
@@ -194,31 +256,27 @@ export default function EditarPromocionPage({ params }: { params: { id: string }
                 id="codigo"
                 value={promocion.codigo || ""}
                 onChange={(e) => setPromocion({ ...promocion, codigo: e.target.value })}
-                placeholder="Opcional"
+                placeholder="Código opcional (ej: DESCUENTO10)"
               />
             </div>
 
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
-                <Label>Fecha de inicio</Label>
-                <div className="flex items-center gap-2 border rounded-md p-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <DatePicker
-                    date={promocion.fechaInicio}
-                    setDate={(date) => setPromocion({ ...promocion, fechaInicio: date })}
-                  />
-                </div>
+                <Label>Fecha de inicio *</Label>
+                <DatePicker
+                  date={promocion.fechaInicio}
+                  setDate={(date) => setPromocion({ ...promocion, fechaInicio: date })}
+                  placeholder="Seleccionar fecha de inicio"
+                />
               </div>
 
               <div className="space-y-2">
                 <Label>Fecha de fin</Label>
-                <div className="flex items-center gap-2 border rounded-md p-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <DatePicker
-                    date={promocion.fechaFin}
-                    setDate={(date) => setPromocion({ ...promocion, fechaFin: date })}
-                  />
-                </div>
+                <DatePicker
+                  date={promocion.fechaFin}
+                  setDate={(date) => setPromocion({ ...promocion, fechaFin: date })}
+                  placeholder="Sin fecha de fin"
+                />
               </div>
             </div>
 
