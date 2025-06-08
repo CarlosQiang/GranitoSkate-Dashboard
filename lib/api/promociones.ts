@@ -35,8 +35,27 @@ export async function obtenerPromociones(filtro = "todas") {
     })
 
     if (!shopifyResponse.ok) {
-      console.error(`❌ Error al obtener promociones de Shopify: ${shopifyResponse.status}`)
-      // Si no podemos obtener promociones de ninguna fuente, devolvemos un array vacío
+      const errorText = await shopifyResponse.text()
+      console.error(`❌ Error al obtener promociones de Shopify: ${shopifyResponse.status}`, errorText)
+
+      // Intentar con REST API directamente
+      console.log("🔄 Intentando con REST API directamente...")
+      const restResponse = await fetch(getApiUrl("/api/shopify/promotions/rest"), {
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (restResponse.ok) {
+        const restData = await restResponse.json()
+        if (restData.success && restData.promociones) {
+          console.log(`✅ Promociones obtenidas via REST: ${restData.promociones.length}`)
+          return filtrarPromociones(restData.promociones, filtro)
+        }
+      }
+
+      // Si todo falla, devolver array vacío
       return []
     }
 
@@ -52,6 +71,25 @@ export async function obtenerPromociones(filtro = "todas") {
     return []
   } catch (error) {
     console.error("❌ Error al obtener promociones:", error)
+
+    // Como último recurso, intentar obtener de la base de datos sin cache
+    try {
+      const fallbackResponse = await fetch(getApiUrl("/api/db/promociones"), {
+        cache: "no-cache",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (fallbackResponse.ok) {
+        const fallbackData = await fallbackResponse.json()
+        console.log(`🔄 Fallback: promociones de BD: ${fallbackData.length || 0}`)
+        return filtrarPromociones(fallbackData || [], filtro)
+      }
+    } catch (fallbackError) {
+      console.error("❌ Error en fallback:", fallbackError)
+    }
+
     throw new Error("No se pudieron obtener las promociones. Por favor, inténtalo de nuevo.")
   }
 }

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import shopifyClient from "@/lib/shopify"
-import { gql } from "graphql-request"
+import { getBaseUrl } from "@/lib/utils"
 
 export async function GET(request: Request) {
   try {
@@ -12,90 +12,133 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    // Consulta GraphQL para obtener descuentos
-    const query = gql`
-      query {
-        discountNodes(first: 50) {
-          edges {
-            node {
-              id
-              discount {
-                ... on DiscountAutomaticApp {
-                  title
-                  startsAt
-                  endsAt
-                  status
-                  discountClass
-                  combinesWith {
-                    orderDiscounts
-                    productDiscounts
-                    shippingDiscounts
+    // Consulta GraphQL simplificada para obtener descuentos
+    const query = `
+  query getDiscounts($first: Int!) {
+    codeDiscountNodes(first: $first) {
+      edges {
+        node {
+          id
+          codeDiscount {
+            ... on DiscountCodeBasic {
+              title
+              codes(first: 1) {
+                edges {
+                  node {
+                    code
                   }
-                  customerGets {
-                    items {
-                      ... on DiscountProducts {
-                        products(first: 5) {
-                          edges {
-                            node {
-                              id
-                              title
-                            }
-                          }
-                        }
-                      }
-                    }
-                    value {
-                      ... on DiscountPercentage {
-                        percentage
-                      }
-                      ... on DiscountAmount {
-                        amount {
-                          amount
-                          currencyCode
-                        }
-                      }
+                }
+              }
+              startsAt
+              endsAt
+              status
+              summary
+              usageLimit
+              customerGets {
+                value {
+                  ... on DiscountPercentage {
+                    percentage
+                  }
+                  ... on DiscountAmount {
+                    amount {
+                      amount
+                      currencyCode
                     }
                   }
                 }
-                ... on DiscountCodeApp {
-                  title
-                  codes(first: 1) {
-                    edges {
-                      node {
-                        code
-                        usageCount
-                      }
-                    }
+              }
+              customerSelection {
+                ... on DiscountCustomerAll {
+                  allCustomers
+                }
+              }
+            }
+            ... on DiscountCodeBxgy {
+              title
+              codes(first: 1) {
+                edges {
+                  node {
+                    code
                   }
-                  startsAt
-                  endsAt
-                  status
-                  usageLimit
-                  customerGets {
-                    value {
-                      ... on DiscountPercentage {
-                        percentage
-                      }
-                      ... on DiscountAmount {
-                        amount {
-                          amount
-                          currencyCode
-                        }
-                      }
+                }
+              }
+              startsAt
+              endsAt
+              status
+              summary
+              usageLimit
+            }
+            ... on DiscountCodeFreeShipping {
+              title
+              codes(first: 1) {
+                edges {
+                  node {
+                    code
+                  }
+                }
+              }
+              startsAt
+              endsAt
+              status
+              summary
+              usageLimit
+            }
+          }
+        }
+      }
+    }
+    automaticDiscountNodes(first: $first) {
+      edges {
+        node {
+          id
+          automaticDiscount {
+            ... on DiscountAutomaticBasic {
+              title
+              startsAt
+              endsAt
+              status
+              summary
+              customerGets {
+                value {
+                  ... on DiscountPercentage {
+                    percentage
+                  }
+                  ... on DiscountAmount {
+                    amount {
+                      amount
+                      currencyCode
                     }
                   }
                 }
               }
             }
+            ... on DiscountAutomaticBxgy {
+              title
+              startsAt
+              endsAt
+              status
+              summary
+            }
+            ... on DiscountAutomaticFreeShipping {
+              title
+              startsAt
+              endsAt
+              status
+              summary
+            }
           }
         }
       }
-    `
+    }
+  }
+`
 
     try {
-      const data = await shopifyClient.request(query)
+      // Cambiar la llamada para usar variables
+      const variables = { first: 50 }
+      const data = await shopifyClient.request(query, variables)
 
-      if (!data || !data.discountNodes || !data.discountNodes.edges) {
+      if (!data || (!data.codeDiscountNodes && !data.automaticDiscountNodes)) {
         console.warn("Respuesta de GraphQL sin datos de descuentos")
         return NextResponse.json({
           success: true,
@@ -104,13 +147,16 @@ export async function GET(request: Request) {
         })
       }
 
-      const discountNodes = data.discountNodes.edges.map((edge) => edge.node)
+      const codeDiscountNodes = data.codeDiscountNodes?.edges?.map((edge) => edge.node) || []
+      const automaticDiscountNodes = data.automaticDiscountNodes?.edges?.map((edge) => edge.node) || []
+
+      const discountNodes = [...codeDiscountNodes, ...automaticDiscountNodes]
 
       // Transformar los datos a un formato más amigable
       const promociones = discountNodes.map((node) => {
-        const discount = node.discount
+        const discount = node.codeDiscount || node.automaticDiscount
         const idPart = node.id.split("/").pop() || node.id
-        const isAutomatic = !discount.codes
+        const isAutomatic = !!node.automaticDiscount
 
         // Determinar el tipo de descuento
         let tipo = "PORCENTAJE_DESCUENTO"
@@ -139,7 +185,7 @@ export async function GET(request: Request) {
           id: node.id,
           shopify_id: idPart,
           titulo: discount.title || `Promoción ${idPart}`,
-          descripcion: "",
+          descripcion: discount.summary || "",
           tipo,
           valor,
           codigo,
@@ -166,21 +212,28 @@ export async function GET(request: Request) {
 
       // Intentar con la API REST como fallback
       try {
-        console.log("Intentando obtener promociones con REST API...")
+        console.log("🔄 Intentando obtener promociones con REST API...")
 
-        // Implementar llamada a REST API aquí si es necesario
-
-        return NextResponse.json({
-          success: true,
-          promociones: [],
-          message: "No se pudieron obtener promociones con GraphQL, y la API REST no está implementada",
+        const restResponse = await fetch(`${getBaseUrl()}/api/shopify/promotions/rest`, {
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: request.headers.get("Cookie") || "",
+          },
         })
+
+        if (restResponse.ok) {
+          const restData = await restResponse.json()
+          return NextResponse.json(restData)
+        }
+
+        throw new Error(`REST API falló: ${restResponse.status}`)
       } catch (restError) {
         console.error("Error en la API REST:", restError)
         return NextResponse.json(
           {
             success: false,
             error: "Error al obtener promociones de Shopify",
+            details: "Tanto GraphQL como REST API fallaron",
           },
           { status: 500 },
         )
