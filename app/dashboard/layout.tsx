@@ -1,14 +1,16 @@
 import type React from "react"
-import { DashboardNav } from "@/components/dashboard-nav"
-import { ThemeProvider } from "@/contexts/theme-context"
+import { requireAuth } from "@/lib/auth-check"
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  // Verificar autenticación para todas las páginas del dashboard
+  const session = await requireAuth()
+
   return (
-    <ThemeProvider>
-      <div className="main-layout">
-        <DashboardNav />
-        <main className="main-content p-4 md:p-6">{children}</main>
-      </div>
-    </ThemeProvider>
+    // Contenido del layout
+    <div>{children}</div>
   )
 }
