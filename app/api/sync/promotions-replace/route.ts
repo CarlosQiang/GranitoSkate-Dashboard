@@ -12,21 +12,14 @@ export async function POST() {
       detalles: [],
     }
 
-    // PASO 1: Crear tabla simple
+    // PASO 1: Crear tabla simple (copiando estructura de productos)
     try {
       await sql`
         CREATE TABLE IF NOT EXISTS promociones (
           id SERIAL PRIMARY KEY,
           shopify_id VARCHAR(255) UNIQUE NOT NULL,
           titulo VARCHAR(255),
-          descripcion TEXT,
-          tipo VARCHAR(50),
-          valor DECIMAL(10,2),
-          codigo VARCHAR(100),
-          activa BOOLEAN DEFAULT true,
-          fecha_inicio TIMESTAMP,
-          fecha_fin TIMESTAMP,
-          fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          descripcion TEXT
         );
       `
     } catch (error) {
@@ -51,26 +44,14 @@ export async function POST() {
           id: "2054072041736",
           titulo: "Promoción de prueba",
           descripcion: "100% off entire order • Minimum purchase of €12.00",
-          tipo: "PERCENTAGE_DISCOUNT",
-          valor: 100.0,
-          codigo: "PROMO100",
-          activa: true,
         },
-        {
-          id: "2054072074504",
-          titulo: "Promoción automática",
-          descripcion: "Descuento automático del 10%",
-          tipo: "PERCENTAGE_DISCOUNT",
-          valor: 10.0,
-          codigo: null,
-          activa: true,
-        },
+        { id: "2054072074504", titulo: "Promoción automática", descripcion: "Descuento automático del 10%" },
       ]
 
       for (const promocion of promocionesShopify) {
         await sql`
-          INSERT INTO promociones (shopify_id, titulo, descripcion, tipo, valor, codigo, activa) 
-          VALUES (${promocion.id}, ${promocion.titulo}, ${promocion.descripcion}, ${promocion.tipo}, ${promocion.valor}, ${promocion.codigo}, ${promocion.activa})
+          INSERT INTO promociones (shopify_id, titulo, descripcion) 
+          VALUES (${promocion.id}, ${promocion.titulo}, ${promocion.descripcion})
         `
         results.insertados++
         results.detalles.push(`✅ Insertado: ${promocion.titulo}`)
