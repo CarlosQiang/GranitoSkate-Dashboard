@@ -15,6 +15,8 @@ import { crearPromocion } from "@/lib/api/promociones"
 import { ArrowLeft, Loader2, Calendar, Tag, Percent, DollarSign, ShoppingBag } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
+import { SelectorProductos } from "@/components/asistente-promociones/selector-productos"
+import { SelectorColecciones } from "@/components/asistente-promociones/selector-colecciones"
 
 export default function AsistentePromocionPage() {
   const router = useRouter()
@@ -35,6 +37,8 @@ export default function AsistentePromocionPage() {
     limitarUsos: false,
     limiteUsos: "100",
     compraMinima: "",
+    productosSeleccionados: [],
+    coleccionesSeleccionadas: [],
   })
 
   const handleSubmit = async (e) => {
@@ -73,6 +77,8 @@ export default function AsistentePromocionPage() {
         limitarUsos: formData.limitarUsos,
         limiteUsos: formData.limitarUsos ? Number.parseInt(formData.limiteUsos) : null,
         compraMinima: formData.compraMinima ? Number.parseFloat(formData.compraMinima) : null,
+        productosSeleccionados: formData.productosSeleccionados,
+        coleccionesSeleccionadas: formData.coleccionesSeleccionadas,
       }
 
       const resultado = await crearPromocion(promocionData)
@@ -207,6 +213,20 @@ export default function AsistentePromocionPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {formData.objetivo === "PRODUCTOS_ESPECIFICOS" && (
+                  <SelectorProductos
+                    productosSeleccionados={formData.productosSeleccionados}
+                    onChange={(productos) => setFormData({ ...formData, productosSeleccionados: productos })}
+                  />
+                )}
+
+                {formData.objetivo === "COLECCIONES" && (
+                  <SelectorColecciones
+                    coleccionesSeleccionadas={formData.coleccionesSeleccionadas}
+                    onChange={(colecciones) => setFormData({ ...formData, coleccionesSeleccionadas: colecciones })}
+                  />
+                )}
 
                 <div className="flex justify-end">
                   <Button onClick={nextTab}>Siguiente</Button>
