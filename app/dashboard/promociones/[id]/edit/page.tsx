@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { fetchPromocionById, actualizarPromocion } from "@/lib/api/promociones"
-import { ArrowLeft, Loader2, Save, CheckCircle } from "lucide-react"
+import { ArrowLeft, Loader2, Save, CheckCircle, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -140,7 +140,7 @@ export default function EditPromocionPage({ params }: EditPromocionPageProps) {
         // Esperar un poco antes de redirigir para mostrar el mensaje de éxito
         setTimeout(() => {
           router.push("/dashboard/promociones")
-        }, 2000)
+        }, 3000)
       } else {
         toast({
           title: "Actualización parcial",
@@ -150,10 +150,11 @@ export default function EditPromocionPage({ params }: EditPromocionPageProps) {
       }
     } catch (error) {
       console.error("Error al actualizar promoción:", error)
-      setError("No se pudo actualizar la promoción. Por favor, inténtalo de nuevo.")
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido al actualizar la promoción"
+      setError(errorMessage)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Error al actualizar la promoción",
+        description: "No se pudo actualizar la promoción. Por favor, inténtalo de nuevo.",
         variant: "destructive",
       })
     } finally {
@@ -161,10 +162,18 @@ export default function EditPromocionPage({ params }: EditPromocionPageProps) {
     }
   }
 
+  const handleRetry = () => {
+    setError(null)
+    setSuccess(false)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Cargando promoción...</span>
+        </div>
       </div>
     )
   }
@@ -188,7 +197,13 @@ export default function EditPromocionPage({ params }: EditPromocionPageProps) {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription className="flex items-center justify-between">
+            <span>{error}</span>
+            <Button variant="outline" size="sm" onClick={handleRetry} className="ml-4">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Reintentar
+            </Button>
+          </AlertDescription>
         </Alert>
       )}
 
@@ -197,7 +212,7 @@ export default function EditPromocionPage({ params }: EditPromocionPageProps) {
           <CheckCircle className="h-4 w-4 text-green-600" />
           <AlertTitle className="text-green-800">¡Éxito!</AlertTitle>
           <AlertDescription className="text-green-700">
-            La promoción se ha actualizado correctamente en Shopify. Redirigiendo...
+            La promoción se ha actualizado correctamente en Shopify. Redirigiendo en 3 segundos...
           </AlertDescription>
         </Alert>
       )}
@@ -217,7 +232,7 @@ export default function EditPromocionPage({ params }: EditPromocionPageProps) {
                 onChange={(e) => setPromocion({ ...promocion, titulo: e.target.value })}
                 placeholder="Ej: Descuento de verano 20%"
                 required
-                disabled={saving}
+                disabled={saving || success}
               />
             </div>
 
@@ -229,7 +244,7 @@ export default function EditPromocionPage({ params }: EditPromocionPageProps) {
                 onChange={(e) => setPromocion({ ...promocion, descripcion: e.target.value })}
                 placeholder="Describe tu promoción..."
                 rows={3}
-                disabled={saving}
+                disabled={saving || success}
               />
             </div>
 
@@ -239,7 +254,7 @@ export default function EditPromocionPage({ params }: EditPromocionPageProps) {
                 <Select
                   value={promocion.tipo}
                   onValueChange={(value) => setPromocion({ ...promocion, tipo: value })}
-                  disabled={saving}
+                  disabled={saving || success}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -261,7 +276,7 @@ export default function EditPromocionPage({ params }: EditPromocionPageProps) {
                   onChange={(e) => setPromocion({ ...promocion, valor: e.target.value })}
                   placeholder={promocion.tipo === "PERCENTAGE_DISCOUNT" ? "20" : "10"}
                   required
-                  disabled={saving}
+                  disabled={saving || success}
                 />
               </div>
             </div>
@@ -273,7 +288,7 @@ export default function EditPromocionPage({ params }: EditPromocionPageProps) {
                   id="usarCodigo"
                   checked={promocion.usarCodigo}
                   onCheckedChange={(checked) => setPromocion({ ...promocion, usarCodigo: checked })}
-                  disabled={saving}
+                  disabled={saving || success}
                 />
               </div>
 
@@ -285,7 +300,7 @@ export default function EditPromocionPage({ params }: EditPromocionPageProps) {
                     value={promocion.codigo}
                     onChange={(e) => setPromocion({ ...promocion, codigo: e.target.value })}
                     placeholder="VERANO2024"
-                    disabled={saving}
+                    disabled={saving || success}
                   />
                 </div>
               )}
@@ -299,7 +314,7 @@ export default function EditPromocionPage({ params }: EditPromocionPageProps) {
                   type="date"
                   value={promocion.fechaInicio}
                   onChange={(e) => setPromocion({ ...promocion, fechaInicio: e.target.value })}
-                  disabled={saving}
+                  disabled={saving || success}
                 />
               </div>
 
@@ -310,7 +325,7 @@ export default function EditPromocionPage({ params }: EditPromocionPageProps) {
                   type="date"
                   value={promocion.fechaFin}
                   onChange={(e) => setPromocion({ ...promocion, fechaFin: e.target.value })}
-                  disabled={saving}
+                  disabled={saving || success}
                 />
               </div>
             </div>
@@ -322,7 +337,7 @@ export default function EditPromocionPage({ params }: EditPromocionPageProps) {
                   id="activa"
                   checked={promocion.activa}
                   onCheckedChange={(checked) => setPromocion({ ...promocion, activa: checked })}
-                  disabled={saving}
+                  disabled={saving || success}
                 />
               </div>
             </div>
@@ -331,11 +346,16 @@ export default function EditPromocionPage({ params }: EditPromocionPageProps) {
               <Button type="button" variant="outline" asChild disabled={saving}>
                 <Link href="/dashboard/promociones">Cancelar</Link>
               </Button>
-              <Button type="submit" disabled={saving}>
+              <Button type="submit" disabled={saving || success}>
                 {saving ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Actualizando en Shopify...
+                  </>
+                ) : success ? (
+                  <>
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    ¡Actualizado!
                   </>
                 ) : (
                   <>

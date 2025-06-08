@@ -220,7 +220,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ error: "Tipo de descuento no soportado" }, { status: 400 })
     }
 
-    // Paso 3: Ejecutar la mutación
+    // Paso 3: Ejecutar la mutación CORREGIDA (sin customerSelection)
     const mutation = `
       mutation discountAutomaticBasicUpdate($automaticBasicDiscount: DiscountAutomaticBasicInput!, $id: ID!) {
         discountAutomaticBasicUpdate(automaticBasicDiscount: $automaticBasicDiscount, id: $id) {
@@ -230,6 +230,20 @@ export async function PUT(request: Request, { params }: { params: { id: string }
               ... on DiscountAutomaticBasic {
                 title
                 status
+                summary
+                customerGets {
+                  value {
+                    ... on DiscountPercentage {
+                      percentage
+                    }
+                    ... on DiscountAmount {
+                      amount {
+                        amount
+                        currencyCode
+                      }
+                    }
+                  }
+                }
               }
             }
           }
@@ -244,6 +258,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     const percentage = data.tipo === "PERCENTAGE_DISCOUNT" ? Number.parseFloat(data.valor) / 100 : null
     const amount = data.tipo === "FIXED_AMOUNT_DISCOUNT" ? Number.parseFloat(data.valor) : null
 
+    // Variables CORREGIDAS - sin customerSelection
     const variables = {
       id: shopifyId,
       automaticBasicDiscount: {
@@ -263,13 +278,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
             all: true,
           },
         },
-        customerSelection: {
-          all: true,
-        },
+        // ❌ REMOVIDO: customerSelection no existe en DiscountAutomaticBasicInput
       },
     }
 
-    console.log(`🔄 Enviando mutación...`)
+    console.log(`🔄 Enviando mutación CORREGIDA...`)
     console.log(`📊 Variables:`, JSON.stringify(variables, null, 2))
 
     const response = await fetch(
@@ -308,19 +321,38 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
     const updatedNode = updateResult.automaticDiscountNode
 
-    console.log(`✅ Promoción actualizada exitosamente: ${updatedNode.automaticDiscount.title}`)
+    console.log(`✅ Promoción REALMENTE actualizada en Shopify: ${updatedNode.automaticDiscount.title}`)
+
+    // También actualizar en la base de datos local
+    try {
+      const dbUrl = request.url.replace("/api/shopify/promotions", "/api/db/promociones")
+      const dbResponse = await fetch(dbUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      })
+
+      if (dbResponse.ok) {
+        console.log("✅ También actualizado en base de datos local")
+      }
+    } catch (dbError) {
+      console.error("⚠️ Error actualizando en base de datos local:", dbError)
+      // No fallar si la BD local falla
+    }
 
     return NextResponse.json({
       success: true,
       promocion: {
         id: updatedNode.id,
-        titulo: data.titulo,
+        titulo: updatedNode.automaticDiscount.title,
         descripcion: data.descripcion,
         tipo: data.tipo,
         valor: Number.parseFloat(data.valor),
         fechaInicio: data.fechaInicio,
         fechaFin: data.fechaFin,
-        activa: true,
+        activa: updatedNode.automaticDiscount.status === "ACTIVE",
         shopify_updated: true,
       },
     })
