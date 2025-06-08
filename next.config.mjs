@@ -6,9 +6,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  experimental: {
-    serverComponentsExternalPackages: ['@prisma/client'],
-  },
+  // Corregir la configuración obsoleta
+  serverExternalPackages: ['@prisma/client'],
   images: {
     domains: ['cdn.shopify.com', 'via.placeholder.com'],
     remotePatterns: [
