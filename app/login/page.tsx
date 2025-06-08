@@ -1,8 +1,8 @@
 "use client"
 
 import type React from "react"
-import { redirectIfAuthenticated } from "@/lib/auth-check"
-import { useState } from "react"
+
+import { useState, useEffect } from "react"
 import { signIn, getSession, useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -13,10 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, Eye, EyeOff, Shield, User } from "lucide-react"
 import { useTheme } from "@/contexts/theme-context"
 
-export default async function LoginPage() {
-  // Redirigir si ya está autenticado
-  await redirectIfAuthenticated()
-
+export default function LoginPage() {
   const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -25,6 +22,14 @@ export default async function LoginPage() {
   const router = useRouter()
   const { data: session, status } = useSession()
   const { theme } = useTheme()
+
+  // Si ya está autenticado, redirigir al dashboard
+  useEffect(() => {
+    if (status === "authenticated" && session) {
+      console.log("✅ Usuario ya autenticado, redirigiendo...")
+      router.push("/dashboard")
+    }
+  }, [session, status, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

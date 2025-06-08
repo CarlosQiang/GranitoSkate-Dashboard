@@ -1,22 +1,25 @@
+import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
-import { getToken } from "next-auth/jwt"
 
-export async function middleware(request: NextRequest) {
-  try {
-    const pathname = request.nextUrl.pathname
+export default withAuth(
+  function middleware(req) {
+    const token = req.nextauth.token
+    const isAuth = !!token
+    const pathname = req.nextUrl.pathname
 
-    // Rutas que siempre deben ser accesibles
+    console.log(`🔍 Middleware: ${pathname}, Auth: ${isAuth}`)
+
+    // Rutas que no requieren autenticación
     const publicPaths = [
       "/",
       "/login",
+      "/api/auth/signin",
+      "/api/auth/callback",
+      "/api/auth/session",
+      "/api/auth/providers",
+      "/api/auth/csrf",
       "/docs",
       "/health",
-      "/api/auth",
-      "/api/health",
-      "/_next",
-      "/favicon.ico",
-      "/public",
     ]
 
     // Permitir todas las rutas de API de NextAuth
@@ -25,68 +28,47 @@ export async function middleware(request: NextRequest) {
     }
 
     // Permitir rutas públicas
-    if (publicPaths.some((path) => pathname.startsWith(path))) {
+    if (publicPaths.some((path) => pathname === path || pathname.startsWith(path))) {
       return NextResponse.next()
     }
 
-    // Para rutas del dashboard, verificar autenticación
-    if (pathname.startsWith("/dashboard")) {
-      try {
-        const token = await getToken({
-          req: request,
-          secret: process.env.NEXTAUTH_SECRET,
-        })
-
-        if (!token) {
-          console.log("🔄 Redirigiendo usuario no autenticado al login")
-          return NextResponse.redirect(new URL("/login", request.url))
-        }
-
-        console.log("✅ Usuario autenticado accediendo a:", pathname)
-        return NextResponse.next()
-      } catch (authError) {
-        console.error("❌ Error verificando token:", authError)
-        return NextResponse.redirect(new URL("/login", request.url))
-      }
+    // Si está en login y ya autenticado, redirigir al dashboard
+    if (pathname === "/login" && isAuth) {
+      console.log("🔄 Redirigiendo usuario autenticado al dashboard")
+      return NextResponse.redirect(new URL("/dashboard", req.url))
     }
 
-    // Si está en login y tiene token, redirigir al dashboard
-    if (pathname === "/login") {
-      try {
-        const token = await getToken({
-          req: request,
-          secret: process.env.NEXTAUTH_SECRET,
-        })
-
-        if (token) {
-          console.log("🔄 Redirigiendo usuario autenticado al dashboard")
-          return NextResponse.redirect(new URL("/dashboard", request.url))
-        }
-      } catch (authError) {
-        console.error("❌ Error verificando token en login:", authError)
-        // Continuar al login si hay error
-      }
+    // Si no está autenticado y trata de acceder a rutas protegidas, redirigir a login
+    if (!isAuth && pathname.startsWith("/dashboard")) {
+      console.log("🔄 Redirigiendo usuario no autenticado al login")
+      return NextResponse.redirect(new URL("/login", req.url))
     }
 
     return NextResponse.next()
-  } catch (error) {
-    console.error("❌ Error en middleware:", error)
-    // En caso de error, permitir el acceso para evitar bloqueos
-    return NextResponse.next()
-  }
-}
+  },
+  {
+    callbacks: {
+      authorized: ({ token, req }) => {
+        const pathname = req.nextUrl.pathname
+
+        // Permitir todas las rutas de API de NextAuth
+        if (pathname.startsWith("/api/auth/")) {
+          return true
+        }
+
+        // Permitir rutas públicas
+        const publicPaths = ["/", "/login", "/docs", "/health"]
+        if (publicPaths.some((path) => pathname === path || pathname.startsWith(path))) {
+          return true
+        }
+
+        // Para rutas protegidas, requerir token
+        return !!token
+      },
+    },
+  },
+)
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api/auth (NextAuth.js routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    "/dashboard/:path*",
-    "/((?!api|_next/static|_next/image|favicon.ico|public).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|public|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.gif$|.*\\.svg$).*)"],
 }

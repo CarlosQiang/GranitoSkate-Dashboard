@@ -98,6 +98,5 @@ export const authOptions: NextAuthOptions = {
     maxAge: 24 * 60 * 60, // 24 horas
   },
   secret: process.env.NEXTAUTH_SECRET,
-  debug: false, // Desactivar debug en producción
-  trustHost: true, // Importante para Vercel
+  debug: process.env.NODE_ENV === "development",
 }
