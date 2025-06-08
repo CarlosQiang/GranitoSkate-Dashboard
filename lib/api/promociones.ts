@@ -70,27 +70,48 @@ export async function fetchPromociones(filter = "todas"): Promise<any[]> {
 
 /**
  * Obtiene una promoción por su ID
- * @param id ID de la promoción
+ * @param id ID de la promoción (puede ser un GID de Shopify o ID numérico)
  * @returns Datos de la promoción
  */
 export async function fetchPromocionById(id: string): Promise<any> {
   try {
-    // Usar ruta relativa para evitar problemas de CORS
-    const response = await fetch(`/api/db/promociones/${id}`, {
+    console.log(`🔍 Obteniendo promoción por ID: ${id}`)
+
+    // Primero intentar con la API de Shopify
+    const shopifyResponse = await fetch(`/api/shopify/promotions/${id}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    })
+
+    if (shopifyResponse.ok) {
+      const shopifyData = await shopifyResponse.json()
+      if (shopifyData.success && shopifyData.promocion) {
+        console.log(`✅ Promoción encontrada en Shopify`)
+        return shopifyData.promocion
+      }
+    }
+
+    // Fallback: intentar con la base de datos local
+    console.log("⚠️ Intentando con base de datos local...")
+    const dbResponse = await fetch(`/api/db/promociones/${id}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
       },
     })
 
-    if (!response.ok) {
-      throw new Error(`Error al obtener promoción: ${response.statusText}`)
+    if (dbResponse.ok) {
+      const dbData = await dbResponse.json()
+      console.log(`✅ Promoción encontrada en DB`)
+      return dbData
     }
 
-    const data = await response.json()
-    return data
+    throw new Error("Promoción no encontrada")
   } catch (error) {
-    console.error("Error al obtener promoción:", error)
+    console.error("❌ Error al obtener promoción:", error)
     throw error
   }
 }

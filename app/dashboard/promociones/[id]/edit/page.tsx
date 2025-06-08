@@ -24,24 +24,25 @@ export default function EditarPromocionPage({ params }: { params: { id: string }
   const [error, setError] = useState<string | null>(null)
   const [promocion, setPromocion] = useState<any>(null)
 
+  // Actualizar el useEffect:
   useEffect(() => {
     async function loadPromotion() {
       try {
         setIsLoading(true)
-        console.log(`Fetching promotion with ID: ${params.id}`)
+        console.log(`Obteniendo promoción para editar: ${params.id}`)
 
-        // Intentar obtener la promoción
+        // Intentar obtener la promoción usando la función actualizada
         const data = await obtenerPromocionPorId(params.id)
 
         if (data) {
-          console.log("Promotion data loaded:", data)
+          console.log("Datos de promoción cargados:", data)
           setPromocion(data)
           setError(null)
         } else {
           throw new Error("No se pudo obtener la información de la promoción")
         }
       } catch (err) {
-        console.error("Error fetching discount details:", err)
+        console.error("Error obteniendo detalles del descuento:", err)
         setError(`No se pudo cargar la promoción: ${(err as Error).message}`)
       } finally {
         setIsLoading(false)

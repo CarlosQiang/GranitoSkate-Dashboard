@@ -39,6 +39,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
+// Importar las funciones de utilidad al inicio
+import { createShopifyGid } from "@/lib/utils/shopify-id"
+
 export default function PromotionDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const { toast } = useToast()
@@ -56,9 +59,24 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
         setIsLoading(true)
         console.log(`Cargando promoción con ID: ${params.id}`)
 
-        // Intentar obtener la promoción
-        const data = await fetchPriceListById(params.id)
-        console.log("Datos de promoción recibidos:", data)
+        // Primero intentar con el ID tal como viene
+        let data = await fetchPriceListById(params.id)
+
+        // Si no funciona, intentar con el GID completo
+        if (!data) {
+          const shopifyGid = createShopifyGid(params.id, "DiscountAutomaticNode")
+          console.log(`Intentando con GID: ${shopifyGid}`)
+          data = await fetchPriceListById(shopifyGid)
+        }
+
+        // Si aún no funciona, intentar obtener desde Shopify directamente
+        if (!data) {
+          console.log("Intentando obtener desde Shopify...")
+          const response = await fetch(`/api/shopify/promotions/${params.id}`)
+          if (response.ok) {
+            data = await response.json()
+          }
+        }
 
         if (data) {
           setPromotion(data)

@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import { fetchPromociones } from "@/lib/api/promociones"
+import { extractShopifyId } from "@/lib/utils/shopify-id"
 
 interface PromocionesListClientProps {
   filter: string
@@ -207,10 +208,10 @@ export function PromocionesListClient({ filter }: PromocionesListClientProps) {
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" size="sm" asChild>
-                <Link href={`/dashboard/promociones/${promocion.id}`}>Ver</Link>
+                <Link href={`/dashboard/promociones/${extractShopifyId(promocion.id)}`}>Ver</Link>
               </Button>
               <Button variant="outline" size="sm" asChild>
-                <Link href={`/dashboard/promociones/${promocion.id}/edit`}>
+                <Link href={`/dashboard/promociones/${extractShopifyId(promocion.id)}/edit`}>
                   <Edit className="h-4 w-4 mr-1" />
                   Editar
                 </Link>
