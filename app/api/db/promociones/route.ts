@@ -1,64 +1,48 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import * as promocionesRepository from "@/lib/db/repositories/promociones-repository"
-import { logSyncEvent } from "@/lib/db/repositories/registro-repository"
+import { db } from "@/lib/db"
 
 export async function GET(request: Request) {
   try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
+    // Obtener las promociones de la base de datos
+    const promociones = await db.query(`
+      SELECT * FROM promociones
+      ORDER BY fecha_creacion DESC
+    `)
 
-    const promociones = await promocionesRepository.getAllPromociones()
-    return NextResponse.json(promociones)
+    // Configurar los headers CORS
+    return NextResponse.json(promociones.rows, {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      },
+    })
   } catch (error) {
     console.error("Error al obtener promociones:", error)
-    return NextResponse.json({ error: "Error al obtener promociones" }, { status: 500 })
+    return NextResponse.json(
+      { error: "Error al obtener promociones" },
+      {
+        status: 500,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        },
+      },
+    )
   }
 }
 
-export async function POST(request: Request) {
-  try {
-    // Verificar autenticación
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
-
-    const data = await request.json()
-
-    // Validar datos
-    if (!data.titulo || !data.tipo) {
-      return NextResponse.json({ error: "El título y tipo son obligatorios" }, { status: 400 })
-    }
-
-    // Crear promoción
-    const promocion = await promocionesRepository.createPromocion(data)
-
-    // Registrar evento
-    await logSyncEvent({
-      tipo_entidad: "PROMOTION",
-      entidad_id: promocion.id.toString(),
-      accion: "CREATE",
-      resultado: "SUCCESS",
-      mensaje: `Promoción creada: ${data.titulo}`,
-    })
-
-    return NextResponse.json(promocion, { status: 201 })
-  } catch (error) {
-    console.error("Error al crear promoción:", error)
-
-    // Registrar error
-    await logSyncEvent({
-      tipo_entidad: "PROMOTION",
-      accion: "CREATE",
-      resultado: "ERROR",
-      mensaje: `Error al crear promoción: ${(error as Error).message}`,
-    })
-
-    return NextResponse.json({ error: "Error al crear promoción" }, { status: 500 })
-  }
+// Manejar las solicitudes OPTIONS para CORS preflight
+export async function OPTIONS() {
+  return NextResponse.json(
+    {},
+    {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      },
+    },
+  )
 }

@@ -1,121 +1,164 @@
 "use client"
 
-import { PromocionesListClient } from "./promociones-list-client"
-import { AlertTriangle } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import Link from "next/link"
+import { Skeleton } from "@/components/ui/skeleton"
+import { AlertCircle, RefreshCw } from "lucide-react"
+import { PromocionesClient } from "@/components/promociones-client"
+import { fetchPromociones } from "@/lib/api/promociones"
 
-interface PromocionesListWrapperProps {
-  filter: "todas" | "activas" | "programadas" | "expiradas"
-}
+export function PromocionesListWrapper() {
+  const [promociones, setPromociones] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState("todas")
 
-async function fetchPromociones(filter: string) {
-  try {
-    console.log(`🔍 Obteniendo promociones con filtro: ${filter}`)
+  const loadPromociones = async () => {
+    try {
+      console.log("🔍 Obteniendo promociones con filtro:", activeTab)
+      setIsLoading(true)
+      setError(null)
 
-    // Primero intentar obtener de la base de datos local
-    const response = await fetch("/api/db/promociones", {
-      cache: "no-store",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
-
-    let promociones = []
-
-    if (response.ok) {
-      promociones = await response.json()
-      console.log(`📊 Promociones de BD local: ${promociones.length}`)
-    } else {
-      console.warn(`⚠️ Error al obtener promociones de BD local: ${response.status}`)
+      // Usar ruta relativa para evitar problemas de CORS
+      const data = await fetchPromociones(activeTab)
+      setPromociones(data)
+    } catch (error) {
+      console.error("❌ Error en PromocionesListWrapper:", error)
+      setError(`No se pudieron cargar las promociones. ${(error as Error).message}`)
+    } finally {
+      setIsLoading(false)
     }
-
-    // Si no hay promociones en la BD local, intentar obtener de Shopify
-    if (promociones.length === 0) {
-      console.log("🔄 Obteniendo promociones de Shopify...")
-
-      const shopifyResponse = await fetch("/api/shopify/promotions", {
-        cache: "no-store",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (shopifyResponse.ok) {
-        const shopifyData = await shopifyResponse.json()
-        if (shopifyData.success && shopifyData.promociones) {
-          promociones = shopifyData.promociones
-          console.log(`📊 Promociones de Shopify: ${promociones.length}`)
-        } else {
-          console.warn("⚠️ Respuesta de Shopify sin promociones:", shopifyData)
-        }
-      } else {
-        console.warn(`⚠️ Error al obtener promociones de Shopify: ${shopifyResponse.status}`)
-      }
-    }
-
-    // Si aún no hay promociones, devolver un array vacío
-    if (promociones.length === 0) {
-      console.log("⚠️ No se encontraron promociones en ninguna fuente")
-      return []
-    }
-
-    // Filtrar según el tipo solicitado
-    const now = new Date()
-
-    switch (filter) {
-      case "activas":
-        return promociones.filter((promo: any) => {
-          const fechaInicio = promo.fecha_inicio ? new Date(promo.fecha_inicio) : null
-          const fechaFin = promo.fecha_fin ? new Date(promo.fecha_fin) : null
-
-          return promo.activa && (!fechaInicio || fechaInicio <= now) && (!fechaFin || fechaFin >= now)
-        })
-
-      case "programadas":
-        return promociones.filter((promo: any) => {
-          const fechaInicio = promo.fecha_inicio ? new Date(promo.fecha_inicio) : null
-          return promo.activa && fechaInicio && fechaInicio > now
-        })
-
-      case "expiradas":
-        return promociones.filter((promo: any) => {
-          const fechaFin = promo.fecha_fin ? new Date(promo.fecha_fin) : null
-          return !promo.activa || (fechaFin && fechaFin < now)
-        })
-
-      default:
-        return promociones
-    }
-  } catch (error) {
-    console.error("❌ Error fetching promociones:", error)
-    throw error
   }
-}
 
-export async function PromocionesListWrapper({ filter }: PromocionesListWrapperProps) {
-  try {
-    const promociones = await fetchPromociones(filter)
-    return <PromocionesListClient promociones={promociones} filter={filter} />
-  } catch (error) {
-    console.error("❌ Error en PromocionesListWrapper:", error)
+  useEffect(() => {
+    loadPromociones()
+  }, [activeTab])
 
-    return (
-      <div className="flex flex-col items-center justify-center h-40 text-center">
-        <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
-        <h3 className="text-lg font-medium text-destructive">Error al cargar promociones</h3>
-        <p className="text-muted-foreground mb-4">
-          {error instanceof Error ? error.message : "Ha ocurrido un error inesperado"}
-        </p>
-        <div className="flex gap-2">
-          <Button onClick={() => window.location.reload()} variant="outline">
-            Reintentar
-          </Button>
-          <Button asChild>
-            <Link href="/dashboard/promociones/asistente">Crear promoción</Link>
-          </Button>
-        </div>
-      </div>
-    )
+  const handleTabChange = (value: string) => {
+    setActiveTab(value)
   }
+
+  const filteredPromociones = promociones.filter((promocion) => {
+    if (activeTab === "todas") return true
+    if (activeTab === "activas") return promocion.estado === "ACTIVE"
+    if (activeTab === "programadas") return promocion.estado === "SCHEDULED"
+    if (activeTab === "expiradas") return promocion.estado === "EXPIRED"
+    return true
+  })
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Promociones</CardTitle>
+        <CardDescription>Gestiona las promociones y descuentos de tu tienda</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Tabs defaultValue="todas" onValueChange={handleTabChange}>
+          <TabsList className="mb-4">
+            <TabsTrigger value="todas">Todas</TabsTrigger>
+            <TabsTrigger value="activas">Activas</TabsTrigger>
+            <TabsTrigger value="programadas">Programadas</TabsTrigger>
+            <TabsTrigger value="expiradas">Expiradas</TabsTrigger>
+          </TabsList>
+
+          {error ? (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription className="flex flex-col gap-2">
+                <p>{error}</p>
+                <Button variant="outline" size="sm" className="w-fit" onClick={loadPromociones}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Reintentar
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          <TabsContent value="todas">
+            {isLoading ? (
+              <div className="space-y-4">
+                {[...Array(3)].map((_, i) => (
+                  <Card key={i}>
+                    <CardHeader className="p-4">
+                      <Skeleton className="h-5 w-40" />
+                      <Skeleton className="h-4 w-60" />
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0">
+                      <Skeleton className="h-4 w-full mb-2" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <PromocionesClient promociones={filteredPromociones} />
+            )}
+          </TabsContent>
+
+          <TabsContent value="activas">
+            {isLoading ? (
+              <div className="space-y-4">
+                {[...Array(2)].map((_, i) => (
+                  <Card key={i}>
+                    <CardHeader className="p-4">
+                      <Skeleton className="h-5 w-40" />
+                      <Skeleton className="h-4 w-60" />
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0">
+                      <Skeleton className="h-4 w-full mb-2" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <PromocionesClient promociones={filteredPromociones} />
+            )}
+          </TabsContent>
+
+          <TabsContent value="programadas">
+            {isLoading ? (
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader className="p-4">
+                    <Skeleton className="h-5 w-40" />
+                    <Skeleton className="h-4 w-60" />
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0">
+                    <Skeleton className="h-4 w-full mb-2" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              <PromocionesClient promociones={filteredPromociones} />
+            )}
+          </TabsContent>
+
+          <TabsContent value="expiradas">
+            {isLoading ? (
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader className="p-4">
+                    <Skeleton className="h-5 w-40" />
+                    <Skeleton className="h-4 w-60" />
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0">
+                    <Skeleton className="h-4 w-full mb-2" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              <PromocionesClient promociones={filteredPromociones} />
+            )}
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
+  )
 }

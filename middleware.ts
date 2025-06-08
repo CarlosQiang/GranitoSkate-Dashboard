@@ -1,74 +1,64 @@
-import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
+import { getToken } from "next-auth/jwt"
 
-export default withAuth(
-  function middleware(req) {
-    const token = req.nextauth.token
-    const isAuth = !!token
-    const pathname = req.nextUrl.pathname
-
-    console.log(`🔍 Middleware: ${pathname}, Auth: ${isAuth}`)
-
-    // Rutas que no requieren autenticación
-    const publicPaths = [
-      "/",
-      "/login",
-      "/api/auth/signin",
-      "/api/auth/callback",
-      "/api/auth/session",
-      "/api/auth/providers",
-      "/api/auth/csrf",
-      "/docs",
-      "/health",
-    ]
-
-    // Permitir todas las rutas de API de NextAuth
-    if (pathname.startsWith("/api/auth/")) {
-      return NextResponse.next()
-    }
-
-    // Permitir rutas públicas
-    if (publicPaths.some((path) => pathname === path || pathname.startsWith(path))) {
-      return NextResponse.next()
-    }
-
-    // Si está en login y ya autenticado, redirigir al dashboard
-    if (pathname === "/login" && isAuth) {
-      console.log("🔄 Redirigiendo usuario autenticado al dashboard")
-      return NextResponse.redirect(new URL("/dashboard", req.url))
-    }
-
-    // Si no está autenticado y trata de acceder a rutas protegidas, redirigir a login
-    if (!isAuth && pathname.startsWith("/dashboard")) {
-      console.log("🔄 Redirigiendo usuario no autenticado al login")
-      return NextResponse.redirect(new URL("/login", req.url))
-    }
-
-    return NextResponse.next()
+// Configuración para Next-Auth
+const authConfig = {
+  pages: {
+    signIn: "/login",
   },
-  {
-    callbacks: {
-      authorized: ({ token, req }) => {
-        const pathname = req.nextUrl.pathname
+}
 
-        // Permitir todas las rutas de API de NextAuth
-        if (pathname.startsWith("/api/auth/")) {
-          return true
-        }
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
 
-        // Permitir rutas públicas
-        const publicPaths = ["/", "/login", "/docs", "/health"]
-        if (publicPaths.some((path) => pathname === path || pathname.startsWith(path))) {
-          return true
-        }
+  // Manejar CORS para rutas API
+  if (pathname.startsWith("/api/")) {
+    // Manejar preflight requests
+    if (request.method === "OPTIONS") {
+      return NextResponse.json(
+        {},
+        {
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization, X-CSRF-Token",
+            "Access-Control-Max-Age": "86400",
+          },
+        },
+      )
+    }
 
-        // Para rutas protegidas, requerir token
-        return !!token
-      },
-    },
-  },
-)
+    // Configurar headers CORS para todas las respuestas API
+    const response = NextResponse.next()
+    response.headers.set("Access-Control-Allow-Origin", "*")
+    response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+    response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CSRF-Token")
 
+    return response
+  }
+
+  // Proteger rutas del dashboard
+  if (pathname.startsWith("/dashboard")) {
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
+
+    // Redirigir a login si no hay token
+    if (!token) {
+      const url = new URL("/login", request.url)
+      url.searchParams.set("callbackUrl", encodeURI(request.url))
+      return NextResponse.redirect(url)
+    }
+  }
+
+  return NextResponse.next()
+}
+
+// Configurar en qué rutas se ejecuta el middleware
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|public|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.gif$|.*\\.svg$).*)"],
+  matcher: [
+    // Rutas API
+    "/api/:path*",
+    // Rutas protegidas
+    "/dashboard/:path*",
+  ],
 }
