@@ -12,32 +12,24 @@ export async function POST() {
       detalles: [],
     }
 
-    // PASO 1: Crear tabla simple (copiando estructura de productos)
+    // PASO 1: Borrar tabla existente y crear nueva (igual que clientes)
     try {
+      await sql`DROP TABLE IF EXISTS promociones`
       await sql`
-        CREATE TABLE IF NOT EXISTS promociones (
+        CREATE TABLE promociones (
           id SERIAL PRIMARY KEY,
           shopify_id VARCHAR(255) UNIQUE NOT NULL,
           titulo VARCHAR(255),
           descripcion TEXT
         );
       `
+      console.log("✅ Tabla promociones recreada")
     } catch (error) {
       console.error("❌ Error creando tabla:", error)
       return NextResponse.json({ error: "Error creando tabla" }, { status: 500 })
     }
 
-    // PASO 2: Borrar datos existentes
-    try {
-      const deleteResult = await sql`DELETE FROM promociones`
-      results.borrados = deleteResult.rowCount || 0
-      results.detalles.push(`Borrados: ${results.borrados} promociones existentes`)
-    } catch (error) {
-      results.errores++
-      results.detalles.push(`Error borrando: ${error}`)
-    }
-
-    // PASO 3: Insertar promociones reales de Shopify
+    // PASO 2: Insertar promociones reales (igual que clientes)
     try {
       const promocionesShopify = [
         {
@@ -45,7 +37,11 @@ export async function POST() {
           titulo: "Promoción de prueba",
           descripcion: "100% off entire order • Minimum purchase of €12.00",
         },
-        { id: "2054072074504", titulo: "Promoción automática", descripcion: "Descuento automático del 10%" },
+        {
+          id: "2054072074504",
+          titulo: "Promoción automática",
+          descripcion: "Descuento automático del 10%",
+        },
       ]
 
       for (const promocion of promocionesShopify) {
