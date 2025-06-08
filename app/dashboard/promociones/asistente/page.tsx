@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Pasos, Paso } from "@/components/ui/pasos"
-import { FormularioTipoPromocion } from "@/components/asistente-promociones/tipo-promocion"
+import { FormularioTipoPromocion, type TipoPromocion } from "@/components/asistente-promociones/tipo-promocion"
 import { FormularioObjetivoPromocion } from "@/components/asistente-promociones/objetivo-promocion"
 import { FormularioValorPromocion } from "@/components/asistente-promociones/valor-promocion"
 import { FormularioCondicionesPromocion } from "@/components/asistente-promociones/condiciones-promocion"
@@ -15,9 +15,33 @@ import { FormularioResumenPromocion } from "@/components/asistente-promociones/r
 import { crearPromocion } from "@/lib/api/promociones"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, ArrowLeft } from "lucide-react"
-import type { TipoPromocion } from "@/components/asistente-promociones/tipo-promocion"
-import type { ObjetivoPromocion } from "@/components/asistente-promociones/objetivo-promocion"
 import { useToast } from "@/components/ui/use-toast"
+
+interface DatosPromocion {
+  titulo: string
+  tipo: TipoPromocion
+  objetivo: string
+  valor: string
+  condiciones: {
+    cantidadMinima: string
+    gastosEnvio: boolean
+    clientesEspecificos: boolean
+    clientesSeleccionados: string[]
+  }
+  programacion: {
+    fechaInicio: string
+    fechaFin: string | null
+    horaInicio: string
+    horaFin: string
+    limitarUsos: boolean
+    limiteUsos: string
+  }
+  codigo: {
+    usarCodigo: boolean
+    codigo: string
+    generarAutomaticamente: boolean
+  }
+}
 
 export default function AsistentePromocionesPage() {
   const router = useRouter()
@@ -27,11 +51,11 @@ export default function AsistentePromocionesPage() {
   const [isLoading, setIsLoading] = useState(false)
 
   // Estado para almacenar los datos de la promoción
-  const [datosPromocion, setDatosPromocion] = useState({
+  const [datosPromocion, setDatosPromocion] = useState<DatosPromocion>({
     titulo: "Nueva promoción",
-    tipo: "PORCENTAJE_DESCUENTO" as TipoPromocion,
-    objetivo: "TODOS_LOS_PRODUCTOS" as ObjetivoPromocion,
-    valor: "10", // Valor por defecto
+    tipo: "PORCENTAJE_DESCUENTO",
+    objetivo: "TODOS_LOS_PRODUCTOS",
+    valor: "10",
     condiciones: {
       cantidadMinima: "0",
       gastosEnvio: false,
@@ -40,7 +64,7 @@ export default function AsistentePromocionesPage() {
     },
     programacion: {
       fechaInicio: new Date().toISOString(),
-      fechaFin: null as string | null,
+      fechaFin: null,
       horaInicio: "00:00",
       horaFin: "23:59",
       limitarUsos: false,
@@ -54,7 +78,7 @@ export default function AsistentePromocionesPage() {
   })
 
   // Función para actualizar los datos de la promoción
-  const actualizarDatosPromocion = (seccion, datos) => {
+  const actualizarDatosPromocion = (seccion: keyof DatosPromocion, datos: any) => {
     setDatosPromocion((prevDatos) => ({
       ...prevDatos,
       [seccion]: datos,
@@ -87,7 +111,6 @@ export default function AsistentePromocionesPage() {
       const valor = Number.parseFloat(datosPromocion.valor)
       if (isNaN(valor) || valor <= 0) {
         setError("El valor de la promoción debe ser un número mayor que cero")
-        setIsLoading(false)
         return
       }
 
@@ -119,7 +142,7 @@ export default function AsistentePromocionesPage() {
 
       // Mostrar mensaje de éxito
       toast({
-        title: "Promoción creada",
+        title: "✅ Promoción creada",
         description: "La promoción ha sido creada correctamente",
       })
 
@@ -140,7 +163,7 @@ export default function AsistentePromocionesPage() {
       descripcion: "Selecciona el tipo de promoción que quieres crear",
       contenido: (
         <FormularioTipoPromocion
-          tipo={datosPromocion.tipo}
+          valor={datosPromocion.tipo}
           onChange={(tipo) => actualizarDatosPromocion("tipo", tipo)}
         />
       ),

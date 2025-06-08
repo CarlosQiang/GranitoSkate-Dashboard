@@ -1,7 +1,7 @@
 /**
- * Convierte un GID de Shopify a un ID limpio para URLs
- * @param gid GID de Shopify (ej: gid://shopify/DiscountAutomaticNode/2054072041736)
- * @returns ID limpio (ej: 2054072041736)
+ * Extrae el ID numérico de un GID de Shopify
+ * @param gid GID completo de Shopify (ej: gid://shopify/DiscountAutomaticNode/2054072041736)
+ * @returns ID numérico (ej: 2054072041736)
  */
 export function extractShopifyId(gid: string): string {
   if (!gid) return ""
@@ -11,16 +11,16 @@ export function extractShopifyId(gid: string): string {
     return gid
   }
 
-  // Extraer el ID numérico del GID
-  const match = gid.match(/\/(\d+)$/)
-  return match ? match[1] : gid.replace(/[^a-zA-Z0-9]/g, "")
+  // Extraer ID de un GID de Shopify
+  const parts = gid.split("/")
+  return parts[parts.length - 1] || gid
 }
 
 /**
- * Convierte un ID limpio de vuelta a GID de Shopify
- * @param id ID limpio
- * @param type Tipo de recurso (DiscountAutomaticNode, DiscountCodeNode, etc.)
- * @returns GID de Shopify
+ * Convierte un ID numérico a un GID completo de Shopify
+ * @param id ID numérico
+ * @param type Tipo de entidad (ej: DiscountAutomaticNode)
+ * @returns GID completo
  */
 export function createShopifyGid(id: string, type = "DiscountAutomaticNode"): string {
   if (id.startsWith("gid://")) {
@@ -30,16 +30,10 @@ export function createShopifyGid(id: string, type = "DiscountAutomaticNode"): st
 }
 
 /**
- * Determina el tipo de descuento basado en el GID
- * @param gid GID de Shopify
- * @returns Tipo de descuento
+ * Verifica si un string es un GID de Shopify
+ * @param id String a verificar
+ * @returns true si es un GID
  */
-export function getDiscountType(gid: string): string {
-  if (gid.includes("DiscountAutomaticNode")) {
-    return "DiscountAutomaticNode"
-  }
-  if (gid.includes("DiscountCodeNode")) {
-    return "DiscountCodeNode"
-  }
-  return "DiscountAutomaticNode"
+export function isShopifyGid(id: string): boolean {
+  return id.startsWith("gid://shopify/")
 }
