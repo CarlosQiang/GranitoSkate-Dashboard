@@ -1,45 +1,48 @@
-import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { type NextRequest, NextResponse } from "next/server"
+import { gql } from "graphql-request"
+import shopifyClient from "@/lib/shopify"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
+    console.log("🔍 Obteniendo colecciones de Shopify")
 
-    const shopifyUrl = process.env.SHOPIFY_STORE_URL
-    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
+    const query = gql`
+      query getCollections($first: Int!) {
+        collections(first: $first) {
+          edges {
+            node {
+              id
+              title
+              handle
+              productsCount
+            }
+          }
+        }
+      }
+    `
 
-    if (!shopifyUrl || !accessToken) {
-      return NextResponse.json({ error: "Configuración de Shopify incompleta" }, { status: 500 })
-    }
+    const data = await shopifyClient.request(query, { first: 50 })
 
-    const response = await fetch(`${shopifyUrl}/admin/api/2023-10/collections.json`, {
-      headers: {
-        "X-Shopify-Access-Token": accessToken,
-        "Content-Type": "application/json",
-      },
-    })
+    const collections = data.collections.edges.map((edge: any) => ({
+      id: edge.node.id,
+      title: edge.node.title,
+      handle: edge.node.handle,
+      productsCount: edge.node.productsCount,
+    }))
 
-    if (!response.ok) {
-      throw new Error(`Error de Shopify: ${response.status}`)
-    }
-
-    const data = await response.json()
+    console.log(`✅ Colecciones obtenidas: ${collections.length}`)
 
     return NextResponse.json({
       success: true,
-      collections: data.collections || [],
+      collections,
     })
   } catch (error) {
-    console.error("Error al obtener colecciones:", error)
+    console.error("❌ Error obteniendo colecciones:", error)
     return NextResponse.json(
       {
         success: false,
         error: "Error al obtener colecciones",
-        collections: [],
+        details: error instanceof Error ? error.message : "Error desconocido",
       },
       { status: 500 },
     )
