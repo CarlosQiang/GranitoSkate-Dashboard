@@ -95,19 +95,6 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-white">
       <div className="w-full max-w-md mx-auto">
-        {/* Botón de volver */}
-        <div className="mb-6">
-          <Link href="/">
-            <Button
-              variant="ghost"
-              className="flex items-center gap-2 text-gray-600 hover:text-[var(--color-primary)] p-0"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Volver al inicio
-            </Button>
-          </Link>
-        </div>
-
         {/* Logo y título */}
         <div className="text-center mb-8">
           <div
@@ -204,6 +191,19 @@ export default function LoginPage() {
                   "Iniciar Sesión"
                 )}
               </ThemedButton>
+
+              {/* Botón de volver - nueva posición */}
+              <div className="text-center">
+                <Link href="/">
+                  <Button
+                    variant="ghost"
+                    className="flex items-center gap-2 text-gray-600 hover:text-[var(--color-primary)] mx-auto"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Volver al inicio
+                  </Button>
+                </Link>
+              </div>
             </form>
 
             {/* Información de seguridad */}

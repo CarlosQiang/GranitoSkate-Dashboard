@@ -234,7 +234,6 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
         className="mb-4"
       />
 
-      {/* Eliminamos el Card wrapper para quitar el doble marco */}
       <div className="border rounded-md">
         <ScrollArea className="h-[400px] w-full">
           <div className="p-4 space-y-2">
@@ -247,38 +246,65 @@ export function CollectionProductManager({ productId, collectionId, onComplete, 
                     : "No hay productos en esta colección"}
               </div>
             ) : (
-              filteredProducts.map((product) => (
-                <div key={product.id} className="flex items-center space-x-3 p-2 hover:bg-muted rounded-md">
-                  {config.showActions && (
-                    <Checkbox
-                      id={`product-${product.id}`}
-                      checked={selectedProducts.includes(product.id)}
-                      onCheckedChange={() => handleProductSelection(product.id)}
-                    />
-                  )}
-                  <div className="relative h-10 w-10 overflow-hidden rounded-md">
-                    {getProductImageUrl(product) ? (
-                      <Image
-                        src={getProductImageUrl(product) || "/placeholder.svg"}
-                        alt={product.title}
-                        fill
-                        className="object-cover"
+              filteredProducts.map((product) => {
+                const isSelected = selectedProducts.includes(product.id)
+                return (
+                  <div
+                    key={product.id}
+                    className={`
+                      flex items-center space-x-3 p-3 rounded-md transition-all duration-200 
+                      ${config.showActions ? "cursor-pointer" : ""} 
+                      ${
+                        isSelected
+                          ? "bg-primary/10 border border-primary/20"
+                          : "hover:bg-muted border border-transparent"
+                      }
+                      ${config.showActions ? "hover:shadow-sm" : ""}
+                    `}
+                    onClick={() => config.showActions && handleProductSelection(product.id)}
+                  >
+                    {config.showActions && (
+                      <Checkbox
+                        id={`product-${product.id}`}
+                        checked={isSelected}
+                        onCheckedChange={() => handleProductSelection(product.id)}
+                        onClick={(e) => e.stopPropagation()} // Evitar doble click
+                        className="pointer-events-none" // El checkbox es solo visual, el click se maneja en el div padre
                       />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center bg-gray-100">
-                        <Package className="h-5 w-5 text-muted-foreground" />
+                    )}
+                    <div className="relative h-12 w-12 overflow-hidden rounded-md flex-shrink-0">
+                      {getProductImageUrl(product) ? (
+                        <Image
+                          src={getProductImageUrl(product) || "/placeholder.svg"}
+                          alt={product.title}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center bg-gray-100">
+                          <Package className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium leading-none truncate">{product.title}</p>
+                      {product.vendor && (
+                        <p className="text-xs text-muted-foreground mt-1 truncate">{product.vendor}</p>
+                      )}
+                    </div>
+                    {mode === "view" && (
+                      <div className="text-xs text-muted-foreground flex-shrink-0">
+                        {product.totalInventory || 0} en stock
+                      </div>
+                    )}
+                    {config.showActions && isSelected && (
+                      <div className="flex-shrink-0">
+                        <div className="h-2 w-2 bg-primary rounded-full"></div>
                       </div>
                     )}
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium leading-none">{product.title}</p>
-                    {product.vendor && <p className="text-xs text-muted-foreground mt-1">{product.vendor}</p>}
-                  </div>
-                  {mode === "view" && (
-                    <div className="text-xs text-muted-foreground">{product.totalInventory || 0} en stock</div>
-                  )}
-                </div>
-              ))
+                )
+              })
             )}
           </div>
         </ScrollArea>
