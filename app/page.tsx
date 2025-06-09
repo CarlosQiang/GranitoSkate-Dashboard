@@ -14,7 +14,7 @@ export default async function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
@@ -39,10 +39,12 @@ export default async function Home() {
       </header>
 
       {/* Hero Section */}
-      <section className="py-20">
+      <section className="flex-1 flex items-center justify-center py-12 sm:py-20">
         <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-6">Panel de Administración GranitoSkate</h1>
-          <p className="text-xl text-gray-600 mb-10 max-w-3xl mx-auto">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6">
+            Panel de Administración GranitoSkate
+          </h1>
+          <p className="text-lg sm:text-xl text-gray-600 mb-8 sm:mb-10 max-w-3xl mx-auto">
             Gestiona tu tienda Shopify de manera eficiente con nuestro panel de administración personalizado.
           </p>
           <div className="flex justify-center">
@@ -57,30 +59,36 @@ export default async function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="py-16 bg-white">
+      <section className="py-12 sm:py-16 bg-white">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">Características principales</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="p-6 border rounded-lg shadow-sm">
-              <h3 className="text-xl font-semibold mb-3 text-granito">Gestión de productos</h3>
-              <p className="text-gray-600">Administra tu catálogo de productos de forma sencilla y eficiente.</p>
+          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-8 sm:mb-12">Características principales</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            <div className="p-4 sm:p-6 border rounded-lg shadow-sm">
+              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-granito">Gestión de productos</h3>
+              <p className="text-sm sm:text-base text-gray-600">
+                Administra tu catálogo de productos de forma sencilla y eficiente.
+              </p>
             </div>
-            <div className="p-6 border rounded-lg shadow-sm">
-              <h3 className="text-xl font-semibold mb-3 text-granito">Análisis de ventas</h3>
-              <p className="text-gray-600">Visualiza estadísticas y métricas clave para tomar mejores decisiones.</p>
+            <div className="p-4 sm:p-6 border rounded-lg shadow-sm">
+              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-granito">Análisis de ventas</h3>
+              <p className="text-sm sm:text-base text-gray-600">
+                Visualiza estadísticas y métricas clave para tomar mejores decisiones.
+              </p>
             </div>
-            <div className="p-6 border rounded-lg shadow-sm">
-              <h3 className="text-xl font-semibold mb-3 text-granito">Optimización SEO</h3>
-              <p className="text-gray-600">Mejora la visibilidad de tu tienda con herramientas de SEO integradas.</p>
+            <div className="p-4 sm:p-6 border rounded-lg shadow-sm">
+              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-granito">Optimización SEO</h3>
+              <p className="text-sm sm:text-base text-gray-600">
+                Mejora la visibilidad de tu tienda con herramientas de SEO integradas.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-100 py-8">
+      <footer className="bg-gray-100 py-6 sm:py-8 mt-auto">
         <div className="container mx-auto px-4 text-center">
-          <p className="text-gray-600">
+          <p className="text-sm sm:text-base text-gray-600">
             &copy; {new Date().getFullYear()} GranitoSkate. Todos los derechos reservados.
           </p>
         </div>

@@ -13,6 +13,7 @@ import { ArrowLeft, Save, AlertCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { createProduct } from "@/lib/api/products"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { SeoPreview } from "@/components/seo-preview"
 
 export default function NewProductPage() {
   const router = useRouter()
@@ -197,6 +198,9 @@ export default function NewProductPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Vista previa de Google */}
+          {formData.title && <SeoPreview title={formData.title} description={formData.description} />}
         </TabsContent>
 
         <TabsContent value="price" className="space-y-6">

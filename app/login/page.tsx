@@ -99,9 +99,9 @@ export default function LoginPage() {
   return (
     <div
       className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
-      style={{ backgroundColor }}
+      style={{ backgroundColor: "white" }}
     >
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md mx-auto">
         {/* Logo y título */}
         <div className="text-center mb-8">
           <div
@@ -120,9 +120,10 @@ export default function LoginPage() {
         </div>
 
         <Card
-          className="shadow-xl border-0 backdrop-blur-sm"
+          className="shadow-xl border backdrop-blur-sm"
           style={{
-            backgroundColor: `${cardBackground}cc`,
+            backgroundColor: "white",
+            borderColor: `${primaryColor}20`,
             borderRadius,
           }}
         >
