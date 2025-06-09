@@ -187,7 +187,7 @@ export function SeoForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 md:space-y-6">
         {error && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
@@ -210,16 +210,16 @@ export function SeoForm({
           control={form.control}
           name="title"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>Título SEO</FormLabel>
+            <FormItem className="space-y-2">
+              <FormLabel className="text-sm font-medium">Título SEO</FormLabel>
               <FormControl>
-                <Input placeholder="Título para SEO" {...field} />
+                <Input placeholder="Título para SEO" {...field} className="w-full" />
               </FormControl>
-              <FormDescription>
+              <FormDescription className="text-xs md:text-sm">
                 El título que se mostrará en los resultados de búsqueda. Recomendado: 50-60 caracteres.
               </FormDescription>
               <FormMessage />
-              <div className="text-xs text-muted-foreground mt-1">{field.value?.length || 0}/60 caracteres</div>
+              <div className="text-xs text-muted-foreground">{field.value?.length || 0}/60 caracteres</div>
             </FormItem>
           )}
         />
@@ -228,16 +228,20 @@ export function SeoForm({
           control={form.control}
           name="description"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>Descripción SEO</FormLabel>
+            <FormItem className="space-y-2">
+              <FormLabel className="text-sm font-medium">Descripción SEO</FormLabel>
               <FormControl>
-                <Textarea placeholder="Descripción para SEO" {...field} />
+                <Textarea
+                  placeholder="Descripción para SEO"
+                  {...field}
+                  className="w-full min-h-[80px] md:min-h-[100px] resize-none"
+                />
               </FormControl>
-              <FormDescription>
+              <FormDescription className="text-xs md:text-sm">
                 La descripción que se mostrará en los resultados de búsqueda. Recomendado: 150-160 caracteres.
               </FormDescription>
               <FormMessage />
-              <div className="text-xs text-muted-foreground mt-1">{field.value?.length || 0}/160 caracteres</div>
+              <div className="text-xs text-muted-foreground">{field.value?.length || 0}/160 caracteres</div>
             </FormItem>
           )}
         />
@@ -261,13 +265,15 @@ export function SeoForm({
           control={form.control}
           name="syncWithShopify"
           render={({ field }) => (
-            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-              <div className="space-y-0.5">
-                <FormLabel className="text-base flex items-center gap-2">
-                  <Cloud className="h-4 w-4" />
+            <FormItem className="flex flex-col space-y-3 rounded-lg border p-3 md:p-4">
+              <div className="space-y-2">
+                <FormLabel className="text-sm md:text-base flex items-center gap-2">
+                  <Cloud className="h-4 w-4 flex-shrink-0" />
                   Sincronizar con Shopify
                 </FormLabel>
-                <FormDescription>Guardar también estos datos SEO como metafields en Shopify</FormDescription>
+                <FormDescription className="text-xs md:text-sm">
+                  Guardar también estos datos SEO como metafields en Shopify
+                </FormDescription>
               </div>
               <FormControl>
                 <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -276,8 +282,12 @@ export function SeoForm({
           )}
         />
 
-        <div className="flex gap-2">
-          <Button type="submit" disabled={isLoading} className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button
+            type="submit"
+            disabled={isLoading}
+            className="flex items-center justify-center gap-2 w-full sm:w-auto"
+          >
             <Database className="h-4 w-4" />
             {isLoading ? "Guardando..." : "Guardar SEO"}
           </Button>

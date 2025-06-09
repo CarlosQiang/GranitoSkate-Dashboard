@@ -145,42 +145,62 @@ export default function SeoPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">SEO y Mercados</h1>
-        <p className="text-muted-foreground">
+    <div className="space-y-4 md:space-y-6 px-4 md:px-6">
+      <div className="space-y-2 md:space-y-0">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">SEO y Mercados</h1>
+        <p className="text-sm md:text-base text-muted-foreground">
           Gestiona la configuración de SEO, mercados, negocio local y redes sociales para mejorar tu posicionamiento
         </p>
       </div>
 
-      <Alert className="bg-blue-50 border-blue-200">
-        <AlertCircle className="h-4 w-4 text-blue-600" />
-        <AlertTitle className="text-blue-800">Optimización automática</AlertTitle>
-        <AlertDescription className="text-blue-700">
-          Configura la información de tu tienda para mejorar tu posicionamiento en buscadores. Los datos que introduzcas
-          aquí se utilizarán para generar metadatos y datos estructurados automáticamente.
-        </AlertDescription>
+      <Alert className="bg-blue-50 border-blue-200 mx-0">
+        <AlertCircle className="h-4 w-4 text-blue-600 flex-shrink-0" />
+        <div className="space-y-1">
+          <AlertTitle className="text-blue-800 text-sm md:text-base">Optimización automática</AlertTitle>
+          <AlertDescription className="text-blue-700 text-xs md:text-sm leading-relaxed">
+            Configura la información de tu tienda para mejorar tu posicionamiento en buscadores. Los datos que
+            introduzcas aquí se utilizarán para generar metadatos y datos estructurados automáticamente.
+          </AlertDescription>
+        </div>
       </Alert>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="general">
-            <Search className="mr-2 h-4 w-4" />
-            SEO General
-          </TabsTrigger>
-          <TabsTrigger value="local">
-            <MapPin className="mr-2 h-4 w-4" />
-            Negocio Local
-          </TabsTrigger>
-          <TabsTrigger value="social">
-            <Globe className="mr-2 h-4 w-4" />
-            Redes Sociales
-          </TabsTrigger>
-          <TabsTrigger value="markets">
-            <Globe className="mr-2 h-4 w-4" />
-            Mercados
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
+            <TabsTrigger
+              value="general"
+              className="flex flex-col md:flex-row items-center gap-1 md:gap-2 p-2 md:p-3 text-xs md:text-sm"
+            >
+              <Search className="h-3 w-3 md:h-4 md:w-4" />
+              <span className="hidden sm:inline">SEO General</span>
+              <span className="sm:hidden">SEO</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="local"
+              className="flex flex-col md:flex-row items-center gap-1 md:gap-2 p-2 md:p-3 text-xs md:text-sm"
+            >
+              <MapPin className="h-3 w-3 md:h-4 md:w-4" />
+              <span className="hidden sm:inline">Negocio Local</span>
+              <span className="sm:hidden">Local</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="social"
+              className="flex flex-col md:flex-row items-center gap-1 md:gap-2 p-2 md:p-3 text-xs md:text-sm"
+            >
+              <Globe className="h-3 w-3 md:h-4 md:w-4" />
+              <span className="hidden sm:inline">Redes Sociales</span>
+              <span className="sm:hidden">Social</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="markets"
+              className="flex flex-col md:flex-row items-center gap-1 md:gap-2 p-2 md:p-3 text-xs md:text-sm"
+            >
+              <Globe className="h-3 w-3 md:h-4 md:w-4" />
+              <span className="hidden sm:inline">Mercados</span>
+              <span className="sm:hidden">Markets</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {isLoading ? (
           <div className="space-y-4">
@@ -223,55 +243,70 @@ export default function SeoPage() {
               <SocialMediaForm />
             </TabsContent>
 
-            <TabsContent value="markets" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Configuración de Mercados</CardTitle>
-                  <CardDescription>Configura la información de mercados y presencia web para tu tienda</CardDescription>
+            <TabsContent value="markets" className="space-y-4 mt-4">
+              <Card className="mx-0">
+                <CardHeader className="p-4 md:p-6">
+                  <CardTitle className="text-lg md:text-xl">Configuración de Mercados</CardTitle>
+                  <CardDescription className="text-sm">
+                    Configura la información de mercados y presencia web para tu tienda
+                  </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-4 md:p-6 pt-0">
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="market-title">Título SEO para Mercados</Label>
+                      <Label htmlFor="market-title" className="text-sm font-medium">
+                        Título SEO para Mercados
+                      </Label>
                       <Input
                         id="market-title"
                         placeholder="Título SEO para mercados internacionales"
                         value={marketData.marketTitle}
                         onChange={(e) => handleMarketDataChange("marketTitle", e.target.value)}
+                        className="w-full"
                       />
                       <p className="text-xs text-muted-foreground">Recomendado: 50-60 caracteres.</p>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="market-description">Descripción SEO para Mercados</Label>
+                      <Label htmlFor="market-description" className="text-sm font-medium">
+                        Descripción SEO para Mercados
+                      </Label>
                       <Textarea
                         id="market-description"
                         placeholder="Descripción SEO para mercados internacionales"
                         value={marketData.marketDescription}
                         onChange={(e) => handleMarketDataChange("marketDescription", e.target.value)}
+                        className="w-full min-h-[80px] resize-none"
                       />
                       <p className="text-xs text-muted-foreground">Recomendado: 150-160 caracteres.</p>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="market-keywords">Palabras clave para Mercados (separadas por comas)</Label>
+                      <Label htmlFor="market-keywords" className="text-sm font-medium">
+                        Palabras clave para Mercados
+                      </Label>
                       <Input
                         id="market-keywords"
                         placeholder="skate, skateboard, tablas, ruedas"
                         value={marketData.marketKeywords}
                         onChange={(e) => handleMarketDataChange("marketKeywords", e.target.value)}
+                        className="w-full"
                       />
+                      <p className="text-xs text-muted-foreground">Separadas por comas</p>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="market-countries">Países objetivo (separados por comas)</Label>
+                      <Label htmlFor="market-countries" className="text-sm font-medium">
+                        Países objetivo
+                      </Label>
                       <Input
                         id="market-countries"
                         placeholder="España, México, Argentina"
                         value={marketData.targetCountries}
                         onChange={(e) => handleMarketDataChange("targetCountries", e.target.value)}
+                        className="w-full"
                       />
                       <p className="text-xs text-muted-foreground">Países donde quieres tener presencia comercial.</p>
                     </div>
-                    <div className="pt-4">
-                      <Button onClick={handleSaveMarketData} disabled={isLoading}>
+                    <div className="pt-2">
+                      <Button onClick={handleSaveMarketData} disabled={isLoading} className="w-full md:w-auto">
                         {isLoading ? "Guardando..." : "Guardar cambios"}
                       </Button>
                     </div>

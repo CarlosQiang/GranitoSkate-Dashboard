@@ -117,10 +117,10 @@ export function SocialMediaForm() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+    <div className="space-y-4 md:space-y-6">
+      <div className="bg-blue-50 border border-blue-200 rounded-md p-3 md:p-4">
         <h3 className="text-sm font-medium text-blue-800">Perfiles de redes sociales</h3>
-        <p className="text-sm text-blue-700 mt-1">
+        <p className="text-xs md:text-sm text-blue-700 mt-1 leading-relaxed">
           Añade los enlaces a tus perfiles de redes sociales para mejorar tu presencia en línea y facilitar que los
           usuarios te encuentren en diferentes plataformas.
         </p>
@@ -146,15 +146,15 @@ export function SocialMediaForm() {
             </Alert>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <FormField
               control={form.control}
               name="facebook"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Facebook</FormLabel>
+                  <FormLabel className="text-sm font-medium">Facebook</FormLabel>
                   <FormControl>
-                    <Input placeholder="https://facebook.com/granitoskate" {...field} />
+                    <Input placeholder="https://facebook.com/granitoskate" {...field} className="w-full text-sm" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -166,9 +166,9 @@ export function SocialMediaForm() {
               name="instagram"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Instagram</FormLabel>
+                  <FormLabel className="text-sm font-medium">Instagram</FormLabel>
                   <FormControl>
-                    <Input placeholder="https://instagram.com/granitoskate" {...field} />
+                    <Input placeholder="https://instagram.com/granitoskate" {...field} className="w-full text-sm" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -180,9 +180,9 @@ export function SocialMediaForm() {
               name="twitter"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Twitter</FormLabel>
+                  <FormLabel className="text-sm font-medium">Twitter</FormLabel>
                   <FormControl>
-                    <Input placeholder="https://twitter.com/granitoskate" {...field} />
+                    <Input placeholder="https://twitter.com/granitoskate" {...field} className="w-full text-sm" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -194,9 +194,9 @@ export function SocialMediaForm() {
               name="youtube"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>YouTube</FormLabel>
+                  <FormLabel className="text-sm font-medium">YouTube</FormLabel>
                   <FormControl>
-                    <Input placeholder="https://youtube.com/granitoskate" {...field} />
+                    <Input placeholder="https://youtube.com/granitoskate" {...field} className="w-full text-sm" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -208,9 +208,13 @@ export function SocialMediaForm() {
               name="linkedin"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>LinkedIn</FormLabel>
+                  <FormLabel className="text-sm font-medium">LinkedIn</FormLabel>
                   <FormControl>
-                    <Input placeholder="https://linkedin.com/company/granitoskate" {...field} />
+                    <Input
+                      placeholder="https://linkedin.com/company/granitoskate"
+                      {...field}
+                      className="w-full text-sm"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -222,9 +226,9 @@ export function SocialMediaForm() {
               name="tiktok"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>TikTok</FormLabel>
+                  <FormLabel className="text-sm font-medium">TikTok</FormLabel>
                   <FormControl>
-                    <Input placeholder="https://tiktok.com/@granitoskate" {...field} />
+                    <Input placeholder="https://tiktok.com/@granitoskate" {...field} className="w-full text-sm" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -232,7 +236,7 @@ export function SocialMediaForm() {
             />
           </div>
 
-          <Button type="submit" disabled={isLoading}>
+          <Button type="submit" disabled={isLoading} className="w-full md:w-auto">
             {isLoading ? "Guardando..." : "Guardar perfiles"}
           </Button>
         </form>

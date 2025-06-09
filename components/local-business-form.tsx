@@ -134,10 +134,10 @@ export function LocalBusinessForm() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+    <div className="space-y-4 md:space-y-6">
+      <div className="bg-blue-50 border border-blue-200 rounded-md p-3 md:p-4">
         <h3 className="text-sm font-medium text-blue-800">Información de negocio local</h3>
-        <p className="text-sm text-blue-700 mt-1">
+        <p className="text-xs md:text-sm text-blue-700 mt-1 leading-relaxed">
           Esta información se utilizará para generar datos estructurados de tipo LocalBusiness, que ayudan a Google a
           mostrar información relevante sobre tu negocio en los resultados de búsqueda.
         </p>
@@ -163,15 +163,15 @@ export function LocalBusinessForm() {
             </Alert>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nombre del negocio</FormLabel>
+                <FormItem className="md:col-span-2">
+                  <FormLabel className="text-sm font-medium">Nombre del negocio</FormLabel>
                   <FormControl>
-                    <Input placeholder="Granito Skate Shop" {...field} />
+                    <Input placeholder="Granito Skate Shop" {...field} className="w-full" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -183,9 +183,9 @@ export function LocalBusinessForm() {
               name="telephone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Teléfono</FormLabel>
+                  <FormLabel className="text-sm font-medium">Teléfono</FormLabel>
                   <FormControl>
-                    <Input placeholder="+34 912 345 678" {...field} />
+                    <Input placeholder="+34 912 345 678" {...field} className="w-full" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -197,9 +197,9 @@ export function LocalBusinessForm() {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel className="text-sm font-medium">Email</FormLabel>
                   <FormControl>
-                    <Input placeholder="contacto@granitoskate.com" {...field} />
+                    <Input placeholder="contacto@granitoskate.com" {...field} className="w-full" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -307,7 +307,7 @@ export function LocalBusinessForm() {
             />
           </div>
 
-          <Button type="submit" disabled={isLoading}>
+          <Button type="submit" disabled={isLoading} className="w-full md:w-auto">
             {isLoading ? "Guardando..." : "Guardar información"}
           </Button>
         </form>
