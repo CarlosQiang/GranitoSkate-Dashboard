@@ -1,92 +1,144 @@
 import { NextResponse } from "next/server"
 import { query } from "@/lib/db"
-import { fetchPromociones } from "@/lib/api/promociones"
-import { createPromocion } from "@/lib/db/repositories/promociones-repository"
 import { logSyncEvent } from "@/lib/db"
 
 export async function POST() {
   try {
-    console.log(`🔄 Iniciando reemplazo completo de promociones`)
+    console.log("🔄 Iniciando reemplazo completo de promociones...")
 
-    // 1. Obtener todas las promociones de Shopify
-    const promocionesShopify = await fetchPromociones("todas")
-    console.log(`📊 Promociones obtenidas de Shopify: ${promocionesShopify.length}`)
-
-    // Filtrar solo las promociones que vienen de Shopify
-    const promocionesShopifyPuras = promocionesShopify.filter((p) => p.shopify_id)
-    console.log(`📊 Promociones filtradas con shopify_id: ${promocionesShopifyPuras.length}`)
-
-    // 2. Borrar todas las promociones existentes en la base de datos
-    console.log(`🗑️ Borrando todas las promociones existentes...`)
-    const deleteResult = await query(`DELETE FROM promociones RETURNING id`)
-    const borrados = deleteResult.rowCount || 0
-    console.log(`🗑️ ${borrados} promociones borradas`)
-
-    // Registrar evento de borrado masivo
-    await logSyncEvent(
-      "promociones",
-      null,
-      "borrar_todo",
-      "completado",
-      `Se borraron ${borrados} promociones para reemplazo completo`,
+    // 1. Obtener promociones de Shopify usando la API interna
+    console.log("📡 Obteniendo promociones de Shopify...")
+    const shopifyResponse = await fetch(
+      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/shopify/promotions`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
     )
 
-    // 3. Insertar todas las promociones de Shopify
+    if (!shopifyResponse.ok) {
+      throw new Error(`Error al obtener promociones de Shopify: ${shopifyResponse.status}`)
+    }
+
+    const shopifyData = await shopifyResponse.json()
+    const promociones = shopifyData.promotions || []
+
+    console.log(`📊 Promociones obtenidas de Shopify: ${promociones.length}`)
+
+    // 2. Borrar todas las promociones existentes
+    console.log("🗑️ Borrando promociones existentes...")
+    const deleteResult = await query("DELETE FROM promociones")
+    const borrados = deleteResult.rowCount || 0
+    console.log(`✅ ${borrados} promociones borradas`)
+
     let insertados = 0
     let errores = 0
     const detalles = []
 
-    for (const promocion of promocionesShopifyPuras) {
+    // 3. Insertar las nuevas promociones
+    for (const promocion of promociones) {
       try {
-        if (!promocion.shopify_id) {
-          console.warn(`⚠️ Promoción sin shopify_id, saltando:`, promocion)
-          continue
+        console.log(`💾 Insertando promoción: ${promocion.title}`)
+
+        // Extraer el ID numérico de Shopify
+        const shopifyId = promocion.id.includes("/") ? promocion.id.split("/").pop() : promocion.id
+
+        // Preparar los datos para insertar
+        const insertData = {
+          shopify_id: shopifyId,
+          titulo: promocion.title || "Sin título",
+          descripcion: promocion.summary || promocion.title || "Sin descripción",
+          tipo: promocion.discountClass === "PERCENTAGE" ? "PERCENTAGE_DISCOUNT" : "FIXED_AMOUNT_DISCOUNT",
+          valor: Number.parseFloat(promocion.value || "0"),
+          codigo: promocion.codes?.[0]?.code || `PROMO_${shopifyId}`,
+          fecha_inicio: promocion.startsAt ? new Date(promocion.startsAt) : null,
+          fecha_fin: promocion.endsAt ? new Date(promocion.endsAt) : null,
+          activa: promocion.status === "ACTIVE",
+          limite_uso: promocion.usageLimit || null,
+          contador_uso: promocion.asyncUsageCount || 0,
+          es_automatica: false,
         }
 
-        console.log(`📝 Insertando promoción: ${promocion.titulo} (ID: ${promocion.shopify_id})`)
-
-        await createPromocion({
-          shopify_id: promocion.shopify_id,
-          titulo: promocion.titulo,
-          descripcion: promocion.descripcion,
-          tipo: promocion.tipo,
-          valor: promocion.valor,
-          codigo: promocion.codigo,
-          fecha_inicio: promocion.fechaInicio ? new Date(promocion.fechaInicio) : null,
-          fecha_fin: promocion.fechaFin ? new Date(promocion.fechaFin) : null,
-          activa: promocion.activa,
-        })
-
-        insertados++
-        detalles.push(`✅ Promoción insertada: ${promocion.titulo}`)
-
-        // Registrar evento de inserción
-        await logSyncEvent(
-          "promociones",
-          promocion.shopify_id,
-          "crear",
-          "completado",
-          `Promoción creada en reemplazo completo: ${promocion.titulo}`,
+        const result = await query(
+          `INSERT INTO promociones (
+            shopify_id, titulo, descripcion, tipo, valor, codigo,
+            fecha_inicio, fecha_fin, activa, limite_uso, contador_uso, es_automatica
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
+          RETURNING id`,
+          [
+            insertData.shopify_id,
+            insertData.titulo,
+            insertData.descripcion,
+            insertData.tipo,
+            insertData.valor,
+            insertData.codigo,
+            insertData.fecha_inicio,
+            insertData.fecha_fin,
+            insertData.activa,
+            insertData.limite_uso,
+            insertData.contador_uso,
+            insertData.es_automatica,
+          ],
         )
+
+        if (result.rows.length > 0) {
+          insertados++
+          console.log(`✅ Promoción insertada: ${insertData.titulo} (ID: ${result.rows[0].id})`)
+
+          detalles.push({
+            shopify_id: insertData.shopify_id,
+            titulo: insertData.titulo,
+            resultado: "insertado",
+          })
+
+          // Registrar evento exitoso
+          await logSyncEvent(
+            "promociones",
+            insertData.shopify_id,
+            "crear",
+            "completado",
+            `Promoción insertada: ${insertData.titulo}`,
+          )
+        }
       } catch (error) {
-        console.error(`❌ Error insertando promoción ${promocion.titulo}:`, error)
         errores++
-        detalles.push(
-          `❌ Error insertando promoción ${promocion.titulo}: ${error instanceof Error ? error.message : "Error desconocido"}`,
-        )
+        console.error(`❌ Error insertando promoción ${promocion.title}:`, error)
+
+        detalles.push({
+          shopify_id: promocion.id,
+          titulo: promocion.title,
+          resultado: "error",
+          error: error.message,
+        })
 
         // Registrar evento de error
         await logSyncEvent(
           "promociones",
-          promocion.shopify_id || null,
+          promocion.id,
           "crear",
           "error",
-          `Error creando promoción en reemplazo completo: ${error instanceof Error ? error.message : "Error desconocido"}`,
+          `Error insertando promoción: ${error.message}`,
         )
       }
     }
 
+    // 4. Verificar el resultado final
+    const finalCountResult = await query("SELECT COUNT(*) as total FROM promociones")
+    const totalEnBD = Number.parseInt(finalCountResult.rows[0].total)
+
     console.log(`✅ Reemplazo completo finalizado: ${borrados} borrados, ${insertados} insertados, ${errores} errores`)
+    console.log(`📊 Total de promociones en BD: ${totalEnBD}`)
+
+    // Registrar evento de finalización
+    await logSyncEvent(
+      "promociones",
+      null,
+      "reemplazar",
+      "completado",
+      `Reemplazo completo: ${borrados} borrados, ${insertados} insertados, ${errores} errores`,
+    )
 
     return NextResponse.json({
       success: true,
@@ -97,14 +149,19 @@ export async function POST() {
         errores,
         detalles,
       },
+      totalEnBD,
     })
   } catch (error) {
-    console.error("❌ Error en reemplazo completo de promociones:", error)
+    console.error("❌ Error en reemplazo de promociones:", error)
+
+    // Registrar evento de error general
+    await logSyncEvent("promociones", null, "reemplazar", "error", `Error general en reemplazo: ${error.message}`)
+
     return NextResponse.json(
       {
         success: false,
-        error: "Error en reemplazo completo",
-        details: error instanceof Error ? error.message : "Error desconocido",
+        error: "Error en el reemplazo de promociones",
+        details: error.message,
       },
       { status: 500 },
     )

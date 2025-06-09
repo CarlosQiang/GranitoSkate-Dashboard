@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server"
+import { shopifyFetch } from "@/lib/shopify"
 
 export async function GET() {
   try {
     console.log("🔍 Obteniendo promociones de Shopify...")
 
-    // Verificar que tenemos las variables de entorno necesarias
-    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
-      throw new Error("Faltan variables de entorno para Shopify")
+    // Verificar variables de entorno
+    if (!process.env.SHOPIFY_API_URL || !process.env.SHOPIFY_ACCESS_TOKEN) {
+      throw new Error("Variables de entorno de Shopify no configuradas")
     }
 
+    // Query GraphQL para obtener descuentos automáticos y códigos de descuento
     const query = `
       query {
         discountNodes(first: 50) {
@@ -16,12 +18,34 @@ export async function GET() {
             node {
               id
               discount {
+                ... on DiscountAutomaticApp {
+                  title
+                  status
+                  startsAt
+                  endsAt
+                  asyncUsageCount
+                  discountClass
+                  summary
+                }
                 ... on DiscountAutomaticBasic {
                   title
                   status
                   startsAt
                   endsAt
+                  asyncUsageCount
+                  discountClass
                   summary
+                  minimumRequirement {
+                    ... on DiscountMinimumQuantity {
+                      greaterThanOrEqualToQuantity
+                    }
+                    ... on DiscountMinimumSubtotal {
+                      greaterThanOrEqualToSubtotal {
+                        amount
+                        currencyCode
+                      }
+                    }
+                  }
                   customerGets {
                     value {
                       ... on DiscountPercentage {
@@ -32,17 +56,6 @@ export async function GET() {
                           amount
                           currencyCode
                         }
-                      }
-                    }
-                  }
-                  minimumRequirement {
-                    ... on DiscountMinimumQuantity {
-                      greaterThanOrEqualToQuantity
-                    }
-                    ... on DiscountMinimumSubtotal {
-                      greaterThanOrEqualToSubtotal {
-                        amount
-                        currencyCode
                       }
                     }
                   }
@@ -52,10 +65,26 @@ export async function GET() {
                   status
                   startsAt
                   endsAt
+                  asyncUsageCount
+                  discountClass
                   summary
-                  codes(first: 1) {
-                    nodes {
-                      code
+                  usageLimit
+                  codes(first: 10) {
+                    edges {
+                      node {
+                        code
+                      }
+                    }
+                  }
+                  minimumRequirement {
+                    ... on DiscountMinimumQuantity {
+                      greaterThanOrEqualToQuantity
+                    }
+                    ... on DiscountMinimumSubtotal {
+                      greaterThanOrEqualToSubtotal {
+                        amount
+                        currencyCode
+                      }
                     }
                   }
                   customerGets {
@@ -68,17 +97,6 @@ export async function GET() {
                           amount
                           currencyCode
                         }
-                      }
-                    }
-                  }
-                  minimumRequirement {
-                    ... on DiscountMinimumQuantity {
-                      greaterThanOrEqualToQuantity
-                    }
-                    ... on DiscountMinimumSubtotal {
-                      greaterThanOrEqualToSubtotal {
-                        amount
-                        currencyCode
                       }
                     }
                   }
@@ -90,87 +108,65 @@ export async function GET() {
       }
     `
 
-    const response = await fetch(
-      `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-10/graphql.json`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
-        },
-        body: JSON.stringify({ query }),
-      },
-    )
+    const response = await shopifyFetch({ query })
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+    if (response.errors) {
+      console.error("❌ Errores en la consulta GraphQL:", response.errors)
+      throw new Error(`Error en GraphQL: ${response.errors.map((e) => e.message).join(", ")}`)
     }
 
-    const data = await response.json()
-
-    if (data.errors) {
-      throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`)
+    if (!response.data?.discountNodes) {
+      console.warn("⚠️ No se encontraron nodos de descuento")
+      return NextResponse.json({ promotions: [] })
     }
 
-    if (!data.data || !data.data.discountNodes || !data.data.discountNodes.edges) {
-      throw new Error("Respuesta de Shopify inválida o vacía")
-    }
-
-    const promociones = data.data.discountNodes.edges.map((edge) => {
+    // Procesar las promociones
+    const promotions = response.data.discountNodes.edges.map((edge: any) => {
       const node = edge.node
       const discount = node.discount
 
-      // Determinar si es un descuento con código o automático
-      const isCodeDiscount = !!discount.codes
-
       // Extraer el valor del descuento
-      let valor = 0
-      let tipo = "PERCENTAGE_DISCOUNT"
-
+      let value = "0"
       if (discount.customerGets?.value?.percentage) {
-        valor = Math.round(discount.customerGets.value.percentage * 100) // Convertir de decimal a porcentaje
-        tipo = "PERCENTAGE_DISCOUNT"
+        value = discount.customerGets.value.percentage.toString()
       } else if (discount.customerGets?.value?.amount?.amount) {
-        valor = Number.parseFloat(discount.customerGets.value.amount.amount)
-        tipo = "FIXED_AMOUNT_DISCOUNT"
+        value = discount.customerGets.value.amount.amount
       }
 
-      // Extraer el requisito mínimo si existe
-      let compraMinima = null
-      if (discount.minimumRequirement?.greaterThanOrEqualToSubtotal?.amount) {
-        compraMinima = Number.parseFloat(discount.minimumRequirement.greaterThanOrEqualToSubtotal.amount)
-      }
+      // Extraer códigos si existen
+      const codes =
+        discount.codes?.edges?.map((codeEdge: any) => ({
+          code: codeEdge.node.code,
+        })) || []
 
       return {
         id: node.id,
-        shopify_id: node.id,
-        titulo: discount.title,
-        descripcion: discount.summary || "",
-        tipo: tipo,
-        valor: valor,
-        codigo: isCodeDiscount ? discount.codes?.nodes?.[0]?.code || null : null,
-        fechaInicio: discount.startsAt,
-        fechaFin: discount.endsAt,
-        activa: discount.status === "ACTIVE",
-        estado: discount.status,
-        compraMinima: compraMinima,
-        esShopify: true, // Marcar que viene de Shopify
+        title: discount.title || "Promoción sin título",
+        status: discount.status || "ACTIVE",
+        startsAt: discount.startsAt,
+        endsAt: discount.endsAt,
+        asyncUsageCount: discount.asyncUsageCount || 0,
+        discountClass: discount.discountClass || "PERCENTAGE",
+        summary: discount.summary || discount.title || "Sin descripción",
+        usageLimit: discount.usageLimit,
+        value: value,
+        codes: codes,
       }
     })
 
-    console.log(`✅ Promociones obtenidas de Shopify: ${promociones.length}`)
+    console.log(`✅ ${promotions.length} promociones obtenidas de Shopify`)
 
     return NextResponse.json({
-      success: true,
-      promociones: promociones,
+      promotions,
+      total: promotions.length,
     })
   } catch (error) {
     console.error("❌ Error obteniendo promociones de Shopify:", error)
     return NextResponse.json(
       {
-        success: false,
         error: "Error al obtener promociones de Shopify",
-        details: error instanceof Error ? error.message : "Error desconocido",
+        details: error.message,
+        promotions: [],
       },
       { status: 500 },
     )
