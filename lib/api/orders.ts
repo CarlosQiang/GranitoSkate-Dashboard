@@ -206,31 +206,46 @@ export async function fetchOrderById(id) {
 }
 
 // Añadir la función fetchCustomerOrders que falta
-export async function fetchCustomerOrders(customerId, limit = 50) {
+export async function fetchCustomerOrders(customerId: string, limit = 50) {
   try {
-    // Formatear el ID correctamente
-    let formattedId = customerId
-    if (!customerId.includes("gid://shopify/")) {
-      formattedId = `gid://shopify/Customer/${customerId}`
+    // Limpiar y formatear el ID correctamente
+    let cleanId = customerId
+    if (customerId.includes("gid://shopify/Customer/")) {
+      cleanId = customerId.split("/").pop() || customerId
     }
 
-    console.log(`Fetching orders for customer: ${formattedId}`)
+    const formattedId = `gid://shopify/Customer/${cleanId}`
+
+    console.log(`🔍 Fetching orders for customer: ${formattedId} (original: ${customerId})`)
 
     const query = `
       query GetCustomerOrders($customerId: ID!, $first: Int!) {
         customer(id: $customerId) {
+          id
+          firstName
+          lastName
+          email
           orders(first: $first, sortKey: PROCESSED_AT, reverse: true) {
             edges {
               node {
                 id
                 name
                 processedAt
+                createdAt
                 displayFulfillmentStatus
                 displayFinancialStatus
                 totalPriceSet {
                   shopMoney {
                     amount
                     currencyCode
+                  }
+                }
+                lineItems(first: 3) {
+                  edges {
+                    node {
+                      title
+                      quantity
+                    }
                   }
                 }
               }
@@ -247,27 +262,40 @@ export async function fetchCustomerOrders(customerId, limit = 50) {
 
     const response = await shopifyFetch({ query, variables })
 
-    if (
-      !response.data ||
-      !response.data.customer ||
-      !response.data.customer.orders ||
-      !response.data.customer.orders.edges
-    ) {
-      console.warn("No se encontraron pedidos para este cliente o la respuesta está incompleta")
+    if (!response.data) {
+      console.error("No data in response:", response)
+      throw new Error("No se recibieron datos de Shopify")
+    }
+
+    if (!response.data.customer) {
+      console.error("Customer not found:", formattedId)
+      throw new Error(`Cliente no encontrado: ${cleanId}`)
+    }
+
+    if (!response.data.customer.orders || !response.data.customer.orders.edges) {
+      console.warn("Customer found but no orders:", response.data.customer)
       return []
     }
 
-    return response.data.customer.orders.edges.map(({ node }) => ({
+    const orders = response.data.customer.orders.edges.map(({ node }) => ({
       id: node.id.split("/").pop(),
       name: node.name,
-      processedAt: node.processedAt,
-      displayFulfillmentStatus: node.displayFulfillmentStatus,
-      displayFinancialStatus: node.displayFinancialStatus,
+      processedAt: node.processedAt || node.createdAt,
+      displayFulfillmentStatus: node.displayFulfillmentStatus || "UNFULFILLED",
+      displayFinancialStatus: node.displayFinancialStatus || "PENDING",
       totalPrice: node.totalPriceSet?.shopMoney?.amount || "0.00",
       currencyCode: node.totalPriceSet?.shopMoney?.currencyCode || "EUR",
+      items:
+        node.lineItems?.edges?.map((item) => ({
+          title: item.node.title,
+          quantity: item.node.quantity,
+        })) || [],
     }))
+
+    console.log(`✅ Successfully fetched ${orders.length} orders for customer ${cleanId}`)
+    return orders
   } catch (error) {
-    console.error(`Error fetching customer orders for ${customerId}:`, error)
+    console.error(`❌ Error fetching customer orders for ${customerId}:`, error)
     throw new Error(`Error al obtener pedidos del cliente: ${error.message}`)
   }
 }

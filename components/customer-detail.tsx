@@ -120,29 +120,33 @@ export function CustomerDetail({ customer, onUpdate }: CustomerDetailProps) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
-              <Card>
+              <Card className="border-2 border-blue-200 bg-blue-50">
                 <CardHeader className="p-4">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <ShoppingBag className="h-4 w-4" />
-                    Pedidos
+                    <ShoppingBag className="h-4 w-4 text-blue-600" />
+                    Pedidos Realizados
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 pt-0">
-                  <div className="text-2xl font-bold">{customer.ordersCount}</div>
+                  <div className="text-2xl font-bold text-blue-600">{customer.ordersCount}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {customer.ordersCount === 1 ? "pedido" : "pedidos"}
+                  </p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="border-2 border-green-200 bg-green-50">
                 <CardHeader className="p-4">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    Total gastado
+                    <FileText className="h-4 w-4 text-green-600" />
+                    Total Invertido
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 pt-0">
-                  <div className="text-2xl font-bold">
+                  <div className="text-2xl font-bold text-green-600">
                     {formatCurrency(customer.totalSpent.amount, customer.totalSpent.currencyCode)}
                   </div>
+                  <p className="text-xs text-muted-foreground mt-1">importe total</p>
                 </CardContent>
               </Card>
 
@@ -230,24 +234,66 @@ export function CustomerDetail({ customer, onUpdate }: CustomerDetailProps) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ShoppingBag className="h-5 w-5" />
-              Pedidos
+              Pedidos del Cliente
             </CardTitle>
-            <CardDescription>Historial de pedidos del cliente</CardDescription>
+            <CardDescription>Resumen y historial de pedidos</CardDescription>
           </CardHeader>
           <CardContent>
             {customer.ordersCount > 0 ? (
-              <div className="text-center py-6">
-                <p className="mb-4">
-                  Este cliente tiene {customer.ordersCount} pedidos por un total de{" "}
-                  {formatCurrency(customer.totalSpent.amount, customer.totalSpent.currencyCode)}
-                </p>
-                <Button onClick={() => router.push(`/dashboard/customers/${customer.id}/orders`)}>
-                  <ShoppingBag className="mr-2 h-4 w-4" />
-                  Ver todos los pedidos
-                </Button>
+              <div className="space-y-4">
+                {/* Resumen de pedidos */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card className="border-2 border-primary/20 bg-primary/5">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <ShoppingBag className="h-5 w-5 text-primary" />
+                        Total de Pedidos
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-primary">{customer.ordersCount}</div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {customer.ordersCount === 1 ? "pedido realizado" : "pedidos realizados"}
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-2 border-green-200 bg-green-50">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <FileText className="h-5 w-5 text-green-600" />
+                        Total Gastado
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-green-600">
+                        {formatCurrency(customer.totalSpent.amount, customer.totalSpent.currencyCode)}
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">Importe total de todos los pedidos</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Botón para ver todos los pedidos */}
+                <div className="flex justify-center pt-4">
+                  <Button
+                    onClick={() => router.push(`/dashboard/customers/${customer.id}/orders`)}
+                    className="w-full md:w-auto"
+                    size="lg"
+                  >
+                    <ShoppingBag className="mr-2 h-4 w-4" />
+                    Ver Historial Completo de Pedidos
+                  </Button>
+                </div>
               </div>
             ) : (
-              <p className="text-muted-foreground text-center py-6">Este cliente no ha realizado ningún pedido</p>
+              <div className="text-center py-8">
+                <ShoppingBag className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground text-lg">Este cliente no ha realizado ningún pedido</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Los pedidos aparecerán aquí una vez que el cliente realice una compra
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>

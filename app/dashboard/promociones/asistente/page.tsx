@@ -11,14 +11,10 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { CalendarIcon, ArrowLeft, Loader2 } from "lucide-react"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
-import { cn } from "@/lib/utils"
+import { ArrowLeft, Loader2 } from "lucide-react"
 import { crearPromocion } from "@/lib/api/promociones"
 import { toast } from "sonner"
+import { DatePicker } from "@/components/ui/date-picker"
 
 export default function AsistentePromocionesPage() {
   const router = useRouter()
@@ -169,62 +165,20 @@ export default function AsistentePromocionesPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Fecha de inicio *</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !formData.fechaInicio && "text-muted-foreground",
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {formData.fechaInicio ? (
-                        format(formData.fechaInicio, "PPP", { locale: es })
-                      ) : (
-                        <span>Seleccionar fecha</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={formData.fechaInicio}
-                      onSelect={(date) => date && setFormData({ ...formData, fechaInicio: date })}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+                <DatePicker
+                  date={formData.fechaInicio}
+                  onSelect={(date) => date && setFormData({ ...formData, fechaInicio: date })}
+                  placeholder="Seleccionar fecha"
+                />
               </div>
 
               <div className="space-y-2">
                 <Label>Fecha de fin (opcional)</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !formData.fechaFin && "text-muted-foreground",
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {formData.fechaFin ? (
-                        format(formData.fechaFin, "PPP", { locale: es })
-                      ) : (
-                        <span>Sin fecha límite</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={formData.fechaFin}
-                      onSelect={(date) => setFormData({ ...formData, fechaFin: date })}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+                <DatePicker
+                  date={formData.fechaFin}
+                  onSelect={(date) => setFormData({ ...formData, fechaFin: date })}
+                  placeholder="Sin fecha límite"
+                />
               </div>
             </div>
 

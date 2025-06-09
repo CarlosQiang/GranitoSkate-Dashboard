@@ -4,6 +4,11 @@ export async function GET() {
   try {
     console.log("🔍 Obteniendo promociones de Shopify...")
 
+    // Verificar que tenemos las variables de entorno necesarias
+    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
+      throw new Error("Faltan variables de entorno para Shopify")
+    }
+
     const query = `
       query {
         discountNodes(first: 50) {
@@ -91,7 +96,7 @@ export async function GET() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN!,
+          "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
         },
         body: JSON.stringify({ query }),
       },
@@ -107,25 +112,49 @@ export async function GET() {
       throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`)
     }
 
-    const promociones = data.data.discountNodes.edges.map((edge: any) => {
+    if (!data.data || !data.data.discountNodes || !data.data.discountNodes.edges) {
+      throw new Error("Respuesta de Shopify inválida o vacía")
+    }
+
+    const promociones = data.data.discountNodes.edges.map((edge) => {
       const node = edge.node
       const discount = node.discount
+
+      // Determinar si es un descuento con código o automático
+      const isCodeDiscount = !!discount.codes
+
+      // Extraer el valor del descuento
+      let valor = 0
+      let tipo = "PERCENTAGE_DISCOUNT"
+
+      if (discount.customerGets?.value?.percentage) {
+        valor = Math.round(discount.customerGets.value.percentage * 100) // Convertir de decimal a porcentaje
+        tipo = "PERCENTAGE_DISCOUNT"
+      } else if (discount.customerGets?.value?.amount?.amount) {
+        valor = Number.parseFloat(discount.customerGets.value.amount.amount)
+        tipo = "FIXED_AMOUNT_DISCOUNT"
+      }
+
+      // Extraer el requisito mínimo si existe
+      let compraMinima = null
+      if (discount.minimumRequirement?.greaterThanOrEqualToSubtotal?.amount) {
+        compraMinima = Number.parseFloat(discount.minimumRequirement.greaterThanOrEqualToSubtotal.amount)
+      }
 
       return {
         id: node.id,
         shopify_id: node.id,
         titulo: discount.title,
         descripcion: discount.summary || "",
-        tipo: discount.customerGets?.value?.percentage ? "PORCENTAJE_DESCUENTO" : "CANTIDAD_FIJA_DESCUENTO",
-        valor:
-          discount.customerGets?.value?.percentage ||
-          Number.parseFloat(discount.customerGets?.value?.amount?.amount || "0"),
-        codigo: discount.codes?.nodes?.[0]?.code || null,
+        tipo: tipo,
+        valor: valor,
+        codigo: isCodeDiscount ? discount.codes?.nodes?.[0]?.code || null : null,
         fechaInicio: discount.startsAt,
         fechaFin: discount.endsAt,
         activa: discount.status === "ACTIVE",
         estado: discount.status,
-        compraMinima: discount.minimumRequirement?.greaterThanOrEqualToSubtotal?.amount || null,
+        compraMinima: compraMinima,
+        esShopify: true, // Marcar que viene de Shopify
       }
     })
 
@@ -141,7 +170,7 @@ export async function GET() {
       {
         success: false,
         error: "Error al obtener promociones de Shopify",
-        details: (error as Error).message,
+        details: error instanceof Error ? error.message : "Error desconocido",
       },
       { status: 500 },
     )

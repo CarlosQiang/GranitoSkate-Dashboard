@@ -45,7 +45,19 @@ export function DatePicker({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
-        <Calendar mode="single" selected={date} onSelect={handleSelect} initialFocus />
+        <Calendar
+          mode="single"
+          selected={date}
+          onSelect={handleSelect}
+          initialFocus
+          weekStartsOn={1}
+          formatters={{
+            formatWeekdayName: (day) => {
+              const weekdays = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"]
+              return weekdays[day]
+            },
+          }}
+        />
       </PopoverContent>
     </Popover>
   )
