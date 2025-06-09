@@ -5,13 +5,21 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { signIn, getSession, useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, Eye, EyeOff, Shield, User } from "lucide-react"
+import { Loader2, Eye, EyeOff, Shield, User, ArrowLeft } from "lucide-react"
 import { useTheme } from "@/contexts/theme-context"
+import { ThemedButton } from "@/components/themed-button"
+import {
+  ThemedCard,
+  ThemedCardHeader,
+  ThemedCardTitle,
+  ThemedCardDescription,
+  ThemedCardContent,
+} from "@/components/themed-card"
 
 export default function LoginPage() {
   const [identifier, setIdentifier] = useState("")
@@ -40,7 +48,7 @@ export default function LoginPage() {
       console.log("🔐 Intentando iniciar sesión con:", identifier)
 
       const result = await signIn("credentials", {
-        email: identifier, // Cambiado de identifier a email
+        email: identifier,
         password,
         redirect: false,
       })
@@ -53,7 +61,6 @@ export default function LoginPage() {
       } else if (result?.ok) {
         console.log("✅ Login exitoso, verificando sesión...")
 
-        // Esperar un momento para que la sesión se establezca
         setTimeout(async () => {
           const session = await getSession()
           if (session) {
@@ -76,72 +83,59 @@ export default function LoginPage() {
   // Mostrar loading si está verificando la sesión
   if (status === "loading") {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ backgroundColor: theme.backgroundColor || "#fff5e6" }}
-      >
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" style={{ color: theme.primaryColor || "#f59e0b" }} />
-          <p style={{ color: theme.textColor || "#4b5563" }}>Verificando sesión...</p>
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-[var(--color-primary)]" />
+          <p className="text-gray-600">Verificando sesión...</p>
         </div>
       </div>
     )
   }
 
-  // Estilos dinámicos basados en el tema
-  const primaryColor = theme.primaryColor || "#f59e0b"
-  const primaryColorHover = theme.primaryColorHover || "#d97706"
-  const backgroundColor = theme.backgroundColor || "#fff5e6"
-  const cardBackground = theme.cardBackground || "white"
-  const textColor = theme.textColor || "#4b5563"
-  const borderRadius = theme.borderRadius || "0.5rem"
-
   return (
-    <div
-      className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
-      style={{ backgroundColor: "white" }}
-    >
+    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-white">
       <div className="w-full max-w-md mx-auto">
+        {/* Botón de volver */}
+        <div className="mb-6">
+          <Link href="/">
+            <Button
+              variant="ghost"
+              className="flex items-center gap-2 text-gray-600 hover:text-[var(--color-primary)] p-0"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Volver al inicio
+            </Button>
+          </Link>
+        </div>
+
         {/* Logo y título */}
         <div className="text-center mb-8">
           <div
             className="mx-auto h-16 w-16 rounded-xl flex items-center justify-center mb-4 shadow-lg"
             style={{
-              background: `linear-gradient(to bottom right, ${primaryColor}, ${primaryColorHover})`,
-              borderRadius,
+              backgroundColor: theme.primaryColor,
             }}
           >
             <span className="text-2xl font-bold text-white">G</span>
           </div>
-          <h1 className="text-3xl font-bold mb-2" style={{ color: textColor }}>
-            GranitoSkate
-          </h1>
-          <p style={{ color: `${textColor}99` }}>Panel de Administración</p>
+          <h1 className="text-3xl font-bold mb-2 text-gray-900">GranitoSkate</h1>
+          <p className="text-gray-600">Panel de Administración</p>
         </div>
 
-        <Card
-          className="shadow-xl border backdrop-blur-sm"
-          style={{
-            backgroundColor: "white",
-            borderColor: `${primaryColor}20`,
-            borderRadius,
-          }}
-        >
-          <CardHeader className="space-y-1 pb-6">
+        <ThemedCard className="shadow-xl border-0 backdrop-blur-sm">
+          <ThemedCardHeader className="space-y-1 pb-6">
             <div className="flex items-center justify-center mb-4">
-              <Shield style={{ color: primaryColor }} className="h-8 w-8" />
+              <Shield style={{ color: theme.primaryColor }} className="h-8 w-8" />
             </div>
-            <CardTitle className="text-2xl font-bold text-center" style={{ color: textColor }}>
-              Acceso Seguro
-            </CardTitle>
-            <CardDescription className="text-center" style={{ color: `${textColor}99` }}>
+            <ThemedCardTitle className="text-2xl font-bold text-center">Acceso Seguro</ThemedCardTitle>
+            <ThemedCardDescription className="text-center">
               Ingresa tus credenciales para acceder al panel de administración
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
+            </ThemedCardDescription>
+          </ThemedCardHeader>
+          <ThemedCardContent className="space-y-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="identifier" style={{ color: textColor }} className="font-medium">
+                <Label htmlFor="identifier" className="font-medium text-gray-700">
                   Usuario o Correo Electrónico
                 </Label>
                 <div className="relative">
@@ -154,17 +148,13 @@ export default function LoginPage() {
                     onChange={(e) => setIdentifier(e.target.value)}
                     required
                     disabled={isLoading}
-                    className="pl-10 h-12 border-gray-200"
-                    style={{
-                      borderRadius,
-                      borderColor: `${primaryColor}33`,
-                    }}
+                    className="pl-10 h-12 border-gray-200 focus:border-[var(--color-primary)] focus:ring-[var(--color-primary)]"
                     autoComplete="username"
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" style={{ color: textColor }} className="font-medium">
+                <Label htmlFor="password" className="font-medium text-gray-700">
                   Contraseña
                 </Label>
                 <div className="relative">
@@ -176,11 +166,7 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     disabled={isLoading}
-                    className="pr-10 h-12 border-gray-200"
-                    style={{
-                      borderRadius,
-                      borderColor: `${primaryColor}33`,
-                    }}
+                    className="pr-10 h-12 border-gray-200 focus:border-[var(--color-primary)] focus:ring-[var(--color-primary)]"
                     autoComplete="current-password"
                   />
                   <Button
@@ -204,13 +190,9 @@ export default function LoginPage() {
                   <AlertDescription className="text-red-700">{error}</AlertDescription>
                 </Alert>
               )}
-              <Button
+              <ThemedButton
                 type="submit"
                 className="w-full h-12 text-white font-medium shadow-lg transition-all duration-200"
-                style={{
-                  background: `linear-gradient(to right, ${primaryColor}, ${primaryColorHover})`,
-                  borderRadius,
-                }}
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -221,22 +203,22 @@ export default function LoginPage() {
                 ) : (
                   "Iniciar Sesión"
                 )}
-              </Button>
+              </ThemedButton>
             </form>
 
             {/* Información de seguridad */}
             <div className="pt-4 border-t border-gray-100">
-              <div className="flex items-center justify-center text-sm" style={{ color: `${textColor}99` }}>
+              <div className="flex items-center justify-center text-sm text-gray-500">
                 <Shield className="h-4 w-4 mr-2" />
                 Conexión segura y cifrada
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </ThemedCardContent>
+        </ThemedCard>
 
         {/* Footer */}
         <div className="text-center mt-8">
-          <p className="text-sm" style={{ color: `${textColor}99` }}>
+          <p className="text-sm text-gray-500">
             © {new Date().getFullYear()} GranitoSkate. Todos los derechos reservados.
           </p>
         </div>

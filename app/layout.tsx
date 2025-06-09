@@ -2,10 +2,9 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
+import { SessionProvider } from "@/components/session-provider"
 import { ThemeProvider } from "@/contexts/theme-context"
-import { NextAuthProvider } from "@/components/session-provider"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -15,19 +14,20 @@ export const metadata: Metadata = {
     generator: 'v0.dev'
 }
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode
-}>) {
-  const session = await getServerSession(authOptions)
-
+}) {
   return (
-    <html lang="es" suppressHydrationWarning>
+    <html lang="es">
       <body className={inter.className}>
-        <NextAuthProvider session={session}>
-          <ThemeProvider>{children}</ThemeProvider>
-        </NextAuthProvider>
+        <SessionProvider>
+          <ThemeProvider>
+            {children}
+            <Toaster />
+          </ThemeProvider>
+        </SessionProvider>
       </body>
     </html>
   )
