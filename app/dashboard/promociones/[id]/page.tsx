@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/alert-dialog"
 
 // Importar las funciones de utilidad al inicio
-import { createShopifyGid, normalizeShopifyGid } from "@/lib/utils/shopify-id"
+import { createShopifyGid } from "@/lib/utils/shopify-id"
 
 export default function PromotionDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -59,25 +59,14 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
         setIsLoading(true)
         console.log(`Cargando promoción con ID: ${params.id}`)
 
-        // Normalizar el ID por si viene con formato incorrecto
-        const normalizedId = normalizeShopifyGid(params.id)
-        console.log(`ID normalizado: ${normalizedId}`)
-
-        // Primero intentar con el ID tal como viene (normalizado)
-        let data = await fetchPriceListById(normalizedId)
+        // Primero intentar con el ID tal como viene
+        let data = await fetchPriceListById(params.id)
 
         // Si no funciona, intentar con el GID completo
         if (!data) {
-          // Intentar con diferentes tipos de nodos de descuento
-          const shopifyGidAuto = createShopifyGid(params.id, "DiscountAutomaticNode")
-          console.log(`Intentando con GID Automático: ${shopifyGidAuto}`)
-          data = await fetchPriceListById(shopifyGidAuto)
-
-          if (!data) {
-            const shopifyGidCode = createShopifyGid(params.id, "DiscountCodeNode")
-            console.log(`Intentando con GID Código: ${shopifyGidCode}`)
-            data = await fetchPriceListById(shopifyGidCode)
-          }
+          const shopifyGid = createShopifyGid(params.id, "DiscountAutomaticNode")
+          console.log(`Intentando con GID: ${shopifyGid}`)
+          data = await fetchPriceListById(shopifyGid)
         }
 
         // Si aún no funciona, intentar obtener desde Shopify directamente
@@ -104,7 +93,7 @@ export default function PromotionDetailPage({ params }: { params: { id: string }
     }
 
     loadPromotion()
-  }, [params.id, retryCount])
+  }, [params.id])
 
   const handleDelete = async () => {
     try {

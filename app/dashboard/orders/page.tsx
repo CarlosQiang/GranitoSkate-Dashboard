@@ -1,150 +1,244 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { RefreshCw, ShoppingCart, Euro, Package, AlertTriangle, Search, Eye } from "lucide-react"
-import Link from "next/link"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Skeleton } from "@/components/ui/skeleton"
+import { MoreHorizontal, Eye, AlertCircle, RefreshCw } from "lucide-react"
+import { fetchRecentOrders } from "@/lib/api/orders"
+import { useToast } from "@/components/ui/use-toast"
+import { formatDate, formatCurrency } from "@/lib/utils"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { SyncOrdersOnly } from "@/components/sync-orders-only"
+import { OrdersFilters } from "@/components/orders-filters"
 import { ResponsivePageContainer } from "@/components/responsive-page-container"
 
+interface OrderFilters {
+  search: string
+  status: string
+  sortBy: string
+  sortOrder: "asc" | "desc"
+  dateFrom: Date | undefined
+  dateTo: Date | undefined
+  minAmount: string
+  maxAmount: string
+  period: string
+}
+
 export default function OrdersPage() {
+  const router = useRouter()
+  const { toast } = useToast()
+  const [orders, setOrders] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [ordersData, setOrdersData] = useState<any>(null)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [fulfillmentFilter, setFulfillmentFilter] = useState("all")
 
-  const loadOrdersData = useCallback(async () => {
+  const [filters, setFilters] = useState<OrderFilters>({
+    search: "",
+    status: "",
+    sortBy: "date",
+    sortOrder: "desc",
+    dateFrom: undefined,
+    dateTo: undefined,
+    minAmount: "",
+    maxAmount: "",
+    period: "all",
+  })
+
+  useEffect(() => {
+    const getOrders = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+        const data = await fetchRecentOrders(100) // Obtener más pedidos para filtrar
+        setOrders(data)
+      } catch (error) {
+        console.error("Error fetching orders:", error)
+        setError(`Error al cargar pedidos: ${(error as Error).message}`)
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los pedidos",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    getOrders()
+  }, [toast])
+
+  // Filtrar y ordenar pedidos
+  const filteredOrders = useMemo(() => {
+    let filtered = [...orders]
+
+    // Filtro de búsqueda
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase()
+      filtered = filtered.filter(
+        (order) =>
+          order.name?.toLowerCase().includes(searchLower) ||
+          `${order.customer?.firstName || ""} ${order.customer?.lastName || ""}`.toLowerCase().includes(searchLower) ||
+          order.customer?.email?.toLowerCase().includes(searchLower),
+      )
+    }
+
+    // Filtro de estado
+    if (filters.status) {
+      filtered = filtered.filter((order) => order.displayFulfillmentStatus === filters.status)
+    }
+
+    // Filtro de fechas
+    if (filters.dateFrom) {
+      filtered = filtered.filter((order) => {
+        const orderDate = new Date(order.processedAt)
+        return orderDate >= filters.dateFrom!
+      })
+    }
+
+    if (filters.dateTo) {
+      filtered = filtered.filter((order) => {
+        const orderDate = new Date(order.processedAt)
+        return orderDate <= filters.dateTo!
+      })
+    }
+
+    // Filtro de montos
+    if (filters.minAmount) {
+      const minAmount = Number.parseFloat(filters.minAmount)
+      filtered = filtered.filter((order) => Number.parseFloat(order.totalPrice) >= minAmount)
+    }
+
+    if (filters.maxAmount) {
+      const maxAmount = Number.parseFloat(filters.maxAmount)
+      filtered = filtered.filter((order) => Number.parseFloat(order.totalPrice) <= maxAmount)
+    }
+
+    // Ordenamiento
+    filtered.sort((a, b) => {
+      let aValue, bValue
+
+      switch (filters.sortBy) {
+        case "amount":
+          aValue = Number.parseFloat(a.totalPrice)
+          bValue = Number.parseFloat(b.totalPrice)
+          break
+        case "customer":
+          aValue = `${a.customer?.firstName || ""} ${a.customer?.lastName || ""}`.toLowerCase()
+          bValue = `${b.customer?.firstName || ""} ${b.customer?.lastName || ""}`.toLowerCase()
+          break
+        case "number":
+          aValue = a.name
+          bValue = b.name
+          break
+        case "date":
+        default:
+          aValue = new Date(a.processedAt).getTime()
+          bValue = new Date(b.processedAt).getTime()
+          break
+      }
+
+      if (filters.sortOrder === "asc") {
+        return aValue > bValue ? 1 : -1
+      } else {
+        return aValue < bValue ? 1 : -1
+      }
+    })
+
+    return filtered
+  }, [orders, filters])
+
+  // Estadísticas de los pedidos filtrados
+  const stats = useMemo(() => {
+    const totalAmount = filteredOrders.reduce((sum, order) => sum + Number.parseFloat(order.totalPrice), 0)
+    return {
+      totalOrders: filteredOrders.length,
+      totalAmount,
+    }
+  }, [filteredOrders])
+
+  const getStatusColor = (status: string) => {
+    if (!status) return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100"
+
+    switch (status.toUpperCase()) {
+      case "FULFILLED":
+        return "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100"
+      case "UNFULFILLED":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100"
+      case "PARTIALLY_FULFILLED":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100"
+      case "PAID":
+        return "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100"
+      case "PENDING":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100"
+      case "REFUNDED":
+        return "bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100"
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100"
+    }
+  }
+
+  const handleRetry = async () => {
     try {
       setIsLoading(true)
       setError(null)
-
-      console.log("📦 Loading orders data...")
-
-      const response = await fetch("/api/orders/summary", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      })
-
-      if (!response.ok) {
-        throw new Error(`Orders API error: ${response.status}`)
-      }
-
-      const result = await response.json()
-
-      console.log("✅ Orders data loaded successfully:", result)
-      setOrdersData(result.data)
-
-      if (!result.success && result.error) {
-        setError(result.error)
-      }
-    } catch (err) {
-      console.error("❌ Error loading orders:", err)
-      setError(err instanceof Error ? err.message : "Error loading orders")
-
-      // Datos de fallback
-      setOrdersData({
-        stats: {
-          totalOrders: 0,
-          totalValue: "0.00",
-          pendingOrders: 0,
-          fulfilledOrders: 0,
-          currency: "EUR",
-        },
-        orders: [],
-        recentOrders: [],
-        byFinancialStatus: {},
-        byFulfillmentStatus: {},
+      const data = await fetchRecentOrders(100)
+      setOrders(data)
+    } catch (error) {
+      console.error("Error fetching orders:", error)
+      setError(`Error al cargar pedidos: ${(error as Error).message}`)
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los pedidos",
+        variant: "destructive",
       })
     } finally {
       setIsLoading(false)
     }
-  }, [])
-
-  // Añadir esta función después de loadOrdersData
-  const testOrdersConnection = async () => {
-    try {
-      console.log("🧪 Testing orders connection...")
-      const response = await fetch("/api/orders/test")
-      const result = await response.json()
-
-      console.log("🧪 Test result:", result)
-
-      if (result.success) {
-        alert(`✅ Conexión exitosa: ${result.message}`)
-      } else {
-        alert(`❌ Error en la conexión: ${result.message}`)
-      }
-    } catch (error) {
-      console.error("❌ Error testing connection:", error)
-      alert("❌ Error al probar la conexión")
-    }
   }
 
-  useEffect(() => {
-    loadOrdersData()
-  }, [loadOrdersData])
-
-  // Filtrar pedidos
-  const filteredOrders =
-    ordersData?.orders?.filter((order: any) => {
-      const matchesSearch =
-        !searchTerm ||
-        order.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.customer?.email?.toLowerCase().includes(searchTerm.toLowerCase())
-
-      const matchesStatus = statusFilter === "all" || order.financialStatus === statusFilter
-      const matchesFulfillment = fulfillmentFilter === "all" || order.fulfillmentStatus === fulfillmentFilter
-
-      return matchesSearch && matchesStatus && matchesFulfillment
-    }) || []
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "PAID":
-        return "bg-green-100 text-green-800"
-      case "PENDING":
-        return "bg-yellow-100 text-yellow-800"
-      case "REFUNDED":
-        return "bg-red-100 text-red-800"
-      case "FULFILLED":
-        return "bg-blue-100 text-blue-800"
-      case "UNFULFILLED":
-        return "bg-gray-100 text-gray-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
+  const clearFilters = () => {
+    setFilters({
+      search: "",
+      status: "",
+      sortBy: "date",
+      sortOrder: "desc",
+      dateFrom: undefined,
+      dateTo: undefined,
+      minAmount: "",
+      maxAmount: "",
+      period: "all",
+    })
   }
 
-  if (isLoading) {
+  if (error) {
     return (
       <ResponsivePageContainer>
         <div className="space-y-6">
-          <div className="space-y-2">
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Pedidos</h2>
-            <div className="h-4 bg-gray-200 rounded animate-pulse w-64"></div>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Pedidos</h1>
+              <p className="text-muted-foreground">Gestiona los pedidos de tu tienda</p>
+            </div>
           </div>
 
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-            {[...Array(4)].map((_, i) => (
-              <Card key={i}>
-                <CardHeader className="pb-2">
-                  <div className="h-4 bg-gray-200 rounded animate-pulse w-20"></div>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-8 bg-gray-200 rounded animate-pulse w-16 mb-2"></div>
-                  <div className="h-3 bg-gray-200 rounded animate-pulse w-24"></div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center text-destructive">
+                <AlertCircle className="mr-2 h-5 w-5" />
+                Error al cargar pedidos
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-4">{error}</p>
+              <Button onClick={handleRetry}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Reintentar
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </ResponsivePageContainer>
     )
@@ -153,218 +247,114 @@ export default function OrdersPage() {
   return (
     <ResponsivePageContainer>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex flex-col space-y-4">
-          <div className="space-y-2">
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Pedidos</h2>
-            <p className="text-sm text-muted-foreground">Gestiona y supervisa todos los pedidos de tu tienda</p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button onClick={loadOrdersData} className="w-full sm:w-auto">
-              <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-              Actualizar Pedidos
-            </Button>
-            <Button onClick={testOrdersConnection} variant="outline" className="w-full sm:w-auto">
-              🧪 Probar Conexión
-            </Button>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Pedidos</h1>
+            <p className="text-muted-foreground">Gestiona los pedidos de tu tienda</p>
           </div>
         </div>
 
-        {/* Error Alert */}
-        {error && (
-          <Card className="border-l-4 border-amber-500 bg-amber-50">
-            <CardContent className="pt-4 flex items-start">
-              <AlertTriangle className="h-5 w-5 text-amber-500 mr-2 mt-0.5 flex-shrink-0" />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-amber-800 break-words">{error}</p>
-                <p className="text-xs text-amber-700 mt-1">
-                  Algunos datos pueden estar incompletos. Puedes intentar actualizar.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <OrdersFilters
+          filters={filters}
+          onFiltersChange={setFilters}
+          onClearFilters={clearFilters}
+          totalOrders={stats.totalOrders}
+          totalAmount={stats.totalAmount}
+        />
 
-        {/* Stats Cards */}
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Pedidos</CardTitle>
-              <ShoppingCart className="h-4 w-4 text-gray-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{ordersData?.stats?.totalOrders || 0}</div>
-              <p className="text-xs text-gray-500">Todos los pedidos</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Valor Total</CardTitle>
-              <Euro className="h-4 w-4 text-gray-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">€{ordersData?.stats?.totalValue || "0.00"}</div>
-              <p className="text-xs text-gray-500">Ingresos totales</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
-              <Package className="h-4 w-4 text-yellow-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{ordersData?.stats?.pendingOrders || 0}</div>
-              <p className="text-xs text-gray-500">Por procesar</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Completados</CardTitle>
-              <Package className="h-4 w-4 text-green-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{ordersData?.stats?.fulfilledOrders || 0}</div>
-              <p className="text-xs text-gray-500">Entregados</p>
-            </CardContent>
-          </Card>
+        <div className="w-full overflow-hidden rounded-md border">
+          <div className="w-full overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Número</TableHead>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  Array(5)
+                    .fill(0)
+                    .map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell>
+                          <Skeleton className="h-4 w-16" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-24" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-32" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-6 w-20" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-16" />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Skeleton className="h-8 w-8 rounded-md ml-auto" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                ) : filteredOrders.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-6">
+                      No se encontraron pedidos con los filtros aplicados
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredOrders.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell>
+                        <div className="font-medium">{order.name}</div>
+                      </TableCell>
+                      <TableCell>{formatDate(order.processedAt)}</TableCell>
+                      <TableCell>
+                        {order.customer
+                          ? `${order.customer.firstName} ${order.customer.lastName}`
+                          : "Cliente no registrado"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(order.displayFulfillmentStatus)}>
+                          {order.displayFulfillmentStatus || "PENDIENTE"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {formatCurrency(order.totalPrice, order.currencyCode)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Acciones</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => router.push(`/dashboard/orders/${order.id}`)}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              Ver detalles
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
 
-        {/* Filters */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Filtros</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Buscar</label>
-                <div className="relative">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
-                  <Input
-                    placeholder="Buscar por número o email..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-8"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Estado Financiero</label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos los estados" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los estados</SelectItem>
-                    <SelectItem value="PAID">Pagado</SelectItem>
-                    <SelectItem value="PENDING">Pendiente</SelectItem>
-                    <SelectItem value="REFUNDED">Reembolsado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Estado de Envío</label>
-                <Select value={fulfillmentFilter} onValueChange={setFulfillmentFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos los envíos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los envíos</SelectItem>
-                    <SelectItem value="FULFILLED">Enviado</SelectItem>
-                    <SelectItem value="UNFULFILLED">Sin enviar</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Resultados</label>
-                <div className="text-sm text-gray-600 py-2">
-                  {filteredOrders.length} de {ordersData?.orders?.length || 0} pedidos
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Orders List */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Lista de Pedidos</CardTitle>
-            <CardDescription>
-              {filteredOrders.length > 0
-                ? `Mostrando ${filteredOrders.length} pedidos`
-                : "No se encontraron pedidos con los filtros aplicados"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {filteredOrders.length > 0 ? (
-              <div className="overflow-x-auto">
-                <div className="min-w-full">
-                  <div className="grid gap-4">
-                    {filteredOrders.map((order: any) => (
-                      <div key={order.id} className="border rounded-lg p-4 space-y-3">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-semibold">{order.name}</h3>
-                              <Badge className={getStatusColor(order.financialStatus)}>{order.financialStatus}</Badge>
-                              <Badge className={getStatusColor(order.fulfillmentStatus)}>
-                                {order.fulfillmentStatus}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-gray-600">
-                              {order.customer?.firstName} {order.customer?.lastName} - {order.customer?.email}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="text-right">
-                              <div className="font-semibold">€{order.totalPrice}</div>
-                              <div className="text-xs text-gray-500">
-                                {new Date(order.processedAt).toLocaleDateString()}
-                              </div>
-                            </div>
-                            <Link href={`/dashboard/orders/${order.id}`}>
-                              <Button variant="outline" size="sm">
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </Link>
-                          </div>
-                        </div>
-
-                        {order.items && order.items.length > 0 && (
-                          <div className="text-sm text-gray-600">
-                            <span className="font-medium">Productos:</span>{" "}
-                            {order.items
-                              .slice(0, 2)
-                              .map((item: any) => item.title)
-                              .join(", ")}
-                            {order.items.length > 2 && ` y ${order.items.length - 2} más`}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <ShoppingCart className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No hay pedidos</h3>
-                <p className="text-gray-500">
-                  {ordersData?.orders?.length === 0
-                    ? "No se han encontrado pedidos en tu tienda."
-                    : "No hay pedidos que coincidan con los filtros aplicados."}
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Componente de reemplazo de pedidos al final */}
+        <div className="w-full">
+          <SyncOrdersOnly onSyncComplete={() => {}} />
+        </div>
       </div>
     </ResponsivePageContainer>
   )

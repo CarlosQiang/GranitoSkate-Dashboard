@@ -14,9 +14,8 @@ import { MoreHorizontal, Pencil, ShoppingCart, UserPlus, RefreshCw } from "lucid
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { CustomerDetail } from "@/components/customer-detail"
 import { SyncCustomersOnly } from "@/components/sync-customers-only"
-import { useSession } from "next-auth/react"
-import { useRouter } from "next/router"
 import { ResponsivePageContainer } from "@/components/responsive-page-container"
+import Link from "next/link"
 
 interface Customer {
   id: string
@@ -41,8 +40,6 @@ interface Customer {
 
 export default function CustomersPage() {
   const { toast } = useToast()
-  const { data: session, status } = useSession()
-  const router = useRouter()
 
   const [customers, setCustomers] = useState<Customer[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -87,6 +84,16 @@ export default function CustomersPage() {
 
     if (filters.dateTo) {
       query += ` created_at:<=${filters.dateTo.toISOString().split("T")[0]}`
+    }
+
+    if (filters.tags && filters.tags.length > 0) {
+      filters.tags.forEach((tag) => {
+        query += ` tag:${tag}`
+      })
+    }
+
+    if (filters.hasDNI === true) {
+      query += " tag:dni-*"
     }
 
     return {
@@ -137,13 +144,8 @@ export default function CustomersPage() {
   )
 
   useEffect(() => {
-    if (status === "authenticated") {
-      loadCustomers()
-    } else if (status === "unauthenticated") {
-      setError("No estás autenticado para ver esta página.")
-      setIsLoading(false)
-    }
-  }, [status, loadCustomers])
+    loadCustomers()
+  }, [filters.query, filters.sortKey, filters.reverse, loadCustomers])
 
   const handleFilterChange = (newFilters: CustomerFilter) => {
     setFilters(newFilters)
@@ -173,13 +175,9 @@ export default function CustomersPage() {
     setIsDetailOpen(false)
   }
 
-  if (status === "loading") {
-    return <div>Cargando...</div>
-  }
-
   return (
     <ResponsivePageContainer>
-      <div className="space-y-4 sm:space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header responsive */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0">
           <div className="space-y-1">
@@ -189,14 +187,12 @@ export default function CustomersPage() {
 
           <div className="flex flex-col sm:flex-row gap-2">
             <ExportCustomers filters={buildApiFilters()} />
-            <Button
-              variant="default"
-              onClick={() => router.push("/dashboard/customers/new")}
-              className="w-full sm:w-auto"
-            >
-              <UserPlus className="h-4 w-4 mr-2" />
-              Nuevo cliente
-            </Button>
+            <Link href="/dashboard/customers/new">
+              <Button variant="default" className="w-full sm:w-auto">
+                <UserPlus className="h-4 w-4 mr-2" />
+                Nuevo cliente
+              </Button>
+            </Link>
           </div>
         </div>
 
@@ -212,155 +208,133 @@ export default function CustomersPage() {
           </div>
         )}
 
-        {isLoading ? (
-          <div className="rounded-md border overflow-hidden">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="min-w-[120px]">Nombre</TableHead>
-                    <TableHead className="min-w-[200px]">Email</TableHead>
-                    <TableHead className="min-w-[120px]">Teléfono</TableHead>
-                    <TableHead className="min-w-[80px]">Pedidos</TableHead>
-                    <TableHead className="min-w-[120px]">Total gastado</TableHead>
-                    <TableHead className="min-w-[120px]">Fecha de registro</TableHead>
-                    <TableHead className="text-right min-w-[100px]">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {[...Array(5)].map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell>
-                        <Skeleton className="h-4 w-32" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton className="h-4 w-40" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton className="h-4 w-24" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton className="h-4 w-12" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton className="h-4 w-20" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton className="h-4 w-24" />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Skeleton className="h-8 w-8 rounded-md ml-auto" />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        ) : (
-          <div className="rounded-md border overflow-hidden">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="min-w-[120px]">Nombre</TableHead>
-                    <TableHead className="min-w-[200px]">Email</TableHead>
-                    <TableHead className="min-w-[120px]">Teléfono</TableHead>
-                    <TableHead className="min-w-[80px]">Pedidos</TableHead>
-                    <TableHead className="min-w-[120px]">Total gastado</TableHead>
-                    <TableHead className="min-w-[120px]">Fecha de registro</TableHead>
-                    <TableHead className="text-right min-w-[100px]">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {customers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-6">
-                        No se encontraron clientes
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    customers.map((customer) => (
-                      <TableRow
-                        key={customer.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => handleViewDetails(customer)}
-                      >
+        <div className="w-full overflow-hidden rounded-md border">
+          <div className="w-full overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[120px]">Nombre</TableHead>
+                  <TableHead className="min-w-[200px]">Email</TableHead>
+                  <TableHead className="min-w-[120px]">Teléfono</TableHead>
+                  <TableHead className="min-w-[80px]">Pedidos</TableHead>
+                  <TableHead className="min-w-[120px]">Total gastado</TableHead>
+                  <TableHead className="min-w-[120px]">Fecha de registro</TableHead>
+                  <TableHead className="text-right min-w-[100px]">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  Array(5)
+                    .fill(0)
+                    .map((_, i) => (
+                      <TableRow key={i}>
                         <TableCell>
-                          <div className="font-medium break-words">
-                            {customer.firstName} {customer.lastName}
-                          </div>
+                          <Skeleton className="h-4 w-32" />
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center">
-                            <span className="break-all">{customer.email}</span>
-                            {customer.verifiedEmail && (
-                              <span
-                                className="ml-2 h-2 w-2 rounded-full bg-green-500 flex-shrink-0"
-                                title="Email verificado"
-                              />
-                            )}
-                          </div>
+                          <Skeleton className="h-4 w-40" />
                         </TableCell>
-                        <TableCell>{customer.phone || "—"}</TableCell>
-                        <TableCell>{customer.ordersCount}</TableCell>
                         <TableCell>
-                          {formatCurrency(customer.totalSpent.amount, customer.totalSpent.currencyCode)}
+                          <Skeleton className="h-4 w-24" />
                         </TableCell>
-                        <TableCell>{formatDate(customer.createdAt)}</TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-12" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-20" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-24" />
+                        </TableCell>
                         <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                              <Button variant="ghost" size="icon">
-                                <MoreHorizontal className="h-4 w-4" />
-                                <span className="sr-only">Acciones</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleViewDetails(customer)
-                                }}
-                              >
-                                <Pencil className="mr-2 h-4 w-4" />
-                                Ver detalles
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  router.push(`/dashboard/customers/${customer.id}/orders`)
-                                }}
-                              >
-                                <ShoppingCart className="mr-2 h-4 w-4" />
-                                Ver pedidos
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <Skeleton className="h-8 w-8 rounded-md ml-auto" />
                         </TableCell>
                       </TableRow>
                     ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-
-            {hasNextPage && (
-              <div className="flex justify-center p-4">
-                <Button variant="outline" onClick={() => loadCustomers(false)} disabled={isLoadingMore}>
-                  {isLoadingMore ? (
-                    <>
-                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                      Cargando...
-                    </>
-                  ) : (
-                    "Cargar más clientes"
-                  )}
-                </Button>
-              </div>
-            )}
+                ) : customers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-6">
+                      No se encontraron clientes
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  customers.map((customer) => (
+                    <TableRow
+                      key={customer.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleViewDetails(customer)}
+                    >
+                      <TableCell>
+                        <div className="font-medium break-words">
+                          {customer.firstName} {customer.lastName}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center">
+                          <span className="break-all">{customer.email}</span>
+                          {customer.verifiedEmail && (
+                            <span
+                              className="ml-2 h-2 w-2 rounded-full bg-green-500 flex-shrink-0"
+                              title="Email verificado"
+                            />
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>{customer.phone || "—"}</TableCell>
+                      <TableCell>{customer.ordersCount}</TableCell>
+                      <TableCell>
+                        {formatCurrency(customer.totalSpent.amount, customer.totalSpent.currencyCode)}
+                      </TableCell>
+                      <TableCell>{formatDate(customer.createdAt)}</TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Acciones</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleViewDetails(customer)
+                              }}
+                            >
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Ver detalles
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link href={`/dashboard/customers/${customer.id}/orders`}>
+                                <ShoppingCart className="mr-2 h-4 w-4" />
+                                Ver pedidos
+                              </Link>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </div>
-        )}
+
+          {hasNextPage && (
+            <div className="flex justify-center p-4">
+              <Button variant="outline" onClick={() => loadCustomers(false)} disabled={isLoadingMore}>
+                {isLoadingMore ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Cargando...
+                  </>
+                ) : (
+                  "Cargar más clientes"
+                )}
+              </Button>
+            </div>
+          )}
+        </div>
 
         {selectedCustomer && (
           <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
@@ -378,7 +352,7 @@ export default function CustomersPage() {
         )}
 
         {/* Componente de reemplazo de clientes al final */}
-        <div className="mt-8">
+        <div className="w-full">
           <SyncCustomersOnly onSyncComplete={() => {}} />
         </div>
       </div>

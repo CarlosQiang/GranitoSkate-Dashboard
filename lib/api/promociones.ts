@@ -21,7 +21,7 @@ export async function fetchPromociones(filter = "todas") {
     console.log(`🔍 Obteniendo promociones con filtro: ${filter}`)
 
     // Array para almacenar todas las promociones
-    let todasPromociones: any[] = []
+    let todasPromociones = []
 
     // Intentar obtener de Shopify primero
     try {
@@ -35,11 +35,11 @@ export async function fetchPromociones(filter = "todas") {
 
       if (shopifyResponse.ok) {
         const shopifyData = await shopifyResponse.json()
-        console.log("📊 Respuesta de Shopify:", shopifyData)
-
         if (shopifyData.success && Array.isArray(shopifyData.promociones)) {
           console.log(`✅ Promociones de Shopify: ${shopifyData.promociones.length}`)
-          todasPromociones = shopifyData.promociones.map((promo: any) => ({
+
+          // Asegurarse de que todas las promociones tengan el campo esShopify
+          todasPromociones = shopifyData.promociones.map((promo) => ({
             ...promo,
             esShopify: true,
           }))
@@ -53,54 +53,45 @@ export async function fetchPromociones(filter = "todas") {
       console.error("Error al obtener promociones de Shopify:", shopifyError)
     }
 
-    // Si no hay promociones de Shopify, intentar obtener de la base de datos local
-    if (todasPromociones.length === 0) {
-      try {
-        const dbResponse = await fetch(`/api/db/promociones?filter=${filter}`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          cache: "no-store",
-        })
+    // Obtener promociones de la base de datos local
+    try {
+      const dbResponse = await fetch(`/api/db/promociones?filter=${filter}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+      })
 
-        if (dbResponse.ok) {
-          const dbData = await dbResponse.json()
-          if (Array.isArray(dbData) && dbData.length > 0) {
-            console.log(`✅ Promociones de BD local: ${dbData.length}`)
-            todasPromociones = dbData.map((promo: any) => ({
-              ...promo,
-              esShopify: false,
-            }))
-          }
-        } else {
-          console.error(`❌ Error al obtener promociones de BD local: ${dbResponse.status}`)
+      if (dbResponse.ok) {
+        const dbData = await dbResponse.json()
+        if (Array.isArray(dbData) && dbData.length > 0) {
+          console.log(`✅ Promociones de BD local: ${dbData.length}`)
+
+          // Filtrar para no duplicar promociones que ya existen en Shopify
+          const promocionesUnicas = dbData.filter((dbPromo) => {
+            // Si tiene shopify_id, verificar que no esté ya en las promociones de Shopify
+            if (dbPromo.shopify_id) {
+              return !todasPromociones.some(
+                (shopifyPromo) =>
+                  shopifyPromo.id === dbPromo.shopify_id || shopifyPromo.shopify_id === dbPromo.shopify_id,
+              )
+            }
+            return true // Si no tiene shopify_id, incluirla siempre
+          })
+
+          todasPromociones = [...todasPromociones, ...promocionesUnicas]
         }
-      } catch (dbError) {
-        console.error("Error al obtener promociones de BD local:", dbError)
+      } else {
+        console.error(`❌ Error al obtener promociones de BD local: ${dbResponse.status}`)
+        const errorText = await dbResponse.text()
+        console.error(errorText)
       }
+    } catch (dbError) {
+      console.error("Error al obtener promociones de BD local:", dbError)
     }
 
-    // Aplicar filtros si es necesario
-    if (filter !== "todas" && todasPromociones.length > 0) {
-      const now = new Date()
-
-      if (filter === "activas") {
-        todasPromociones = todasPromociones.filter((p: any) => p.activa === true)
-      } else if (filter === "programadas") {
-        todasPromociones = todasPromociones.filter((p: any) => {
-          const fechaInicio = new Date(p.fechaInicio)
-          return fechaInicio > now
-        })
-      } else if (filter === "expiradas") {
-        todasPromociones = todasPromociones.filter((p: any) => {
-          const fechaFin = p.fechaFin ? new Date(p.fechaFin) : null
-          return fechaFin && fechaFin < now
-        })
-      }
-    }
-
-    console.log(`✅ Total promociones filtradas (${filter}): ${todasPromociones.length}`)
+    console.log(`✅ Total promociones combinadas: ${todasPromociones.length}`)
     return todasPromociones
   } catch (error) {
     console.error("❌ Error al obtener promociones:", error)

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     console.log("🔍 Obteniendo promociones de Shopify...")
 
@@ -10,11 +10,11 @@ export async function GET(request: Request) {
       return NextResponse.json({
         success: false,
         error: "Variables de entorno de Shopify no configuradas",
-        promociones: [],
+        promotions: [],
       })
     }
 
-    // Query GraphQL mejorado para obtener descuentos
+    // Query GraphQL para obtener descuentos
     const query = `
       query {
         discountNodes(first: 50) {
@@ -22,7 +22,6 @@ export async function GET(request: Request) {
             node {
               id
               discount {
-                __typename
                 ... on DiscountAutomaticBasic {
                   title
                   status
@@ -93,7 +92,7 @@ export async function GET(request: Request) {
         {
           success: false,
           error: `Error en respuesta de Shopify: ${response.status}`,
-          promociones: [],
+          promotions: [],
         },
         { status: 500 },
       )
@@ -106,8 +105,8 @@ export async function GET(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: `Errores en la consulta GraphQL: ${data.errors.map((e: any) => e.message).join(", ")}`,
-          promociones: [],
+          error: `Errores en la consulta GraphQL: ${data.errors.map((e) => e.message).join(", ")}`,
+          promotions: [],
         },
         { status: 500 },
       )
@@ -117,70 +116,56 @@ export async function GET(request: Request) {
       console.warn("⚠️ No se encontraron nodos de descuento")
       return NextResponse.json({
         success: true,
-        promociones: [],
+        promotions: [],
       })
     }
 
-    // Procesar las promociones con el formato correcto
-    const promociones = data.data.discountNodes.edges.map((edge: any) => {
+    // Procesar las promociones
+    const promotions = data.data.discountNodes.edges.map((edge) => {
       const node = edge.node
       const discount = node.discount
 
       // Determinar si es un descuento con código o automático
-      const isCodeDiscount = discount.__typename === "DiscountCodeBasic"
+      const isCodeDiscount = !!discount.codes
 
       // Extraer el valor del descuento
-      let valor = 0
-      let tipo = "PERCENTAGE_DISCOUNT"
+      let value = "0"
+      let discountClass = "PERCENTAGE"
 
       if (discount.customerGets?.value?.percentage) {
-        valor = Math.round(discount.customerGets.value.percentage * 100) // Convertir a porcentaje
-        tipo = "PERCENTAGE_DISCOUNT"
+        value = discount.customerGets.value.percentage.toString()
+        discountClass = "PERCENTAGE"
       } else if (discount.customerGets?.value?.amount?.amount) {
-        valor = Number.parseFloat(discount.customerGets.value.amount.amount)
-        tipo = "FIXED_AMOUNT_DISCOUNT"
+        value = discount.customerGets.value.amount.amount
+        discountClass = "AMOUNT"
       }
 
-      // Extraer código si existe
-      const codigo = isCodeDiscount ? discount.codes?.nodes?.[0]?.code || null : null
-
-      // Determinar el estado
-      let activa = false
-      const now = new Date()
-      const fechaInicio = discount.startsAt ? new Date(discount.startsAt) : null
-      const fechaFin = discount.endsAt ? new Date(discount.endsAt) : null
-
-      if (discount.status === "ACTIVE") {
-        if (!fechaInicio || fechaInicio <= now) {
-          if (!fechaFin || fechaFin >= now) {
-            activa = true
-          }
-        }
-      }
+      // Extraer códigos si existen
+      const codes = isCodeDiscount
+        ? discount.codes?.nodes?.map((node) => ({
+            code: node.code,
+          }))
+        : []
 
       return {
         id: node.id,
-        shopify_id: node.id,
-        titulo: discount.title || "Promoción sin título",
-        descripcion: discount.summary || "",
-        tipo: tipo,
-        valor: valor,
-        codigo: codigo,
-        fechaInicio: discount.startsAt,
-        fechaFin: discount.endsAt,
-        activa: activa,
-        estado: discount.status || "ACTIVE",
-        esShopify: true,
-        fechaCreacion: discount.startsAt || new Date().toISOString(),
+        title: discount.title || "Promoción sin título",
+        status: discount.status || "ACTIVE",
+        startsAt: discount.startsAt,
+        endsAt: discount.endsAt,
+        summary: discount.summary || "",
+        discountClass: discountClass,
+        value: value,
+        codes: codes || [],
       }
     })
 
-    console.log(`✅ ${promociones.length} promociones procesadas de Shopify`)
+    console.log(`✅ ${promotions.length} promociones obtenidas de Shopify`)
 
     return NextResponse.json({
       success: true,
-      promociones,
-      total: promociones.length,
+      promotions,
+      total: promotions.length,
     })
   } catch (error) {
     console.error("❌ Error obteniendo promociones de Shopify:", error)
@@ -188,8 +173,8 @@ export async function GET(request: Request) {
       {
         success: false,
         error: "Error al obtener promociones de Shopify",
-        details: (error as Error).message,
-        promociones: [],
+        details: error.message,
+        promotions: [],
       },
       { status: 500 },
     )

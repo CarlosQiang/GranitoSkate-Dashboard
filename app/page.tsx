@@ -14,9 +14,9 @@ export default async function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
-      <header className="bg-white/95 backdrop-blur-sm shadow-sm relative z-10">
+      <header className="bg-white shadow-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-2">
             <div className="rounded-full bg-[var(--color-primary)] p-2">
@@ -35,30 +35,18 @@ export default async function Home() {
         </div>
       </header>
 
-      {/* Hero Section with Background Image */}
-      <section className="flex-1 relative flex items-center justify-center py-12 sm:py-20">
-        {/* Background Image */}
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: "url(/images/hero-skateboard.jpg)",
-          }}
-        >
-          {/* Overlay for better text readability */}
-          <div className="absolute inset-0 bg-black/40"></div>
-        </div>
-
-        {/* Content */}
-        <div className="container mx-auto px-4 text-center relative z-10">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6 text-white drop-shadow-lg">
+      {/* Hero Section */}
+      <section className="flex-1 flex items-center justify-center py-12 sm:py-20">
+        <div className="container mx-auto px-4 text-center">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6">
             Panel de Administración GranitoSkate
           </h1>
-          <p className="text-lg sm:text-xl text-white/90 mb-8 sm:mb-10 max-w-3xl mx-auto drop-shadow-md">
+          <p className="text-lg sm:text-xl text-gray-600 mb-8 sm:mb-10 max-w-3xl mx-auto">
             Gestiona tu tienda Shopify de manera eficiente con nuestro panel de administración personalizado.
           </p>
           <div className="flex justify-center">
             <Link href="/login">
-              <ThemedButton size="lg" className="flex items-center gap-2 shadow-lg">
+              <ThemedButton size="lg" className="flex items-center gap-2">
                 <LogIn className="h-5 w-5" />
                 Iniciar sesión
               </ThemedButton>
@@ -72,7 +60,7 @@ export default async function Home() {
         <div className="container mx-auto px-4">
           <h2 className="text-2xl sm:text-3xl font-bold text-center mb-8 sm:mb-12">Características principales</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-            <div className="p-4 sm:p-6 border rounded-lg shadow-sm hover:shadow-md transition-shadow">
+            <div className="p-4 sm:p-6 border rounded-lg shadow-sm">
               <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[var(--color-primary)]">
                 Gestión de productos
               </h3>
@@ -80,13 +68,13 @@ export default async function Home() {
                 Administra tu catálogo de productos de forma sencilla y eficiente.
               </p>
             </div>
-            <div className="p-4 sm:p-6 border rounded-lg shadow-sm hover:shadow-md transition-shadow">
+            <div className="p-4 sm:p-6 border rounded-lg shadow-sm">
               <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[var(--color-primary)]">Análisis de ventas</h3>
               <p className="text-sm sm:text-base text-gray-600">
                 Visualiza estadísticas y métricas clave para tomar mejores decisiones.
               </p>
             </div>
-            <div className="p-4 sm:p-6 border rounded-lg shadow-sm hover:shadow-md transition-shadow">
+            <div className="p-4 sm:p-6 border rounded-lg shadow-sm">
               <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[var(--color-primary)]">Optimización SEO</h3>
               <p className="text-sm sm:text-base text-gray-600">
                 Mejora la visibilidad de tu tienda con herramientas de SEO integradas.
