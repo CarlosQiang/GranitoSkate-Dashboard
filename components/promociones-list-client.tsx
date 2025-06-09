@@ -108,6 +108,13 @@ export function PromocionesListClient({ filter }: PromocionesListClientProps) {
     }
   }
 
+  // Función para generar URLs seguras para las promociones
+  const getPromocionUrl = (id: string, action: "view" | "edit" = "view"): string => {
+    // Extraer solo el ID numérico para evitar problemas con el formato
+    const cleanId = extractShopifyId(id)
+    return `/dashboard/promociones/${cleanId}${action === "edit" ? "/edit" : ""}`
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -171,7 +178,9 @@ export function PromocionesListClient({ filter }: PromocionesListClientProps) {
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {promociones.map((promocion) => {
         const estado = obtenerEstado(promocion)
-        const idLimpio = extractShopifyId(promocion.id)
+        // Usar la función para generar URLs seguras
+        const viewUrl = getPromocionUrl(promocion.id, "view")
+        const editUrl = getPromocionUrl(promocion.id, "edit")
 
         return (
           <Card key={promocion.id} className="overflow-hidden hover:shadow-md transition-shadow">
@@ -215,13 +224,13 @@ export function PromocionesListClient({ filter }: PromocionesListClientProps) {
 
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" size="sm" asChild>
-                  <Link href={`/dashboard/promociones/${idLimpio}`}>
+                  <Link href={viewUrl}>
                     <Eye className="h-4 w-4 mr-1" />
                     Ver
                   </Link>
                 </Button>
                 <Button variant="outline" size="sm" asChild>
-                  <Link href={`/dashboard/promociones/${idLimpio}/edit`}>
+                  <Link href={editUrl}>
                     <Edit className="h-4 w-4 mr-1" />
                     Editar
                   </Link>

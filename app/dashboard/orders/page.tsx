@@ -68,6 +68,26 @@ export default function OrdersPage() {
     }
   }, [])
 
+  // Añadir esta función después de loadOrdersData
+  const testOrdersConnection = async () => {
+    try {
+      console.log("🧪 Testing orders connection...")
+      const response = await fetch("/api/orders/test")
+      const result = await response.json()
+
+      console.log("🧪 Test result:", result)
+
+      if (result.success) {
+        alert(`✅ Conexión exitosa: ${result.message}`)
+      } else {
+        alert(`❌ Error en la conexión: ${result.message}`)
+      }
+    } catch (error) {
+      console.error("❌ Error testing connection:", error)
+      alert("❌ Error al probar la conexión")
+    }
+  }
+
   useEffect(() => {
     loadOrdersData()
   }, [loadOrdersData])
@@ -140,10 +160,15 @@ export default function OrdersPage() {
             <p className="text-sm text-muted-foreground">Gestiona y supervisa todos los pedidos de tu tienda</p>
           </div>
 
-          <Button onClick={loadOrdersData} className="w-full sm:w-auto self-start">
-            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-            Actualizar Pedidos
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={loadOrdersData} className="w-full sm:w-auto">
+              <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+              Actualizar Pedidos
+            </Button>
+            <Button onClick={testOrdersConnection} variant="outline" className="w-full sm:w-auto">
+              🧪 Probar Conexión
+            </Button>
+          </div>
         </div>
 
         {/* Error Alert */}

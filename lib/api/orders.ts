@@ -2,7 +2,7 @@ import { shopifyFetch } from "@/lib/shopify"
 
 export async function fetchRecentOrders(limit = 10) {
   try {
-    console.log(`Fetching ${limit} recent orders from Shopify...`)
+    console.log(`🔍 Fetching ${limit} recent orders from Shopify...`)
 
     const query = `
       query GetRecentOrders($limit: Int!) {
@@ -22,6 +22,7 @@ export async function fetchRecentOrders(limit = 10) {
                 }
               }
               customer {
+                id
                 firstName
                 lastName
                 email
@@ -31,6 +32,12 @@ export async function fetchRecentOrders(limit = 10) {
                   node {
                     title
                     quantity
+                    variant {
+                      price
+                      product {
+                        title
+                      }
+                    }
                   }
                 }
               }
@@ -42,22 +49,29 @@ export async function fetchRecentOrders(limit = 10) {
 
     const response = await shopifyFetch({ query, variables: { limit } })
 
+    // Verificar errores de GraphQL
+    if (response.errors) {
+      console.error("❌ GraphQL errors:", response.errors)
+      throw new Error(`GraphQL Error: ${response.errors.map((e) => e.message).join(", ")}`)
+    }
+
     if (!response.data || !response.data.orders || !response.data.orders.edges) {
-      console.error("Respuesta de pedidos incompleta:", response)
+      console.error("❌ Respuesta de pedidos incompleta:", response)
       return []
     }
 
     const orders = response.data.orders.edges.map(({ node }) => ({
       id: node.id.split("/").pop(),
       name: node.name,
-      processedAt: node.processedAt,
+      processedAt: node.processedAt || node.createdAt,
       createdAt: node.createdAt,
-      fulfillmentStatus: node.displayFulfillmentStatus,
-      financialStatus: node.displayFinancialStatus,
+      fulfillmentStatus: node.displayFulfillmentStatus || "UNFULFILLED",
+      financialStatus: node.displayFinancialStatus || "PENDING",
       totalPrice: node.totalPriceSet?.shopMoney?.amount || "0.00",
       currencyCode: node.totalPriceSet?.shopMoney?.currencyCode || "EUR",
       customer: node.customer
         ? {
+            id: node.customer.id.split("/").pop(),
             firstName: node.customer.firstName || "",
             lastName: node.customer.lastName || "",
             email: node.customer.email || "",
@@ -67,13 +81,15 @@ export async function fetchRecentOrders(limit = 10) {
         node.lineItems?.edges?.map((item) => ({
           title: item.node.title,
           quantity: item.node.quantity,
+          price: item.node.variant?.price || "0.00",
+          productTitle: item.node.variant?.product?.title || "",
         })) || [],
     }))
 
-    console.log(`Successfully fetched ${orders.length} orders`)
+    console.log(`✅ Successfully fetched ${orders.length} orders`)
     return orders
   } catch (error) {
-    console.error("Error fetching recent orders:", error)
+    console.error("❌ Error fetching recent orders:", error)
     throw new Error(`Error al cargar pedidos recientes: ${error.message}`)
   }
 }
