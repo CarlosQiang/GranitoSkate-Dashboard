@@ -70,7 +70,7 @@ export default function NewCollectionPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto px-4 sm:px-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={() => router.push("/dashboard/collections")}>
