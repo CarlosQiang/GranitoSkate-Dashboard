@@ -12,6 +12,7 @@ import { AlertCircle, CheckCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { getLocalBusinessInfo, saveLocalBusinessInfo } from "@/lib/api/seo"
 import type { LocalBusinessInfo } from "@/types/seo"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 // Esquema de validación para el formulario de negocio local
 const localBusinessSchema = z.object({
@@ -134,184 +135,205 @@ export function LocalBusinessForm() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      <div className="bg-blue-50 border border-blue-200 rounded-md p-3 md:p-4">
-        <h3 className="text-sm font-medium text-blue-800">Información de negocio local</h3>
-        <p className="text-xs md:text-sm text-blue-700 mt-1 leading-relaxed">
+    <Card className="w-full">
+      <CardHeader className="p-3 sm:p-4">
+        <CardTitle className="text-base sm:text-lg">Información de negocio local</CardTitle>
+        <CardDescription className="text-xs sm:text-sm">
           Esta información se utilizará para generar datos estructurados de tipo LocalBusiness, que ayudan a Google a
           mostrar información relevante sobre tu negocio en los resultados de búsqueda.
-        </p>
-      </div>
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-3 sm:p-4 pt-0">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {error && (
+              <Alert variant="destructive" className="p-2 sm:p-3">
+                <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+                <AlertTitle className="text-xs sm:text-sm">Error</AlertTitle>
+                <AlertDescription className="text-xs">{error}</AlertDescription>
+              </Alert>
+            )}
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+            {success && (
+              <Alert className="bg-green-50 border-green-200 p-2 sm:p-3">
+                <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
+                <AlertTitle className="text-green-800 text-xs sm:text-sm">Guardado correctamente</AlertTitle>
+                <AlertDescription className="text-green-700 text-xs">
+                  La información de negocio local se ha guardado correctamente
+                </AlertDescription>
+              </Alert>
+            )}
 
-          {success && (
-            <Alert className="bg-green-50 border-green-200">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertTitle className="text-green-800">Guardado correctamente</AlertTitle>
-              <AlertDescription className="text-green-700">
-                La información de negocio local se ha guardado correctamente
-              </AlertDescription>
-            </Alert>
-          )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem className="col-span-1 sm:col-span-2">
+                    <FormLabel className="text-xs sm:text-sm font-medium">Nombre del negocio</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Granito Skate Shop"
+                        {...field}
+                        className="w-full text-xs sm:text-sm h-8 sm:h-9"
+                      />
+                    </FormControl>
+                    <FormMessage className="text-[10px] sm:text-xs" />
+                  </FormItem>
+                )}
+              />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem className="md:col-span-2">
-                  <FormLabel className="text-sm font-medium">Nombre del negocio</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Granito Skate Shop" {...field} className="w-full" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="telephone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs sm:text-sm font-medium">Teléfono</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="+34 912 345 678"
+                        {...field}
+                        className="w-full text-xs sm:text-sm h-8 sm:h-9"
+                      />
+                    </FormControl>
+                    <FormMessage className="text-[10px] sm:text-xs" />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="telephone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">Teléfono</FormLabel>
-                  <FormControl>
-                    <Input placeholder="+34 912 345 678" {...field} className="w-full" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs sm:text-sm font-medium">Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="contacto@granitoskate.com"
+                        {...field}
+                        className="w-full text-xs sm:text-sm h-8 sm:h-9"
+                      />
+                    </FormControl>
+                    <FormMessage className="text-[10px] sm:text-xs" />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">Email</FormLabel>
-                  <FormControl>
-                    <Input placeholder="contacto@granitoskate.com" {...field} className="w-full" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="streetAddress"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs sm:text-sm font-medium">Dirección</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Calle Gran Vía, 123"
+                        {...field}
+                        className="w-full text-xs sm:text-sm h-8 sm:h-9"
+                      />
+                    </FormControl>
+                    <FormMessage className="text-[10px] sm:text-xs" />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="streetAddress"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Dirección</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Calle Gran Vía, 123" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="addressLocality"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs sm:text-sm font-medium">Localidad</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Madrid" {...field} className="w-full text-xs sm:text-sm h-8 sm:h-9" />
+                    </FormControl>
+                    <FormMessage className="text-[10px] sm:text-xs" />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="addressLocality"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Localidad</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Madrid" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="addressRegion"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs sm:text-sm font-medium">Región/Provincia</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Madrid" {...field} className="w-full text-xs sm:text-sm h-8 sm:h-9" />
+                    </FormControl>
+                    <FormMessage className="text-[10px] sm:text-xs" />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="addressRegion"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Región/Provincia</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Madrid" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="postalCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs sm:text-sm font-medium">Código postal</FormLabel>
+                    <FormControl>
+                      <Input placeholder="28013" {...field} className="w-full text-xs sm:text-sm h-8 sm:h-9" />
+                    </FormControl>
+                    <FormMessage className="text-[10px] sm:text-xs" />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="postalCode"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Código postal</FormLabel>
-                  <FormControl>
-                    <Input placeholder="28013" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="addressCountry"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs sm:text-sm font-medium">País</FormLabel>
+                    <FormControl>
+                      <Input placeholder="España" {...field} className="w-full text-xs sm:text-sm h-8 sm:h-9" />
+                    </FormControl>
+                    <FormMessage className="text-[10px] sm:text-xs" />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="addressCountry"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>País</FormLabel>
-                  <FormControl>
-                    <Input placeholder="España" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="latitude"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs sm:text-sm font-medium">Latitud</FormLabel>
+                    <FormControl>
+                      <Input placeholder="40.4168" {...field} className="w-full text-xs sm:text-sm h-8 sm:h-9" />
+                    </FormControl>
+                    <FormDescription className="text-[10px] sm:text-xs">
+                      Coordenada geográfica (opcional)
+                    </FormDescription>
+                    <FormMessage className="text-[10px] sm:text-xs" />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="latitude"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Latitud</FormLabel>
-                  <FormControl>
-                    <Input placeholder="40.4168" {...field} />
-                  </FormControl>
-                  <FormDescription>Coordenada geográfica (opcional)</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="longitude"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs sm:text-sm font-medium">Longitud</FormLabel>
+                    <FormControl>
+                      <Input placeholder="-3.7038" {...field} className="w-full text-xs sm:text-sm h-8 sm:h-9" />
+                    </FormControl>
+                    <FormDescription className="text-[10px] sm:text-xs">
+                      Coordenada geográfica (opcional)
+                    </FormDescription>
+                    <FormMessage className="text-[10px] sm:text-xs" />
+                  </FormItem>
+                )}
+              />
+            </div>
 
-            <FormField
-              control={form.control}
-              name="longitude"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Longitud</FormLabel>
-                  <FormControl>
-                    <Input placeholder="-3.7038" {...field} />
-                  </FormControl>
-                  <FormDescription>Coordenada geográfica (opcional)</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <Button type="submit" disabled={isLoading} className="w-full md:w-auto">
-            {isLoading ? "Guardando..." : "Guardar información"}
-          </Button>
-        </form>
-      </Form>
-    </div>
+            <Button type="submit" disabled={isLoading} className="w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9 mt-2">
+              {isLoading ? "Guardando..." : "Guardar información"}
+            </Button>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
   )
 }

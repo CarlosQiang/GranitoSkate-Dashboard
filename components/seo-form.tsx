@@ -177,30 +177,30 @@ export function SeoForm({
 
   if (loadingData) {
     return (
-      <div className="space-y-4">
-        <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
-        <div className="h-20 bg-gray-200 rounded animate-pulse"></div>
-        <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
+      <div className="space-y-3 w-full">
+        <div className="h-6 bg-gray-200 rounded animate-pulse"></div>
+        <div className="h-16 bg-gray-200 rounded animate-pulse"></div>
+        <div className="h-6 bg-gray-200 rounded animate-pulse"></div>
       </div>
     )
   }
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 md:space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4 w-full">
         {error && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
+          <Alert variant="destructive" className="p-2 sm:p-3">
+            <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+            <AlertTitle className="text-xs sm:text-sm">Error</AlertTitle>
+            <AlertDescription className="text-xs">{error}</AlertDescription>
           </Alert>
         )}
 
         {success && (
-          <Alert className="bg-green-50 border-green-200">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertTitle className="text-green-800">Guardado correctamente</AlertTitle>
-            <AlertDescription className="text-green-700">
+          <Alert className="bg-green-50 border-green-200 p-2 sm:p-3">
+            <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
+            <AlertTitle className="text-green-800 text-xs sm:text-sm">Guardado correctamente</AlertTitle>
+            <AlertDescription className="text-green-700 text-xs">
               La configuración SEO se ha guardado correctamente
             </AlertDescription>
           </Alert>
@@ -210,16 +210,18 @@ export function SeoForm({
           control={form.control}
           name="title"
           render={({ field }) => (
-            <FormItem className="space-y-2">
-              <FormLabel className="text-sm font-medium">Título SEO</FormLabel>
+            <FormItem className="space-y-1 sm:space-y-2">
+              <FormLabel className="text-xs sm:text-sm font-medium">Título SEO</FormLabel>
               <FormControl>
-                <Input placeholder="Título para SEO" {...field} className="w-full" />
+                <Input placeholder="Título para SEO" {...field} className="w-full text-xs sm:text-sm h-8 sm:h-9" />
               </FormControl>
-              <FormDescription className="text-xs md:text-sm">
+              <FormDescription className="text-[10px] sm:text-xs">
                 El título que se mostrará en los resultados de búsqueda. Recomendado: 50-60 caracteres.
               </FormDescription>
-              <FormMessage />
-              <div className="text-xs text-muted-foreground">{field.value?.length || 0}/60 caracteres</div>
+              <FormMessage className="text-[10px] sm:text-xs" />
+              <div className="text-[10px] sm:text-xs text-muted-foreground">
+                {field.value?.length || 0}/60 caracteres
+              </div>
             </FormItem>
           )}
         />
@@ -228,20 +230,22 @@ export function SeoForm({
           control={form.control}
           name="description"
           render={({ field }) => (
-            <FormItem className="space-y-2">
-              <FormLabel className="text-sm font-medium">Descripción SEO</FormLabel>
+            <FormItem className="space-y-1 sm:space-y-2">
+              <FormLabel className="text-xs sm:text-sm font-medium">Descripción SEO</FormLabel>
               <FormControl>
                 <Textarea
                   placeholder="Descripción para SEO"
                   {...field}
-                  className="w-full min-h-[80px] md:min-h-[100px] resize-none"
+                  className="w-full min-h-[60px] sm:min-h-[80px] text-xs sm:text-sm resize-none"
                 />
               </FormControl>
-              <FormDescription className="text-xs md:text-sm">
+              <FormDescription className="text-[10px] sm:text-xs">
                 La descripción que se mostrará en los resultados de búsqueda. Recomendado: 150-160 caracteres.
               </FormDescription>
-              <FormMessage />
-              <div className="text-xs text-muted-foreground">{field.value?.length || 0}/160 caracteres</div>
+              <FormMessage className="text-[10px] sm:text-xs" />
+              <div className="text-[10px] sm:text-xs text-muted-foreground">
+                {field.value?.length || 0}/160 caracteres
+              </div>
             </FormItem>
           )}
         />
@@ -250,13 +254,19 @@ export function SeoForm({
           control={form.control}
           name="keywords"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>Palabras clave (separadas por comas)</FormLabel>
+            <FormItem className="space-y-1 sm:space-y-2">
+              <FormLabel className="text-xs sm:text-sm font-medium">Palabras clave (separadas por comas)</FormLabel>
               <FormControl>
-                <Input placeholder="palabra1, palabra2, palabra3" {...field} />
+                <Input
+                  placeholder="palabra1, palabra2, palabra3"
+                  {...field}
+                  className="w-full text-xs sm:text-sm h-8 sm:h-9"
+                />
               </FormControl>
-              <FormDescription>Palabras clave relevantes para el contenido, separadas por comas.</FormDescription>
-              <FormMessage />
+              <FormDescription className="text-[10px] sm:text-xs">
+                Palabras clave relevantes para el contenido, separadas por comas.
+              </FormDescription>
+              <FormMessage className="text-[10px] sm:text-xs" />
             </FormItem>
           )}
         />
@@ -265,13 +275,13 @@ export function SeoForm({
           control={form.control}
           name="syncWithShopify"
           render={({ field }) => (
-            <FormItem className="flex flex-col space-y-3 rounded-lg border p-3 md:p-4">
-              <div className="space-y-2">
-                <FormLabel className="text-sm md:text-base flex items-center gap-2">
-                  <Cloud className="h-4 w-4 flex-shrink-0" />
+            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-2 sm:p-3">
+              <div className="space-y-0.5">
+                <FormLabel className="text-xs sm:text-sm flex items-center gap-1 sm:gap-2">
+                  <Cloud className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                   Sincronizar con Shopify
                 </FormLabel>
-                <FormDescription className="text-xs md:text-sm">
+                <FormDescription className="text-[10px] sm:text-xs">
                   Guardar también estos datos SEO como metafields en Shopify
                 </FormDescription>
               </div>
@@ -282,13 +292,13 @@ export function SeoForm({
           )}
         />
 
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="pt-1 sm:pt-2">
           <Button
             type="submit"
             disabled={isLoading}
-            className="flex items-center justify-center gap-2 w-full sm:w-auto"
+            className="w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9 flex items-center justify-center gap-1 sm:gap-2"
           >
-            <Database className="h-4 w-4" />
+            <Database className="h-3 w-3 sm:h-4 sm:w-4" />
             {isLoading ? "Guardando..." : "Guardar SEO"}
           </Button>
         </div>

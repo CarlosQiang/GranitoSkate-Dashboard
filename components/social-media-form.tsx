@@ -12,6 +12,7 @@ import { AlertCircle, CheckCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { getSocialMediaProfiles, saveSocialMediaProfiles } from "@/lib/api/seo"
 import type { SocialMediaProfiles } from "@/types/seo"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 // Esquema de validación para el formulario de redes sociales
 const socialMediaSchema = z.object({
@@ -117,130 +118,151 @@ export function SocialMediaForm() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      <div className="bg-blue-50 border border-blue-200 rounded-md p-3 md:p-4">
-        <h3 className="text-sm font-medium text-blue-800">Perfiles de redes sociales</h3>
-        <p className="text-xs md:text-sm text-blue-700 mt-1 leading-relaxed">
+    <Card className="w-full">
+      <CardHeader className="p-3 sm:p-4">
+        <CardTitle className="text-base sm:text-lg">Perfiles de redes sociales</CardTitle>
+        <CardDescription className="text-xs sm:text-sm">
           Añade los enlaces a tus perfiles de redes sociales para mejorar tu presencia en línea y facilitar que los
           usuarios te encuentren en diferentes plataformas.
-        </p>
-      </div>
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-3 sm:p-4 pt-0">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {error && (
+              <Alert variant="destructive" className="p-2 sm:p-3">
+                <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+                <AlertTitle className="text-xs sm:text-sm">Error</AlertTitle>
+                <AlertDescription className="text-xs">{error}</AlertDescription>
+              </Alert>
+            )}
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+            {success && (
+              <Alert className="bg-green-50 border-green-200 p-2 sm:p-3">
+                <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
+                <AlertTitle className="text-green-800 text-xs sm:text-sm">Guardado correctamente</AlertTitle>
+                <AlertDescription className="text-green-700 text-xs">
+                  Los perfiles de redes sociales se han guardado correctamente
+                </AlertDescription>
+              </Alert>
+            )}
 
-          {success && (
-            <Alert className="bg-green-50 border-green-200">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertTitle className="text-green-800">Guardado correctamente</AlertTitle>
-              <AlertDescription className="text-green-700">
-                Los perfiles de redes sociales se han guardado correctamente
-              </AlertDescription>
-            </Alert>
-          )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FormField
+                control={form.control}
+                name="facebook"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs sm:text-sm font-medium">Facebook</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="https://facebook.com/granitoskate"
+                        {...field}
+                        className="w-full text-xs sm:text-sm h-8 sm:h-9"
+                      />
+                    </FormControl>
+                    <FormMessage className="text-[10px] sm:text-xs" />
+                  </FormItem>
+                )}
+              />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-            <FormField
-              control={form.control}
-              name="facebook"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">Facebook</FormLabel>
-                  <FormControl>
-                    <Input placeholder="https://facebook.com/granitoskate" {...field} className="w-full text-sm" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="instagram"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs sm:text-sm font-medium">Instagram</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="https://instagram.com/granitoskate"
+                        {...field}
+                        className="w-full text-xs sm:text-sm h-8 sm:h-9"
+                      />
+                    </FormControl>
+                    <FormMessage className="text-[10px] sm:text-xs" />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="instagram"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">Instagram</FormLabel>
-                  <FormControl>
-                    <Input placeholder="https://instagram.com/granitoskate" {...field} className="w-full text-sm" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="twitter"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs sm:text-sm font-medium">Twitter</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="https://twitter.com/granitoskate"
+                        {...field}
+                        className="w-full text-xs sm:text-sm h-8 sm:h-9"
+                      />
+                    </FormControl>
+                    <FormMessage className="text-[10px] sm:text-xs" />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="twitter"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">Twitter</FormLabel>
-                  <FormControl>
-                    <Input placeholder="https://twitter.com/granitoskate" {...field} className="w-full text-sm" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="youtube"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs sm:text-sm font-medium">YouTube</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="https://youtube.com/granitoskate"
+                        {...field}
+                        className="w-full text-xs sm:text-sm h-8 sm:h-9"
+                      />
+                    </FormControl>
+                    <FormMessage className="text-[10px] sm:text-xs" />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="youtube"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">YouTube</FormLabel>
-                  <FormControl>
-                    <Input placeholder="https://youtube.com/granitoskate" {...field} className="w-full text-sm" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="linkedin"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs sm:text-sm font-medium">LinkedIn</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="https://linkedin.com/company/granitoskate"
+                        {...field}
+                        className="w-full text-xs sm:text-sm h-8 sm:h-9"
+                      />
+                    </FormControl>
+                    <FormMessage className="text-[10px] sm:text-xs" />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="linkedin"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">LinkedIn</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="https://linkedin.com/company/granitoskate"
-                      {...field}
-                      className="w-full text-sm"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="tiktok"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs sm:text-sm font-medium">TikTok</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="https://tiktok.com/@granitoskate"
+                        {...field}
+                        className="w-full text-xs sm:text-sm h-8 sm:h-9"
+                      />
+                    </FormControl>
+                    <FormMessage className="text-[10px] sm:text-xs" />
+                  </FormItem>
+                )}
+              />
+            </div>
 
-            <FormField
-              control={form.control}
-              name="tiktok"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">TikTok</FormLabel>
-                  <FormControl>
-                    <Input placeholder="https://tiktok.com/@granitoskate" {...field} className="w-full text-sm" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <Button type="submit" disabled={isLoading} className="w-full md:w-auto">
-            {isLoading ? "Guardando..." : "Guardar perfiles"}
-          </Button>
-        </form>
-      </Form>
-    </div>
+            <Button type="submit" disabled={isLoading} className="w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9 mt-2">
+              {isLoading ? "Guardando..." : "Guardar perfiles"}
+            </Button>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
   )
 }
