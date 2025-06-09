@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, Tag, Trash2 } from "lucide-react"
+import { RefreshCw, Tag, CheckCircle, XCircle, AlertTriangle } from "lucide-react"
 
 interface SyncResult {
   borrados: number
@@ -44,7 +44,7 @@ export function SyncPromotionsOnly({ onSyncComplete }: SyncPromotionsOnlyProps) 
       const data = await response.json()
       console.log("✅ Reemplazo de promociones completado:", data)
 
-      // Usar la estructura correcta de la respuesta
+      // Usar la estructura correcta de la respuesta (igual que clientes)
       setResult({
         borrados: data.results?.borrados || 0,
         insertados: data.results?.insertados || 0,
@@ -53,9 +53,7 @@ export function SyncPromotionsOnly({ onSyncComplete }: SyncPromotionsOnlyProps) 
       })
 
       // Llamar al callback para actualizar el estado
-      if (onSyncComplete) {
-        onSyncComplete()
-      }
+      onSyncComplete?.()
     } catch (error) {
       console.error("❌ Error en reemplazo de promociones:", error)
       setError(error instanceof Error ? error.message : "Error desconocido")
@@ -78,23 +76,13 @@ export function SyncPromotionsOnly({ onSyncComplete }: SyncPromotionsOnlyProps) 
       <CardContent>
         <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mb-4">
           <div className="flex items-start">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
-                <path
-                  fillRule="evenodd"
-                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </div>
-            <div className="ml-3">
+            <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 mr-3" />
+            <div>
               <h3 className="text-sm font-medium text-amber-800">¡Atención!</h3>
-              <div className="mt-2 text-sm text-amber-700">
-                <p>
-                  Esta acción borrará TODAS las promociones existentes en la base de datos y las reemplazará con los
-                  datos actuales de Shopify.
-                </p>
-              </div>
+              <p className="mt-1 text-sm text-amber-700">
+                Esta acción borrará TODAS las promociones existentes en la base de datos y las reemplazará con los datos
+                actuales de Shopify.
+              </p>
             </div>
           </div>
         </div>
@@ -107,7 +95,7 @@ export function SyncPromotionsOnly({ onSyncComplete }: SyncPromotionsOnlyProps) 
             </>
           ) : (
             <>
-              <Trash2 className="mr-2 h-4 w-4" />
+              <Tag className="mr-2 h-4 w-4" />
               Borrar y Reemplazar Promociones
             </>
           )}
@@ -116,10 +104,13 @@ export function SyncPromotionsOnly({ onSyncComplete }: SyncPromotionsOnlyProps) 
         {result && (
           <div className="mt-4">
             <div className="bg-green-50 border border-green-200 rounded-md p-3 mb-4">
-              <p className="text-sm text-green-800">
-                ✅ Reemplazo completado: {result.borrados} borrados, {result.insertados} insertados, {result.errores}{" "}
-                errores
-              </p>
+              <div className="flex items-center">
+                <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                <span className="text-sm text-green-800">
+                  ✅ Reemplazo completado: {result.borrados} borrados, {result.insertados} insertados, {result.errores}{" "}
+                  errores
+                </span>
+              </div>
             </div>
 
             <div className="mb-4">
@@ -147,9 +138,9 @@ export function SyncPromotionsOnly({ onSyncComplete }: SyncPromotionsOnlyProps) 
                   {result.detalles.map((detalle, index) => (
                     <div key={index} className="flex items-center gap-2">
                       {detalle.includes("Error") ? (
-                        <span className="text-red-500">❌</span>
+                        <XCircle className="h-3 w-3 text-red-500" />
                       ) : (
-                        <span className="text-green-500">✅</span>
+                        <CheckCircle className="h-3 w-3 text-green-500" />
                       )}
                       <span>{detalle}</span>
                     </div>
@@ -162,7 +153,10 @@ export function SyncPromotionsOnly({ onSyncComplete }: SyncPromotionsOnlyProps) 
 
         {error && (
           <div className="mt-4 bg-red-50 border border-red-200 rounded-md p-3">
-            <p className="text-sm text-red-800">❌ Error: {error}</p>
+            <div className="flex items-center">
+              <XCircle className="h-4 w-4 mr-2 text-red-500" />
+              <span className="text-sm text-red-800">❌ Error: {error}</span>
+            </div>
           </div>
         )}
       </CardContent>
