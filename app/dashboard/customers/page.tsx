@@ -15,6 +15,7 @@ import { MoreHorizontal, Pencil, ShoppingCart, UserPlus, RefreshCw } from "lucid
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { CustomerDetail } from "@/components/customer-detail"
 import { SyncCustomersOnly } from "@/components/sync-customers-only"
+import { ResponsivePageContainer } from "@/components/responsive-page-container"
 
 interface Customer {
   id: string
@@ -183,87 +184,42 @@ export default function CustomersPage() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6 lg:p-8">
-      {/* Header responsive */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0">
-        <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Clientes</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Gestiona los clientes de tu tienda</p>
-        </div>
+    <ResponsivePageContainer>
+      <div className="space-y-4 sm:space-y-6">
+        {/* Header responsive */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0">
+          <div className="space-y-1">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Clientes</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">Gestiona los clientes de tu tienda</p>
+          </div>
 
-        <div className="flex flex-col sm:flex-row gap-2">
-          <ExportCustomers filters={buildApiFilters()} />
-          <Button
-            variant="default"
-            onClick={() => router.push("/dashboard/customers/new")}
-            className="w-full sm:w-auto"
-          >
-            <UserPlus className="h-4 w-4 mr-2" />
-            Nuevo cliente
-          </Button>
-        </div>
-      </div>
-
-      <CustomerFilters filters={filters} onFilterChange={handleFilterChange} onReset={resetFilters} />
-
-      {error && (
-        <div className="bg-destructive/15 border border-destructive text-destructive px-4 py-3 rounded-md">
-          <p className="text-sm break-words">{error}</p>
-          <Button variant="outline" size="sm" onClick={() => loadCustomers()} className="mt-2">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Reintentar
-          </Button>
-        </div>
-      )}
-
-      {isLoading ? (
-        <div className="rounded-md border overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[120px]">Nombre</TableHead>
-                  <TableHead className="min-w-[200px]">Email</TableHead>
-                  <TableHead className="min-w-[120px]">Teléfono</TableHead>
-                  <TableHead className="min-w-[80px]">Pedidos</TableHead>
-                  <TableHead className="min-w-[120px]">Total gastado</TableHead>
-                  <TableHead className="min-w-[120px]">Fecha de registro</TableHead>
-                  <TableHead className="text-right min-w-[100px]">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {[...Array(5)].map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell>
-                      <Skeleton className="h-4 w-32" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-4 w-40" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-4 w-24" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-4 w-12" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-4 w-20" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-4 w-24" />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Skeleton className="h-8 w-8 rounded-md ml-auto" />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <ExportCustomers filters={buildApiFilters()} />
+            <Button
+              variant="default"
+              onClick={() => router.push("/dashboard/customers/new")}
+              className="w-full sm:w-auto"
+            >
+              <UserPlus className="h-4 w-4 mr-2" />
+              Nuevo cliente
+            </Button>
           </div>
         </div>
-      ) : (
-        <div className="rounded-md border overflow-hidden">
-          <div className="overflow-x-auto">
+
+        <CustomerFilters filters={filters} onFilterChange={handleFilterChange} onReset={resetFilters} />
+
+        {error && (
+          <div className="bg-destructive/15 border border-destructive text-destructive px-4 py-3 rounded-md">
+            <p className="text-sm break-words">{error}</p>
+            <Button variant="outline" size="sm" onClick={() => loadCustomers()} className="mt-2">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Reintentar
+            </Button>
+          </div>
+        )}
+
+        <div className="w-full overflow-hidden rounded-md border">
+          <div className="w-full overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -277,7 +233,35 @@ export default function CustomersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {customers.length === 0 ? (
+                {isLoading ? (
+                  Array(5)
+                    .fill(0)
+                    .map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell>
+                          <Skeleton className="h-4 w-32" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-40" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-24" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-12" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-20" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-24" />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Skeleton className="h-8 w-8 rounded-md ml-auto" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                ) : customers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-6">
                       No se encontraron clientes
@@ -364,27 +348,27 @@ export default function CustomersPage() {
             </div>
           )}
         </div>
-      )}
 
-      {selectedCustomer && (
-        <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Detalles del cliente</DialogTitle>
-              <DialogDescription>
-                Información completa de {selectedCustomer.firstName} {selectedCustomer.lastName}
-              </DialogDescription>
-            </DialogHeader>
+        {selectedCustomer && (
+          <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Detalles del cliente</DialogTitle>
+                <DialogDescription>
+                  Información completa de {selectedCustomer.firstName} {selectedCustomer.lastName}
+                </DialogDescription>
+              </DialogHeader>
 
-            <CustomerDetail customer={selectedCustomer} onUpdate={handleCustomerUpdated} />
-          </DialogContent>
-        </Dialog>
-      )}
+              <CustomerDetail customer={selectedCustomer} onUpdate={handleCustomerUpdated} />
+            </DialogContent>
+          </Dialog>
+        )}
 
-      {/* Componente de reemplazo de clientes al final */}
-      <div className="mt-8">
-        <SyncCustomersOnly onSyncComplete={() => {}} />
+        {/* Componente de reemplazo de clientes al final */}
+        <div className="w-full">
+          <SyncCustomersOnly onSyncComplete={() => {}} />
+        </div>
       </div>
-    </div>
+    </ResponsivePageContainer>
   )
 }

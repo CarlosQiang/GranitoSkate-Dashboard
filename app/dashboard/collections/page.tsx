@@ -12,27 +12,31 @@ export const revalidate = 60 // Cambiamos a un valor numérico en segundos en lu
 
 export default function CollectionsPage() {
   return (
-    <div className="flex flex-col gap-4 w-full">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-        <div>
-          <h1 className="text-2xl font-bold">Colecciones</h1>
-          <p className="text-muted-foreground">Gestiona las colecciones de tu tienda</p>
+    <div className="min-h-screen w-full overflow-x-hidden">
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
+        <div className="flex flex-col gap-6 w-full">
+          <div className="flex flex-col space-y-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold">Colecciones</h1>
+              <p className="text-muted-foreground">Gestiona las colecciones de tu tienda</p>
+            </div>
+            <Button asChild className="w-full sm:w-auto self-start">
+              <Link href="/dashboard/collections/new">
+                <Plus className="mr-2 h-4 w-4" />
+                Nueva colección
+              </Link>
+            </Button>
+          </div>
+
+          <Suspense fallback={<LoadingState message="Cargando colecciones..." />}>
+            <CollectionsList />
+          </Suspense>
+
+          {/* Componente de reemplazo de colecciones al final */}
+          <div className="w-full border-t pt-8">
+            <SyncCollectionsOnly />
+          </div>
         </div>
-        <Button asChild className="w-full sm:w-auto">
-          <Link href="/dashboard/collections/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva colección
-          </Link>
-        </Button>
-      </div>
-
-      <Suspense fallback={<LoadingState message="Cargando colecciones..." />}>
-        <CollectionsList />
-      </Suspense>
-
-      {/* Componente de reemplazo de colecciones al final */}
-      <div className="mt-8 border-t pt-8">
-        <SyncCollectionsOnly />
       </div>
     </div>
   )

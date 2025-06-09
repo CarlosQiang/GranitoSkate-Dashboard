@@ -236,7 +236,7 @@ export default function ProductsPage() {
             href={`/dashboard/products/${cleanId(product.id)}`}
             className="flex items-center gap-4 border rounded-md p-4 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
           >
-            <div className="h-16 w-16 relative bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden">
+            <div className="h-16 w-16 relative bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden flex-shrink-0">
               {getImageUrl(product) ? (
                 <Image
                   src={getImageUrl(product) || "/placeholder.svg"}
@@ -254,7 +254,7 @@ export default function ProductsPage() {
               <h3 className="font-medium truncate">{product.title}</h3>
               <p className="text-sm text-muted-foreground">{product.productType || "Sin categoría"}</p>
             </div>
-            <div className="text-right">
+            <div className="text-right flex-shrink-0">
               <div className="font-medium">{formatCurrency(product.price || 0, product.currencyCode || "EUR")}</div>
               <Badge
                 variant={product.status === "ACTIVE" ? "default" : "secondary"}
@@ -272,165 +272,182 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Productos</h1>
-          <p className="text-muted-foreground mt-1">Gestiona los productos de tu tienda Shopify</p>
-        </div>
-        <Button
-          onClick={() => router.push("/dashboard/products/new")}
-          className="bg-granito-500 hover:bg-granito-600 text-white"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Nuevo producto
-        </Button>
-      </div>
-
-      <Card className="overflow-hidden border-gray-200 dark:border-gray-800">
-        <CardHeader className="bg-gray-50 dark:bg-gray-900 border-b px-6 py-4">
-          <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
-            <div>
-              <CardTitle className="text-xl">Catálogo de productos</CardTitle>
-              <CardDescription>Visualiza, edita y crea nuevos productos para tu tienda online.</CardDescription>
-            </div>
-            {/* Botón de sincronizar eliminado */}
-          </div>
-        </CardHeader>
-        <CardContent className="p-6">
+    <div className="min-h-screen w-full overflow-x-hidden">
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
+        <div className="space-y-6">
           <div className="flex flex-col space-y-4">
-            <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder="Buscar productos..."
-                  className="pl-8"
-                  value={searchTerm}
-                  onChange={handleSearchChange}
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-1">
-                      <ArrowUpDown className="h-4 w-4" />
-                      <span className="hidden sm:inline">{getSortTitle()}</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setSortBy("title-asc")}>Nombre (A-Z)</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSortBy("title-desc")}>Nombre (Z-A)</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSortBy("date-desc")}>Fecha (Reciente primero)</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSortBy("date-asc")}>Fecha (Antiguo primero)</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSortBy("price-asc")}>Precio (Menor primero)</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSortBy("price-desc")}>Precio (Mayor primero)</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <div className="flex items-center border rounded-md overflow-hidden">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={`px-2 rounded-none ${viewMode === "grid" ? "bg-gray-100 dark:bg-gray-800" : ""}`}
-                    onClick={() => setViewMode("grid")}
-                    aria-label="Vista de cuadrícula"
-                  >
-                    <Grid3X3 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={`px-2 rounded-none ${viewMode === "list" ? "bg-gray-100 dark:bg-gray-800" : ""}`}
-                    onClick={() => setViewMode("list")}
-                    aria-label="Vista de lista"
-                  >
-                    <List className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Productos</h1>
+              <p className="text-muted-foreground mt-1">Gestiona los productos de tu tienda Shopify</p>
             </div>
+            <Button
+              onClick={() => router.push("/dashboard/products/new")}
+              className="bg-granito-500 hover:bg-granito-600 text-white w-full sm:w-auto self-start"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo producto
+            </Button>
+          </div>
 
-            {error && (
-              <div
-                className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-md"
-                role="alert"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">Error:</span>
-                  <span>{error}</span>
+          <Card className="overflow-hidden border-gray-200 dark:border-gray-800 w-full">
+            <CardHeader className="bg-gray-50 dark:bg-gray-900 border-b px-4 sm:px-6 py-4">
+              <div className="flex flex-col space-y-4">
+                <div>
+                  <CardTitle className="text-lg sm:text-xl">Catálogo de productos</CardTitle>
+                  <CardDescription>Visualiza, edita y crea nuevos productos para tu tienda online.</CardDescription>
                 </div>
               </div>
-            )}
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col space-y-4">
+                <div className="flex flex-col space-y-3">
+                  <div className="relative w-full">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="search"
+                      placeholder="Buscar productos..."
+                      className="pl-8 w-full"
+                      value={searchTerm}
+                      onChange={handleSearchChange}
+                    />
+                  </div>
 
-            <Tabs defaultValue="all" value={activeTab} onValueChange={handleTabChange} className="w-full">
-              <TabsList className="bg-muted/60 w-full justify-start mb-4 overflow-x-auto flex-nowrap">
-                <TabsTrigger value="all" className="data-[state=active]:bg-granito-500 data-[state=active]:text-white">
-                  Todos
-                  {!isLoading && (
-                    <Badge variant="outline" className="ml-2 bg-white/20">
-                      {products.length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="active"
-                  className="data-[state=active]:bg-granito-500 data-[state=active]:text-white"
-                >
-                  Activos
-                  {!isLoading && (
-                    <Badge variant="outline" className="ml-2 bg-white/20">
-                      {products.filter((p) => p.status === "ACTIVE").length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="draft"
-                  className="data-[state=active]:bg-granito-500 data-[state=active]:text-white"
-                >
-                  Borradores
-                  {!isLoading && (
-                    <Badge variant="outline" className="ml-2 bg-white/20">
-                      {products.filter((p) => p.status === "DRAFT").length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="archived"
-                  className="data-[state=active]:bg-granito-500 data-[state=active]:text-white"
-                >
-                  Archivados
-                  {!isLoading && (
-                    <Badge variant="outline" className="ml-2 bg-white/20">
-                      {products.filter((p) => p.status === "ARCHIVED").length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-              </TabsList>
+                  <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="gap-1 w-full sm:w-auto">
+                          <ArrowUpDown className="h-4 w-4" />
+                          <span className="truncate">{getSortTitle()}</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setSortBy("title-asc")}>Nombre (A-Z)</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setSortBy("title-desc")}>Nombre (Z-A)</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setSortBy("date-desc")}>
+                          Fecha (Reciente primero)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setSortBy("date-asc")}>
+                          Fecha (Antiguo primero)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setSortBy("price-asc")}>
+                          Precio (Menor primero)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setSortBy("price-desc")}>
+                          Precio (Mayor primero)
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
 
-              <TabsContent value="all" className="mt-0">
-                {renderProductsContent()}
-              </TabsContent>
+                    <div className="flex items-center border rounded-md overflow-hidden w-full sm:w-auto">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={`px-3 py-2 rounded-none flex-1 sm:flex-none ${viewMode === "grid" ? "bg-gray-100 dark:bg-gray-800" : ""}`}
+                        onClick={() => setViewMode("grid")}
+                        aria-label="Vista de cuadrícula"
+                      >
+                        <Grid3X3 className="h-4 w-4" />
+                        <span className="ml-2 sm:hidden">Cuadrícula</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={`px-3 py-2 rounded-none flex-1 sm:flex-none ${viewMode === "list" ? "bg-gray-100 dark:bg-gray-800" : ""}`}
+                        onClick={() => setViewMode("list")}
+                        aria-label="Vista de lista"
+                      >
+                        <List className="h-4 w-4" />
+                        <span className="ml-2 sm:hidden">Lista</span>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
 
-              <TabsContent value="active" className="mt-0">
-                {renderProductsContent()}
-              </TabsContent>
+                {error && (
+                  <div
+                    className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-md"
+                    role="alert"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">Error:</span>
+                      <span className="break-words">{error}</span>
+                    </div>
+                  </div>
+                )}
 
-              <TabsContent value="draft" className="mt-0">
-                {renderProductsContent()}
-              </TabsContent>
+                <Tabs defaultValue="all" value={activeTab} onValueChange={handleTabChange} className="w-full">
+                  <TabsList className="bg-muted/60 w-full justify-start mb-4 overflow-x-auto flex-nowrap">
+                    <TabsTrigger
+                      value="all"
+                      className="data-[state=active]:bg-granito-500 data-[state=active]:text-white whitespace-nowrap"
+                    >
+                      Todos
+                      {!isLoading && (
+                        <Badge variant="outline" className="ml-2 bg-white/20">
+                          {products.length}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="active"
+                      className="data-[state=active]:bg-granito-500 data-[state=active]:text-white whitespace-nowrap"
+                    >
+                      Activos
+                      {!isLoading && (
+                        <Badge variant="outline" className="ml-2 bg-white/20">
+                          {products.filter((p) => p.status === "ACTIVE").length}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="draft"
+                      className="data-[state=active]:bg-granito-500 data-[state=active]:text-white whitespace-nowrap"
+                    >
+                      Borradores
+                      {!isLoading && (
+                        <Badge variant="outline" className="ml-2 bg-white/20">
+                          {products.filter((p) => p.status === "DRAFT").length}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="archived"
+                      className="data-[state=active]:bg-granito-500 data-[state=active]:text-white whitespace-nowrap"
+                    >
+                      Archivados
+                      {!isLoading && (
+                        <Badge variant="outline" className="ml-2 bg-white/20">
+                          {products.filter((p) => p.status === "ARCHIVED").length}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                  </TabsList>
 
-              <TabsContent value="archived" className="mt-0">
-                {renderProductsContent()}
-              </TabsContent>
-            </Tabs>
+                  <TabsContent value="all" className="mt-0">
+                    {renderProductsContent()}
+                  </TabsContent>
+
+                  <TabsContent value="active" className="mt-0">
+                    {renderProductsContent()}
+                  </TabsContent>
+
+                  <TabsContent value="draft" className="mt-0">
+                    {renderProductsContent()}
+                  </TabsContent>
+
+                  <TabsContent value="archived" className="mt-0">
+                    {renderProductsContent()}
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Componente de reemplazo de productos al final */}
+          <div className="w-full">
+            <SyncProductsOnly onSyncComplete={() => {}} />
           </div>
-        </CardContent>
-      </Card>
-      {/* Componente de reemplazo de productos al final */}
-      <div className="mt-8">
-        <SyncProductsOnly onSyncComplete={() => {}} />
+        </div>
       </div>
     </div>
   )
