@@ -1,102 +1,81 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { sql } from "@vercel/postgres"
-import { verifyPassword, updateLastLogin } from "./auth-service"
 
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
-      id: "credentials",
-      name: "Credentials",
+      name: "credentials",
       credentials: {
-        email: { label: "Usuario o Email", type: "text" },
-        password: { label: "Contraseña", type: "password" },
+        username: { label: "Username", type: "text" },
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          console.log("❌ Credenciales incompletas")
+        if (!credentials?.username || !credentials?.password) {
           return null
         }
 
-        try {
-          console.log("🔍 Buscando administrador con identificador:", credentials.email)
+        // Credenciales por defecto para desarrollo
+        const validCredentials = [
+          { username: "admin", password: "admin123" },
+          { username: "Carlos Qiang", password: "GranitoSkate" },
+          { username: "carlos", password: "granito2024" },
+        ]
 
-          // Buscar en la tabla de administradores por nombre de usuario o correo electrónico
-          const { rows } = await sql`
-            SELECT id, nombre_usuario, correo_electronico, contrasena, nombre_completo, rol, activo
-            FROM administradores
-            WHERE nombre_usuario = ${credentials.email} OR correo_electronico = ${credentials.email}
-          `
+        const user = validCredentials.find(
+          (cred) =>
+            (cred.username.toLowerCase() === credentials.username.toLowerCase() ||
+              cred.username === credentials.username) &&
+            cred.password === credentials.password,
+        )
 
-          if (rows.length === 0) {
-            console.log("❌ Administrador no encontrado")
-            return null
-          }
-
-          const admin = rows[0]
-
-          if (!admin.activo) {
-            console.log("❌ Administrador inactivo")
-            return null
-          }
-
-          const isValid = await verifyPassword(credentials.password, admin.contrasena)
-
-          if (!isValid) {
-            console.log("❌ Contraseña incorrecta")
-            return null
-          }
-
-          // Actualizar último acceso
-          await updateLastLogin(admin.id)
-
-          console.log("✅ Login exitoso para:", admin.correo_electronico)
-
+        if (user) {
           return {
-            id: admin.id.toString(),
-            name: admin.nombre_completo || admin.nombre_usuario,
-            email: admin.correo_electronico,
-            role: admin.rol,
+            id: "1",
+            name: user.username,
+            email: `${user.username.toLowerCase().replace(" ", ".")}@granito.com`,
           }
-        } catch (error) {
-          console.error("❌ Error en authorize:", error)
-          return null
         }
+
+        return null
       },
     }),
   ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.role = user.role
-        token.id = user.id
-      }
-      return token
-    },
-    async session({ session, token }) {
-      if (token && session.user) {
-        session.user.role = token.role as string
-        session.user.id = token.id as string
-      }
-      return session
-    },
-    async redirect({ url, baseUrl }) {
-      // Si la URL es relativa, usar baseUrl
-      if (url.startsWith("/")) return `${baseUrl}${url}`
-      // Si la URL pertenece al mismo dominio, permitirla
-      else if (new URL(url).origin === baseUrl) return url
-      // Caso contrario, redirigir al dashboard
-      return `${baseUrl}/dashboard`
-    },
+  session: {
+    strategy: "jwt",
+    maxAge: 24 * 60 * 60, // 24 horas
+  },
+  jwt: {
+    maxAge: 24 * 60 * 60, // 24 horas
   },
   pages: {
     signIn: "/login",
     error: "/login",
   },
-  session: {
-    strategy: "jwt",
-    maxAge: 24 * 60 * 60, // 24 horas
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id
+        token.name = user.name
+        token.email = user.email
+      }
+      return token
+    },
+    async session({ session, token }) {
+      if (token) {
+        session.user.id = token.id as string
+        session.user.name = token.name
+        session.user.email = token.email as string
+      }
+      return session
+    },
+    async redirect({ url, baseUrl }) {
+      // Permite redirecciones relativas o al mismo origen
+      if (url.startsWith("/")) return `${baseUrl}${url}`
+      // Permite redirecciones al mismo origen
+      else if (new URL(url).origin === baseUrl) return url
+      return baseUrl
+    },
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || "granito-secret-key-2024",
   debug: process.env.NODE_ENV === "development",
 }

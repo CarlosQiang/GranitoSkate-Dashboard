@@ -3,24 +3,27 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { signIn, getSession } from "next-auth/react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { Eye, EyeOff, Shield } from "lucide-react"
+import { Eye, EyeOff, Shield, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import Image from "next/image"
 import { useTheme } from "@/contexts/theme-context"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function LoginPage() {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const { theme } = useTheme()
 
@@ -48,6 +51,25 @@ export default function LoginPage() {
     return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`
   }
 
+  // Verificar si ya está autenticado
+  useEffect(() => {
+    const checkAuth = async () => {
+      const session = await getSession()
+      if (session) {
+        router.push("/dashboard")
+      }
+    }
+    checkAuth()
+  }, [router])
+
+  // Manejar errores de URL
+  useEffect(() => {
+    const errorParam = searchParams.get("error")
+    if (errorParam) {
+      setError("Error de autenticación. Por favor, inténtalo de nuevo.")
+    }
+  }, [searchParams])
+
   // Actualizar el título de la página solo en el cliente
   useEffect(() => {
     if (typeof window !== "undefined" && shopName) {
@@ -58,28 +80,41 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError("")
+
+    if (!username.trim() || !password.trim()) {
+      setError("Por favor, completa todos los campos")
+      setIsLoading(false)
+      return
+    }
 
     try {
       const result = await signIn("credentials", {
-        username,
-        password,
+        username: username.trim(),
+        password: password,
         redirect: false,
       })
 
       if (result?.error) {
+        setError("Credenciales incorrectas. Por favor, verifica tu usuario y contraseña.")
         toast({
           title: "Error de autenticación",
           description: "Credenciales incorrectas. Por favor, inténtalo de nuevo.",
           variant: "destructive",
         })
-      } else {
+      } else if (result?.ok) {
         toast({
           title: "¡Bienvenido!",
           description: "Has iniciado sesión correctamente.",
         })
-        router.push("/dashboard")
+        // Pequeña pausa para mostrar el toast
+        setTimeout(() => {
+          router.push("/dashboard")
+        }, 500)
       }
     } catch (error) {
+      console.error("Error de login:", error)
+      setError("Ha ocurrido un error inesperado. Por favor, inténtalo de nuevo.")
       toast({
         title: "Error",
         description: "Ha ocurrido un error inesperado. Por favor, inténtalo de nuevo.",
@@ -124,6 +159,13 @@ export default function LoginPage() {
           <p className="text-sm text-gray-500">Ingresa tus credenciales para acceder al panel de administración</p>
         </CardHeader>
         <CardContent>
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="username">Usuario o Correo Electrónico</Label>
@@ -202,6 +244,7 @@ export default function LoginPage() {
               {isLoading ? "Iniciando Sesión..." : "Iniciar Sesión"}
             </Button>
           </form>
+
           <div className="mt-6 text-center">
             <Link
               href="/"
@@ -217,6 +260,17 @@ export default function LoginPage() {
               ← Volver al inicio
             </Link>
           </div>
+
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+            <p className="text-xs text-blue-700 font-medium mb-1">Credenciales de prueba:</p>
+            <p className="text-xs text-blue-600">
+              Usuario: <code>Carlos Qiang</code>
+            </p>
+            <p className="text-xs text-blue-600">
+              Contraseña: <code>GranitoSkate</code>
+            </p>
+          </div>
+
           <div className="mt-4 flex items-center justify-center text-xs text-gray-500">
             <Shield className="w-3 h-3 mr-1" />
             Conexión segura y cifrada
