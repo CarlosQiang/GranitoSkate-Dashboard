@@ -1,19 +1,13 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
-
     const data = await request.json()
-    console.log(`📝 Creando promoción en Shopify:`, data)
+    console.log(`📝 [SHOPIFY CREATE] Datos recibidos:`, data)
 
     // Validar datos requeridos
     if (!data.titulo || !data.valor) {
+      console.error("❌ [SHOPIFY CREATE] Datos faltantes:", { titulo: data.titulo, valor: data.valor })
       return NextResponse.json(
         {
           success: false,
@@ -23,8 +17,25 @@ export async function POST(request: Request) {
       )
     }
 
+    // Verificar credenciales
+    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
+      console.error("❌ [SHOPIFY CREATE] Credenciales faltantes")
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Credenciales de Shopify no configuradas",
+          details: {
+            shop_domain: !!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN,
+            access_token: !!process.env.SHOPIFY_ACCESS_TOKEN,
+          },
+        },
+        { status: 500 },
+      )
+    }
+
     // Determinar si es un descuento automático o con código
     const isCodeDiscount = data.codigo && data.codigo.trim() !== ""
+    console.log(`🔍 [SHOPIFY CREATE] Tipo de descuento:`, isCodeDiscount ? "Con código" : "Automático")
 
     let mutation: string
     let variables: any
@@ -61,17 +72,11 @@ export async function POST(request: Request) {
           title: data.titulo,
           code: data.codigo,
           startsAt: data.fechaInicio || new Date().toISOString(),
-          endsAt: data.fechaFin,
+          endsAt: data.fechaFin || null,
           customerGets: {
-            value:
-              data.tipo === "PERCENTAGE_DISCOUNT" || data.tipo === "PORCENTAJE_DESCUENTO"
-                ? { percentage: Number.parseFloat(data.valor) / 100 }
-                : {
-                    discountAmount: {
-                      amount: Number.parseFloat(data.valor).toString(),
-                      appliesOnEachItem: false,
-                    },
-                  },
+            value: {
+              percentage: Number.parseFloat(data.valor) / 100,
+            },
             items: {
               all: true,
             },
@@ -109,17 +114,11 @@ export async function POST(request: Request) {
         automaticBasicDiscount: {
           title: data.titulo,
           startsAt: data.fechaInicio || new Date().toISOString(),
-          endsAt: data.fechaFin,
+          endsAt: data.fechaFin || null,
           customerGets: {
-            value:
-              data.tipo === "PERCENTAGE_DISCOUNT" || data.tipo === "PORCENTAJE_DESCUENTO"
-                ? { percentage: Number.parseFloat(data.valor) / 100 }
-                : {
-                    discountAmount: {
-                      amount: Number.parseFloat(data.valor).toString(),
-                      appliesOnEachItem: false,
-                    },
-                  },
+            value: {
+              percentage: Number.parseFloat(data.valor) / 100,
+            },
             items: {
               all: true,
             },
@@ -131,55 +130,96 @@ export async function POST(request: Request) {
       }
     }
 
-    console.log(`🔄 Enviando mutación a Shopify:`, {
-      mutation: mutation.substring(0, 100) + "...",
-      variables,
+    console.log(`🔄 [SHOPIFY CREATE] Variables preparadas:`, JSON.stringify(variables, null, 2))
+
+    const shopifyUrl = `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2024-01/graphql.json`
+    console.log(`🔗 [SHOPIFY CREATE] URL:`, shopifyUrl)
+
+    const response = await fetch(shopifyUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN!,
+      },
+      body: JSON.stringify({
+        query: mutation,
+        variables,
+      }),
     })
 
-    // Verificar que tenemos las credenciales de Shopify
-    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
-      throw new Error("Credenciales de Shopify no configuradas")
-    }
-
-    const response = await fetch(
-      `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2024-01/graphql.json`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN!,
-        },
-        body: JSON.stringify({
-          query: mutation,
-          variables,
-        }),
-      },
-    )
+    console.log(`📥 [SHOPIFY CREATE] Respuesta HTTP:`, response.status, response.statusText)
 
     if (!response.ok) {
-      throw new Error(`HTTP Error: ${response.status} - ${response.statusText}`)
+      const errorText = await response.text()
+      console.error("❌ [SHOPIFY CREATE] Error HTTP:", errorText)
+      return NextResponse.json(
+        {
+          success: false,
+          error: `HTTP Error: ${response.status} - ${response.statusText}`,
+          details: errorText,
+        },
+        { status: response.status },
+      )
     }
 
     const result = await response.json()
-    console.log(`📥 Respuesta de Shopify:`, result)
+    console.log(`📊 [SHOPIFY CREATE] Resultado completo:`, JSON.stringify(result, null, 2))
 
     if (result.errors) {
-      throw new Error(`Shopify GraphQL errors: ${JSON.stringify(result.errors)}`)
+      console.error("❌ [SHOPIFY CREATE] Errores GraphQL:", result.errors)
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Errores GraphQL",
+          details: result.errors,
+        },
+        { status: 400 },
+      )
     }
 
-    const createResult = isCodeDiscount ? result.data.discountCodeBasicCreate : result.data.discountAutomaticBasicCreate
+    const createResult = isCodeDiscount
+      ? result.data?.discountCodeBasicCreate
+      : result.data?.discountAutomaticBasicCreate
+
+    if (!createResult) {
+      console.error("❌ [SHOPIFY CREATE] No se recibió resultado de creación")
+      return NextResponse.json(
+        {
+          success: false,
+          error: "No se recibió resultado de la creación",
+          details: result,
+        },
+        { status: 500 },
+      )
+    }
 
     if (createResult.userErrors && createResult.userErrors.length > 0) {
-      throw new Error(`Shopify user errors: ${JSON.stringify(createResult.userErrors)}`)
+      console.error("❌ [SHOPIFY CREATE] Errores de usuario:", createResult.userErrors)
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Errores de validación",
+          details: createResult.userErrors,
+        },
+        { status: 400 },
+      )
     }
 
     const createdNode = isCodeDiscount ? createResult.codeDiscountNode : createResult.automaticDiscountNode
 
     if (!createdNode) {
-      throw new Error("No se pudo crear el descuento en Shopify")
+      console.error("❌ [SHOPIFY CREATE] No se creó el nodo de descuento")
+      return NextResponse.json(
+        {
+          success: false,
+          error: "No se pudo crear el descuento",
+          details: createResult,
+        },
+        { status: 500 },
+      )
     }
 
-    console.log(`✅ Promoción creada en Shopify exitosamente:`, createdNode)
+    console.log(`✅ [SHOPIFY CREATE] Promoción creada exitosamente:`, createdNode.id)
 
     return NextResponse.json({
       success: true,
@@ -195,14 +235,20 @@ export async function POST(request: Request) {
         codigo: data.codigo,
         activa: true,
       },
+      debug: {
+        isCodeDiscount,
+        variables,
+        createResult,
+      },
     })
   } catch (error) {
-    console.error("❌ Error creando promoción en Shopify:", error)
+    console.error("❌ [SHOPIFY CREATE] Error completo:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Error al crear promoción en Shopify",
-        details: (error as Error).message,
+        error: "Error interno del servidor",
+        details: error.message,
+        stack: error.stack,
       },
       { status: 500 },
     )
