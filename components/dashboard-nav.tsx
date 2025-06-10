@@ -122,15 +122,32 @@ export function DashboardNav() {
       >
         <div className="flex flex-col gap-1 p-4 pt-4 overflow-y-auto hide-scrollbar h-full">
           {/* Logo en la parte superior del menú */}
-          <div className="mb-6 flex items-center justify-center md:justify-start">
-            <div className="h-10 w-10 rounded-xl flex items-center justify-center mr-2 flex-shrink-0 bg-white shadow-md p-1">
-              {theme?.logoUrl ? (
-                <Image src={theme.logoUrl || "/placeholder.svg"} alt="" width={32} height={32} className="rounded-lg" />
-              ) : (
-                <Image src="/logo-granito-management.png" alt="" width={32} height={32} className="rounded-lg" />
-              )}
-            </div>
-            {!isCollapsed && <span className="font-bold text-lg">{theme.shopName || "Granito Management app"}</span>}
+          <div className="mb-6 flex items-center justify-center md:justify-start px-2">
+            {isCollapsed ? (
+              <div className="h-10 w-10 flex items-center justify-center">
+                {theme?.logoUrl ? (
+                  <Image
+                    src={theme.logoUrl || "/logo-granito-management.png"}
+                    alt=""
+                    width={32}
+                    height={32}
+                    className="rounded-md"
+                  />
+                ) : (
+                  <Image src="/logo-granito-management.png" alt="" width={32} height={32} className="rounded-md" />
+                )}
+              </div>
+            ) : (
+              <div className="w-full flex items-center justify-start">
+                <Image
+                  src="/logo-granito-completo.png"
+                  alt="Granito Management App"
+                  width={180}
+                  height={40}
+                  className="h-auto"
+                />
+              </div>
+            )}
           </div>
 
           {/* Botón para colapsar/expandir el menú (solo en escritorio) */}
