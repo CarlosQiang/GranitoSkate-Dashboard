@@ -20,82 +20,37 @@ export async function fetchPromociones(filter = "todas") {
   try {
     console.log(`🔍 Obteniendo promociones con filtro: ${filter}`)
 
-    // Array para almacenar todas las promociones
-    let todasPromociones = []
+    // Usar la misma lógica que el dashboard - obtener directamente de la base de datos
+    const response = await fetch(`/api/db/promociones?filter=${filter}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    })
 
-    // Intentar obtener de Shopify primero
-    try {
-      const shopifyResponse = await fetch(`/api/shopify/promotions?filter=${filter}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      })
-
-      if (shopifyResponse.ok) {
-        const shopifyData = await shopifyResponse.json()
-        if (shopifyData.success && Array.isArray(shopifyData.promociones)) {
-          console.log(`✅ Promociones de Shopify: ${shopifyData.promociones.length}`)
-
-          // Asegurarse de que todas las promociones tengan el campo esShopify
-          todasPromociones = shopifyData.promociones.map((promo) => ({
-            ...promo,
-            esShopify: true,
-          }))
-        }
-      } else {
-        console.error(`❌ Error al obtener promociones de Shopify: ${shopifyResponse.status}`)
-        const errorText = await shopifyResponse.text()
-        console.error(errorText)
-      }
-    } catch (shopifyError) {
-      console.error("Error al obtener promociones de Shopify:", shopifyError)
+    if (!response.ok) {
+      console.error(`❌ Error al obtener promociones: ${response.status}`)
+      const errorText = await response.text()
+      console.error(errorText)
+      return []
     }
 
-    // Obtener promociones de la base de datos local
-    try {
-      const dbResponse = await fetch(`/api/db/promociones?filter=${filter}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      })
+    const data = await response.json()
+    console.log(`✅ Promociones obtenidas de BD:`, data)
 
-      if (dbResponse.ok) {
-        const dbData = await dbResponse.json()
-        if (Array.isArray(dbData) && dbData.length > 0) {
-          console.log(`✅ Promociones de BD local: ${dbData.length}`)
-
-          // Filtrar para no duplicar promociones que ya existen en Shopify
-          const promocionesUnicas = dbData.filter((dbPromo) => {
-            // Si tiene shopify_id, verificar que no esté ya en las promociones de Shopify
-            if (dbPromo.shopify_id) {
-              return !todasPromociones.some(
-                (shopifyPromo) =>
-                  shopifyPromo.id === dbPromo.shopify_id || shopifyPromo.shopify_id === dbPromo.shopify_id,
-              )
-            }
-            return true // Si no tiene shopify_id, incluirla siempre
-          })
-
-          todasPromociones = [...todasPromociones, ...promocionesUnicas]
-        }
-      } else {
-        console.error(`❌ Error al obtener promociones de BD local: ${dbResponse.status}`)
-        const errorText = await dbResponse.text()
-        console.error(errorText)
-      }
-    } catch (dbError) {
-      console.error("Error al obtener promociones de BD local:", dbError)
+    // Validar que data es un array
+    if (Array.isArray(data)) {
+      const promocionesValidas = data.filter((p) => p && typeof p === "object" && p.id)
+      console.log(`✅ Promociones válidas: ${promocionesValidas.length}`)
+      return promocionesValidas
+    } else {
+      console.warn("⚠️ Data no es un array:", data)
+      return []
     }
-
-    console.log(`✅ Total promociones combinadas: ${todasPromociones.length}`)
-    return todasPromociones
   } catch (error) {
     console.error("❌ Error al obtener promociones:", error)
-    throw new Error("No se pudieron cargar las promociones. Intente nuevamente más tarde.")
+    return []
   }
 }
 
@@ -103,7 +58,22 @@ export async function fetchPromocionById(id: string) {
   try {
     console.log(`🔍 Obteniendo promoción por ID: ${id}`)
 
-    // Intentar obtener de Shopify primero
+    // Intentar obtener de la base de datos local primero
+    const response = await fetch(`/api/db/promociones/${id}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      console.log(`✅ Promoción encontrada en BD local`)
+      return data
+    }
+
+    // Si no se encuentra en BD local, intentar Shopify
     try {
       const shopifyResponse = await fetch(`/api/shopify/promotions/${id}`, {
         method: "GET",
@@ -124,25 +94,6 @@ export async function fetchPromocionById(id: string) {
       console.error("Error al obtener promoción de Shopify:", shopifyError)
     }
 
-    // Si Shopify falla, intentar base de datos local
-    try {
-      const dbResponse = await fetch(`/api/db/promociones/${id}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      })
-
-      if (dbResponse.ok) {
-        const dbData = await dbResponse.json()
-        console.log(`✅ Promoción encontrada en BD local`)
-        return dbData
-      }
-    } catch (dbError) {
-      console.error("Error al obtener promoción de BD local:", dbError)
-    }
-
     throw new Error("Promoción no encontrada")
   } catch (error) {
     console.error("❌ Error al obtener promoción:", error)
@@ -154,28 +105,7 @@ export async function crearPromocion(data: PromocionData) {
   try {
     console.log(`📝 Creando promoción:`, data)
 
-    // Intentar crear en Shopify primero
-    try {
-      const shopifyResponse = await fetch(`/api/shopify/promotions/create`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      })
-
-      if (shopifyResponse.ok) {
-        const shopifyData = await shopifyResponse.json()
-        if (shopifyData.success) {
-          console.log(`✅ Promoción creada en Shopify:`, shopifyData.promocion)
-          return shopifyData.promocion
-        }
-      }
-    } catch (shopifyError) {
-      console.error("Error al crear promoción en Shopify:", shopifyError)
-    }
-
-    // Si Shopify falla, crear localmente
+    // Crear en la base de datos local
     const response = await fetch(`/api/db/promociones`, {
       method: "POST",
       headers: {
@@ -202,68 +132,24 @@ export async function actualizarPromocion(id: string, data: Partial<PromocionDat
   try {
     console.log(`📝 Actualizando promoción ${id}:`, data)
 
-    // Intentar actualizar en Shopify con mejor manejo de errores
-    try {
-      const shopifyResponse = await fetch(`/api/shopify/promotions/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      })
+    const response = await fetch(`/api/db/promociones/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    })
 
-      console.log(`📊 Status de respuesta Shopify: ${shopifyResponse.status}`)
-
-      if (shopifyResponse.ok) {
-        const shopifyData = await shopifyResponse.json()
-        if (shopifyData.success) {
-          console.log(`✅ Promoción actualizada en Shopify:`, shopifyData.promocion)
-          return shopifyData.promocion
-        } else {
-          console.error("❌ Shopify respondió con éxito pero sin success:", shopifyData)
-          throw new Error(shopifyData.error || "Error desconocido de Shopify")
-        }
-      } else {
-        // Leer el error del servidor
-        const errorText = await shopifyResponse.text()
-        console.error(`❌ Error HTTP ${shopifyResponse.status}:`, errorText)
-        throw new Error(`Error HTTP ${shopifyResponse.status}: ${errorText}`)
-      }
-    } catch (shopifyError) {
-      console.error("❌ Error completo al actualizar en Shopify:", shopifyError)
-
-      // Si es un error de red o servidor, intentar con BD local
-      if (shopifyError instanceof TypeError || (shopifyError as any).message?.includes("fetch")) {
-        console.log("🔄 Intentando actualizar solo en BD local...")
-
-        try {
-          const response = await fetch(`/api/db/promociones/${id}`, {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(data),
-          })
-
-          if (!response.ok) {
-            const errorData = await response.json()
-            throw new Error(errorData.error || "Error al actualizar promoción en BD local")
-          }
-
-          const result = await response.json()
-          console.log(`✅ Promoción actualizada solo en BD local:`, result)
-          return result
-        } catch (dbError) {
-          console.error("❌ Error también en BD local:", dbError)
-          throw new Error("Error al actualizar promoción en Shopify y BD local")
-        }
-      } else {
-        // Re-lanzar el error original si no es de red
-        throw shopifyError
-      }
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || "Error al actualizar promoción")
     }
+
+    const result = await response.json()
+    console.log(`✅ Promoción actualizada exitosamente:`, result)
+    return result
   } catch (error) {
-    console.error("❌ Error final al actualizar promoción:", error)
+    console.error("❌ Error al actualizar promoción:", error)
     throw error
   }
 }
@@ -272,27 +158,6 @@ export async function eliminarPromocion(id: string) {
   try {
     console.log(`🗑️ Eliminando promoción ${id}`)
 
-    // Intentar eliminar de Shopify primero
-    try {
-      const shopifyResponse = await fetch(`/api/shopify/promotions/${id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (shopifyResponse.ok) {
-        const shopifyData = await shopifyResponse.json()
-        if (shopifyData.success) {
-          console.log(`✅ Promoción eliminada de Shopify`)
-          return shopifyData
-        }
-      }
-    } catch (shopifyError) {
-      console.error("Error al eliminar promoción de Shopify:", shopifyError)
-    }
-
-    // Si Shopify falla, eliminar localmente
     const response = await fetch(`/api/db/promociones/${id}`, {
       method: "DELETE",
       headers: {
