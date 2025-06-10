@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
 import { sql } from "@vercel/postgres"
-import { shopifyFetch } from "@/lib/shopify"
 
 export async function POST() {
   try {
@@ -25,62 +24,47 @@ export async function POST() {
       results.detalles.push(`Error borrando clientes: ${error}`)
     }
 
-    // 2. OBTENER clientes REALES de Shopify
+    // 2. OBTENER clientes REALES usando la misma lógica que funciona en el dashboard
     let clientesReales = []
     try {
-      console.log("📡 Obteniendo clientes REALES de Shopify...")
+      console.log("📡 Obteniendo clientes REALES usando la API del dashboard...")
 
-      const query = `
-        query {
-          customers(first: 100, sortKey: UPDATED_AT, reverse: true) {
-            edges {
-              node {
-                id
-                email
-                firstName
-                lastName
-                phone
-                createdAt
-                updatedAt
-                state
-                totalSpent
-                ordersCount
-                defaultAddress {
-                  address1
-                  city
-                  country
-                  province
-                  zip
-                }
-              }
-            }
-          }
-        }
-      `
+      // Usar la misma API que funciona en el dashboard
+      const dashboardResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/dashboard/summary`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      )
 
-      const response = await shopifyFetch({ query })
-
-      if (response.errors) {
-        throw new Error(`Error en GraphQL: ${response.errors.map((e: any) => e.message).join(", ")}`)
+      if (!dashboardResponse.ok) {
+        throw new Error(`Error en API dashboard: ${dashboardResponse.status}`)
       }
 
-      if (response.data?.customers?.edges) {
-        clientesReales = response.data.customers.edges.map((edge: any) => edge.node)
-        console.log(`📡 Clientes REALES obtenidos de Shopify: ${clientesReales.length}`)
-        results.detalles.push(`Clientes REALES obtenidos de Shopify: ${clientesReales.length}`)
+      const dashboardData = await dashboardResponse.json()
+
+      if (dashboardData.success && dashboardData.customers) {
+        clientesReales = dashboardData.customers
+        console.log(`📡 Clientes REALES obtenidos del dashboard: ${clientesReales.length}`)
+        results.detalles.push(`Clientes REALES obtenidos del dashboard: ${clientesReales.length}`)
 
         // Log de los clientes obtenidos para debug
         clientesReales.forEach((cliente: any) => {
-          console.log(`👤 Cliente encontrado: ${cliente.firstName} ${cliente.lastName} (${cliente.email})`)
+          console.log(
+            `👤 Cliente encontrado: ${cliente.firstName || cliente.nombre} ${cliente.lastName || cliente.apellidos} (${cliente.email})`,
+          )
         })
       } else {
-        console.log("⚠️ No se encontraron clientes en Shopify")
-        results.detalles.push("No se encontraron clientes en Shopify")
+        console.log("⚠️ No se encontraron clientes en el dashboard")
+        results.detalles.push("No se encontraron clientes en el dashboard")
       }
     } catch (error) {
-      console.error("❌ Error obteniendo clientes de Shopify:", error)
+      console.error("❌ Error obteniendo clientes del dashboard:", error)
       results.errores++
-      results.detalles.push(`Error obteniendo clientes de Shopify: ${error}`)
+      results.detalles.push(`Error obteniendo clientes del dashboard: ${error}`)
     }
 
     // 3. Verificar estructura de la tabla clientes
@@ -99,7 +83,7 @@ export async function POST() {
           estado VARCHAR(50) DEFAULT 'ENABLED',
           total_gastado DECIMAL(10,2) DEFAULT 0,
           numero_pedidos INTEGER DEFAULT 0,
-          fecha_creacion TIMESTAMP,
+          fecha_creacion TIMESTAMP DEFAULT NOW(),
           fecha_actualizacion TIMESTAMP DEFAULT NOW()
         )
       `
@@ -113,20 +97,27 @@ export async function POST() {
     // 4. INSERTAR clientes REALES en la base de datos
     for (const cliente of clientesReales) {
       try {
-        console.log(`🔄 Procesando cliente: ${cliente.firstName} ${cliente.lastName}`)
+        console.log(
+          `🔄 Procesando cliente: ${cliente.firstName || cliente.nombre} ${cliente.lastName || cliente.apellidos}`,
+        )
 
-        // Extraer ID numérico de Shopify
-        const shopifyId = cliente.id.replace("gid://shopify/Customer/", "")
+        // Extraer ID de Shopify (puede venir en diferentes formatos)
+        let shopifyId = ""
+        if (cliente.id) {
+          shopifyId =
+            typeof cliente.id === "string" ? cliente.id.replace("gid://shopify/Customer/", "") : cliente.id.toString()
+        } else if (cliente.shopify_id) {
+          shopifyId = cliente.shopify_id.toString()
+        }
 
         // Preparar datos del cliente con valores seguros
         const email = cliente.email || ""
-        const nombre = cliente.firstName || ""
-        const apellidos = cliente.lastName || ""
-        const telefono = cliente.phone || null
-        const estado = cliente.state || "ENABLED"
-        const totalGastado = Number.parseFloat(cliente.totalSpent || "0")
-        const numeroPedidos = cliente.ordersCount || 0
-        const fechaCreacion = cliente.createdAt || new Date().toISOString()
+        const nombre = cliente.firstName || cliente.nombre || ""
+        const apellidos = cliente.lastName || cliente.apellidos || ""
+        const telefono = cliente.phone || cliente.telefono || null
+        const estado = cliente.state || cliente.estado || "ENABLED"
+        const totalGastado = Number.parseFloat(cliente.totalSpent || cliente.total_gastado || "0")
+        const numeroPedidos = cliente.ordersCount || cliente.numero_pedidos || 0
 
         console.log(`📝 Datos a insertar:`, {
           shopifyId,
@@ -142,11 +133,11 @@ export async function POST() {
         await sql`
           INSERT INTO clientes (
             shopify_id, email, nombre, apellidos, telefono, estado,
-            total_gastado, numero_pedidos, fecha_creacion
+            total_gastado, numero_pedidos
           ) 
           VALUES (
             ${shopifyId}, ${email}, ${nombre}, ${apellidos}, ${telefono}, ${estado},
-            ${totalGastado}, ${numeroPedidos}, ${fechaCreacion}
+            ${totalGastado}, ${numeroPedidos}
           )
         `
 
@@ -160,8 +151,8 @@ export async function POST() {
           cliente: {
             id: cliente.id,
             email: cliente.email,
-            firstName: cliente.firstName,
-            lastName: cliente.lastName,
+            firstName: cliente.firstName || cliente.nombre,
+            lastName: cliente.lastName || cliente.apellidos,
           },
         })
         results.errores++
