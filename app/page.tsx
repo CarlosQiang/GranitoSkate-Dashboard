@@ -19,7 +19,7 @@ export default async function Home() {
       <header className="bg-white shadow-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-3">
-            <img src="/images/granito-logo.png" alt="Granito Management App Logo" className="h-10 w-auto" />
+            <img src="/images/granito-logo.png" alt="Granito Management App Logo" className="h-16 w-auto sm:h-20" />
           </div>
           <div>
             <Link href="/login">
