@@ -3,168 +3,118 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { TestTube, CheckCircle, XCircle } from "lucide-react"
+import { CheckCircle, XCircle, Loader2, TestTube } from "lucide-react"
+import { toast } from "@/hooks/use-toast"
 
 export function TestPromotionsConnection() {
   const [isLoading, setIsLoading] = useState(false)
-  const [results, setResults] = useState<any>(null)
+  const [testResult, setTestResult] = useState<{
+    success: boolean
+    message: string
+    details?: any
+  } | null>(null)
 
-  const testConnection = async () => {
+  const handleTest = async () => {
     setIsLoading(true)
-    setResults(null)
+    setTestResult(null)
 
     try {
       console.log("🧪 Probando conexión de promociones...")
 
-      // Probar endpoint de Shopify
-      const shopifyResponse = await fetch("/api/shopify/promotions", {
-        method: "GET",
+      // Datos de prueba
+      const testData = {
+        titulo: `Promoción de Prueba ${Date.now()}`,
+        descripcion: "Esta es una promoción de prueba para verificar la conexión",
+        tipo: "PERCENTAGE_DISCOUNT",
+        valor: 10,
+        fechaInicio: new Date().toISOString(),
+        activa: true,
+      }
+
+      const response = await fetch("/api/db/promociones", {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        cache: "no-store",
+        body: JSON.stringify(testData),
       })
 
-      const shopifyData = shopifyResponse.ok ? await shopifyResponse.json() : null
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Error HTTP: ${response.status}`)
+      }
 
-      // Probar endpoint de BD local
-      const dbResponse = await fetch("/api/db/promociones", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
+      const result = await response.json()
+
+      setTestResult({
+        success: true,
+        message: "✅ Conexión exitosa - Las promociones se pueden crear correctamente",
+        details: result,
       })
 
-      const dbData = dbResponse.ok ? await dbResponse.json() : null
-
-      setResults({
-        shopify: {
-          status: shopifyResponse.status,
-          success: shopifyResponse.ok,
-          data: shopifyData,
-          count: shopifyData?.promociones?.length || 0,
-        },
-        database: {
-          status: dbResponse.status,
-          success: dbResponse.ok,
-          data: dbData,
-          count: Array.isArray(dbData) ? dbData.length : 0,
-        },
-      })
-
-      console.log("✅ Prueba de conexión completada:", {
-        shopify: shopifyData,
-        database: dbData,
+      toast({
+        title: "Prueba exitosa",
+        description: "La conexión para crear promociones funciona correctamente",
       })
     } catch (error) {
-      console.error("❌ Error en prueba de conexión:", error)
-      setResults({
-        error: error instanceof Error ? error.message : "Error desconocido",
+      console.error("❌ Error en prueba:", error)
+
+      setTestResult({
+        success: false,
+        message: `❌ Error de conexión: ${error instanceof Error ? error.message : "Error desconocido"}`,
+      })
+
+      toast({
+        title: "Error en la prueba",
+        description: error instanceof Error ? error.message : "Error desconocido",
+        variant: "destructive",
       })
     } finally {
       setIsLoading(false)
     }
   }
 
-  const getStatusIcon = (success: boolean) => {
-    return success ? <CheckCircle className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-red-500" />
-  }
-
   return (
-    <Card className="mb-6">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <TestTube className="h-5 w-5" />
-          Diagnóstico de Promociones
+          Prueba de Conexión - Promociones
         </CardTitle>
-        <CardDescription>
-          Prueba la conexión con Shopify y la base de datos para verificar el estado de las promociones
-        </CardDescription>
+        <CardDescription>Verifica que el sistema puede crear promociones correctamente</CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <Button onClick={testConnection} disabled={isLoading} className="w-full">
-            {isLoading ? "Probando..." : "🧪 Probar Conexión"}
-          </Button>
+      <CardContent className="space-y-4">
+        <Button onClick={handleTest} disabled={isLoading} className="w-full">
+          <Loader2 className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : "hidden"}`} />
+          <TestTube className={`mr-2 h-4 w-4 ${isLoading ? "hidden" : ""}`} />
+          {isLoading ? "Probando conexión..." : "Probar Creación de Promociones"}
+        </Button>
 
-          {results && (
-            <div className="space-y-4">
-              {results.error ? (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-                  <div className="flex items-center">
-                    <XCircle className="h-5 w-5 text-red-500 mr-2" />
-                    <span className="text-red-800 font-medium">Error en la prueba</span>
-                  </div>
-                  <p className="text-red-700 mt-1">{results.error}</p>
-                </div>
+        {testResult && (
+          <div
+            className={`p-4 border rounded-lg ${testResult.success ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              {testResult.success ? (
+                <CheckCircle className="h-5 w-5 text-green-500" />
               ) : (
-                <div className="grid gap-4 md:grid-cols-2">
-                  {/* Shopify */}
-                  <div className="p-4 border rounded-md">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-medium">Shopify API</h3>
-                      {getStatusIcon(results.shopify.success)}
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span>Estado:</span>
-                        <Badge variant={results.shopify.success ? "default" : "destructive"}>
-                          {results.shopify.status}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Promociones:</span>
-                        <span className="font-medium">{results.shopify.count}</span>
-                      </div>
-                      {results.shopify.data?.message && (
-                        <p className="text-xs text-gray-600">{results.shopify.data.message}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Base de Datos */}
-                  <div className="p-4 border rounded-md">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-medium">Base de Datos</h3>
-                      {getStatusIcon(results.database.success)}
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span>Estado:</span>
-                        <Badge variant={results.database.success ? "default" : "destructive"}>
-                          {results.database.status}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Promociones:</span>
-                        <span className="font-medium">{results.database.count}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <XCircle className="h-5 w-5 text-red-500" />
               )}
-
-              {results.shopify?.data?.promociones && (
-                <div className="mt-4">
-                  <h4 className="font-medium mb-2">Promociones encontradas en Shopify:</h4>
-                  <div className="space-y-1 text-sm">
-                    {results.shopify.data.promociones.slice(0, 3).map((promo: any, index: number) => (
-                      <div key={index} className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span>{promo.titulo || promo.title}</span>
-                        <span className="text-gray-500">{promo.id}</span>
-                      </div>
-                    ))}
-                    {results.shopify.data.promociones.length > 3 && (
-                      <p className="text-gray-500 text-xs">... y {results.shopify.data.promociones.length - 3} más</p>
-                    )}
-                  </div>
-                </div>
-              )}
+              <span className={`font-medium ${testResult.success ? "text-green-800" : "text-red-800"}`}>
+                Resultado de la Prueba
+              </span>
             </div>
-          )}
-        </div>
+            <p className={`text-sm ${testResult.success ? "text-green-700" : "text-red-700"}`}>{testResult.message}</p>
+            {testResult.details && (
+              <details className="mt-2">
+                <summary className="cursor-pointer text-sm font-medium">Ver detalles</summary>
+                <pre className="mt-2 text-xs bg-white p-2 rounded border overflow-auto">
+                  {JSON.stringify(testResult.details, null, 2)}
+                </pre>
+              </details>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   )

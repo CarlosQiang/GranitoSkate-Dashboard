@@ -18,7 +18,6 @@ import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { CalendarIcon, ArrowLeft, Save, Percent, Tag, ShoppingBag, Truck, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { createPriceList } from "@/lib/api/promotions"
 import { useToast } from "@/components/ui/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import type { PromotionType, PromotionTarget } from "@/types/promotions"
@@ -83,8 +82,10 @@ export default function NewPromotionPage() {
     setError(null)
 
     try {
-      // Validar datos
-      if (!formData.title) {
+      console.log("🚀 Iniciando creación de promoción...")
+
+      // Validaciones del lado del cliente
+      if (!formData.title.trim()) {
         throw new Error("El nombre de la promoción es obligatorio")
       }
 
@@ -92,56 +93,68 @@ export default function NewPromotionPage() {
         throw new Error("El valor de la promoción debe ser un número mayor que cero")
       }
 
-      if (formData.requiresCode && !formData.code) {
+      if (formData.requiresCode && !formData.code.trim()) {
         throw new Error("El código de la promoción es obligatorio si requiere código")
       }
 
-      // Preparar datos para la API
+      // Preparar datos para envío
       const promotionData = {
-        title: formData.title,
-        description: formData.description,
-        type: formData.type,
+        titulo: formData.title.trim(),
+        descripcion: formData.description.trim() || formData.title.trim(),
+        tipo: formData.type,
+        valor: Number(formData.value),
         target: formData.target,
-        targetId: formData.targetId || undefined,
-        value: Number(formData.value),
-        conditions: [],
-        active: true,
-        startDate: formData.startDate.toISOString(),
-        endDate: formData.hasEndDate ? formData.endDate.toISOString() : undefined,
-        code: formData.requiresCode ? formData.code : undefined,
-        usageLimit: formData.limitUses ? Number(formData.usageLimit) : undefined,
-        usageCount: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        targetId: formData.targetId || null,
+        fechaInicio: formData.startDate.toISOString(),
+        fechaFin: formData.hasEndDate ? formData.endDate.toISOString() : null,
+        codigo: formData.requiresCode ? formData.code.trim() : null,
+        activa: true,
+        limitarUsos: formData.limitUses,
+        limiteUsos: formData.limitUses ? Number(formData.usageLimit) : null,
+        compraMinima: formData.minimumPurchase ? Number(formData.minimumPurchase) : null,
       }
 
-      // Añadir condición de compra mínima si se especifica
-      if (
-        formData.minimumPurchase &&
-        !isNaN(Number(formData.minimumPurchase)) &&
-        Number(formData.minimumPurchase) > 0
-      ) {
-        promotionData.conditions.push({
-          type: "MINIMUM_AMOUNT",
-          value: Number(formData.minimumPurchase),
-        })
+      console.log("📤 Enviando datos:", promotionData)
+
+      // Realizar petición
+      const response = await fetch("/api/db/promociones", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(promotionData),
+      })
+
+      console.log("📥 Respuesta recibida:", response.status, response.statusText)
+
+      // Verificar respuesta
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Error desconocido" }))
+        throw new Error(errorData.error || `Error HTTP: ${response.status}`)
       }
 
-      console.log("Creando promoción:", promotionData)
-      await createPriceList(promotionData)
+      const result = await response.json()
+      console.log("✅ Resultado:", result)
 
+      if (!result.success) {
+        throw new Error(result.error || "Error al crear promoción")
+      }
+
+      // Éxito
       toast({
         title: "¡Promoción creada!",
         description: "La promoción se ha creado correctamente",
       })
 
+      // Redirigir
       router.push("/dashboard/promotions")
     } catch (error) {
-      console.error("Error creating promotion:", error)
-      setError(`No se pudo crear la promoción: ${(error as Error).message}`)
+      console.error("❌ Error en handleSubmit:", error)
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido"
+      setError(errorMessage)
       toast({
         title: "Error",
-        description: `No se pudo crear la promoción: ${(error as Error).message}`,
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {
