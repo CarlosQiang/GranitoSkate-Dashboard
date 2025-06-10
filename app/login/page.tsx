@@ -261,16 +261,6 @@ export default function LoginPage() {
             </Link>
           </div>
 
-          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-            <p className="text-xs text-blue-700 font-medium mb-1">Credenciales de prueba:</p>
-            <p className="text-xs text-blue-600">
-              Usuario: <code>Carlos Qiang</code>
-            </p>
-            <p className="text-xs text-blue-600">
-              Contraseña: <code>GranitoSkate</code>
-            </p>
-          </div>
-
           <div className="mt-4 flex items-center justify-center text-xs text-gray-500">
             <Shield className="w-3 h-3 mr-1" />
             Conexión segura y cifrada
