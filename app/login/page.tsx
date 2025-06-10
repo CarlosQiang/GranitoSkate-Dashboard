@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -14,7 +14,6 @@ import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import Image from "next/image"
 import { useTheme } from "@/contexts/theme-context"
-import { useEffect } from "react"
 
 export default function LoginPage() {
   const [username, setUsername] = useState("")
@@ -25,12 +24,16 @@ export default function LoginPage() {
   const { toast } = useToast()
   const { theme } = useTheme()
 
-  // Actualizar el título de la página
+  // Valores por defecto seguros
+  const shopName = theme?.shopName || "Granito Management app"
+  const logoUrl = theme?.logoUrl || "/logo-granito-management.png"
+
+  // Actualizar el título de la página solo en el cliente
   useEffect(() => {
-    if (theme.shopName) {
-      document.title = `${theme.shopName} - Iniciar Sesión`
+    if (typeof window !== "undefined" && shopName) {
+      document.title = `${shopName} - Iniciar Sesión`
     }
-  }, [theme.shopName])
+  }, [shopName])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -67,9 +70,6 @@ export default function LoginPage() {
     }
   }
 
-  const shopName = theme.shopName || "Granito Management app"
-  const logoUrl = theme.logoUrl || "/logo-granito-management.png"
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
       <Card className="w-full max-w-md">
@@ -86,7 +86,9 @@ export default function LoginPage() {
                   // Fallback si la imagen no carga
                   const target = e.target as HTMLImageElement
                   target.style.display = "none"
-                  target.parentElement!.innerHTML = '<span class="text-white font-bold text-xl">G</span>'
+                  if (target.parentElement) {
+                    target.parentElement.innerHTML = '<span class="text-white font-bold text-xl">G</span>'
+                  }
                 }}
               />
             </div>
