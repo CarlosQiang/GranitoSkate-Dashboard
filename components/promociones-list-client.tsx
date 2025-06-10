@@ -2,15 +2,11 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Calendar, Clock, Edit, Percent, Tag, Trash } from "lucide-react"
-import { formatDistanceToNow } from "date-fns"
-import { es } from "date-fns/locale"
-
-// Importar la función que usa el Dashboard para obtener promociones
-import { fetchDashboardData } from "@/lib/api/dashboard"
+import { Edit, RefreshCw, Plus, AlertTriangle } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface PromocionesListClientProps {
   filter?: string
@@ -21,188 +17,203 @@ export function PromocionesListClient({ filter = "todas" }: PromocionesListClien
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    async function loadPromociones() {
-      try {
-        setLoading(true)
-        setError(null)
+  const cargarPromociones = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      console.log(`🔍 Cargando promociones REALES de Shopify con filtro: ${filter}`)
 
-        // Usar la misma función que el Dashboard
-        const dashboardData = await fetchDashboardData()
+      // Obtener datos directamente del endpoint del Dashboard que SÍ funciona
+      const response = await fetch("/api/dashboard/summary", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+      })
 
-        // Extraer promociones del dashboard
-        let promocionesData = []
-        if (dashboardData && dashboardData.stats && dashboardData.stats.promociones) {
-          promocionesData = dashboardData.stats.promociones
-          console.log(`✅ Promociones obtenidas del dashboard: ${promocionesData.length}`)
-        }
-
-        // Aplicar filtros si es necesario
-        let filteredPromociones = promocionesData
-        if (filter === "activas") {
-          filteredPromociones = promocionesData.filter((p: any) => p.activa === true)
-        } else if (filter === "programadas") {
-          filteredPromociones = promocionesData.filter((p: any) => {
-            const fechaInicio = new Date(p.fechaInicio)
-            return fechaInicio > new Date()
-          })
-        } else if (filter === "expiradas") {
-          filteredPromociones = promocionesData.filter((p: any) => {
-            const fechaFin = p.fechaFin ? new Date(p.fechaFin) : null
-            return fechaFin && fechaFin < new Date()
-          })
-        }
-
-        console.log(`✅ Promociones filtradas (${filter}): ${filteredPromociones.length}`)
-        setPromociones(filteredPromociones)
-      } catch (err) {
-        console.error("Error al cargar promociones:", err)
-        setError("No se pudieron cargar las promociones. Intente nuevamente más tarde.")
-      } finally {
-        setLoading(false)
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`)
       }
-    }
 
-    loadPromociones()
+      const dashboardData = await response.json()
+      console.log(`✅ Dashboard data obtenido:`, dashboardData)
+
+      // Extraer promociones REALES del dashboard
+      const promocionesData = dashboardData.allPromotions || []
+      console.log(`✅ Promociones REALES extraídas del dashboard: ${promocionesData.length}`)
+      console.log(`📋 Promociones:`, promocionesData)
+
+      // Aplicar filtros
+      let filteredPromociones = promocionesData
+      if (filter === "activas") {
+        filteredPromociones = promocionesData.filter((p: any) => p.status === "ACTIVE")
+      } else if (filter === "programadas") {
+        filteredPromociones = promocionesData.filter((p: any) => p.status === "SCHEDULED")
+      } else if (filter === "expiradas") {
+        filteredPromociones = promocionesData.filter((p: any) => p.status === "EXPIRED")
+      }
+
+      console.log(`✅ Promociones filtradas (${filter}): ${filteredPromociones.length}`)
+      setPromociones(filteredPromociones)
+    } catch (err) {
+      console.error("❌ Error al cargar promociones:", err)
+      setError("No se pudieron cargar las promociones. Intente nuevamente más tarde.")
+      setPromociones([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    cargarPromociones()
   }, [filter])
 
   if (loading) {
-    return <PromocionesLoadingSkeleton />
+    return (
+      <div className="flex items-center justify-center p-8">
+        <RefreshCw className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Cargando promociones de Shopify...</span>
+      </div>
+    )
   }
 
   if (error) {
     return (
-      <div className="rounded-md bg-red-50 p-4 my-4">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-red-800">Error</h3>
-            <div className="mt-2 text-sm text-red-700">
-              <p>{error}</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Alert variant="destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription className="flex flex-col gap-3">
+          <p>{error}</p>
+          <Button variant="outline" size="sm" onClick={cargarPromociones} className="w-fit">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Reintentar
+          </Button>
+        </AlertDescription>
+      </Alert>
     )
   }
 
   if (promociones.length === 0) {
     return (
-      <div className="text-center py-10">
-        <h3 className="text-lg font-medium text-gray-900">No hay promociones</h3>
-        <p className="mt-1 text-sm text-gray-500">No hay promociones creadas.</p>
-        <div className="mt-6 flex justify-center gap-4">
-          <Button variant="outline" onClick={() => window.location.reload()}>
-            Recargar
-          </Button>
-          <Button asChild>
-            <Link href="/dashboard/promociones/asistente">Crear promoción</Link>
-          </Button>
-        </div>
-      </div>
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <div className="text-center space-y-4">
+            <div className="text-muted-foreground">
+              <h3 className="text-lg font-medium">No hay promociones</h3>
+              <p className="text-sm">
+                {filter === "todas"
+                  ? "No hay promociones en tu tienda de Shopify."
+                  : filter === "activas"
+                    ? "No hay promociones activas."
+                    : filter === "programadas"
+                      ? "No hay promociones programadas."
+                      : "No hay promociones expiradas."}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={cargarPromociones}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Recargar desde Shopify
+              </Button>
+              <Button asChild>
+                <Link href="/dashboard/promociones/asistente">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Crear promoción
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     )
   }
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {promociones.map((promocion) => (
-        <Card key={promocion.id} className="overflow-hidden">
-          <CardHeader className="pb-2">
-            <div className="flex justify-between items-start">
-              <CardTitle className="text-lg">{promocion.titulo}</CardTitle>
-              <Badge variant={promocion.activa ? "default" : "outline"}>
-                {promocion.activa ? "Activa" : "Inactiva"}
-              </Badge>
-            </div>
-            <CardDescription className="line-clamp-2">{promocion.descripcion}</CardDescription>
-          </CardHeader>
-          <CardContent className="pb-2">
-            <div className="flex justify-between items-center mb-2">
-              <div className="flex items-center text-sm">
-                <Percent className="mr-1 h-4 w-4 text-muted-foreground" />
-                <span>
-                  {promocion.tipo === "PORCENTAJE_DESCUENTO"
-                    ? `${promocion.valor}% descuento`
-                    : `${promocion.valor}€ descuento`}
-                </span>
-              </div>
-              {promocion.codigo && (
-                <div className="flex items-center text-sm">
-                  <Tag className="mr-1 h-4 w-4 text-muted-foreground" />
-                  <code className="bg-muted px-1 py-0.5 rounded">{promocion.codigo}</code>
-                </div>
-              )}
-            </div>
-            <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-              <div className="flex items-center">
-                <Calendar className="mr-1 h-3.5 w-3.5" />
-                <span>
-                  Desde:{" "}
-                  {formatDistanceToNow(new Date(promocion.fechaInicio), {
-                    addSuffix: true,
-                    locale: es,
-                  })}
-                </span>
-              </div>
-              {promocion.fechaFin && (
-                <div className="flex items-center">
-                  <Clock className="mr-1 h-3.5 w-3.5" />
-                  <span>
-                    Hasta:{" "}
-                    {formatDistanceToNow(new Date(promocion.fechaFin), {
-                      addSuffix: true,
-                      locale: es,
-                    })}
-                  </span>
-                </div>
-              )}
-            </div>
-          </CardContent>
-          <CardFooter className="pt-2">
-            <div className="flex justify-between w-full">
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/dashboard/promociones/${promocion.id}`}>
-                  <Edit className="mr-1 h-3.5 w-3.5" />
-                  Editar
-                </Link>
-              </Button>
-              <Button variant="outline" size="sm" className="text-red-500 hover:text-red-700">
-                <Trash className="mr-1 h-3.5 w-3.5" />
-                Eliminar
-              </Button>
-            </div>
-          </CardFooter>
-        </Card>
-      ))}
-    </div>
-  )
-}
+      {promociones.map((promocion) => {
+        // Extraer ID limpio para las rutas
+        const idLimpio = promocion.id.split("/").pop() || promocion.id
 
-function PromocionesLoadingSkeleton() {
-  return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {[...Array(3)].map((_, i) => (
-        <Card key={i}>
-          <CardHeader>
-            <div className="h-6 w-48 bg-muted animate-pulse rounded" />
-            <div className="h-4 w-64 bg-muted animate-pulse rounded" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex justify-between items-center">
-              <div className="h-4 w-32 bg-muted animate-pulse rounded" />
-              <div className="h-6 w-20 bg-muted animate-pulse rounded" />
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+        // Determinar el estado con colores apropiados
+        const getEstadoBadge = (status: string) => {
+          switch (status) {
+            case "ACTIVE":
+              return { variant: "default" as const, text: "Activa" }
+            case "SCHEDULED":
+              return { variant: "secondary" as const, text: "Programada" }
+            case "EXPIRED":
+              return { variant: "destructive" as const, text: "Expirada" }
+            default:
+              return { variant: "outline" as const, text: "Inactiva" }
+          }
+        }
+
+        const estadoBadge = getEstadoBadge(promocion.status)
+
+        return (
+          <Card key={promocion.id} className="overflow-hidden hover:shadow-md transition-shadow">
+            <CardHeader className="pb-2">
+              <div className="flex justify-between items-start">
+                <CardTitle className="text-lg">{promocion.title}</CardTitle>
+                <Badge variant={estadoBadge.variant}>{estadoBadge.text}</Badge>
+              </div>
+              <CardDescription className="line-clamp-2">{promocion.title || "Promoción de Shopify"}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <p className="font-medium">Descuento:</p>
+                  <p className="text-granito font-semibold">
+                    {promocion.type === "PERCENTAGE"
+                      ? `${promocion.value}%`
+                      : promocion.type === "FIXED_AMOUNT"
+                        ? `€${promocion.value}`
+                        : `${promocion.value}`}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="font-medium">Tipo:</p>
+                  <p>
+                    {promocion.type === "PERCENTAGE"
+                      ? "Porcentaje"
+                      : promocion.type === "FIXED_AMOUNT"
+                        ? "Cantidad fija"
+                        : "Descuento"}
+                  </p>
+                </div>
+              </div>
+
+              {promocion.code && (
+                <div>
+                  <p className="text-sm font-medium">Código:</p>
+                  <p className="text-sm font-mono bg-muted p-1 rounded">{promocion.code}</p>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center text-sm">
+                <span className="font-medium">Creada:</span>
+                <span>{new Date(promocion.createdAt).toLocaleDateString()}</span>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/dashboard/promociones/${idLimpio}`}>
+                    <Edit className="h-4 w-4 mr-1" />
+                    Ver
+                  </Link>
+                </Button>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/dashboard/promociones/${idLimpio}/edit`}>
+                    <Edit className="h-4 w-4 mr-1" />
+                    Editar
+                  </Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )
+      })}
     </div>
   )
 }
