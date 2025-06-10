@@ -160,7 +160,13 @@ export function SyncAllData({ onSyncComplete }: SyncAllDataProps) {
 
         try {
           const result = await syncEntity(steps[i].label, config.endpoint, config.data)
-          updateStepStatus(i, "completed", result)
+          const errorsCount = result.errores || 0
+
+          if (errorsCount > 0) {
+            updateStepStatus(i, "error", result, `${errorsCount} errores`)
+          } else {
+            updateStepStatus(i, "completed", result)
+          }
 
           // Pequeña pausa entre sincronizaciones
           await new Promise((resolve) => setTimeout(resolve, 1000))
@@ -199,8 +205,14 @@ export function SyncAllData({ onSyncComplete }: SyncAllDataProps) {
   }
 
   const completedSteps = steps.filter((step) => step.status === "completed").length
-  const errorSteps = steps.filter((step) => step.status === "error").length
-  const progress = ((completedSteps + errorSteps) / steps.length) * 100
+  const stepsWithErrors = steps.filter((step) => step.status === "error").length
+  const totalErrors = steps.reduce((total, step) => {
+    if (step.result?.errores) {
+      return total + step.result.errores
+    }
+    return step.status === "error" ? total + 1 : total
+  }, 0)
+  const progress = ((completedSteps + stepsWithErrors) / steps.length) * 100
 
   return (
     <Card className="mb-6">
@@ -238,7 +250,7 @@ export function SyncAllData({ onSyncComplete }: SyncAllDataProps) {
             {isRunning ? (
               <>
                 <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Sincronizando... ({completedSteps + errorSteps}/{steps.length})
+                Sincronizando... ({completedSteps + stepsWithErrors}/{steps.length})
               </>
             ) : (
               <>
@@ -274,7 +286,7 @@ export function SyncAllData({ onSyncComplete }: SyncAllDataProps) {
             ))}
           </div>
 
-          {!isRunning && (completedSteps > 0 || errorSteps > 0) && (
+          {!isRunning && (completedSteps > 0 || stepsWithErrors > 0) && (
             <div className="mt-4 p-3 bg-gray-50 border rounded-md">
               <h4 className="font-medium mb-2">Resumen de la sincronización:</h4>
               <div className="grid grid-cols-3 gap-4 text-sm">
@@ -283,11 +295,13 @@ export function SyncAllData({ onSyncComplete }: SyncAllDataProps) {
                   <div className="text-green-600">Completados</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg font-bold text-red-600">{errorSteps}</div>
+                  <div className="text-lg font-bold text-red-600">{totalErrors}</div>
                   <div className="text-red-600">Con errores</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg font-bold text-gray-600">{steps.length - completedSteps - errorSteps}</div>
+                  <div className="text-lg font-bold text-gray-600">
+                    {steps.length - completedSteps - stepsWithErrors}
+                  </div>
                   <div className="text-gray-600">Pendientes</div>
                 </div>
               </div>

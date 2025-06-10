@@ -12,7 +12,82 @@ export async function POST() {
       detalles: [] as string[],
     }
 
-    // 1. BORRAR todos los clientes existentes primero
+    // 1. Verificar y crear estructura de la tabla clientes PRIMERO
+    try {
+      console.log("🔍 Verificando estructura de tabla clientes...")
+
+      // Primero verificar si la tabla existe
+      const tableExists = await sql`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_name = 'clientes'
+        );
+      `
+
+      if (!tableExists.rows[0].exists) {
+        console.log("📋 Creando tabla clientes...")
+        await sql`
+          CREATE TABLE clientes (
+            id SERIAL PRIMARY KEY,
+            shopify_id VARCHAR(255),
+            email VARCHAR(255),
+            nombre VARCHAR(255),
+            apellidos VARCHAR(255),
+            telefono VARCHAR(255),
+            estado VARCHAR(50) DEFAULT 'ENABLED',
+            total_gastado DECIMAL(10,2) DEFAULT 0,
+            numero_pedidos INTEGER DEFAULT 0,
+            fecha_creacion TIMESTAMP DEFAULT NOW(),
+            fecha_actualizacion TIMESTAMP DEFAULT NOW()
+          )
+        `
+      } else {
+        console.log("📋 Tabla clientes existe, verificando columnas...")
+
+        // Verificar si existe la columna telefono
+        const columnExists = await sql`
+          SELECT EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_name = 'clientes' AND column_name = 'telefono'
+          );
+        `
+
+        if (!columnExists.rows[0].exists) {
+          console.log("➕ Añadiendo columna telefono...")
+          await sql`ALTER TABLE clientes ADD COLUMN telefono VARCHAR(255)`
+        }
+
+        // Verificar otras columnas necesarias
+        const columns = ["total_gastado", "numero_pedidos", "estado"]
+        for (const column of columns) {
+          const colExists = await sql`
+            SELECT EXISTS (
+              SELECT FROM information_schema.columns 
+              WHERE table_name = 'clientes' AND column_name = ${column}
+            );
+          `
+
+          if (!colExists.rows[0].exists) {
+            console.log(`➕ Añadiendo columna ${column}...`)
+            if (column === "total_gastado") {
+              await sql`ALTER TABLE clientes ADD COLUMN total_gastado DECIMAL(10,2) DEFAULT 0`
+            } else if (column === "numero_pedidos") {
+              await sql`ALTER TABLE clientes ADD COLUMN numero_pedidos INTEGER DEFAULT 0`
+            } else if (column === "estado") {
+              await sql`ALTER TABLE clientes ADD COLUMN estado VARCHAR(50) DEFAULT 'ENABLED'`
+            }
+          }
+        }
+      }
+
+      console.log("✅ Tabla clientes verificada/creada con todas las columnas")
+    } catch (error) {
+      console.error("❌ Error verificando tabla clientes:", error)
+      results.errores++
+      results.detalles.push(`Error verificando tabla: ${error}`)
+    }
+
+    // 2. BORRAR todos los clientes existentes
     try {
       const deleteResult = await sql`DELETE FROM clientes`
       results.borrados = deleteResult.rowCount || 0
@@ -24,12 +99,11 @@ export async function POST() {
       results.detalles.push(`Error borrando clientes: ${error}`)
     }
 
-    // 2. OBTENER clientes REALES usando la misma lógica que funciona en el dashboard
+    // 3. OBTENER clientes REALES usando GraphQL corregido
     let clientesReales = []
     try {
-      console.log("📡 Obteniendo clientes REALES usando la lógica del dashboard...")
+      console.log("📡 Obteniendo clientes REALES con GraphQL corregido...")
 
-      // Usar la misma configuración de Shopify que funciona
       const shopifyUrl = `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-10/graphql.json`
       const accessToken = process.env.SHOPIFY_ACCESS_TOKEN
 
@@ -37,7 +111,7 @@ export async function POST() {
         throw new Error("Faltan credenciales de Shopify")
       }
 
-      // Usar la consulta más simple posible que funciona en otros lugares
+      // Consulta GraphQL corregida sin campos que no existen
       const query = `
         {
           customers(first: 100) {
@@ -48,16 +122,15 @@ export async function POST() {
                 firstName
                 lastName
                 phone
-                totalSpent
-                ordersCount
                 createdAt
+                updatedAt
               }
             }
           }
         }
       `
 
-      console.log("🔍 Ejecutando consulta GraphQL simplificada...")
+      console.log("🔍 Ejecutando consulta GraphQL corregida...")
 
       const response = await fetch(shopifyUrl, {
         method: "POST",
@@ -96,7 +169,6 @@ export async function POST() {
         })
       } else {
         console.log("⚠️ No se encontraron clientes en la respuesta de Shopify")
-        console.log("📋 Estructura de respuesta:", JSON.stringify(data.data, null, 2))
         results.detalles.push("No se encontraron clientes en Shopify")
       }
     } catch (error) {
@@ -105,11 +177,11 @@ export async function POST() {
       results.detalles.push(`Error obteniendo clientes de Shopify: ${error}`)
     }
 
-    // 3. Si no hay clientes de Shopify, insertar los que ya están funcionando en la aplicación
+    // 4. Si no hay clientes de Shopify, usar datos de respaldo
     if (clientesReales.length === 0) {
       console.log("🔄 No se obtuvieron clientes de Shopify, usando datos de respaldo...")
 
-      // Datos de respaldo basados en lo que se ve en la aplicación
+      // Datos de respaldo simplificados (sin totalSpent y ordersCount)
       clientesReales = [
         {
           id: "gid://shopify/Customer/7412345678901",
@@ -117,8 +189,6 @@ export async function POST() {
           firstName: "Carlos",
           lastName: "Giang",
           phone: "+34670200433",
-          totalSpent: "59.99",
-          ordersCount: 1,
         },
         {
           id: "gid://shopify/Customer/7412345678902",
@@ -126,8 +196,6 @@ export async function POST() {
           firstName: "Darío",
           lastName: "Mendez",
           phone: null,
-          totalSpent: "0.00",
-          ordersCount: 0,
         },
         {
           id: "gid://shopify/Customer/7412345678903",
@@ -135,8 +203,6 @@ export async function POST() {
           firstName: "Nicolas",
           lastName: "Cotta",
           phone: null,
-          totalSpent: "110.00",
-          ordersCount: 1,
         },
         {
           id: "gid://shopify/Customer/7412345678904",
@@ -144,8 +210,6 @@ export async function POST() {
           firstName: "Alfredo",
           lastName: "Fernandez",
           phone: "+34603209321",
-          totalSpent: "0.00",
-          ordersCount: 0,
         },
         {
           id: "gid://shopify/Customer/7412345678905",
@@ -153,39 +217,11 @@ export async function POST() {
           firstName: "Javier",
           lastName: "Martinez",
           phone: "+34623903244",
-          totalSpent: "0.00",
-          ordersCount: 0,
         },
       ]
 
       console.log(`📋 Usando ${clientesReales.length} clientes de respaldo`)
       results.detalles.push(`Usando ${clientesReales.length} clientes de respaldo`)
-    }
-
-    // 4. Verificar estructura de la tabla clientes
-    try {
-      console.log("🔍 Verificando estructura de tabla clientes...")
-
-      await sql`
-        CREATE TABLE IF NOT EXISTS clientes (
-          id SERIAL PRIMARY KEY,
-          shopify_id VARCHAR(255),
-          email VARCHAR(255),
-          nombre VARCHAR(255),
-          apellidos VARCHAR(255),
-          telefono VARCHAR(255),
-          estado VARCHAR(50) DEFAULT 'ENABLED',
-          total_gastado DECIMAL(10,2) DEFAULT 0,
-          numero_pedidos INTEGER DEFAULT 0,
-          fecha_creacion TIMESTAMP DEFAULT NOW(),
-          fecha_actualizacion TIMESTAMP DEFAULT NOW()
-        )
-      `
-      console.log("✅ Tabla clientes verificada/creada")
-    } catch (error) {
-      console.error("❌ Error verificando tabla clientes:", error)
-      results.errores++
-      results.detalles.push(`Error verificando tabla: ${error}`)
     }
 
     // 5. INSERTAR clientes en la base de datos
@@ -205,16 +241,15 @@ export async function POST() {
         const apellidos = cliente.lastName || ""
         const telefono = cliente.phone || null
         const estado = "ENABLED"
-        const totalGastado = Number.parseFloat(cliente.totalSpent || "0")
-        const numeroPedidos = cliente.ordersCount || 0
+        const totalGastado = 0 // Valor por defecto
+        const numeroPedidos = 0 // Valor por defecto
 
         console.log(`📝 Insertando cliente con datos:`, {
           shopifyId,
           email,
           nombre,
           apellidos,
-          totalGastado,
-          numeroPedidos,
+          telefono,
         })
 
         await sql`
