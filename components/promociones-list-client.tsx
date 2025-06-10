@@ -1,236 +1,208 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import Link from "next/link"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { fetchPromociones } from "@/lib/api/promociones"
-import { extractShopifyId } from "@/lib/utils/shopify-id"
-import { Loader2, Plus, Eye, Edit, AlertTriangle, RefreshCw } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import Link from "next/link"
+import { Calendar, Clock, Edit, Percent, Tag, Trash } from "lucide-react"
+import { formatDistanceToNow } from "date-fns"
+import { es } from "date-fns/locale"
 
-interface Promocion {
-  id: string
-  titulo: string
-  descripcion?: string
-  tipo?: string
-  valor?: number | string
-  fechaInicio?: string
-  fechaFin?: string | null
-  codigo?: string | null
-  activa?: boolean
-  estado?: string
-  limite_uso?: number
-}
+// Importar la función que usa el Dashboard para obtener promociones
+import { fetchDashboardData } from "@/lib/api/dashboard"
 
 interface PromocionesListClientProps {
-  filter: string
+  filter?: string
 }
 
-export function PromocionesListClient({ filter }: PromocionesListClientProps) {
-  const [promociones, setPromociones] = useState<Promocion[]>([])
+export function PromocionesListClient({ filter = "todas" }: PromocionesListClientProps) {
+  const [promociones, setPromociones] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const cargarPromociones = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      console.log(`🔍 Cargando promociones con filtro: ${filter}`)
-
-      const data = await fetchPromociones(filter)
-      console.log(`✅ Promociones cargadas:`, data)
-
-      // Validar que data es un array y tiene elementos válidos
-      if (Array.isArray(data)) {
-        const promocionesValidas = data.filter((p) => p && typeof p === "object" && p.id)
-        setPromociones(promocionesValidas)
-        console.log(`✅ Promociones válidas: ${promocionesValidas.length}`)
-      } else {
-        console.warn("⚠️ Data no es un array:", data)
-        setPromociones([])
-      }
-    } catch (err) {
-      console.error("❌ Error al cargar promociones:", err)
-      setError("Error al cargar promociones. Intente nuevamente.")
-      setPromociones([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
   useEffect(() => {
-    cargarPromociones()
+    async function loadPromociones() {
+      try {
+        setLoading(true)
+        setError(null)
+
+        // Usar la misma función que el Dashboard
+        const dashboardData = await fetchDashboardData()
+
+        // Extraer promociones del dashboard
+        let promocionesData = []
+        if (dashboardData && dashboardData.stats && dashboardData.stats.promociones) {
+          promocionesData = dashboardData.stats.promociones
+          console.log(`✅ Promociones obtenidas del dashboard: ${promocionesData.length}`)
+        }
+
+        // Aplicar filtros si es necesario
+        let filteredPromociones = promocionesData
+        if (filter === "activas") {
+          filteredPromociones = promocionesData.filter((p: any) => p.activa === true)
+        } else if (filter === "programadas") {
+          filteredPromociones = promocionesData.filter((p: any) => {
+            const fechaInicio = new Date(p.fechaInicio)
+            return fechaInicio > new Date()
+          })
+        } else if (filter === "expiradas") {
+          filteredPromociones = promocionesData.filter((p: any) => {
+            const fechaFin = p.fechaFin ? new Date(p.fechaFin) : null
+            return fechaFin && fechaFin < new Date()
+          })
+        }
+
+        console.log(`✅ Promociones filtradas (${filter}): ${filteredPromociones.length}`)
+        setPromociones(filteredPromociones)
+      } catch (err) {
+        console.error("Error al cargar promociones:", err)
+        setError("No se pudieron cargar las promociones. Intente nuevamente más tarde.")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadPromociones()
   }, [filter])
 
-  // Función para obtener el valor de manera segura
-  const obtenerValor = (promocion: Promocion): string => {
-    const valor = promocion.valor || 0
-    const tipo = promocion.tipo || "AUTOMATICO"
-
-    if (tipo.includes("PORCENTAJE") || tipo === "percentage") {
-      return `${valor}%`
-    } else if (tipo.includes("CANTIDAD") || tipo === "fixed_amount") {
-      return `€${valor}`
-    } else if (tipo.includes("ENVIO") || tipo === "free_shipping") {
-      return "Envío gratis"
-    }
-    return `${valor}`
-  }
-
-  // Función para obtener el estado de manera segura
-  const obtenerEstado = (promocion: Promocion) => {
-    if (promocion.activa === true || promocion.estado === "ACTIVE") {
-      return { texto: "Activa", variant: "default" as const }
-    } else if (promocion.estado === "EXPIRED") {
-      return { texto: "Expirada", variant: "destructive" as const }
-    } else if (promocion.estado === "SCHEDULED") {
-      return { texto: "Programada", variant: "secondary" as const }
-    } else {
-      return { texto: "Inactiva", variant: "outline" as const }
-    }
-  }
-
-  // Función para obtener las fechas de manera segura
-  const obtenerFechas = (promocion: Promocion): string => {
-    if (!promocion.fechaInicio) return "Sin fecha"
-
-    try {
-      const inicio = new Date(promocion.fechaInicio).toLocaleDateString()
-      if (promocion.fechaFin) {
-        const fin = new Date(promocion.fechaFin).toLocaleDateString()
-        return `${inicio} - ${fin}`
-      }
-      return `Desde ${inicio}`
-    } catch {
-      return "Fecha inválida"
-    }
-  }
-
   if (loading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Cargando promociones...</span>
-      </div>
-    )
+    return <PromocionesLoadingSkeleton />
   }
 
   if (error) {
     return (
-      <Alert variant="destructive">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertDescription className="flex flex-col gap-3">
-          <p>{error}</p>
-          <Button variant="outline" size="sm" onClick={cargarPromociones} className="w-fit">
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Reintentar
-          </Button>
-        </AlertDescription>
-      </Alert>
+      <div className="rounded-md bg-red-50 p-4 my-4">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-red-800">Error</h3>
+            <div className="mt-2 text-sm text-red-700">
+              <p>{error}</p>
+            </div>
+          </div>
+        </div>
+      </div>
     )
   }
 
   if (promociones.length === 0) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12">
-          <div className="text-center space-y-4">
-            <div className="text-muted-foreground">
-              <h3 className="text-lg font-medium">No hay promociones</h3>
-              <p className="text-sm">
-                {filter === "todas"
-                  ? "No hay promociones creadas."
-                  : filter === "activas"
-                    ? "No hay promociones activas."
-                    : filter === "programadas"
-                      ? "No hay promociones programadas."
-                      : "No hay promociones expiradas."}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={cargarPromociones}>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Recargar
-              </Button>
-              <Button asChild>
-                <Link href="/dashboard/promociones/asistente">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Crear promoción
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="text-center py-10">
+        <h3 className="text-lg font-medium text-gray-900">No hay promociones</h3>
+        <p className="mt-1 text-sm text-gray-500">No hay promociones creadas.</p>
+        <div className="mt-6 flex justify-center gap-4">
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            Recargar
+          </Button>
+          <Button asChild>
+            <Link href="/dashboard/promociones/asistente">Crear promoción</Link>
+          </Button>
+        </div>
+      </div>
     )
   }
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {promociones.map((promocion) => {
-        const estado = obtenerEstado(promocion)
-        const idLimpio = extractShopifyId(promocion.id)
-
-        return (
-          <Card key={promocion.id} className="overflow-hidden hover:shadow-md transition-shadow">
-            <CardHeader className="pb-2">
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-lg">{promocion.titulo}</CardTitle>
-                  <CardDescription className="mt-1 line-clamp-2">
-                    {promocion.descripcion || "Sin descripción"}
-                  </CardDescription>
-                </div>
-                <Badge variant={estado.variant}>{estado.texto}</Badge>
+      {promociones.map((promocion) => (
+        <Card key={promocion.id} className="overflow-hidden">
+          <CardHeader className="pb-2">
+            <div className="flex justify-between items-start">
+              <CardTitle className="text-lg">{promocion.titulo}</CardTitle>
+              <Badge variant={promocion.activa ? "default" : "outline"}>
+                {promocion.activa ? "Activa" : "Inactiva"}
+              </Badge>
+            </div>
+            <CardDescription className="line-clamp-2">{promocion.descripcion}</CardDescription>
+          </CardHeader>
+          <CardContent className="pb-2">
+            <div className="flex justify-between items-center mb-2">
+              <div className="flex items-center text-sm">
+                <Percent className="mr-1 h-4 w-4 text-muted-foreground" />
+                <span>
+                  {promocion.tipo === "PORCENTAJE_DESCUENTO"
+                    ? `${promocion.valor}% descuento`
+                    : `${promocion.valor}€ descuento`}
+                </span>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <p className="font-medium">Descuento:</p>
-                  <p className="text-granito font-semibold">{obtenerValor(promocion)}</p>
-                </div>
-
-                <div>
-                  <p className="font-medium">Período:</p>
-                  <p>{obtenerFechas(promocion)}</p>
-                </div>
-              </div>
-
               {promocion.codigo && (
-                <div>
-                  <p className="text-sm font-medium">Código:</p>
-                  <p className="text-sm font-mono bg-muted p-1 rounded">{promocion.codigo}</p>
+                <div className="flex items-center text-sm">
+                  <Tag className="mr-1 h-4 w-4 text-muted-foreground" />
+                  <code className="bg-muted px-1 py-0.5 rounded">{promocion.codigo}</code>
                 </div>
               )}
-
-              {promocion.limite_uso && (
-                <div className="flex justify-between items-center text-sm">
-                  <span className="font-medium">Límite de usos:</span>
-                  <span>{promocion.limite_uso}</span>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={`/dashboard/promociones/${idLimpio}`}>
-                    <Eye className="h-4 w-4 mr-1" />
-                    Ver
-                  </Link>
-                </Button>
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={`/dashboard/promociones/${idLimpio}/edit`}>
-                    <Edit className="h-4 w-4 mr-1" />
-                    Editar
-                  </Link>
-                </Button>
+            </div>
+            <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+              <div className="flex items-center">
+                <Calendar className="mr-1 h-3.5 w-3.5" />
+                <span>
+                  Desde:{" "}
+                  {formatDistanceToNow(new Date(promocion.fechaInicio), {
+                    addSuffix: true,
+                    locale: es,
+                  })}
+                </span>
               </div>
-            </CardContent>
-          </Card>
-        )
-      })}
+              {promocion.fechaFin && (
+                <div className="flex items-center">
+                  <Clock className="mr-1 h-3.5 w-3.5" />
+                  <span>
+                    Hasta:{" "}
+                    {formatDistanceToNow(new Date(promocion.fechaFin), {
+                      addSuffix: true,
+                      locale: es,
+                    })}
+                  </span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+          <CardFooter className="pt-2">
+            <div className="flex justify-between w-full">
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/dashboard/promociones/${promocion.id}`}>
+                  <Edit className="mr-1 h-3.5 w-3.5" />
+                  Editar
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm" className="text-red-500 hover:text-red-700">
+                <Trash className="mr-1 h-3.5 w-3.5" />
+                Eliminar
+              </Button>
+            </div>
+          </CardFooter>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+function PromocionesLoadingSkeleton() {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {[...Array(3)].map((_, i) => (
+        <Card key={i}>
+          <CardHeader>
+            <div className="h-6 w-48 bg-muted animate-pulse rounded" />
+            <div className="h-4 w-64 bg-muted animate-pulse rounded" />
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-between items-center">
+              <div className="h-4 w-32 bg-muted animate-pulse rounded" />
+              <div className="h-6 w-20 bg-muted animate-pulse rounded" />
+            </div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   )
 }
