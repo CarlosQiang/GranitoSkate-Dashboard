@@ -58,16 +58,14 @@ export default async function Home() {
         {/* Content */}
         <div className="relative z-10 container mx-auto px-4 text-center">
           <div className="flex justify-center mb-8">
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 shadow-2xl">
-              <Image
-                src="/logo-granito-completo.png"
-                alt="Granito Management app"
-                width={300}
-                height={90}
-                className="h-16 sm:h-20 w-auto"
-                priority
-              />
-            </div>
+            <Image
+              src="/logo-granito-completo.png"
+              alt="Granito Management app"
+              width={400}
+              height={120}
+              className="h-20 sm:h-24 md:h-28 w-auto drop-shadow-2xl"
+              priority
+            />
           </div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6 text-white drop-shadow-lg">
             Panel de Administración
