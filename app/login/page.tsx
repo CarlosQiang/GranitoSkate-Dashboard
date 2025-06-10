@@ -2,42 +2,26 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
-import { signIn, getSession, useSession } from "next-auth/react"
+import { useState } from "react"
+import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, Eye, EyeOff, Shield, User, ArrowLeft } from "lucide-react"
+import { Eye, EyeOff, Shield, ArrowLeft } from "lucide-react"
+import Link from "next/link"
 import { useTheme } from "@/contexts/theme-context"
-import { ThemedButton } from "@/components/themed-button"
-import {
-  ThemedCard,
-  ThemedCardHeader,
-  ThemedCardTitle,
-  ThemedCardDescription,
-  ThemedCardContent,
-} from "@/components/themed-card"
+import Image from "next/image"
 
 export default function LoginPage() {
-  const [identifier, setIdentifier] = useState("")
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
   const router = useRouter()
-  const { data: session, status } = useSession()
   const { theme } = useTheme()
-
-  // Si ya está autenticado, redirigir al dashboard
-  useEffect(() => {
-    if (status === "authenticated" && session) {
-      console.log("✅ Usuario ya autenticado, redirigiendo...")
-      router.push("/dashboard")
-    }
-  }, [session, status, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,182 +29,149 @@ export default function LoginPage() {
     setError("")
 
     try {
-      console.log("🔐 Intentando iniciar sesión con:", identifier)
-
       const result = await signIn("credentials", {
-        email: identifier,
+        email,
         password,
         redirect: false,
       })
 
-      console.log("🔍 Resultado del login:", result)
-
       if (result?.error) {
-        console.error("❌ Error de login:", result.error)
-        setError("Credenciales incorrectas. Verifica tu usuario/email y contraseña.")
-      } else if (result?.ok) {
-        console.log("✅ Login exitoso, verificando sesión...")
-
-        setTimeout(async () => {
-          const session = await getSession()
-          if (session) {
-            console.log("✅ Sesión verificada, redirigiendo al dashboard...")
-            router.push("/dashboard")
-            router.refresh()
-          } else {
-            setError("Error al establecer la sesión")
-          }
-        }, 1000)
+        setError("Credenciales inválidas")
+      } else {
+        router.push("/dashboard")
       }
     } catch (error) {
-      console.error("❌ Error durante el login:", error)
-      setError("Error de conexión. Inténtalo de nuevo.")
+      setError("Error al iniciar sesión")
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Mostrar loading si está verificando la sesión
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-[var(--color-primary)]" />
-          <p className="text-gray-600">Verificando sesión...</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-white">
-      <div className="w-full max-w-md mx-auto">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
+      <div className="w-full max-w-md space-y-8">
         {/* Logo y título */}
-        <div className="text-center mb-8">
-          <div
-            className="mx-auto h-16 w-16 rounded-xl flex items-center justify-center mb-4 shadow-lg"
-            style={{
-              backgroundColor: theme.primaryColor,
-            }}
-          >
-            <span className="text-2xl font-bold text-white">G</span>
+        <div className="text-center space-y-4">
+          <div className="flex justify-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl flex items-center justify-center shadow-lg">
+              {theme?.logoUrl ? (
+                <Image
+                  src={theme.logoUrl || "/placeholder.svg"}
+                  alt={theme.shopName || "Logo"}
+                  width={48}
+                  height={48}
+                  className="rounded-xl"
+                />
+              ) : (
+                <Image
+                  src="/logo-granito-management.png"
+                  alt="Granito Management app"
+                  width={48}
+                  height={48}
+                  className="rounded-xl"
+                />
+              )}
+            </div>
           </div>
-          <h1 className="text-3xl font-bold mb-2 text-gray-900">{theme.shopName}</h1>
-          <p className="text-gray-600">Panel de Administración</p>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+              {theme?.shopName || "Granito Management app"}
+            </h1>
+            <p className="text-slate-600 dark:text-slate-400">Panel de Administración</p>
+          </div>
         </div>
 
-        <ThemedCard className="shadow-xl border-0 backdrop-blur-sm">
-          <ThemedCardHeader className="space-y-1 pb-6">
-            <div className="flex items-center justify-center mb-4">
-              <Shield style={{ color: theme.primaryColor }} className="h-8 w-8" />
+        {/* Formulario de login */}
+        <Card className="shadow-xl border-0 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
+          <CardHeader className="space-y-1 pb-4">
+            <div className="flex items-center justify-center w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-full mx-auto mb-4">
+              <Shield className="w-6 h-6 text-amber-600 dark:text-amber-400" />
             </div>
-            <ThemedCardTitle className="text-2xl font-bold text-center">Acceso Seguro</ThemedCardTitle>
-            <ThemedCardDescription className="text-center">
+            <CardTitle className="text-xl text-center text-slate-900 dark:text-slate-100">Acceso Seguro</CardTitle>
+            <CardDescription className="text-center text-slate-600 dark:text-slate-400">
               Ingresa tus credenciales para acceder al panel de administración
-            </ThemedCardDescription>
-          </ThemedCardHeader>
-          <ThemedCardContent className="space-y-6">
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="identifier" className="font-medium text-gray-700">
+                <Label htmlFor="email" className="text-slate-700 dark:text-slate-300">
                   Usuario o Correo Electrónico
                 </Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="identifier"
-                    type="text"
-                    placeholder="usuario o email"
-                    value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
-                    required
-                    disabled={isLoading}
-                    className="pl-10 h-12 border-gray-200 focus:border-[var(--color-primary)] focus:ring-[var(--color-primary)]"
-                    autoComplete="username"
-                  />
-                </div>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="carlos@ejemplo.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600"
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="font-medium text-gray-700">
+                <Label htmlFor="password" className="text-slate-700 dark:text-slate-300">
                   Contraseña
                 </Label>
                 <div className="relative">
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
+                    placeholder="••••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    disabled={isLoading}
-                    className="pr-10 h-12 border-gray-200 focus:border-[var(--color-primary)] focus:ring-[var(--color-primary)]"
-                    autoComplete="current-password"
+                    className="bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 pr-10"
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="absolute right-0 top-0 h-12 px-3 hover:bg-transparent"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                     onClick={() => setShowPassword(!showPassword)}
-                    disabled={isLoading}
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
+                      <EyeOff className="h-4 w-4 text-slate-400" />
                     ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
+                      <Eye className="h-4 w-4 text-slate-400" />
                     )}
                   </Button>
                 </div>
               </div>
+
               {error && (
-                <Alert variant="destructive" className="border-red-200 bg-red-50">
-                  <AlertDescription className="text-red-700">{error}</AlertDescription>
-                </Alert>
+                <div className="text-red-600 dark:text-red-400 text-sm text-center bg-red-50 dark:bg-red-900/20 p-2 rounded-md">
+                  {error}
+                </div>
               )}
-              <ThemedButton
+
+              <Button
                 type="submit"
-                className="w-full h-12 text-white font-medium shadow-lg transition-all duration-200"
+                className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-medium py-2.5"
                 disabled={isLoading}
               >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Iniciando sesión...
-                  </>
-                ) : (
-                  "Iniciar Sesión"
-                )}
-              </ThemedButton>
-
-              {/* Botón de volver - nueva posición */}
-              <div className="text-center">
-                <Link href="/">
-                  <Button
-                    variant="ghost"
-                    className="flex items-center gap-2 text-gray-600 hover:text-[var(--color-primary)] mx-auto"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Volver al inicio
-                  </Button>
-                </Link>
-              </div>
+                {isLoading ? "Iniciando Sesión..." : "Iniciar Sesión"}
+              </Button>
             </form>
 
-            {/* Información de seguridad */}
-            <div className="pt-4 border-t border-gray-100">
-              <div className="flex items-center justify-center text-sm text-gray-500">
-                <Shield className="h-4 w-4 mr-2" />
-                Conexión segura y cifrada
-              </div>
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+              <Link
+                href="/"
+                className="flex items-center justify-center text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 text-sm transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Volver al inicio
+              </Link>
             </div>
-          </ThemedCardContent>
-        </ThemedCard>
 
-        {/* Footer */}
-        <div className="text-center mt-8">
-          <p className="text-sm text-gray-500">
-            © {new Date().getFullYear()} {theme.shopName}. Todos los derechos reservados.
-          </p>
+            <div className="flex items-center justify-center text-xs text-slate-500 dark:text-slate-400">
+              <Shield className="w-3 h-3 mr-1" />
+              Conexión segura y cifrada
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="text-center text-xs text-slate-500 dark:text-slate-400">
+          © 2025 {theme?.shopName || "Granito Management app"}. Todos los derechos reservados.
         </div>
       </div>
     </div>

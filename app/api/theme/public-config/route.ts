@@ -1,29 +1,24 @@
 import { NextResponse } from "next/server"
-import { sql } from "@vercel/postgres"
+import { getThemeConfig } from "@/lib/db/repositories/theme-repository"
 
 export async function GET() {
   try {
-    // Intentar obtener la configuración del tema desde la base de datos
-    const { rows } = await sql`
-      SELECT config FROM theme_config WHERE id = 'default' LIMIT 1
-    `
+    // Usar un shopId predeterminado para la configuración pública
+    const shopId = "default-shop"
 
-    if (rows.length > 0) {
-      const themeConfig = rows[0].config
-
-      // Solo exponemos el nombre de la tienda por seguridad
-      return NextResponse.json({
-        shopName: themeConfig.shopName || "Granito Management app",
-      })
-    }
+    const themeConfig = await getThemeConfig(shopId)
 
     return NextResponse.json({
-      shopName: "Granito Management app",
+      shopName: themeConfig.shopName,
+      logoUrl: themeConfig.logoUrl,
+      favicon: themeConfig.favicon,
     })
   } catch (error) {
     console.error("Error al obtener la configuración pública del tema:", error)
     return NextResponse.json({
       shopName: "Granito Management app",
+      logoUrl: "/logo-granito-management.png",
+      favicon: "/favicon-granito.ico",
     })
   }
 }

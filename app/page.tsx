@@ -1,110 +1,263 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
-import { LogIn } from "lucide-react"
-import { redirect } from "next/navigation"
-import { ThemedButton } from "@/components/themed-button"
+import Image from "next/image"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { ShoppingBag, BarChart3, Search, LogIn, Package, Users, TrendingUp, Shield, Zap, Globe } from "lucide-react"
 
-export default async function Home() {
-  const session = await getServerSession(authOptions)
+interface PublicConfig {
+  shopName: string
+  logoUrl: string
+  favicon: string
+}
 
-  // Si el usuario ya está autenticado, redirigir al dashboard
-  if (session) {
-    redirect("/dashboard")
-  }
+export default function HomePage() {
+  const [config, setConfig] = useState<PublicConfig>({
+    shopName: "Granito Management app",
+    logoUrl: "/logo-granito-management.png",
+    favicon: "/favicon-granito.ico",
+  })
+
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const response = await fetch("/api/theme/public-config")
+        if (response.ok) {
+          const data = await response.json()
+          setConfig(data)
+        }
+      } catch (error) {
+        console.error("Error al cargar la configuración:", error)
+      }
+    }
+
+    loadConfig()
+  }, [])
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
       {/* Header */}
-      <header className="bg-white shadow-sm relative z-10">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <div className="rounded-full bg-[var(--color-primary)] p-2">
-              <img src="/favicon.ico" alt="GranitoSkate Logo" className="h-6 w-6" />
+      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center">
+              <Image
+                src={config.logoUrl || "/placeholder.svg"}
+                alt={config.shopName}
+                width={32}
+                height={32}
+                className="rounded-lg"
+              />
             </div>
-            <span className="text-xl font-bold">{process.env.NEXT_PUBLIC_SHOP_NAME || "Granito Management app"}</span>
+            <span className="text-xl font-bold text-slate-900">{config.shopName}</span>
           </div>
-          <div>
+          <Button
+            asChild
+            className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700"
+          >
             <Link href="/login">
-              <ThemedButton variant="outline" className="flex items-center gap-2">
-                <LogIn className="h-4 w-4" />
-                Iniciar sesión
-              </ThemedButton>
+              <LogIn className="w-4 h-4 mr-2" />
+              Iniciar sesión
             </Link>
-          </div>
+          </Button>
         </div>
       </header>
 
-      {/* Hero Section with Background Image */}
-      <section className="relative flex-1 flex items-center justify-center py-12 sm:py-20">
-        {/* Background Image */}
+      {/* Hero Section */}
+      <section className="relative py-20 px-4 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 to-amber-600/10" />
         <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          className="absolute inset-0 opacity-20"
           style={{
-            backgroundImage: "url(/images/skater-background.jpg)",
-            backgroundPosition: "center center",
+            backgroundImage: "url('/images/skater-background.jpg')",
             backgroundSize: "cover",
+            backgroundPosition: "center",
           }}
-        >
-          {/* Overlay for better text readability */}
-          <div className="absolute inset-0 bg-black/40"></div>
-        </div>
-
-        {/* Content */}
-        <div className="relative z-10 container mx-auto px-4 text-center">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6 text-white drop-shadow-lg">
-            Panel de Administración {process.env.NEXT_PUBLIC_SHOP_NAME || "Granito Management app"}
-          </h1>
-          <p className="text-lg sm:text-xl text-white/90 mb-8 sm:mb-10 max-w-3xl mx-auto drop-shadow-md">
-            Gestiona tu tienda Shopify de manera eficiente con nuestro panel de administración personalizado.
-          </p>
-          <div className="flex justify-center">
-            <Link href="/login">
-              <ThemedButton size="lg" className="flex items-center gap-2 shadow-lg">
-                <LogIn className="h-5 w-5" />
+        />
+        <div className="container mx-auto text-center relative z-10">
+          <div className="max-w-4xl mx-auto">
+            <Badge variant="secondary" className="mb-6 bg-amber-100 text-amber-800 border-amber-200">
+              Panel de Administración Profesional
+            </Badge>
+            <h1 className="text-5xl md:text-6xl font-bold text-slate-900 mb-6 leading-tight">
+              Panel de Administración {config.shopName}
+            </h1>
+            <p className="text-xl text-slate-600 mb-8 max-w-2xl mx-auto leading-relaxed">
+              Gestiona tu tienda Shopify de manera eficiente con nuestro panel de administración personalizado.
+            </p>
+            <Button
+              asChild
+              size="lg"
+              className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white px-8 py-4 text-lg font-medium shadow-lg hover:shadow-xl transition-all duration-300"
+            >
+              <Link href="/login">
+                <LogIn className="w-5 h-5 mr-2" />
                 Iniciar sesión
-              </ThemedButton>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="py-12 sm:py-16 bg-white relative z-10">
-        <div className="container mx-auto px-4">
-          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-8 sm:mb-12">Características principales</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-            <div className="p-4 sm:p-6 border rounded-lg shadow-sm">
-              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[var(--color-primary)]">
-                Gestión de productos
-              </h3>
-              <p className="text-sm sm:text-base text-gray-600">
-                Administra tu catálogo de productos de forma sencilla y eficiente.
-              </p>
+      <section className="py-20 px-4 bg-white">
+        <div className="container mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">Características principales</h2>
+            <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+              Todas las herramientas que necesitas para gestionar tu negocio de manera eficiente
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardHeader className="text-center pb-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <ShoppingBag className="w-8 h-8 text-white" />
+                </div>
+                <CardTitle className="text-xl text-amber-600">Gestión de productos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="text-center text-slate-600 leading-relaxed">
+                  Administra tu catálogo de productos de forma sencilla y eficiente.
+                </CardDescription>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardHeader className="text-center pb-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <BarChart3 className="w-8 h-8 text-white" />
+                </div>
+                <CardTitle className="text-xl text-amber-600">Análisis de ventas</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="text-center text-slate-600 leading-relaxed">
+                  Visualiza estadísticas y métricas clave para tomar mejores decisiones.
+                </CardDescription>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardHeader className="text-center pb-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Search className="w-8 h-8 text-white" />
+                </div>
+                <CardTitle className="text-xl text-amber-600">Optimización SEO</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="text-center text-slate-600 leading-relaxed">
+                  Mejora la visibilidad de tu tienda con herramientas de SEO integrales.
+                </CardDescription>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Additional Features */}
+      <section className="py-20 px-4 bg-slate-50">
+        <div className="container mx-auto">
+          <div className="grid md:grid-cols-2 gap-12 items-center max-w-6xl mx-auto">
+            <div>
+              <h3 className="text-3xl font-bold text-slate-900 mb-6">Potencia tu negocio con herramientas avanzadas</h3>
+              <div className="space-y-6">
+                <div className="flex items-start space-x-4">
+                  <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Package className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-slate-900 mb-2">Gestión de inventario</h4>
+                    <p className="text-slate-600">Control completo sobre tu stock y productos</p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-4">
+                  <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Users className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-slate-900 mb-2">Gestión de clientes</h4>
+                    <p className="text-slate-600">Administra y analiza tu base de clientes</p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-4">
+                  <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <TrendingUp className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-slate-900 mb-2">Análisis avanzado</h4>
+                    <p className="text-slate-600">Reportes detallados y métricas de rendimiento</p>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="p-4 sm:p-6 border rounded-lg shadow-sm">
-              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[var(--color-primary)]">Análisis de ventas</h3>
-              <p className="text-sm sm:text-base text-gray-600">
-                Visualiza estadísticas y métricas clave para tomar mejores decisiones.
-              </p>
+            <div className="relative">
+              <div className="w-full h-80 bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl shadow-2xl flex items-center justify-center">
+                <Image
+                  src={config.logoUrl || "/placeholder.svg"}
+                  alt={config.shopName}
+                  width={200}
+                  height={200}
+                  className="rounded-xl opacity-90"
+                />
+              </div>
             </div>
-            <div className="p-4 sm:p-6 border rounded-lg shadow-sm">
-              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[var(--color-primary)]">Optimización SEO</h3>
-              <p className="text-sm sm:text-base text-gray-600">
-                Mejora la visibilidad de tu tienda con herramientas de SEO integradas.
-              </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Security & Performance */}
+      <section className="py-20 px-4 bg-white">
+        <div className="container mx-auto text-center">
+          <h3 className="text-3xl font-bold text-slate-900 mb-12">Seguridad y rendimiento garantizados</h3>
+          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Shield className="w-8 h-8 text-green-600" />
+              </div>
+              <h4 className="font-semibold text-slate-900 mb-2">Seguridad avanzada</h4>
+              <p className="text-slate-600">Protección de datos y acceso seguro</p>
+            </div>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Zap className="w-8 h-8 text-blue-600" />
+              </div>
+              <h4 className="font-semibold text-slate-900 mb-2">Alto rendimiento</h4>
+              <p className="text-slate-600">Carga rápida y respuesta inmediata</p>
+            </div>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Globe className="w-8 h-8 text-purple-600" />
+              </div>
+              <h4 className="font-semibold text-slate-900 mb-2">Acceso global</h4>
+              <p className="text-slate-600">Disponible desde cualquier lugar</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-100 py-6 sm:py-8 mt-auto relative z-10">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-sm sm:text-base text-gray-600">
-            &copy; {new Date().getFullYear()} {process.env.NEXT_PUBLIC_SHOP_NAME || "Granito Management app"}. Todos los
-            derechos reservados.
-          </p>
+      <footer className="bg-slate-900 text-white py-12 px-4">
+        <div className="container mx-auto text-center">
+          <div className="flex items-center justify-center space-x-3 mb-6">
+            <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center">
+              <Image
+                src={config.logoUrl || "/placeholder.svg"}
+                alt={config.shopName}
+                width={32}
+                height={32}
+                className="rounded-lg"
+              />
+            </div>
+            <span className="text-xl font-bold">{config.shopName}</span>
+          </div>
+          <p className="text-slate-400 mb-6">Panel de administración profesional para tu tienda Shopify</p>
+          <div className="border-t border-slate-800 pt-6">
+            <p className="text-slate-500 text-sm">© 2025 {config.shopName}. Todos los derechos reservados.</p>
+          </div>
         </div>
       </footer>
     </div>
