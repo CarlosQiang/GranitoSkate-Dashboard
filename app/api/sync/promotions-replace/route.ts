@@ -1,33 +1,63 @@
 import { NextResponse } from "next/server"
-import { query } from "@/lib/db"
+import { sql } from "@vercel/postgres"
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
     console.log("🔄 Iniciando reemplazo completo de promociones...")
 
-    // Obtener TODAS las promociones directamente de Shopify
-    const promotionsQuery = `
+    const results = {
+      borrados: 0,
+      insertados: 0,
+      errores: 0,
+      detalles: [] as string[],
+    }
+
+    // 1. Crear tabla si no existe
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS promociones (
+          id SERIAL PRIMARY KEY,
+          shopify_id VARCHAR(255) UNIQUE NOT NULL,
+          titulo VARCHAR(255) NOT NULL,
+          tipo VARCHAR(100),
+          codigo VARCHAR(100),
+          descuento_valor DECIMAL(10,2),
+          descuento_tipo VARCHAR(50),
+          fecha_inicio TIMESTAMP,
+          fecha_fin TIMESTAMP,
+          activa BOOLEAN DEFAULT TRUE,
+          usos_limite INTEGER,
+          usos_actuales INTEGER DEFAULT 0,
+          fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `
+    } catch (error) {
+      console.error("❌ Error creando tabla promociones:", error)
+    }
+
+    // 2. Obtener descuentos automáticos
+    const automaticDiscountsQuery = `
       query {
-        discountNodes(first: 250) {
+        automaticDiscountNodes(first: 50) {
           edges {
             node {
               id
-              discount {
+              automaticDiscount {
                 ... on DiscountAutomaticApp {
                   title
                   status
                   createdAt
                   updatedAt
-                  appDiscountType {
-                    appKey
-                    functionId
-                  }
+                  startsAt
+                  endsAt
                 }
                 ... on DiscountAutomaticBasic {
                   title
                   status
                   createdAt
                   updatedAt
+                  startsAt
+                  endsAt
                   customerGets {
                     value {
                       ... on DiscountPercentage {
@@ -36,71 +66,18 @@ export async function POST(request: Request) {
                       ... on DiscountAmount {
                         amount {
                           amount
-                          currencyCode
                         }
                       }
                     }
                   }
-                  minimumRequirement {
-                    ... on DiscountMinimumQuantity {
-                      greaterThanOrEqualToQuantity
-                    }
-                    ... on DiscountMinimumSubtotal {
-                      greaterThanOrEqualToSubtotal {
-                        amount
-                        currencyCode
-                      }
-                    }
-                  }
                 }
-                ... on DiscountCodeApp {
+                ... on DiscountAutomaticBxgy {
                   title
                   status
                   createdAt
                   updatedAt
-                  appDiscountType {
-                    appKey
-                    functionId
-                  }
-                }
-                ... on DiscountCodeBasic {
-                  title
-                  status
-                  createdAt
-                  updatedAt
-                  codes(first: 10) {
-                    edges {
-                      node {
-                        code
-                        usageCount
-                      }
-                    }
-                  }
-                  customerGets {
-                    value {
-                      ... on DiscountPercentage {
-                        percentage
-                      }
-                      ... on DiscountAmount {
-                        amount {
-                          amount
-                          currencyCode
-                        }
-                      }
-                    }
-                  }
-                  minimumRequirement {
-                    ... on DiscountMinimumQuantity {
-                      greaterThanOrEqualToQuantity
-                    }
-                    ... on DiscountMinimumSubtotal {
-                      greaterThanOrEqualToSubtotal {
-                        amount
-                        currencyCode
-                      }
-                    }
-                  }
-                  usageLimit
+                  startsAt
+                  endsAt
                 }
               }
             }
@@ -109,129 +86,238 @@ export async function POST(request: Request) {
       }
     `
 
-    console.log("🔍 Obteniendo promociones de Shopify...")
-    const promotionsResponse = await fetch(
+    // 3. Obtener códigos de descuento
+    const discountCodesQuery = `
+      query {
+        codeDiscountNodes(first: 50) {
+          edges {
+            node {
+              id
+              codeDiscount {
+                ... on DiscountCodeBasic {
+                  title
+                  status
+                  codes(first: 10) {
+                    edges {
+                      node {
+                        code
+                      }
+                    }
+                  }
+                  createdAt
+                  updatedAt
+                  startsAt
+                  endsAt
+                  usageLimit
+                  asyncUsageCount
+                  customerGets {
+                    value {
+                      ... on DiscountPercentage {
+                        percentage
+                      }
+                      ... on DiscountAmount {
+                        amount {
+                          amount
+                        }
+                      }
+                    }
+                  }
+                }
+                ... on DiscountCodeBxgy {
+                  title
+                  status
+                  codes(first: 10) {
+                    edges {
+                      node {
+                        code
+                      }
+                    }
+                  }
+                  createdAt
+                  updatedAt
+                  startsAt
+                  endsAt
+                  usageLimit
+                  asyncUsageCount
+                }
+                ... on DiscountCodeFreeShipping {
+                  title
+                  status
+                  codes(first: 10) {
+                    edges {
+                      node {
+                        code
+                      }
+                    }
+                  }
+                  createdAt
+                  updatedAt
+                  startsAt
+                  endsAt
+                  usageLimit
+                  asyncUsageCount
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+
+    console.log("🔍 Obteniendo descuentos automáticos de Shopify...")
+    const automaticResponse = await fetch(
       `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-07/graphql.json`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
+          "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN!,
         },
-        body: JSON.stringify({ query: promotionsQuery }),
+        body: JSON.stringify({ query: automaticDiscountsQuery }),
       },
     )
 
-    if (!promotionsResponse.ok) {
-      throw new Error(`Error de Shopify API: ${promotionsResponse.status}`)
+    console.log("🔍 Obteniendo códigos de descuento de Shopify...")
+    const codesResponse = await fetch(
+      `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-07/graphql.json`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN!,
+        },
+        body: JSON.stringify({ query: discountCodesQuery }),
+      },
+    )
+
+    const automaticData = await automaticResponse.json()
+    const codesData = await codesResponse.json()
+
+    const automaticDiscounts = automaticData.data?.automaticDiscountNodes?.edges || []
+    const codeDiscounts = codesData.data?.codeDiscountNodes?.edges || []
+
+    console.log(`🎯 Descuentos automáticos obtenidos: ${automaticDiscounts.length}`)
+    console.log(`🎫 Códigos de descuento obtenidos: ${codeDiscounts.length}`)
+
+    // 4. Borrar promociones existentes
+    try {
+      const deleteResult = await sql`DELETE FROM promociones`
+      results.borrados = deleteResult.rowCount || 0
+      results.detalles.push(`🗑️ Borrados: ${results.borrados} promociones existentes`)
+      console.log(`🗑️ ${results.borrados} promociones borradas`)
+    } catch (error) {
+      console.error("❌ Error borrando promociones:", error)
+      results.errores++
+      results.detalles.push(`❌ Error borrando: ${error}`)
     }
 
-    const promotionsData = await promotionsResponse.json()
-    const promotions = promotionsData.data?.discountNodes?.edges || []
-
-    console.log(`🎯 Promociones obtenidas de Shopify: ${promotions.length}`)
-
-    // 1. Borrar todas las promociones existentes
-    console.log("🗑️ Borrando promociones existentes...")
-    const deleteResult = await query("DELETE FROM promociones")
-    const borrados = deleteResult.rowCount || 0
-    console.log(`🗑️ ${borrados} promociones borradas`)
-
-    // 2. Insertar las nuevas promociones
-    let insertados = 0
-    let errores = 0
-
-    for (const edge of promotions) {
+    // 5. Insertar descuentos automáticos
+    for (const edge of automaticDiscounts) {
       try {
-        const node = edge.node
-        const discount = node.discount
-        const shopifyId = node.id.split("/").pop()
+        const discount = edge.node.automaticDiscount
+        const shopifyId = edge.node.id.split("/").pop()
 
-        if (!discount) {
-          console.warn(`⚠️ Promoción sin datos de descuento: ${shopifyId}`)
-          continue
-        }
+        let descuentoValor = 0
+        let descuentoTipo = "percentage"
 
-        // Extraer información común
-        const title = discount.title || `Promoción ${shopifyId}`
-        const status = discount.status || "ACTIVE"
-        const createdAt = discount.createdAt || new Date().toISOString()
-        const updatedAt = discount.updatedAt || new Date().toISOString()
-
-        // Extraer valor y tipo de descuento
-        let valor = 0
-        let tipo = "PERCENTAGE"
-        let codigo = ""
-        let limite_uso = null
-        let contador_uso = 0
-
-        // Para descuentos con código
-        if (discount.codes && discount.codes.edges.length > 0) {
-          codigo = discount.codes.edges[0].node.code
-          contador_uso = discount.codes.edges[0].node.usageCount || 0
-        }
-
-        // Para descuentos básicos (automáticos o con código)
         if (discount.customerGets?.value) {
-          if (discount.customerGets.value.percentage !== undefined) {
-            valor = discount.customerGets.value.percentage
-            tipo = "PERCENTAGE"
+          if (discount.customerGets.value.percentage) {
+            descuentoValor = discount.customerGets.value.percentage
+            descuentoTipo = "percentage"
           } else if (discount.customerGets.value.amount) {
-            valor = Number.parseFloat(discount.customerGets.value.amount.amount)
-            tipo = "FIXED_AMOUNT"
+            descuentoValor = Number.parseFloat(discount.customerGets.value.amount.amount)
+            descuentoTipo = "fixed_amount"
           }
         }
 
-        // Límite de uso
-        if (discount.usageLimit) {
-          limite_uso = discount.usageLimit
-        }
-
-        // Insertar la promoción
-        await query(
-          `INSERT INTO promociones (
-            shopify_id, titulo, descripcion, tipo, valor, codigo,
-            activa, limite_uso, contador_uso, es_automatica
+        await sql`
+          INSERT INTO promociones (
+            shopify_id, titulo, tipo, descuento_valor, descuento_tipo,
+            fecha_inicio, fecha_fin, activa
           ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
-          )`,
-          [
-            shopifyId,
-            title,
-            `Promoción importada de Shopify - ${status}`,
-            tipo,
-            valor,
-            codigo || null,
-            status === "ACTIVE",
-            limite_uso,
-            contador_uso,
-            !codigo, // Es automática si no tiene código
-          ],
-        )
+            ${shopifyId},
+            ${discount.title || "Descuento Automático"},
+            ${"automatic"},
+            ${descuentoValor},
+            ${descuentoTipo},
+            ${discount.startsAt ? new Date(discount.startsAt).toISOString() : null},
+            ${discount.endsAt ? new Date(discount.endsAt).toISOString() : null},
+            ${discount.status === "ACTIVE"}
+          )
+        `
 
-        insertados++
-        console.log(`✅ Promoción insertada: ${title} (${shopifyId})`)
+        results.insertados++
+        results.detalles.push(`✅ Descuento automático insertado: ${discount.title} (${shopifyId})`)
+        console.log(`✅ Descuento automático insertado: ${discount.title} (${shopifyId})`)
       } catch (error) {
-        console.error(`❌ Error insertando promoción:`, error)
-        errores++
+        console.error(`❌ Error insertando descuento automático:`, error)
+        results.errores++
+        results.detalles.push(`❌ Error insertando descuento automático: ${error}`)
       }
     }
 
-    // 3. Contar total en BD
-    const countResult = await query("SELECT COUNT(*) as total FROM promociones")
-    const totalEnBD = Number.parseInt(countResult.rows[0].total)
+    // 6. Insertar códigos de descuento
+    for (const edge of codeDiscounts) {
+      try {
+        const discount = edge.node.codeDiscount
+        const shopifyId = edge.node.id.split("/").pop()
+        const codigo = discount.codes?.edges?.[0]?.node?.code || null
 
-    console.log(`✅ Reemplazo completado: ${borrados} borrados, ${insertados} insertados, ${errores} errores`)
+        let descuentoValor = 0
+        let descuentoTipo = "percentage"
+
+        if (discount.customerGets?.value) {
+          if (discount.customerGets.value.percentage) {
+            descuentoValor = discount.customerGets.value.percentage
+            descuentoTipo = "percentage"
+          } else if (discount.customerGets.value.amount) {
+            descuentoValor = Number.parseFloat(discount.customerGets.value.amount.amount)
+            descuentoTipo = "fixed_amount"
+          }
+        }
+
+        await sql`
+          INSERT INTO promociones (
+            shopify_id, titulo, tipo, codigo, descuento_valor, descuento_tipo,
+            fecha_inicio, fecha_fin, activa, usos_limite, usos_actuales
+          ) VALUES (
+            ${shopifyId},
+            ${discount.title || "Código de Descuento"},
+            ${"code"},
+            ${codigo},
+            ${descuentoValor},
+            ${descuentoTipo},
+            ${discount.startsAt ? new Date(discount.startsAt).toISOString() : null},
+            ${discount.endsAt ? new Date(discount.endsAt).toISOString() : null},
+            ${discount.status === "ACTIVE"},
+            ${discount.usageLimit || null},
+            ${discount.asyncUsageCount || 0}
+          )
+        `
+
+        results.insertados++
+        results.detalles.push(`✅ Código de descuento insertado: ${discount.title} (${codigo}) (${shopifyId})`)
+        console.log(`✅ Código de descuento insertado: ${discount.title} (${codigo}) (${shopifyId})`)
+      } catch (error) {
+        console.error(`❌ Error insertando código de descuento:`, error)
+        results.errores++
+        results.detalles.push(`❌ Error insertando código de descuento: ${error}`)
+      }
+    }
+
+    // 7. Contar total en BD
+    const countResult = await sql`SELECT COUNT(*) as count FROM promociones`
+    const totalEnBD = Number.parseInt(countResult.rows[0].count)
+
+    console.log(
+      `✅ Reemplazo completado: ${results.borrados} borrados, ${results.insertados} insertados, ${results.errores} errores`,
+    )
     console.log(`🎯 Total en BD: ${totalEnBD}`)
 
     return NextResponse.json({
       success: true,
-      message: `Reemplazo completo finalizado: ${borrados} borrados, ${insertados} insertados, ${errores} errores`,
-      results: {
-        borrados,
-        insertados,
-        errores,
-      },
+      message: `Reemplazo completo finalizado: ${results.borrados} borrados, ${results.insertados} insertados, ${results.errores} errores`,
+      results,
       totalEnBD,
     })
   } catch (error) {

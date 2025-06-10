@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
-import { query } from "@/lib/db"
+import { sql } from "@vercel/postgres"
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
     console.log("🔄 Iniciando reemplazo completo de clientes...")
 
@@ -24,33 +24,6 @@ export async function POST(request: Request) {
               ordersCount
               totalSpent
               state
-              addresses {
-                id
-                firstName
-                lastName
-                company
-                address1
-                address2
-                city
-                province
-                country
-                zip
-                phone
-                default
-              }
-              defaultAddress {
-                id
-                firstName
-                lastName
-                company
-                address1
-                address2
-                city
-                province
-                country
-                zip
-                phone
-              }
             }
           }
         }
@@ -64,7 +37,7 @@ export async function POST(request: Request) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
+          "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN!,
         },
         body: JSON.stringify({ query: customersQuery }),
       },
@@ -75,107 +48,107 @@ export async function POST(request: Request) {
     }
 
     const customersData = await customersResponse.json()
-    const customers = customersData.data?.customers?.edges || []
 
+    if (customersData.errors) {
+      console.error("❌ Errores de GraphQL:", customersData.errors)
+      throw new Error(`GraphQL errors: ${JSON.stringify(customersData.errors)}`)
+    }
+
+    const customers = customersData.data?.customers?.edges || []
     console.log(`👥 Clientes obtenidos de Shopify: ${customers.length}`)
 
-    // 1. Borrar todos los clientes existentes (y sus direcciones)
-    console.log("🗑️ Borrando clientes existentes...")
-    await query("DELETE FROM direcciones_cliente")
-    const deleteResult = await query("DELETE FROM clientes")
-    const borrados = deleteResult.rowCount || 0
-    console.log(`🗑️ ${borrados} clientes borrados`)
+    const results = {
+      borrados: 0,
+      insertados: 0,
+      errores: 0,
+      detalles: [] as string[],
+    }
 
-    // 2. Insertar los nuevos clientes
-    let insertados = 0
-    let errores = 0
+    // 1. Crear tabla si no existe
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS clientes (
+          id SERIAL PRIMARY KEY,
+          shopify_id VARCHAR(255) UNIQUE NOT NULL,
+          email VARCHAR(255),
+          nombre VARCHAR(255),
+          apellidos VARCHAR(255),
+          telefono VARCHAR(50),
+          acepta_marketing BOOLEAN DEFAULT FALSE,
+          notas TEXT,
+          etiquetas TEXT,
+          total_pedidos INTEGER DEFAULT 0,
+          total_gastado DECIMAL(10,2) DEFAULT 0,
+          estado VARCHAR(50) DEFAULT 'enabled',
+          fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `
+    } catch (error) {
+      console.error("❌ Error creando tabla clientes:", error)
+    }
 
+    // 2. Borrar todos los clientes existentes
+    try {
+      const deleteResult = await sql`DELETE FROM clientes`
+      results.borrados = deleteResult.rowCount || 0
+      results.detalles.push(`🗑️ Borrados: ${results.borrados} clientes existentes`)
+      console.log(`🗑️ ${results.borrados} clientes borrados`)
+    } catch (error) {
+      console.error("❌ Error borrando clientes:", error)
+      results.errores++
+      results.detalles.push(`❌ Error borrando: ${error}`)
+    }
+
+    // 3. Insertar los nuevos clientes
     for (const edge of customers) {
       try {
         const customer = edge.node
         const shopifyId = customer.id.split("/").pop()
 
-        // Insertar el cliente
-        const insertResult = await query(
-          `INSERT INTO clientes (
+        await sql`
+          INSERT INTO clientes (
             shopify_id, email, nombre, apellidos, telefono,
             acepta_marketing, notas, etiquetas, total_pedidos,
             total_gastado, estado
           ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
-          ) RETURNING id`,
-          [
-            shopifyId,
-            customer.email,
-            customer.firstName || "",
-            customer.lastName || "",
-            customer.phone || null,
-            customer.acceptsMarketing || false,
-            customer.note || null,
-            customer.tags ? customer.tags.join(",") : null,
-            customer.ordersCount || 0,
-            Number.parseFloat(customer.totalSpent || "0"),
-            customer.state || "enabled",
-          ],
-        )
+            ${shopifyId},
+            ${customer.email || null},
+            ${customer.firstName || ""},
+            ${customer.lastName || ""},
+            ${customer.phone || null},
+            ${customer.acceptsMarketing || false},
+            ${customer.note || null},
+            ${customer.tags ? customer.tags.join(",") : null},
+            ${customer.ordersCount || 0},
+            ${Number.parseFloat(customer.totalSpent || "0")},
+            ${customer.state || "enabled"}
+          )
+        `
 
-        const clienteId = insertResult.rows[0].id
-
-        // Insertar direcciones del cliente
-        if (customer.addresses && customer.addresses.length > 0) {
-          for (const address of customer.addresses) {
-            const addressShopifyId = address.id.split("/").pop()
-
-            await query(
-              `INSERT INTO direcciones_cliente (
-                shopify_id, cliente_id, es_predeterminada, nombre, apellidos,
-                empresa, direccion1, direccion2, ciudad, provincia,
-                codigo_postal, pais, telefono
-              ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
-              )`,
-              [
-                addressShopifyId,
-                clienteId,
-                address.default || false,
-                address.firstName || "",
-                address.lastName || "",
-                address.company || null,
-                address.address1 || "",
-                address.address2 || null,
-                address.city || "",
-                address.province || "",
-                address.zip || "",
-                address.country || "",
-                address.phone || null,
-              ],
-            )
-          }
-        }
-
-        insertados++
+        results.insertados++
+        results.detalles.push(`✅ Cliente insertado: ${customer.firstName} ${customer.lastName} (${shopifyId})`)
         console.log(`✅ Cliente insertado: ${customer.firstName} ${customer.lastName} (${shopifyId})`)
       } catch (error) {
         console.error(`❌ Error insertando cliente:`, error)
-        errores++
+        results.errores++
+        results.detalles.push(`❌ Error insertando cliente: ${error}`)
       }
     }
 
-    // 3. Contar total en BD
-    const countResult = await query("SELECT COUNT(*) as total FROM clientes")
-    const totalEnBD = Number.parseInt(countResult.rows[0].total)
+    // 4. Contar total en BD
+    const countResult = await sql`SELECT COUNT(*) as count FROM clientes`
+    const totalEnBD = Number.parseInt(countResult.rows[0].count)
 
-    console.log(`✅ Reemplazo completado: ${borrados} borrados, ${insertados} insertados, ${errores} errores`)
+    console.log(
+      `✅ Reemplazo completado: ${results.borrados} borrados, ${results.insertados} insertados, ${results.errores} errores`,
+    )
     console.log(`👥 Total en BD: ${totalEnBD}`)
 
     return NextResponse.json({
       success: true,
-      message: `Reemplazo completado: ${borrados} borrados, ${insertados} insertados, ${errores} errores`,
-      results: {
-        borrados,
-        insertados,
-        errores,
-      },
+      message: `Reemplazo completado: ${results.borrados} borrados, ${results.insertados} insertados, ${results.errores} errores`,
+      results,
       totalEnBD,
     })
   } catch (error) {
