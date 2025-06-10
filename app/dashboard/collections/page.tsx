@@ -6,18 +6,19 @@ import { LoadingState } from "@/components/loading-state"
 import { CollectionsList } from "@/components/collections-list"
 import { SyncCollectionsOnly } from "@/components/sync-collections-only"
 
+// Cambiamos la configuración de revalidación para evitar conflictos
 export const dynamic = "force-dynamic"
-export const revalidate = 60
+export const revalidate = 60 // Cambiamos a un valor numérico en segundos en lugar de 0
 
 export default function CollectionsPage() {
   return (
-    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-semibold tracking-tight">Colecciones</h2>
-          <p className="text-sm text-muted-foreground">Gestiona las colecciones de tu tienda</p>
+    <div className="flex flex-col gap-4 w-full">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+        <div>
+          <h1 className="text-2xl font-bold">Colecciones</h1>
+          <p className="text-muted-foreground">Gestiona las colecciones de tu tienda</p>
         </div>
-        <Button asChild>
+        <Button asChild className="w-full sm:w-auto">
           <Link href="/dashboard/collections/new">
             <Plus className="mr-2 h-4 w-4" />
             Nueva colección
@@ -29,7 +30,8 @@ export default function CollectionsPage() {
         <CollectionsList />
       </Suspense>
 
-      <div className="border-t pt-6">
+      {/* Componente de reemplazo de colecciones al final */}
+      <div className="mt-8 border-t pt-8">
         <SyncCollectionsOnly />
       </div>
     </div>

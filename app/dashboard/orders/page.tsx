@@ -12,8 +12,8 @@ import { fetchRecentOrders } from "@/lib/api/orders"
 import { useToast } from "@/components/ui/use-toast"
 import { formatDate, formatCurrency } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { SyncOrdersOnly } from "@/components/sync-orders-only"
 import { OrdersFilters } from "@/components/orders-filters"
-import { ResponsivePageContainer } from "@/components/responsive-page-container"
 
 interface OrderFilters {
   search: string
@@ -214,142 +214,157 @@ export default function OrdersPage() {
 
   if (error) {
     return (
-      <ResponsivePageContainer>
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Pedidos</h1>
-              <p className="text-muted-foreground">Gestiona los pedidos de tu tienda</p>
-            </div>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center text-destructive">
-                <AlertCircle className="mr-2 h-5 w-5" />
-                Error al cargar pedidos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="mb-4">{error}</p>
-              <Button onClick={handleRetry}>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Reintentar
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </ResponsivePageContainer>
-    )
-  }
-
-  return (
-    <ResponsivePageContainer>
       <div className="space-y-6">
-        <div className="flex flex-col space-y-4">
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Pedidos</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Pedidos</h1>
             <p className="text-muted-foreground">Gestiona los pedidos de tu tienda</p>
           </div>
         </div>
 
-        <OrdersFilters
-          filters={filters}
-          onFiltersChange={setFilters}
-          onClearFilters={clearFilters}
-          totalOrders={stats.totalOrders}
-          totalAmount={stats.totalAmount}
-        />
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center text-destructive">
+              <AlertCircle className="mr-2 h-5 w-5" />
+              Error al cargar pedidos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-4">{error}</p>
+            <Button onClick={handleRetry}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
-        <div className="w-full overflow-hidden rounded-md border">
-          <div className="w-full overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Número</TableHead>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  Array(5)
-                    .fill(0)
-                    .map((_, i) => (
-                      <TableRow key={i}>
-                        <TableCell>
-                          <Skeleton className="h-4 w-16" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-24" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-32" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-6 w-20" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-16" />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Skeleton className="h-8 w-8 rounded-md ml-auto" />
-                        </TableCell>
-                      </TableRow>
-                    ))
-                ) : filteredOrders.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-6">
-                      No se encontraron pedidos con los filtros aplicados
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredOrders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell>
-                        <div className="font-medium">{order.name}</div>
-                      </TableCell>
-                      <TableCell>{formatDate(order.processedAt)}</TableCell>
-                      <TableCell>
-                        {order.customer
-                          ? `${order.customer.firstName} ${order.customer.lastName}`
-                          : "Cliente no registrado"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(order.displayFulfillmentStatus)}>
-                          {order.displayFulfillmentStatus || "PENDIENTE"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {formatCurrency(order.totalPrice, order.currencyCode)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Acciones</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => router.push(`/dashboard/orders/${order.id}`)}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              Ver detalles
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Pedidos</h1>
+          <p className="text-muted-foreground">Gestiona los pedidos de tu tienda</p>
         </div>
       </div>
-    </ResponsivePageContainer>
+
+      <OrdersFilters
+        filters={filters}
+        onFiltersChange={setFilters}
+        onClearFilters={clearFilters}
+        totalOrders={stats.totalOrders}
+        totalAmount={stats.totalAmount}
+      />
+
+      {isLoading ? (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Número</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {[...Array(5)].map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell>
+                    <Skeleton className="h-4 w-16" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-24" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-32" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-6 w-20" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-16" />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Skeleton className="h-8 w-8 rounded-md ml-auto" />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Número</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredOrders.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-6">
+                    No se encontraron pedidos con los filtros aplicados
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredOrders.map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell>
+                      <div className="font-medium">{order.name}</div>
+                    </TableCell>
+                    <TableCell>{formatDate(order.processedAt)}</TableCell>
+                    <TableCell>
+                      {order.customer
+                        ? `${order.customer.firstName} ${order.customer.lastName}`
+                        : "Cliente no registrado"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getStatusColor(order.displayFulfillmentStatus)}>
+                        {order.displayFulfillmentStatus || "PENDIENTE"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {formatCurrency(order.totalPrice, order.currencyCode)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Acciones</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => router.push(`/dashboard/orders/${order.id}`)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            Ver detalles
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Componente de reemplazo de pedidos al final */}
+      <div className="mt-8">
+        <SyncOrdersOnly onSyncComplete={() => {}} />
+      </div>
+    </div>
   )
 }

@@ -35,24 +35,11 @@ export async function fetchPromociones(filter = "todas") {
 
       if (shopifyResponse.ok) {
         const shopifyData = await shopifyResponse.json()
-        console.log("📊 Respuesta completa de Shopify:", shopifyData)
-
-        // Manejar diferentes estructuras de respuesta
         if (shopifyData.success && Array.isArray(shopifyData.promociones)) {
-          console.log(`✅ Promociones de Shopify (success): ${shopifyData.promociones.length}`)
-          todasPromociones = shopifyData.promociones.map((promo: any) => ({
-            ...promo,
-            esShopify: true,
-          }))
-        } else if (Array.isArray(shopifyData)) {
-          console.log(`✅ Promociones de Shopify (array directo): ${shopifyData.length}`)
-          todasPromociones = shopifyData.map((promo: any) => ({
-            ...promo,
-            esShopify: true,
-          }))
-        } else if (shopifyData.data && Array.isArray(shopifyData.data)) {
-          console.log(`✅ Promociones de Shopify (data): ${shopifyData.data.length}`)
-          todasPromociones = shopifyData.data.map((promo: any) => ({
+          console.log(`✅ Promociones de Shopify: ${shopifyData.promociones.length}`)
+
+          // Asegurarse de que todas las promociones tengan el campo esShopify
+          todasPromociones = shopifyData.promociones.map((promo) => ({
             ...promo,
             esShopify: true,
           }))
@@ -66,30 +53,45 @@ export async function fetchPromociones(filter = "todas") {
       console.error("Error al obtener promociones de Shopify:", shopifyError)
     }
 
-    // Si no hay promociones de Shopify, obtener de la base de datos local
-    if (todasPromociones.length === 0) {
-      try {
-        const dbResponse = await fetch(`/api/db/promociones?filter=${filter}`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          cache: "no-store",
-        })
+    // Obtener promociones de la base de datos local
+    try {
+      const dbResponse = await fetch(`/api/db/promociones?filter=${filter}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+      })
 
-        if (dbResponse.ok) {
-          const dbData = await dbResponse.json()
-          if (Array.isArray(dbData) && dbData.length > 0) {
-            console.log(`✅ Promociones de BD local: ${dbData.length}`)
-            todasPromociones = dbData
-          }
+      if (dbResponse.ok) {
+        const dbData = await dbResponse.json()
+        if (Array.isArray(dbData) && dbData.length > 0) {
+          console.log(`✅ Promociones de BD local: ${dbData.length}`)
+
+          // Filtrar para no duplicar promociones que ya existen en Shopify
+          const promocionesUnicas = dbData.filter((dbPromo) => {
+            // Si tiene shopify_id, verificar que no esté ya en las promociones de Shopify
+            if (dbPromo.shopify_id) {
+              return !todasPromociones.some(
+                (shopifyPromo) =>
+                  shopifyPromo.id === dbPromo.shopify_id || shopifyPromo.shopify_id === dbPromo.shopify_id,
+              )
+            }
+            return true // Si no tiene shopify_id, incluirla siempre
+          })
+
+          todasPromociones = [...todasPromociones, ...promocionesUnicas]
         }
-      } catch (dbError) {
-        console.error("Error al obtener promociones de BD local:", dbError)
+      } else {
+        console.error(`❌ Error al obtener promociones de BD local: ${dbResponse.status}`)
+        const errorText = await dbResponse.text()
+        console.error(errorText)
       }
+    } catch (dbError) {
+      console.error("Error al obtener promociones de BD local:", dbError)
     }
 
-    console.log(`✅ Total promociones obtenidas: ${todasPromociones.length}`)
+    console.log(`✅ Total promociones combinadas: ${todasPromociones.length}`)
     return todasPromociones
   } catch (error) {
     console.error("❌ Error al obtener promociones:", error)

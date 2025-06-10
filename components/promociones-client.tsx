@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Plus, AlertTriangle, RefreshCw } from "lucide-react"
+import { Plus, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -37,20 +37,11 @@ function ErrorFallback({ error, retry }: { error: Error; retry: () => void }) {
 
 export function PromocionesClient() {
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [key, setKey] = useState(0) // Para forzar re-render
 
   const handleSyncComplete = () => {
     setIsRefreshing(true)
-    // Incrementar key para forzar re-render de los componentes
-    setKey((prev) => prev + 1)
-    // Recargar después de un breve delay
-    setTimeout(() => {
-      window.location.reload()
-    }, 1000)
-  }
-
-  const handleRefresh = () => {
-    setKey((prev) => prev + 1)
+    // Recargar la página para mostrar las nuevas promociones
+    window.location.reload()
   }
 
   return (
@@ -60,18 +51,12 @@ export function PromocionesClient() {
           <h1 className="text-2xl font-bold">Promociones</h1>
           <p className="text-muted-foreground">Gestiona las promociones y descuentos de tu tienda</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleRefresh}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Actualizar
-          </Button>
-          <Button asChild className="w-full sm:w-auto">
-            <Link href="/dashboard/promociones/asistente">
-              <Plus className="mr-2 h-4 w-4" />
-              Nueva promoción
-            </Link>
-          </Button>
-        </div>
+        <Button asChild className="w-full sm:w-auto">
+          <Link href="/dashboard/promociones/asistente">
+            <Plus className="mr-2 h-4 w-4" />
+            Nueva promoción
+          </Link>
+        </Button>
       </div>
 
       <Tabs defaultValue="todas" className="w-full">
@@ -84,7 +69,7 @@ export function PromocionesClient() {
 
         <TabsContent value="todas" className="mt-4">
           <Suspense fallback={<div className="flex justify-center items-center h-40">Cargando promociones...</div>}>
-            <PromocionesListWrapper key={`todas-${key}`} filter="todas" />
+            <PromocionesListWrapper filter="todas" />
           </Suspense>
         </TabsContent>
 
@@ -92,7 +77,7 @@ export function PromocionesClient() {
           <Suspense
             fallback={<div className="flex justify-center items-center h-40">Cargando promociones activas...</div>}
           >
-            <PromocionesListWrapper key={`activas-${key}`} filter="activas" />
+            <PromocionesListWrapper filter="activas" />
           </Suspense>
         </TabsContent>
 
@@ -100,7 +85,7 @@ export function PromocionesClient() {
           <Suspense
             fallback={<div className="flex justify-center items-center h-40">Cargando promociones programadas...</div>}
           >
-            <PromocionesListWrapper key={`programadas-${key}`} filter="programadas" />
+            <PromocionesListWrapper filter="programadas" />
           </Suspense>
         </TabsContent>
 
@@ -108,7 +93,7 @@ export function PromocionesClient() {
           <Suspense
             fallback={<div className="flex justify-center items-center h-40">Cargando promociones expiradas...</div>}
           >
-            <PromocionesListWrapper key={`expiradas-${key}`} filter="expiradas" />
+            <PromocionesListWrapper filter="expiradas" />
           </Suspense>
         </TabsContent>
       </Tabs>
