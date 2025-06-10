@@ -5,35 +5,47 @@ export async function POST() {
   try {
     console.log("🔄 Iniciando reemplazo completo de pedidos...")
 
-    // Obtener TODOS los pedidos directamente de Shopify
+    const results = {
+      borrados: 0,
+      insertados: 0,
+      errores: 0,
+      detalles: [] as string[],
+    }
+
+    // 1. Crear tabla simple
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS pedidos (
+          id SERIAL PRIMARY KEY,
+          shopify_id VARCHAR(255) UNIQUE NOT NULL,
+          numero_pedido VARCHAR(100),
+          email_cliente VARCHAR(255),
+          estado VARCHAR(100),
+          total DECIMAL(10,2),
+          fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `
+    } catch (error) {
+      console.error("❌ Error creando tabla:", error)
+    }
+
+    // 2. Obtener pedidos con consulta simple
     const ordersQuery = `
       query {
-        orders(first: 250, sortKey: PROCESSED_AT, reverse: true) {
+        orders(first: 50) {
           edges {
             node {
               id
               name
-              processedAt
-              createdAt
+              email
               totalPriceSet {
                 shopMoney {
                   amount
                   currencyCode
                 }
               }
-              customer {
-                id
-                displayName
-                email
-                firstName
-                lastName
-              }
               financialStatus
-              fulfillmentStatus
-              tags
-              note
-              cancelledAt
-              cancelReason
+              createdAt
             }
           }
         }
@@ -41,7 +53,7 @@ export async function POST() {
     `
 
     console.log("🔍 Obteniendo pedidos de Shopify...")
-    const ordersResponse = await fetch(
+    const response = await fetch(
       `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-07/graphql.json`,
       {
         method: "POST",
@@ -53,116 +65,62 @@ export async function POST() {
       },
     )
 
-    if (!ordersResponse.ok) {
-      throw new Error(`Error de Shopify API: ${ordersResponse.status}`)
+    if (!response.ok) {
+      throw new Error(`Shopify API error: ${response.status}`)
     }
 
-    const ordersData = await ordersResponse.json()
+    const data = await response.json()
 
-    if (ordersData.errors) {
-      console.error("❌ Errores de GraphQL:", ordersData.errors)
-      throw new Error(`GraphQL errors: ${JSON.stringify(ordersData.errors)}`)
+    if (data.errors) {
+      console.error("GraphQL errors:", data.errors)
+      throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`)
     }
 
-    const orders = ordersData.data?.orders?.edges || []
-    console.log(`📦 Pedidos obtenidos de Shopify: ${orders.length}`)
+    const orders = data.data?.orders?.edges || []
+    console.log(`📦 Pedidos obtenidos: ${orders.length}`)
 
-    const results = {
-      borrados: 0,
-      insertados: 0,
-      errores: 0,
-      detalles: [] as string[],
-    }
-
-    // 1. Crear tabla si no existe
-    try {
-      await sql`
-        CREATE TABLE IF NOT EXISTS pedidos (
-          id SERIAL PRIMARY KEY,
-          shopify_id VARCHAR(255) UNIQUE NOT NULL,
-          numero_pedido VARCHAR(100),
-          cliente_id VARCHAR(255),
-          email_cliente VARCHAR(255),
-          estado VARCHAR(100),
-          estado_financiero VARCHAR(100),
-          estado_cumplimiento VARCHAR(100),
-          moneda VARCHAR(10),
-          total DECIMAL(10,2),
-          notas TEXT,
-          etiquetas TEXT,
-          cancelado BOOLEAN DEFAULT FALSE,
-          fecha_cancelacion TIMESTAMP,
-          motivo_cancelacion VARCHAR(255),
-          fecha_procesamiento TIMESTAMP,
-          fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-      `
-    } catch (error) {
-      console.error("❌ Error creando tabla pedidos:", error)
-    }
-
-    // 2. Borrar todos los pedidos existentes
+    // 3. Borrar pedidos existentes
     try {
       const deleteResult = await sql`DELETE FROM pedidos`
       results.borrados = deleteResult.rowCount || 0
-      results.detalles.push(`🗑️ Borrados: ${results.borrados} pedidos existentes`)
       console.log(`🗑️ ${results.borrados} pedidos borrados`)
     } catch (error) {
       console.error("❌ Error borrando pedidos:", error)
       results.errores++
-      results.detalles.push(`❌ Error borrando: ${error}`)
     }
 
-    // 3. Insertar los nuevos pedidos
+    // 4. Insertar nuevos pedidos
     for (const edge of orders) {
       try {
         const order = edge.node
         const shopifyId = order.id.split("/").pop()
-        const customerId = order.customer?.id ? order.customer.id.split("/").pop() : null
 
         await sql`
-          INSERT INTO pedidos (
-            shopify_id, numero_pedido, cliente_id, email_cliente, estado,
-            estado_financiero, estado_cumplimiento, moneda, total,
-            notas, etiquetas, cancelado, fecha_cancelacion, motivo_cancelacion,
-            fecha_procesamiento
-          ) VALUES (
+          INSERT INTO pedidos (shopify_id, numero_pedido, email_cliente, estado, total) 
+          VALUES (
             ${shopifyId},
             ${order.name},
-            ${customerId},
-            ${order.customer?.email || null},
-            ${"open"},
+            ${order.email || "Sin email"},
             ${order.financialStatus || "pending"},
-            ${order.fulfillmentStatus || "unfulfilled"},
-            ${order.totalPriceSet?.shopMoney?.currencyCode || "EUR"},
-            ${Number.parseFloat(order.totalPriceSet?.shopMoney?.amount || "0")},
-            ${order.note || null},
-            ${order.tags ? order.tags.join(",") : null},
-            ${!!order.cancelledAt},
-            ${order.cancelledAt ? new Date(order.cancelledAt).toISOString() : null},
-            ${order.cancelReason || null},
-            ${order.processedAt ? new Date(order.processedAt).toISOString() : new Date(order.createdAt).toISOString()}
+            ${Number.parseFloat(order.totalPriceSet?.shopMoney?.amount || "0")}
           )
         `
 
         results.insertados++
-        results.detalles.push(`✅ Pedido insertado: ${order.name} (${shopifyId})`)
-        console.log(`✅ Pedido insertado: ${order.name} (${shopifyId})`)
+        console.log(`✅ Pedido insertado: ${order.name}`)
       } catch (error) {
         console.error(`❌ Error insertando pedido:`, error)
         results.errores++
-        results.detalles.push(`❌ Error insertando pedido: ${error}`)
       }
     }
 
-    // 4. Contar total en BD
+    // 5. Contar total
     const countResult = await sql`SELECT COUNT(*) as count FROM pedidos`
     const totalEnBD = Number.parseInt(countResult.rows[0].count)
 
     console.log(
       `✅ Reemplazo completado: ${results.borrados} borrados, ${results.insertados} insertados, ${results.errores} errores`,
     )
-    console.log(`📊 Total en BD: ${totalEnBD}`)
 
     return NextResponse.json({
       success: true,
@@ -171,7 +129,7 @@ export async function POST() {
       totalEnBD,
     })
   } catch (error) {
-    console.error("❌ Error en reemplazo de pedidos:", error)
+    console.error("❌ Error general:", error)
     return NextResponse.json(
       {
         success: false,

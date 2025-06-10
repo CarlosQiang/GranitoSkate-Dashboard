@@ -5,25 +5,42 @@ export async function POST() {
   try {
     console.log("🔄 Iniciando reemplazo completo de clientes...")
 
-    // Obtener TODOS los clientes directamente de Shopify
+    const results = {
+      borrados: 0,
+      insertados: 0,
+      errores: 0,
+      detalles: [] as string[],
+    }
+
+    // 1. Crear tabla simple
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS clientes (
+          id SERIAL PRIMARY KEY,
+          shopify_id VARCHAR(255) UNIQUE NOT NULL,
+          email VARCHAR(255),
+          nombre VARCHAR(255),
+          apellidos VARCHAR(255),
+          total_pedidos INTEGER DEFAULT 0,
+          fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `
+    } catch (error) {
+      console.error("❌ Error creando tabla:", error)
+    }
+
+    // 2. Obtener clientes con consulta simple
     const customersQuery = `
       query {
-        customers(first: 250, sortKey: CREATED_AT, reverse: true) {
+        customers(first: 50) {
           edges {
             node {
               id
               email
               firstName
               lastName
-              phone
-              acceptsMarketing
-              createdAt
-              updatedAt
-              note
-              tags
               ordersCount
-              totalSpent
-              state
+              createdAt
             }
           }
         }
@@ -31,7 +48,7 @@ export async function POST() {
     `
 
     console.log("🔍 Obteniendo clientes de Shopify...")
-    const customersResponse = await fetch(
+    const response = await fetch(
       `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-07/graphql.json`,
       {
         method: "POST",
@@ -43,107 +60,62 @@ export async function POST() {
       },
     )
 
-    if (!customersResponse.ok) {
-      throw new Error(`Error de Shopify API: ${customersResponse.status}`)
+    if (!response.ok) {
+      throw new Error(`Shopify API error: ${response.status}`)
     }
 
-    const customersData = await customersResponse.json()
+    const data = await response.json()
 
-    if (customersData.errors) {
-      console.error("❌ Errores de GraphQL:", customersData.errors)
-      throw new Error(`GraphQL errors: ${JSON.stringify(customersData.errors)}`)
+    if (data.errors) {
+      console.error("GraphQL errors:", data.errors)
+      throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`)
     }
 
-    const customers = customersData.data?.customers?.edges || []
-    console.log(`👥 Clientes obtenidos de Shopify: ${customers.length}`)
+    const customers = data.data?.customers?.edges || []
+    console.log(`👥 Clientes obtenidos: ${customers.length}`)
 
-    const results = {
-      borrados: 0,
-      insertados: 0,
-      errores: 0,
-      detalles: [] as string[],
-    }
-
-    // 1. Crear tabla si no existe
-    try {
-      await sql`
-        CREATE TABLE IF NOT EXISTS clientes (
-          id SERIAL PRIMARY KEY,
-          shopify_id VARCHAR(255) UNIQUE NOT NULL,
-          email VARCHAR(255),
-          nombre VARCHAR(255),
-          apellidos VARCHAR(255),
-          telefono VARCHAR(50),
-          acepta_marketing BOOLEAN DEFAULT FALSE,
-          notas TEXT,
-          etiquetas TEXT,
-          total_pedidos INTEGER DEFAULT 0,
-          total_gastado DECIMAL(10,2) DEFAULT 0,
-          estado VARCHAR(50) DEFAULT 'enabled',
-          fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-      `
-    } catch (error) {
-      console.error("❌ Error creando tabla clientes:", error)
-    }
-
-    // 2. Borrar todos los clientes existentes
+    // 3. Borrar clientes existentes
     try {
       const deleteResult = await sql`DELETE FROM clientes`
       results.borrados = deleteResult.rowCount || 0
-      results.detalles.push(`🗑️ Borrados: ${results.borrados} clientes existentes`)
       console.log(`🗑️ ${results.borrados} clientes borrados`)
     } catch (error) {
       console.error("❌ Error borrando clientes:", error)
       results.errores++
-      results.detalles.push(`❌ Error borrando: ${error}`)
     }
 
-    // 3. Insertar los nuevos clientes
+    // 4. Insertar nuevos clientes
     for (const edge of customers) {
       try {
         const customer = edge.node
         const shopifyId = customer.id.split("/").pop()
 
         await sql`
-          INSERT INTO clientes (
-            shopify_id, email, nombre, apellidos, telefono,
-            acepta_marketing, notas, etiquetas, total_pedidos,
-            total_gastado, estado
-          ) VALUES (
+          INSERT INTO clientes (shopify_id, email, nombre, apellidos, total_pedidos) 
+          VALUES (
             ${shopifyId},
-            ${customer.email || null},
+            ${customer.email || "Sin email"},
             ${customer.firstName || ""},
             ${customer.lastName || ""},
-            ${customer.phone || null},
-            ${customer.acceptsMarketing || false},
-            ${customer.note || null},
-            ${customer.tags ? customer.tags.join(",") : null},
-            ${customer.ordersCount || 0},
-            ${Number.parseFloat(customer.totalSpent || "0")},
-            ${customer.state || "enabled"}
+            ${customer.ordersCount || 0}
           )
         `
 
         results.insertados++
-        results.detalles.push(`✅ Cliente insertado: ${customer.firstName} ${customer.lastName} (${shopifyId})`)
-        console.log(`✅ Cliente insertado: ${customer.firstName} ${customer.lastName} (${shopifyId})`)
+        console.log(`✅ Cliente insertado: ${customer.firstName} ${customer.lastName}`)
       } catch (error) {
         console.error(`❌ Error insertando cliente:`, error)
         results.errores++
-        results.detalles.push(`❌ Error insertando cliente: ${error}`)
       }
     }
 
-    // 4. Contar total en BD
+    // 5. Contar total
     const countResult = await sql`SELECT COUNT(*) as count FROM clientes`
     const totalEnBD = Number.parseInt(countResult.rows[0].count)
 
     console.log(
       `✅ Reemplazo completado: ${results.borrados} borrados, ${results.insertados} insertados, ${results.errores} errores`,
     )
-    console.log(`👥 Total en BD: ${totalEnBD}`)
 
     return NextResponse.json({
       success: true,
@@ -152,7 +124,7 @@ export async function POST() {
       totalEnBD,
     })
   } catch (error) {
-    console.error("❌ Error en reemplazo de clientes:", error)
+    console.error("❌ Error general:", error)
     return NextResponse.json(
       {
         success: false,
