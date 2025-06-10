@@ -1,32 +1,33 @@
 import { NextResponse } from "next/server"
 import { query } from "@/lib/db"
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
     console.log("🔄 Iniciando reemplazo completo de promociones...")
 
-    // 1. Obtener promociones directamente usando GraphQL (sin llamada interna)
-    console.log("📡 Obteniendo promociones directamente de Shopify...")
-
-    // Verificar variables de entorno
-    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
-      throw new Error("Variables de entorno de Shopify no configuradas")
-    }
-
-    // Query GraphQL para obtener descuentos
-    const graphqlQuery = `
+    // Obtener TODAS las promociones directamente de Shopify
+    const promotionsQuery = `
       query {
-        discountNodes(first: 50) {
+        discountNodes(first: 250) {
           edges {
             node {
               id
               discount {
+                ... on DiscountAutomaticApp {
+                  title
+                  status
+                  createdAt
+                  updatedAt
+                  appDiscountType {
+                    appKey
+                    functionId
+                  }
+                }
                 ... on DiscountAutomaticBasic {
                   title
                   status
-                  startsAt
-                  endsAt
-                  summary
+                  createdAt
+                  updatedAt
                   customerGets {
                     value {
                       ... on DiscountPercentage {
@@ -39,17 +40,40 @@ export async function POST() {
                         }
                       }
                     }
+                  }
+                  minimumRequirement {
+                    ... on DiscountMinimumQuantity {
+                      greaterThanOrEqualToQuantity
+                    }
+                    ... on DiscountMinimumSubtotal {
+                      greaterThanOrEqualToSubtotal {
+                        amount
+                        currencyCode
+                      }
+                    }
+                  }
+                }
+                ... on DiscountCodeApp {
+                  title
+                  status
+                  createdAt
+                  updatedAt
+                  appDiscountType {
+                    appKey
+                    functionId
                   }
                 }
                 ... on DiscountCodeBasic {
                   title
                   status
-                  startsAt
-                  endsAt
-                  summary
-                  codes(first: 1) {
-                    nodes {
-                      code
+                  createdAt
+                  updatedAt
+                  codes(first: 10) {
+                    edges {
+                      node {
+                        code
+                        usageCount
+                      }
                     }
                   }
                   customerGets {
@@ -65,6 +89,18 @@ export async function POST() {
                       }
                     }
                   }
+                  minimumRequirement {
+                    ... on DiscountMinimumQuantity {
+                      greaterThanOrEqualToQuantity
+                    }
+                    ... on DiscountMinimumSubtotal {
+                      greaterThanOrEqualToSubtotal {
+                        amount
+                        currencyCode
+                      }
+                    }
+                  }
+                  usageLimit
                 }
               }
             }
@@ -73,127 +109,120 @@ export async function POST() {
       }
     `
 
-    const shopifyResponse = await fetch(
-      `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-10/graphql.json`,
+    console.log("🔍 Obteniendo promociones de Shopify...")
+    const promotionsResponse = await fetch(
+      `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-07/graphql.json`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
         },
-        body: JSON.stringify({ query: graphqlQuery }),
+        body: JSON.stringify({ query: promotionsQuery }),
       },
     )
 
-    if (!shopifyResponse.ok) {
-      throw new Error(`Error al obtener promociones de Shopify: ${shopifyResponse.status}`)
+    if (!promotionsResponse.ok) {
+      throw new Error(`Error de Shopify API: ${promotionsResponse.status}`)
     }
 
-    const shopifyData = await shopifyResponse.json()
+    const promotionsData = await promotionsResponse.json()
+    const promotions = promotionsData.data?.discountNodes?.edges || []
 
-    if (shopifyData.errors) {
-      throw new Error(`Errores en GraphQL: ${shopifyData.errors.map((e) => e.message).join(", ")}`)
-    }
+    console.log(`🎯 Promociones obtenidas de Shopify: ${promotions.length}`)
 
-    // Procesar las promociones
-    const promociones =
-      shopifyData.data?.discountNodes?.edges?.map((edge) => {
-        const node = edge.node
-        const discount = node.discount
-
-        // Determinar si es un descuento con código o automático
-        const isCodeDiscount = !!discount.codes
-
-        // Extraer el valor del descuento
-        let valor = 0
-        let tipo = "PERCENTAGE_DISCOUNT"
-
-        if (discount.customerGets?.value?.percentage) {
-          valor = Math.round(discount.customerGets.value.percentage * 100) // Convertir de decimal a porcentaje
-          tipo = "PERCENTAGE_DISCOUNT"
-        } else if (discount.customerGets?.value?.amount?.amount) {
-          valor = Number.parseFloat(discount.customerGets.value.amount.amount)
-          tipo = "FIXED_AMOUNT_DISCOUNT"
-        }
-
-        return {
-          shopify_id: node.id,
-          titulo: discount.title || "Promoción sin título",
-          descripcion: discount.summary || "",
-          tipo: tipo,
-          valor: valor,
-          codigo: isCodeDiscount ? discount.codes?.nodes?.[0]?.code || null : null,
-          fecha_inicio: discount.startsAt ? new Date(discount.startsAt) : null,
-          fecha_fin: discount.endsAt ? new Date(discount.endsAt) : null,
-          activa: discount.status === "ACTIVE",
-          estado: discount.status || "ACTIVE",
-        }
-      }) || []
-
-    console.log(`📊 Promociones obtenidas de Shopify: ${promociones.length}`)
-
-    // 2. Borrar todas las promociones existentes
+    // 1. Borrar todas las promociones existentes
     console.log("🗑️ Borrando promociones existentes...")
     const deleteResult = await query("DELETE FROM promociones")
     const borrados = deleteResult.rowCount || 0
-    console.log(`✅ ${borrados} promociones borradas`)
+    console.log(`🗑️ ${borrados} promociones borradas`)
 
+    // 2. Insertar las nuevas promociones
     let insertados = 0
     let errores = 0
-    const detalles = []
 
-    // 3. Insertar las nuevas promociones
-    for (const promocion of promociones) {
+    for (const edge of promotions) {
       try {
-        console.log(`💾 Insertando promoción: ${promocion.titulo}`)
+        const node = edge.node
+        const discount = node.discount
+        const shopifyId = node.id.split("/").pop()
 
-        const result = await query(
+        if (!discount) {
+          console.warn(`⚠️ Promoción sin datos de descuento: ${shopifyId}`)
+          continue
+        }
+
+        // Extraer información común
+        const title = discount.title || `Promoción ${shopifyId}`
+        const status = discount.status || "ACTIVE"
+        const createdAt = discount.createdAt || new Date().toISOString()
+        const updatedAt = discount.updatedAt || new Date().toISOString()
+
+        // Extraer valor y tipo de descuento
+        let valor = 0
+        let tipo = "PERCENTAGE"
+        let codigo = ""
+        let limite_uso = null
+        let contador_uso = 0
+
+        // Para descuentos con código
+        if (discount.codes && discount.codes.edges.length > 0) {
+          codigo = discount.codes.edges[0].node.code
+          contador_uso = discount.codes.edges[0].node.usageCount || 0
+        }
+
+        // Para descuentos básicos (automáticos o con código)
+        if (discount.customerGets?.value) {
+          if (discount.customerGets.value.percentage !== undefined) {
+            valor = discount.customerGets.value.percentage
+            tipo = "PERCENTAGE"
+          } else if (discount.customerGets.value.amount) {
+            valor = Number.parseFloat(discount.customerGets.value.amount.amount)
+            tipo = "FIXED_AMOUNT"
+          }
+        }
+
+        // Límite de uso
+        if (discount.usageLimit) {
+          limite_uso = discount.usageLimit
+        }
+
+        // Insertar la promoción
+        await query(
           `INSERT INTO promociones (
             shopify_id, titulo, descripcion, tipo, valor, codigo,
-            fecha_inicio, fecha_fin, activa, estado
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
-          RETURNING id`,
+            activa, limite_uso, contador_uso, es_automatica
+          ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+          )`,
           [
-            promocion.shopify_id,
-            promocion.titulo,
-            promocion.descripcion,
-            promocion.tipo,
-            promocion.valor,
-            promocion.codigo,
-            promocion.fecha_inicio,
-            promocion.fecha_fin,
-            promocion.activa,
-            promocion.estado,
+            shopifyId,
+            title,
+            `Promoción importada de Shopify - ${status}`,
+            tipo,
+            valor,
+            codigo || null,
+            status === "ACTIVE",
+            limite_uso,
+            contador_uso,
+            !codigo, // Es automática si no tiene código
           ],
         )
 
-        if (result.rows.length > 0) {
-          insertados++
-          console.log(`✅ Promoción insertada: ${promocion.titulo} (ID: ${result.rows[0].id})`)
-          detalles.push({
-            shopify_id: promocion.shopify_id,
-            titulo: promocion.titulo,
-            resultado: "insertado",
-          })
-        }
+        insertados++
+        console.log(`✅ Promoción insertada: ${title} (${shopifyId})`)
       } catch (error) {
-        errores++
         console.error(`❌ Error insertando promoción:`, error)
-        detalles.push({
-          shopify_id: promocion.shopify_id,
-          titulo: promocion.titulo,
-          resultado: "error",
-          error: error.message,
-        })
+        errores++
       }
     }
 
-    // 4. Verificar el resultado final
-    const finalCountResult = await query("SELECT COUNT(*) as total FROM promociones")
-    const totalEnBD = Number.parseInt(finalCountResult.rows[0].total)
+    // 3. Contar total en BD
+    const countResult = await query("SELECT COUNT(*) as total FROM promociones")
+    const totalEnBD = Number.parseInt(countResult.rows[0].total)
 
-    console.log(`✅ Reemplazo completo finalizado: ${borrados} borrados, ${insertados} insertados, ${errores} errores`)
-    console.log(`📊 Total de promociones en BD: ${totalEnBD}`)
+    console.log(`✅ Reemplazo completado: ${borrados} borrados, ${insertados} insertados, ${errores} errores`)
+    console.log(`🎯 Total en BD: ${totalEnBD}`)
 
     return NextResponse.json({
       success: true,
@@ -202,7 +231,6 @@ export async function POST() {
         borrados,
         insertados,
         errores,
-        detalles,
       },
       totalEnBD,
     })
@@ -212,7 +240,7 @@ export async function POST() {
       {
         success: false,
         error: "Error en el reemplazo de promociones",
-        details: error.message,
+        details: error instanceof Error ? error.message : "Error desconocido",
       },
       { status: 500 },
     )
