@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Zap, Globe, Key, Webhook, Code } from "lucide-react"
+import { Zap, Key, Code } from "lucide-react"
 
 export const metadata: Metadata = {
   title: "Documentación de Shopify - GranitoSkate",
@@ -17,7 +17,7 @@ export default function ShopifyPage() {
           Documentación de Shopify
         </h1>
         <p className="text-muted-foreground">
-          Documentación completa de la integración con Shopify API, configuración y endpoints
+          Documentación completa de la integración con Shopify API y endpoints REST
         </p>
       </div>
 
@@ -28,12 +28,12 @@ export default function ShopifyPage() {
             <Key className="h-6 w-6" />
             Configuración de la API
           </CardTitle>
-          <CardDescription>Variables de entorno y configuración necesaria</CardDescription>
+          <CardDescription>Variables de entorno necesarias para la integración</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="bg-muted p-4 rounded-lg">
             <h4 className="font-semibold mb-2">Variables de Entorno Requeridas</h4>
-            <pre className="text-sm">
+            <pre className="text-sm overflow-x-auto">
               {`# Shopify Configuration
 NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN=tu-tienda.myshopify.com
 SHOPIFY_ACCESS_TOKEN=shpat_xxxxxxxxxxxxxxxxxxxxxxxx
@@ -47,223 +47,18 @@ NEXT_PUBLIC_API_URL=https://tu-dominio.com/api`}
             </pre>
           </div>
 
-          <div className="space-y-2">
-            <h4 className="font-semibold">Archivos de Configuración</h4>
-            <ul className="text-sm space-y-1">
-              <li>
-                <code>lib/config/shopify.ts</code> - Configuración principal
-              </li>
-              <li>
-                <code>lib/shopify.ts</code> - Cliente de Shopify
-              </li>
-              <li>
-                <code>lib/shopify-client.ts</code> - Cliente GraphQL
-              </li>
-              <li>
-                <code>lib/server-shopify.ts</code> - Funciones del servidor
-              </li>
-            </ul>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Endpoints GraphQL */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Globe className="h-6 w-6" />
-            Endpoints GraphQL
-          </CardTitle>
-          <CardDescription>Consultas GraphQL utilizadas para obtener datos de Shopify</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Productos GraphQL */}
-          <div className="space-y-3">
-            <h4 className="font-semibold text-lg">Productos</h4>
-            <div className="bg-muted p-4 rounded-lg">
-              <pre className="text-sm">
-                {`query GetProducts($first: Int!, $sortKey: ProductSortKeys!, $reverse: Boolean!) {
-  products(first: $first, sortKey: $sortKey, reverse: $reverse) {
-    edges {
-      node {
-        id
-        title
-        description
-        status
-        featuredImage {
-          url
-        }
-        variants(first: 1) {
-          edges {
-            node {
-              price
-              inventoryQuantity
-              compareAtPrice
-              sku
-              barcode
-              weight
-            }
-          }
-        }
-        productType
-        vendor
-        tags
-        createdAt
-        updatedAt
-      }
-    }
-  }
-}`}
-              </pre>
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="text-center p-3 bg-muted rounded-lg">
+              <div className="font-semibold text-lg">REST API</div>
+              <div className="text-sm text-muted-foreground">Protocolo</div>
             </div>
-          </div>
-
-          {/* Colecciones GraphQL */}
-          <div className="space-y-3">
-            <h4 className="font-semibold text-lg">Colecciones</h4>
-            <div className="bg-muted p-4 rounded-lg">
-              <pre className="text-sm">
-                {`query GetCollections($first: Int!) {
-  collections(first: $first) {
-    edges {
-      node {
-        id
-        title
-        description
-        image {
-          url
-        }
-        productsCount
-        createdAt
-        updatedAt
-      }
-    }
-  }
-}`}
-              </pre>
+            <div className="text-center p-3 bg-muted rounded-lg">
+              <div className="font-semibold text-lg">2024-01</div>
+              <div className="text-sm text-muted-foreground">Versión API</div>
             </div>
-          </div>
-
-          {/* Clientes GraphQL */}
-          <div className="space-y-3">
-            <h4 className="font-semibold text-lg">Clientes</h4>
-            <div className="bg-muted p-4 rounded-lg">
-              <pre className="text-sm">
-                {`query GetCustomers($first: Int!) {
-  customers(first: $first) {
-    edges {
-      node {
-        id
-        email
-        firstName
-        lastName
-        phone
-        defaultAddress {
-          address1
-          city
-          country
-          zip
-        }
-        createdAt
-        updatedAt
-      }
-    }
-  }
-}`}
-              </pre>
-            </div>
-          </div>
-
-          {/* Pedidos GraphQL */}
-          <div className="space-y-3">
-            <h4 className="font-semibold text-lg">Pedidos</h4>
-            <div className="bg-muted p-4 rounded-lg">
-              <pre className="text-sm">
-                {`query GetOrders($first: Int!, $sortKey: OrderSortKeys!, $reverse: Boolean!) {
-  orders(first: $first, sortKey: $sortKey, reverse: $reverse) {
-    edges {
-      node {
-        id
-        name
-        email
-        totalPriceSet {
-          shopMoney {
-            amount
-            currencyCode
-          }
-        }
-        subtotalPriceSet {
-          shopMoney {
-            amount
-          }
-        }
-        totalTaxSet {
-          shopMoney {
-            amount
-          }
-        }
-        totalShippingPriceSet {
-          shopMoney {
-            amount
-          }
-        }
-        financialStatus
-        fulfillmentStatus
-        processedAt
-        createdAt
-        updatedAt
-      }
-    }
-  }
-}`}
-              </pre>
-            </div>
-          </div>
-
-          {/* Promociones GraphQL */}
-          <div className="space-y-3">
-            <h4 className="font-semibold text-lg">Promociones</h4>
-            <div className="bg-muted p-4 rounded-lg">
-              <pre className="text-sm">
-                {`query GetDiscountCodes {
-  discountNodes(first: 100) {
-    edges {
-      node {
-        id
-        discount {
-          ... on DiscountCodeBasic {
-            title
-            status
-            codes(first: 1) {
-              edges {
-                node {
-                  code
-                }
-              }
-            }
-            customerGets {
-              value {
-                ... on DiscountPercentage {
-                  percentage
-                }
-                ... on DiscountAmount {
-                  amount {
-                    amount
-                  }
-                }
-              }
-            }
-            startsAt
-            endsAt
-            createdAt
-            updatedAt
-          }
-        }
-      }
-    }
-  }
-}`}
-              </pre>
+            <div className="text-center p-3 bg-muted rounded-lg">
+              <div className="font-semibold text-lg">JSON</div>
+              <div className="text-sm text-muted-foreground">Formato</div>
             </div>
           </div>
         </CardContent>
@@ -276,204 +71,311 @@ NEXT_PUBLIC_API_URL=https://tu-dominio.com/api`}
             <Code className="h-6 w-6" />
             Endpoints REST
           </CardTitle>
-          <CardDescription>Endpoints REST utilizados para operaciones específicas</CardDescription>
+          <CardDescription>Endpoints REST utilizados para obtener datos de Shopify</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
+          {/* Productos REST */}
           <div className="space-y-3">
-            <h4 className="font-semibold text-lg">Shopify REST API</h4>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
+            <h4 className="font-semibold text-lg">Productos</h4>
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <Badge variant="outline" className="bg-green-50">
                   GET
                 </Badge>
-                <code>/admin/api/2024-01/products.json</code>
-                <span className="text-sm text-muted-foreground">- Obtener productos</span>
+                <code className="text-sm break-all">/admin/api/2024-01/products.json</code>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-green-50">
-                  GET
-                </Badge>
-                <code>/admin/api/2024-01/collections.json</code>
-                <span className="text-sm text-muted-foreground">- Obtener colecciones</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-green-50">
-                  GET
-                </Badge>
-                <code>/admin/api/2024-01/customers.json</code>
-                <span className="text-sm text-muted-foreground">- Obtener clientes</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-green-50">
-                  GET
-                </Badge>
-                <code>/admin/api/2024-01/orders.json</code>
-                <span className="text-sm text-muted-foreground">- Obtener pedidos</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-green-50">
-                  GET
-                </Badge>
-                <code>/admin/api/2024-01/discount_codes.json</code>
-                <span className="text-sm text-muted-foreground">- Obtener códigos de descuento</span>
+              <p className="text-sm text-muted-foreground mb-3">Obtener productos de Shopify</p>
+
+              <div className="space-y-2 text-xs">
+                <div>
+                  <strong>Headers:</strong>
+                  <pre className="bg-muted p-2 rounded mt-1 overflow-x-auto">{`{
+  "Content-Type": "application/json",
+  "X-Shopify-Access-Token": "tu_access_token"
+}`}</pre>
+                </div>
+
+                <div>
+                  <strong>Parámetros de consulta:</strong>
+                  <pre className="bg-muted p-2 rounded mt-1 overflow-x-auto">{`?limit=250&status=active&fields=id,title,body_html,vendor,product_type,created_at,updated_at,published_at,tags,variants`}</pre>
+                </div>
+
+                <div>
+                  <strong>Respuesta:</strong>
+                  <pre className="bg-muted p-2 rounded mt-1 overflow-x-auto">{`{
+  "products": [
+    {
+      "id": 123456789,
+      "title": "Producto Ejemplo",
+      "body_html": "<p>Descripción del producto</p>",
+      "vendor": "Mi Marca",
+      "product_type": "Skateboard",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "published_at": "2024-01-01T00:00:00Z",
+      "tags": "skate, deporte",
+      "variants": [
+        {
+          "id": 987654321,
+          "price": "99.99",
+          "compare_at_price": "129.99",
+          "sku": "SKU123",
+          "barcode": "123456789",
+          "inventory_quantity": 10,
+          "weight": 2.5
+        }
+      ]
+    }
+  ]
+}`}</pre>
+                </div>
               </div>
             </div>
           </div>
 
+          {/* Colecciones REST */}
           <div className="space-y-3">
-            <h4 className="font-semibold text-lg">Endpoints Internos</h4>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-blue-50">
-                  POST
-                </Badge>
-                <code>/api/shopify/products</code>
-                <span className="text-sm text-muted-foreground">- Proxy para productos</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-blue-50">
-                  POST
-                </Badge>
-                <code>/api/shopify/collections</code>
-                <span className="text-sm text-muted-foreground">- Proxy para colecciones</span>
-              </div>
-              <div className="flex items-center gap-2">
+            <h4 className="font-semibold text-lg">Colecciones</h4>
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <Badge variant="outline" className="bg-green-50">
                   GET
                 </Badge>
-                <code>/api/shopify/check</code>
-                <span className="text-sm text-muted-foreground">- Verificar conexión</span>
+                <code className="text-sm break-all">/admin/api/2024-01/collections.json</code>
               </div>
-              <div className="flex items-center gap-2">
+              <p className="text-sm text-muted-foreground mb-3">Obtener colecciones de Shopify</p>
+
+              <div className="space-y-2 text-xs">
+                <div>
+                  <strong>Headers:</strong>
+                  <pre className="bg-muted p-2 rounded mt-1 overflow-x-auto">{`{
+  "Content-Type": "application/json",
+  "X-Shopify-Access-Token": "tu_access_token"
+}`}</pre>
+                </div>
+
+                <div>
+                  <strong>Respuesta:</strong>
+                  <pre className="bg-muted p-2 rounded mt-1 overflow-x-auto">{`{
+  "collections": [
+    {
+      "id": 123456789,
+      "title": "Skateboards",
+      "body_html": "<p>Colección de skateboards</p>",
+      "sort_order": "manual",
+      "template_suffix": null,
+      "products_count": 15,
+      "collection_type": "smart",
+      "published_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  ]
+}`}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Clientes REST */}
+          <div className="space-y-3">
+            <h4 className="font-semibold text-lg">Clientes</h4>
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <Badge variant="outline" className="bg-green-50">
                   GET
                 </Badge>
-                <code>/api/shopify/test-connection</code>
-                <span className="text-sm text-muted-foreground">- Probar conexión</span>
+                <code className="text-sm break-all">/admin/api/2024-01/customers.json</code>
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">Obtener clientes de Shopify</p>
+
+              <div className="space-y-2 text-xs">
+                <div>
+                  <strong>Headers:</strong>
+                  <pre className="bg-muted p-2 rounded mt-1 overflow-x-auto">{`{
+  "Content-Type": "application/json",
+  "X-Shopify-Access-Token": "tu_access_token"
+}`}</pre>
+                </div>
+
+                <div>
+                  <strong>Respuesta:</strong>
+                  <pre className="bg-muted p-2 rounded mt-1 overflow-x-auto">{`{
+  "customers": [
+    {
+      "id": 123456789,
+      "email": "cliente@ejemplo.com",
+      "first_name": "Juan",
+      "last_name": "Pérez",
+      "phone": "+34123456789",
+      "total_spent": "299.99",
+      "orders_count": 3,
+      "state": "enabled",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "default_address": {
+        "address1": "Calle Principal 123",
+        "city": "Madrid",
+        "country": "Spain",
+        "zip": "28001"
+      }
+    }
+  ]
+}`}</pre>
+                </div>
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Autenticación */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Key className="h-6 w-6" />
-            Autenticación y Permisos
-          </CardTitle>
-          <CardDescription>Configuración de autenticación y permisos necesarios</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          {/* Pedidos REST */}
           <div className="space-y-3">
-            <h4 className="font-semibold">Permisos Requeridos en Shopify</h4>
-            <div className="grid gap-2 md:grid-cols-2">
-              <ul className="text-sm space-y-1">
-                <li>
-                  • <code>read_products</code> - Leer productos
-                </li>
-                <li>
-                  • <code>write_products</code> - Escribir productos
-                </li>
-                <li>
-                  • <code>read_collections</code> - Leer colecciones
-                </li>
-                <li>
-                  • <code>write_collections</code> - Escribir colecciones
-                </li>
-                <li>
-                  • <code>read_customers</code> - Leer clientes
-                </li>
-                <li>
-                  • <code>read_orders</code> - Leer pedidos
-                </li>
-              </ul>
-              <ul className="text-sm space-y-1">
-                <li>
-                  • <code>read_discounts</code> - Leer descuentos
-                </li>
-                <li>
-                  • <code>write_discounts</code> - Escribir descuentos
-                </li>
-                <li>
-                  • <code>read_inventory</code> - Leer inventario
-                </li>
-                <li>
-                  • <code>write_inventory</code> - Escribir inventario
-                </li>
-                <li>
-                  • <code>read_price_rules</code> - Leer reglas de precio
-                </li>
-                <li>
-                  • <code>write_price_rules</code> - Escribir reglas de precio
-                </li>
-              </ul>
+            <h4 className="font-semibold text-lg">Pedidos</h4>
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <Badge variant="outline" className="bg-green-50">
+                  GET
+                </Badge>
+                <code className="text-sm break-all">/admin/api/2024-01/orders.json</code>
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">Obtener pedidos de Shopify</p>
+
+              <div className="space-y-2 text-xs">
+                <div>
+                  <strong>Headers:</strong>
+                  <pre className="bg-muted p-2 rounded mt-1 overflow-x-auto">{`{
+  "Content-Type": "application/json",
+  "X-Shopify-Access-Token": "tu_access_token"
+}`}</pre>
+                </div>
+
+                <div>
+                  <strong>Parámetros de consulta:</strong>
+                  <pre className="bg-muted p-2 rounded mt-1 overflow-x-auto">{`?status=any&limit=250&fields=id,name,email,total_price,subtotal_price,total_tax,shipping_price,financial_status,fulfillment_status,created_at,updated_at,processed_at`}</pre>
+                </div>
+
+                <div>
+                  <strong>Respuesta:</strong>
+                  <pre className="bg-muted p-2 rounded mt-1 overflow-x-auto">{`{
+  "orders": [
+    {
+      "id": 123456789,
+      "name": "#1001",
+      "email": "cliente@ejemplo.com",
+      "total_price": "129.99",
+      "subtotal_price": "99.99",
+      "total_tax": "21.00",
+      "shipping_price": "9.00",
+      "financial_status": "paid",
+      "fulfillment_status": "fulfilled",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "processed_at": "2024-01-01T00:00:00Z"
+    }
+  ]
+}`}</pre>
+                </div>
+              </div>
             </div>
           </div>
 
+          {/* Promociones REST */}
           <div className="space-y-3">
-            <h4 className="font-semibold">Headers de Autenticación</h4>
-            <div className="bg-muted p-4 rounded-lg">
-              <pre className="text-sm">
-                {`// Para GraphQL
-headers: {
-  'Content-Type': 'application/json',
-  'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN
-}
+            <h4 className="font-semibold text-lg">Promociones</h4>
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <Badge variant="outline" className="bg-green-50">
+                  GET
+                </Badge>
+                <code className="text-sm break-all">/admin/api/2024-01/discount_codes.json</code>
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">Obtener códigos de descuento de Shopify</p>
 
-// Para REST API
-headers: {
-  'Content-Type': 'application/json',
-  'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN
-}`}
-              </pre>
+              <div className="space-y-2 text-xs">
+                <div>
+                  <strong>Headers:</strong>
+                  <pre className="bg-muted p-2 rounded mt-1 overflow-x-auto">{`{
+  "Content-Type": "application/json",
+  "X-Shopify-Access-Token": "tu_access_token"
+}`}</pre>
+                </div>
+
+                <div>
+                  <strong>Respuesta:</strong>
+                  <pre className="bg-muted p-2 rounded mt-1 overflow-x-auto">{`{
+  "discount_codes": [
+    {
+      "id": 123456789,
+      "code": "VERANO2024",
+      "amount": "10.00",
+      "type": "percentage",
+      "status": "enabled",
+      "starts_at": "2024-06-01T00:00:00Z",
+      "ends_at": "2024-08-31T23:59:59Z",
+      "created_at": "2024-05-01T00:00:00Z",
+      "updated_at": "2024-05-01T00:00:00Z"
+    }
+  ]
+}`}</pre>
+                </div>
+              </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Webhooks */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Webhook className="h-6 w-6" />
-            Webhooks (Futuro)
-          </CardTitle>
-          <CardDescription>Configuración de webhooks para sincronización automática</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          {/* Endpoints Internos */}
           <div className="space-y-3">
-            <h4 className="font-semibold">Webhooks Recomendados</h4>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">POST</Badge>
-                <code>products/create</code>
-                <span className="text-sm text-muted-foreground">- Producto creado</span>
+            <h4 className="font-semibold text-lg">Endpoints Internos de la Aplicación</h4>
+            <div className="space-y-3">
+              <div className="border rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <Badge variant="outline" className="bg-blue-50">
+                    POST
+                  </Badge>
+                  <code className="text-sm break-all">/api/shopify/products</code>
+                </div>
+                <p className="text-sm text-muted-foreground mb-2">Proxy interno para obtener productos</p>
+                <div className="text-xs">
+                  <strong>Respuesta:</strong> Productos formateados para la aplicación
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">POST</Badge>
-                <code>products/update</code>
-                <span className="text-sm text-muted-foreground">- Producto actualizado</span>
+
+              <div className="border rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <Badge variant="outline" className="bg-blue-50">
+                    POST
+                  </Badge>
+                  <code className="text-sm break-all">/api/shopify/collections</code>
+                </div>
+                <p className="text-sm text-muted-foreground mb-2">Proxy interno para obtener colecciones</p>
+                <div className="text-xs">
+                  <strong>Respuesta:</strong> Colecciones formateadas para la aplicación
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">POST</Badge>
-                <code>orders/create</code>
-                <span className="text-sm text-muted-foreground">- Pedido creado</span>
+
+              <div className="border rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <Badge variant="outline" className="bg-green-50">
+                    GET
+                  </Badge>
+                  <code className="text-sm break-all">/api/shopify/check</code>
+                </div>
+                <p className="text-sm text-muted-foreground mb-2">Verificar conexión con Shopify</p>
+                <div className="text-xs">
+                  <strong>Respuesta:</strong> {`{connected: boolean, shop: string}`}
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">POST</Badge>
-                <code>customers/create</code>
-                <span className="text-sm text-muted-foreground">- Cliente creado</span>
+
+              <div className="border rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <Badge variant="outline" className="bg-green-50">
+                    GET
+                  </Badge>
+                  <code className="text-sm break-all">/api/shopify/test-connection</code>
+                </div>
+                <p className="text-sm text-muted-foreground mb-2">Probar conexión con Shopify</p>
+                <div className="text-xs">
+                  <strong>Respuesta:</strong> Estado detallado de la conexión
+                </div>
               </div>
             </div>
-          </div>
-
-          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-            <p className="text-sm text-yellow-800">
-              <strong>Nota:</strong> Los webhooks no están implementados actualmente. La sincronización se realiza
-              manualmente desde el panel de administración.
-            </p>
           </div>
         </CardContent>
       </Card>

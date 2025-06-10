@@ -105,7 +105,7 @@ export default function LoginPage() {
           >
             <span className="text-2xl font-bold text-white">G</span>
           </div>
-          <h1 className="text-3xl font-bold mb-2 text-gray-900">GranitoSkate</h1>
+          <h1 className="text-3xl font-bold mb-2 text-gray-900">{theme.shopName}</h1>
           <p className="text-gray-600">Panel de Administración</p>
         </div>
 
@@ -219,7 +219,7 @@ export default function LoginPage() {
         {/* Footer */}
         <div className="text-center mt-8">
           <p className="text-sm text-gray-500">
-            © {new Date().getFullYear()} GranitoSkate. Todos los derechos reservados.
+            © {new Date().getFullYear()} {theme.shopName}. Todos los derechos reservados.
           </p>
         </div>
       </div>

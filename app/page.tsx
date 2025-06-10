@@ -22,7 +22,7 @@ export default async function Home() {
             <div className="rounded-full bg-[var(--color-primary)] p-2">
               <img src="/favicon.ico" alt="GranitoSkate Logo" className="h-6 w-6" />
             </div>
-            <span className="text-xl font-bold">GranitoSkate</span>
+            <span className="text-xl font-bold">{process.env.NEXT_PUBLIC_SHOP_NAME || "Granito Management app"}</span>
           </div>
           <div>
             <Link href="/login">
@@ -53,7 +53,7 @@ export default async function Home() {
         {/* Content */}
         <div className="relative z-10 container mx-auto px-4 text-center">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6 text-white drop-shadow-lg">
-            Panel de Administración GranitoSkate
+            Panel de Administración {process.env.NEXT_PUBLIC_SHOP_NAME || "Granito Management app"}
           </h1>
           <p className="text-lg sm:text-xl text-white/90 mb-8 sm:mb-10 max-w-3xl mx-auto drop-shadow-md">
             Gestiona tu tienda Shopify de manera eficiente con nuestro panel de administración personalizado.
@@ -102,7 +102,8 @@ export default async function Home() {
       <footer className="bg-gray-100 py-6 sm:py-8 mt-auto relative z-10">
         <div className="container mx-auto px-4 text-center">
           <p className="text-sm sm:text-base text-gray-600">
-            &copy; {new Date().getFullYear()} GranitoSkate. Todos los derechos reservados.
+            &copy; {new Date().getFullYear()} {process.env.NEXT_PUBLIC_SHOP_NAME || "Granito Management app"}. Todos los
+            derechos reservados.
           </p>
         </div>
       </footer>
