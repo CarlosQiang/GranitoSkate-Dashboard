@@ -13,7 +13,6 @@ import { formatDate, formatCurrency } from "@/lib/utils"
 import { MoreHorizontal, Pencil, ShoppingCart, UserPlus, RefreshCw } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { CustomerDetail } from "@/components/customer-detail"
-import { SyncCustomersOnly } from "@/components/sync-customers-only"
 import { ResponsivePageContainer } from "@/components/responsive-page-container"
 import Link from "next/link"
 
@@ -350,11 +349,6 @@ export default function CustomersPage() {
             </DialogContent>
           </Dialog>
         )}
-
-        {/* Componente de reemplazo de clientes al final */}
-        <div className="w-full">
-          <SyncCustomersOnly onSyncComplete={() => {}} />
-        </div>
       </div>
     </ResponsivePageContainer>
   )

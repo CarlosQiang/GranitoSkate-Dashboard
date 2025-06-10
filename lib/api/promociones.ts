@@ -35,11 +35,11 @@ export async function fetchPromociones(filter = "todas") {
 
       if (shopifyResponse.ok) {
         const shopifyData = await shopifyResponse.json()
+        console.log("📊 Respuesta de Shopify:", shopifyData)
+
         if (shopifyData.success && Array.isArray(shopifyData.promociones)) {
           console.log(`✅ Promociones de Shopify: ${shopifyData.promociones.length}`)
-
-          // Asegurarse de que todas las promociones tengan el campo esShopify
-          todasPromociones = shopifyData.promociones.map((promo) => ({
+          todasPromociones = shopifyData.promociones.map((promo: any) => ({
             ...promo,
             esShopify: true,
           }))
@@ -91,7 +91,26 @@ export async function fetchPromociones(filter = "todas") {
       console.error("Error al obtener promociones de BD local:", dbError)
     }
 
-    console.log(`✅ Total promociones combinadas: ${todasPromociones.length}`)
+    // Aplicar filtros si es necesario
+    if (filter !== "todas" && todasPromociones.length > 0) {
+      const now = new Date()
+
+      if (filter === "activas") {
+        todasPromociones = todasPromociones.filter((p: any) => p.activa === true)
+      } else if (filter === "programadas") {
+        todasPromociones = todasPromociones.filter((p: any) => {
+          const fechaInicio = new Date(p.fecha_inicio || p.fechaInicio)
+          return fechaInicio > now
+        })
+      } else if (filter === "expiradas") {
+        todasPromociones = todasPromociones.filter((p: any) => {
+          const fechaFin = p.fecha_fin || p.fechaFin ? new Date(p.fecha_fin || p.fechaFin) : null
+          return fechaFin && fechaFin < now
+        })
+      }
+    }
+
+    console.log(`✅ Total promociones filtradas (${filter}): ${todasPromociones.length}`)
     return todasPromociones
   } catch (error) {
     console.error("❌ Error al obtener promociones:", error)

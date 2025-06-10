@@ -12,7 +12,6 @@ import { fetchRecentOrders } from "@/lib/api/orders"
 import { useToast } from "@/components/ui/use-toast"
 import { formatDate, formatCurrency } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { SyncOrdersOnly } from "@/components/sync-orders-only"
 import { OrdersFilters } from "@/components/orders-filters"
 import { ResponsivePageContainer } from "@/components/responsive-page-container"
 
@@ -349,11 +348,6 @@ export default function OrdersPage() {
               </TableBody>
             </Table>
           </div>
-        </div>
-
-        {/* Componente de reemplazo de pedidos al final */}
-        <div className="w-full">
-          <SyncOrdersOnly onSyncComplete={() => {}} />
         </div>
       </div>
     </ResponsivePageContainer>
