@@ -27,6 +27,7 @@ export default function NewPromotionPage() {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
 
   const [formData, setFormData] = useState({
     title: "",
@@ -51,6 +52,11 @@ export default function NewPromotionPage() {
       ...formData,
       [name]: value,
     })
+    // Limpiar errores cuando el usuario empiece a escribir
+    if (validationErrors.length > 0) {
+      setValidationErrors([])
+      setError(null)
+    }
   }
 
   const handleSwitchChange = (name: string, checked: boolean) => {
@@ -76,25 +82,64 @@ export default function NewPromotionPage() {
     }
   }
 
+  const validateForm = () => {
+    const errors: string[] = []
+
+    // Validar título
+    if (!formData.title.trim()) {
+      errors.push("El título es obligatorio")
+    } else if (formData.title.trim().length < 3) {
+      errors.push("El título debe tener al menos 3 caracteres")
+    }
+
+    // Validar valor
+    if (!formData.value) {
+      errors.push("El valor del descuento es obligatorio")
+    } else if (isNaN(Number(formData.value)) || Number(formData.value) <= 0) {
+      errors.push("El valor debe ser un número mayor que cero")
+    } else if (formData.type === "PERCENTAGE_DISCOUNT" && Number(formData.value) > 100) {
+      errors.push("El porcentaje no puede ser mayor que 100%")
+    }
+
+    // Validar código si se requiere
+    if (formData.requiresCode) {
+      if (!formData.code.trim()) {
+        errors.push("El código promocional es obligatorio si se requiere código")
+      } else if (formData.code.trim().length < 3) {
+        errors.push("El código promocional debe tener al menos 3 caracteres")
+      }
+    }
+
+    // Validar límite de usos
+    if (formData.limitUses) {
+      if (!formData.usageLimit || isNaN(Number(formData.usageLimit)) || Number(formData.usageLimit) <= 0) {
+        errors.push("El límite de usos debe ser un número mayor que cero")
+      }
+    }
+
+    // Validar target específico
+    if (formData.target !== "CART" && !formData.targetId.trim()) {
+      errors.push(`El ID de ${formData.target === "COLLECTION" ? "colección" : "producto"} es obligatorio`)
+    }
+
+    return errors
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
+    setValidationErrors([])
 
     try {
       console.log("🚀 Iniciando creación de promoción...")
 
       // Validaciones del lado del cliente
-      if (!formData.title.trim()) {
-        throw new Error("El nombre de la promoción es obligatorio")
-      }
-
-      if (!formData.value || isNaN(Number(formData.value)) || Number(formData.value) <= 0) {
-        throw new Error("El valor de la promoción debe ser un número mayor que cero")
-      }
-
-      if (formData.requiresCode && !formData.code.trim()) {
-        throw new Error("El código de la promoción es obligatorio si requiere código")
+      const clientErrors = validateForm()
+      if (clientErrors.length > 0) {
+        setValidationErrors(clientErrors)
+        setError("Por favor, corrige los errores antes de continuar")
+        return
       }
 
       // Preparar datos para envío
@@ -130,7 +175,16 @@ export default function NewPromotionPage() {
       // Verificar respuesta
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: "Error desconocido" }))
-        throw new Error(errorData.error || `Error HTTP: ${response.status}`)
+
+        if (errorData.details && Array.isArray(errorData.details)) {
+          setValidationErrors(errorData.details)
+          setError("Errores de validación del servidor:")
+        } else {
+          setError(errorData.error || `Error HTTP: ${response.status}`)
+        }
+
+        console.error("❌ Error del servidor:", errorData)
+        return
       }
 
       const result = await response.json()
@@ -178,11 +232,20 @@ export default function NewPromotionPage() {
         </Button>
       </div>
 
-      {error && (
+      {(error || validationErrors.length > 0) && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>
+            {error && <div className="mb-2">{error}</div>}
+            {validationErrors.length > 0 && (
+              <ul className="list-disc list-inside space-y-1">
+                {validationErrors.map((err, index) => (
+                  <li key={index}>{err}</li>
+                ))}
+              </ul>
+            )}
+          </AlertDescription>
         </Alert>
       )}
 
@@ -212,8 +275,11 @@ export default function NewPromotionPage() {
                 placeholder="Ej: Descuento en tablas de skate"
                 value={formData.title}
                 onChange={handleInputChange}
+                className={validationErrors.some((err) => err.includes("título")) ? "border-red-500" : ""}
               />
-              <p className="text-sm text-muted-foreground">Un nombre claro y atractivo para tu promoción</p>
+              <p className="text-sm text-muted-foreground">
+                Un nombre claro y atractivo para tu promoción (mínimo 3 caracteres)
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -297,10 +363,12 @@ export default function NewPromotionPage() {
                     name="value"
                     type="number"
                     min="0"
+                    max={formData.type === "PERCENTAGE_DISCOUNT" ? "100" : undefined}
                     step={formData.type === "PERCENTAGE_DISCOUNT" ? "1" : "0.01"}
                     placeholder={formData.type === "PERCENTAGE_DISCOUNT" ? "20" : "10.00"}
                     value={formData.value}
                     onChange={handleInputChange}
+                    className={validationErrors.some((err) => err.includes("valor")) ? "border-red-500" : ""}
                   />
                   <span className="ml-2 text-lg font-medium">
                     {formData.type === "PERCENTAGE_DISCOUNT" ? "%" : "€"}
@@ -308,7 +376,7 @@ export default function NewPromotionPage() {
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {formData.type === "PERCENTAGE_DISCOUNT"
-                    ? "Porcentaje de descuento a aplicar"
+                    ? "Porcentaje de descuento a aplicar (máximo 100%)"
                     : formData.type === "FIXED_AMOUNT_DISCOUNT"
                       ? "Cantidad fija a descontar del precio"
                       : formData.type === "BUY_X_GET_Y"
@@ -378,6 +446,7 @@ export default function NewPromotionPage() {
                   }
                   value={formData.targetId}
                   onChange={handleInputChange}
+                  className={validationErrors.some((err) => err.includes("ID")) ? "border-red-500" : ""}
                 />
                 <p className="text-sm text-muted-foreground">
                   {formData.target === "COLLECTION"
@@ -407,9 +476,10 @@ export default function NewPromotionPage() {
                   placeholder="Ej: VERANO2023"
                   value={formData.code}
                   onChange={handleInputChange}
+                  className={validationErrors.some((err) => err.includes("código")) ? "border-red-500" : ""}
                 />
                 <p className="text-sm text-muted-foreground">
-                  Código que los clientes deberán introducir para aplicar la promoción
+                  Código que los clientes deberán introducir para aplicar la promoción (mínimo 3 caracteres)
                 </p>
               </div>
             )}
@@ -519,6 +589,7 @@ export default function NewPromotionPage() {
                     placeholder="100"
                     value={formData.usageLimit}
                     onChange={handleInputChange}
+                    className={validationErrors.some((err) => err.includes("límite")) ? "border-red-500" : ""}
                   />
                   <p className="text-sm text-muted-foreground">Cuántas veces se puede usar esta promoción en total</p>
                 </div>

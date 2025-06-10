@@ -119,31 +119,88 @@ export async function POST(request: Request) {
       )
     }
 
-    // Validaciones básicas
+    // Validaciones detalladas
     const validationErrors: string[] = []
 
-    if (!data.titulo || typeof data.titulo !== "string" || data.titulo.trim() === "") {
-      validationErrors.push("El título es obligatorio y debe ser un texto válido")
+    // Validar título
+    if (!data.titulo) {
+      validationErrors.push("El campo 'titulo' es obligatorio")
+    } else if (typeof data.titulo !== "string") {
+      validationErrors.push("El campo 'titulo' debe ser un texto")
+    } else if (data.titulo.trim().length < 3) {
+      validationErrors.push("El título debe tener al menos 3 caracteres")
+    } else if (data.titulo.trim().length > 100) {
+      validationErrors.push("El título no puede tener más de 100 caracteres")
     }
 
-    if (data.valor === undefined || data.valor === null || isNaN(Number(data.valor)) || Number(data.valor) <= 0) {
-      validationErrors.push("El valor debe ser un número mayor que cero")
+    // Validar valor
+    if (data.valor === undefined || data.valor === null) {
+      validationErrors.push("El campo 'valor' es obligatorio")
+    } else if (isNaN(Number(data.valor))) {
+      validationErrors.push("El campo 'valor' debe ser un número válido")
+    } else if (Number(data.valor) <= 0) {
+      validationErrors.push("El valor debe ser mayor que cero")
+    } else if (Number(data.valor) > 100 && data.tipo === "PERCENTAGE_DISCOUNT") {
+      validationErrors.push("El porcentaje de descuento no puede ser mayor que 100%")
     }
 
-    if (
-      data.tipo &&
-      !["PERCENTAGE_DISCOUNT", "FIXED_AMOUNT_DISCOUNT", "BUY_X_GET_Y", "FREE_SHIPPING"].includes(data.tipo)
-    ) {
-      validationErrors.push("Tipo de promoción no válido")
+    // Validar tipo
+    const tiposValidos = ["PERCENTAGE_DISCOUNT", "FIXED_AMOUNT_DISCOUNT", "BUY_X_GET_Y", "FREE_SHIPPING"]
+    if (data.tipo && !tiposValidos.includes(data.tipo)) {
+      validationErrors.push(`Tipo de promoción no válido. Debe ser uno de: ${tiposValidos.join(", ")}`)
+    }
+
+    // Validar fechas
+    if (data.fechaInicio) {
+      try {
+        new Date(data.fechaInicio)
+      } catch {
+        validationErrors.push("La fecha de inicio no es válida")
+      }
+    }
+
+    if (data.fechaFin) {
+      try {
+        const fechaFin = new Date(data.fechaFin)
+        const fechaInicio = new Date(data.fechaInicio || new Date())
+        if (fechaFin <= fechaInicio) {
+          validationErrors.push("La fecha de fin debe ser posterior a la fecha de inicio")
+        }
+      } catch {
+        validationErrors.push("La fecha de fin no es válida")
+      }
+    }
+
+    // Validar código si se requiere
+    if (data.codigo && typeof data.codigo === "string") {
+      if (data.codigo.trim().length < 3) {
+        validationErrors.push("El código promocional debe tener al menos 3 caracteres")
+      }
+      if (data.codigo.trim().length > 20) {
+        validationErrors.push("El código promocional no puede tener más de 20 caracteres")
+      }
+    }
+
+    // Validar límite de usos
+    if (data.limitarUsos && data.limiteUsos) {
+      if (isNaN(Number(data.limiteUsos)) || Number(data.limiteUsos) <= 0) {
+        validationErrors.push("El límite de usos debe ser un número mayor que cero")
+      }
+    }
+
+    // Validar compra mínima
+    if (data.compraMinima && (isNaN(Number(data.compraMinima)) || Number(data.compraMinima) < 0)) {
+      validationErrors.push("La compra mínima debe ser un número mayor o igual a cero")
     }
 
     if (validationErrors.length > 0) {
-      console.error("❌ Errores de validación:", validationErrors)
+      console.error("❌ Errores de validación específicos:", validationErrors)
       return NextResponse.json(
         {
           success: false,
           error: "Errores de validación",
           details: validationErrors,
+          receivedData: data, // Para debugging
         },
         { status: 400 },
       )
@@ -158,14 +215,14 @@ export async function POST(request: Request) {
     const nuevaPromocion = {
       id: id,
       titulo: data.titulo.trim(),
-      descripcion: data.descripcion || data.titulo.trim(),
+      descripcion: data.descripcion?.trim() || data.titulo.trim(),
       tipo: data.tipo || "PERCENTAGE_DISCOUNT",
       valor: Number(data.valor),
       target: data.target || "CART",
       targetId: data.targetId || null,
       fechaInicio: data.fechaInicio || new Date().toISOString(),
       fechaFin: data.fechaFin || null,
-      codigo: data.codigo || null,
+      codigo: data.codigo?.trim() || null,
       activa: data.activa !== undefined ? Boolean(data.activa) : true,
       limitarUsos: Boolean(data.limitarUsos),
       limiteUsos: data.limiteUsos ? Number(data.limiteUsos) : null,
