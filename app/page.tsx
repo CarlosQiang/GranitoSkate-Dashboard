@@ -3,8 +3,8 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { LogIn } from "lucide-react"
 import { redirect } from "next/navigation"
-import { ThemedButton } from "@/components/themed-button"
 import Image from "next/image"
+import { Button } from "@/components/ui/button"
 
 export default async function Home() {
   const session = await getServerSession(authOptions)
@@ -20,23 +20,23 @@ export default async function Home() {
       <header className="bg-white shadow-sm relative z-10">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-2">
-            <div className="rounded-full bg-[#c7a04a] p-2">
+            <div className="rounded-xl bg-white shadow-md p-1">
               <Image
                 src="/logo-granito-management.png"
-                alt="Granito Management app Logo"
-                width={24}
-                height={24}
-                className="rounded"
+                alt="Granito Management app"
+                width={32}
+                height={32}
+                className="rounded-lg"
               />
             </div>
             <span className="text-xl font-bold">Granito Management app</span>
           </div>
           <div>
             <Link href="/login">
-              <ThemedButton variant="outline" className="flex items-center gap-2">
+              <Button className="bg-[#c7a04a] hover:bg-[#b08a3d] text-white flex items-center gap-2">
                 <LogIn className="h-4 w-4" />
                 Iniciar sesión
-              </ThemedButton>
+              </Button>
             </Link>
           </div>
         </div>
@@ -59,18 +59,30 @@ export default async function Home() {
 
         {/* Content */}
         <div className="relative z-10 container mx-auto px-4 text-center">
+          <div className="flex justify-center mb-6">
+            <Image
+              src="/logo-granito-management.png"
+              alt="Granito Management app"
+              width={80}
+              height={80}
+              className="rounded-xl shadow-lg"
+            />
+          </div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6 text-white drop-shadow-lg">
-            Panel de Administración Granito Management app
+            Panel de Administración
           </h1>
           <p className="text-lg sm:text-xl text-white/90 mb-8 sm:mb-10 max-w-3xl mx-auto drop-shadow-md">
             Gestiona tu tienda Shopify de manera eficiente con nuestro panel de administración personalizado.
           </p>
           <div className="flex justify-center">
             <Link href="/login">
-              <ThemedButton size="lg" className="flex items-center gap-2 shadow-lg">
+              <Button
+                size="lg"
+                className="bg-[#c7a04a] hover:bg-[#b08a3d] text-white flex items-center gap-2 shadow-lg"
+              >
                 <LogIn className="h-5 w-5" />
                 Iniciar sesión
-              </ThemedButton>
+              </Button>
             </Link>
           </div>
         </div>

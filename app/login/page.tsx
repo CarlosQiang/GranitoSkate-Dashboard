@@ -27,6 +27,26 @@ export default function LoginPage() {
   // Valores por defecto seguros
   const shopName = theme?.shopName || "Granito Management app"
   const logoUrl = theme?.logoUrl || "/logo-granito-management.png"
+  const primaryColor = theme?.primaryColor || "#c7a04a"
+  const primaryColorHover = adjustBrightness(primaryColor, -10) || "#b08a3d"
+
+  // Función para ajustar el brillo de un color
+  function adjustBrightness(hex: string, percent: number): string {
+    if (!hex) return "#c7a04a"
+
+    // Convertir hex a RGB
+    let r = Number.parseInt(hex.substring(1, 3), 16)
+    let g = Number.parseInt(hex.substring(3, 5), 16)
+    let b = Number.parseInt(hex.substring(5, 7), 16)
+
+    // Ajustar brillo
+    r = Math.max(0, Math.min(255, r + Math.round((r * percent) / 100)))
+    g = Math.max(0, Math.min(255, g + Math.round((g * percent) / 100)))
+    b = Math.max(0, Math.min(255, b + Math.round((b * percent) / 100)))
+
+    // Convertir de nuevo a hex
+    return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`
+  }
 
   // Actualizar el título de la página solo en el cliente
   useEffect(() => {
@@ -75,19 +95,19 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-4 text-center">
           <div className="flex justify-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg bg-white p-1">
               <Image
                 src={logoUrl || "/placeholder.svg"}
-                alt={`${shopName} Logo`}
-                width={40}
-                height={40}
-                className="rounded-lg"
+                alt={shopName}
+                width={56}
+                height={56}
+                className="rounded-xl"
                 onError={(e) => {
                   // Fallback si la imagen no carga
                   const target = e.target as HTMLImageElement
                   target.style.display = "none"
                   if (target.parentElement) {
-                    target.parentElement.innerHTML = '<span class="text-white font-bold text-xl">G</span>'
+                    target.parentElement.innerHTML = '<span class="text-[#c7a04a] font-bold text-xl">G</span>'
                   }
                 }}
               />
@@ -97,7 +117,7 @@ export default function LoginPage() {
             <CardTitle className="text-2xl font-bold text-gray-900">{shopName}</CardTitle>
             <CardDescription className="text-gray-600">Panel de Administración</CardDescription>
           </div>
-          <div className="flex items-center justify-center space-x-2 text-amber-600">
+          <div className="flex items-center justify-center space-x-2" style={{ color: primaryColor }}>
             <Shield className="w-5 h-5" />
             <span className="text-sm font-medium">Acceso Seguro</span>
           </div>
@@ -114,7 +134,20 @@ export default function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                className="bg-gray-50 border-gray-200 focus:border-amber-500 focus:ring-amber-500"
+                className="bg-gray-50 border-gray-200"
+                style={{
+                  borderColor: `${primaryColor}40`,
+                  boxShadow: `0 0 0 0 ${primaryColor}00`,
+                  transition: "box-shadow 0.2s, border-color 0.2s",
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = primaryColor
+                  e.target.style.boxShadow = `0 0 0 2px ${primaryColor}40`
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = `${primaryColor}40`
+                  e.target.style.boxShadow = `0 0 0 0 ${primaryColor}00`
+                }}
               />
             </div>
             <div className="space-y-2">
@@ -127,7 +160,20 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="bg-gray-50 border-gray-200 focus:border-amber-500 focus:ring-amber-500 pr-10"
+                  className="bg-gray-50 border-gray-200 pr-10"
+                  style={{
+                    borderColor: `${primaryColor}40`,
+                    boxShadow: `0 0 0 0 ${primaryColor}00`,
+                    transition: "box-shadow 0.2s, border-color 0.2s",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = primaryColor
+                    e.target.style.boxShadow = `0 0 0 2px ${primaryColor}40`
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = `${primaryColor}40`
+                    e.target.style.boxShadow = `0 0 0 0 ${primaryColor}00`
+                  }}
                 />
                 <button
                   type="button"
@@ -140,14 +186,34 @@ export default function LoginPage() {
             </div>
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-medium py-2.5"
+              className="w-full text-white font-medium py-2.5"
+              style={{
+                backgroundColor: primaryColor,
+                transition: "background-color 0.2s",
+              }}
+              onMouseOver={(e) => {
+                ;(e.target as HTMLButtonElement).style.backgroundColor = primaryColorHover
+              }}
+              onMouseOut={(e) => {
+                ;(e.target as HTMLButtonElement).style.backgroundColor = primaryColor
+              }}
               disabled={isLoading}
             >
               {isLoading ? "Iniciando Sesión..." : "Iniciar Sesión"}
             </Button>
           </form>
           <div className="mt-6 text-center">
-            <Link href="/" className="text-sm text-amber-600 hover:text-amber-700 font-medium inline-flex items-center">
+            <Link
+              href="/"
+              className="text-sm font-medium inline-flex items-center"
+              style={{ color: primaryColor }}
+              onMouseOver={(e) => {
+                ;(e.target as HTMLAnchorElement).style.color = primaryColorHover
+              }}
+              onMouseOut={(e) => {
+                ;(e.target as HTMLAnchorElement).style.color = primaryColor
+              }}
+            >
               ← Volver al inicio
             </Link>
           </div>

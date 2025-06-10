@@ -121,28 +121,13 @@ export function DashboardNav() {
         )}
       >
         <div className="flex flex-col gap-1 p-4 pt-4 overflow-y-auto hide-scrollbar h-full">
-          {/* Logo o título en la parte superior del menú */}
+          {/* Logo en la parte superior del menú */}
           <div className="mb-6 flex items-center justify-center md:justify-start">
-            <div
-              className="h-10 w-10 rounded-md flex items-center justify-center mr-2 flex-shrink-0"
-              style={{ backgroundColor: theme.primaryColor }}
-            >
+            <div className="h-10 w-10 rounded-xl flex items-center justify-center mr-2 flex-shrink-0 bg-white shadow-md p-1">
               {theme?.logoUrl ? (
-                <Image
-                  src={theme.logoUrl || "/placeholder.svg"}
-                  alt={theme.shopName || "Logo"}
-                  width={32}
-                  height={32}
-                  className="rounded-md"
-                />
+                <Image src={theme.logoUrl || "/placeholder.svg"} alt="" width={32} height={32} className="rounded-lg" />
               ) : (
-                <Image
-                  src="/logo-granito-management.png"
-                  alt="Granito Management app"
-                  width={32}
-                  height={32}
-                  className="rounded-md"
-                />
+                <Image src="/logo-granito-management.png" alt="" width={32} height={32} className="rounded-lg" />
               )}
             </div>
             {!isCollapsed && <span className="font-bold text-lg">{theme.shopName || "Granito Management app"}</span>}
