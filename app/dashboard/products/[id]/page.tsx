@@ -156,8 +156,12 @@ export default function ProductPage({ params }) {
         description: "Los cambios se han guardado correctamente",
       })
 
-      // Recargar la página para mostrar los datos actualizados
-      router.refresh()
+      // Redirigir a la página de productos
+      toast({
+        title: "¡Producto actualizado!",
+        description: "Los cambios se han guardado correctamente",
+      })
+      router.push("/dashboard/products")
     } catch (error) {
       console.error("Error updating product:", error)
       toast({

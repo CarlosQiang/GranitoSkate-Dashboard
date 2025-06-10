@@ -57,6 +57,10 @@ export default function NewCollectionPage() {
       })
 
       // Redirigir a la página de colecciones después de crear
+      toast({
+        title: "¡Colección creada!",
+        description: "Tu colección ya está disponible en la tienda y optimizada para buscadores",
+      })
       router.push("/dashboard/collections")
     } catch (error) {
       console.error("Error creating collection:", error)

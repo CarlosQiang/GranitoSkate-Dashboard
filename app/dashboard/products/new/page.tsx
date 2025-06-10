@@ -80,8 +80,12 @@ export default function NewProductPage() {
         description: "El producto se ha creado correctamente",
       })
 
-      // Redirigir a la página del producto
-      router.push(`/dashboard/products/${result.id.split("/").pop()}`)
+      // Redirigir a la página de productos
+      toast({
+        title: "¡Producto creado!",
+        description: "El producto se ha creado correctamente",
+      })
+      router.push("/dashboard/products")
     } catch (error) {
       console.error("Error creating product:", error)
       setError(error.message || "No se pudo crear el producto")
