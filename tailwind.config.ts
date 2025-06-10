@@ -1,6 +1,6 @@
 import type { Config } from "tailwindcss"
 
-const config: Config = {
+const config = {
   darkMode: ["class"],
   content: [
     "./pages/**/*.{ts,tsx}",
@@ -9,6 +9,7 @@ const config: Config = {
     "./src/**/*.{ts,tsx}",
     "*.{js,ts,jsx,tsx,mdx}",
   ],
+  prefix: "",
   theme: {
     container: {
       center: true,
@@ -24,22 +25,6 @@ const config: Config = {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        granito: {
-          DEFAULT: "var(--color-primary)",
-          light: "var(--color-primary-light)",
-          dark: "var(--color-primary-dark)",
-          50: "hsl(var(--granito-50))",
-          100: "hsl(var(--granito-100))",
-          200: "hsl(var(--granito-200))",
-          300: "hsl(var(--granito-300))",
-          400: "hsl(var(--granito-400))",
-          500: "hsl(var(--granito-500))",
-          600: "hsl(var(--granito-600))",
-          700: "hsl(var(--granito-700))",
-          800: "hsl(var(--granito-800))",
-          900: "hsl(var(--granito-900))",
-          950: "hsl(var(--granito-950))",
-        },
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -68,6 +53,19 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        granito: {
+          50: "hsl(var(--granito-50))",
+          100: "hsl(var(--granito-100))",
+          200: "hsl(var(--granito-200))",
+          300: "hsl(var(--granito-300))",
+          400: "hsl(var(--granito-400))",
+          500: "hsl(var(--granito-500))",
+          600: "hsl(var(--granito-600))",
+          700: "hsl(var(--granito-700))",
+          800: "hsl(var(--granito-800))",
+          900: "hsl(var(--granito-900))",
+          950: "hsl(var(--granito-950))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -91,6 +89,6 @@ const config: Config = {
     },
   },
   plugins: [require("tailwindcss-animate")],
-}
+} satisfies Config
 
 export default config

@@ -18,11 +18,8 @@ export default async function Home() {
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <div className="rounded-full bg-[var(--color-primary)] p-2">
-              <img src="/favicon.ico" alt="GranitoSkate Logo" className="h-6 w-6" />
-            </div>
-            <span className="text-xl font-bold">GranitoSkate</span>
+          <div className="flex items-center space-x-3">
+            <img src="/images/granito-logo.png" alt="Granito Management App Logo" className="h-10 w-auto" />
           </div>
           <div>
             <Link href="/login">
@@ -75,21 +72,19 @@ export default async function Home() {
           <h2 className="text-2xl sm:text-3xl font-bold text-center mb-8 sm:mb-12">Características principales</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             <div className="p-4 sm:p-6 border rounded-lg shadow-sm">
-              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[var(--color-primary)]">
-                Gestión de productos
-              </h3>
+              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[#B8860B]">Gestión de productos</h3>
               <p className="text-sm sm:text-base text-gray-600">
                 Administra tu catálogo de productos de forma sencilla y eficiente.
               </p>
             </div>
             <div className="p-4 sm:p-6 border rounded-lg shadow-sm">
-              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[var(--color-primary)]">Análisis de ventas</h3>
+              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[#B8860B]">Análisis de ventas</h3>
               <p className="text-sm sm:text-base text-gray-600">
                 Visualiza estadísticas y métricas clave para tomar mejores decisiones.
               </p>
             </div>
             <div className="p-4 sm:p-6 border rounded-lg shadow-sm">
-              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[var(--color-primary)]">Optimización SEO</h3>
+              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[#B8860B]">Optimización SEO</h3>
               <p className="text-sm sm:text-base text-gray-600">
                 Mejora la visibilidad de tu tienda con herramientas de SEO integradas.
               </p>
