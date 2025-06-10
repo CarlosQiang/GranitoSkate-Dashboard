@@ -93,18 +93,31 @@ body {
   }
 }
 
-/* Estilos para el logo en el sidebar */
-.sidebar .logo-container {
+/* Mejoras para el logo en diferentes secciones */
+.logo-header {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+.logo-hero {
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+}
+
+.logo-footer {
+  filter: grayscale(20%) opacity(0.8);
   transition: all 0.3s ease;
 }
 
-.sidebar-collapsed .logo-container {
-  width: 40px;
-  overflow: hidden;
+.logo-footer:hover {
+  filter: grayscale(0%) opacity(1);
 }
 
-/* Ajuste para el logo completo */
-.sidebar-logo-full {
-  max-width: 100%;
-  height: auto;
+/* Responsive para logos */
+@media (max-width: 640px) {
+  .logo-header {
+    max-width: 160px;
+  }
+
+  .logo-hero {
+    max-width: 240px;
+  }
 }

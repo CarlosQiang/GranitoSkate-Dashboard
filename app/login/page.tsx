@@ -7,7 +7,7 @@ import { signIn, getSession } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Eye, EyeOff, Shield, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
@@ -29,7 +29,7 @@ export default function LoginPage() {
 
   // Valores por defecto seguros
   const shopName = theme?.shopName || "Granito Management app"
-  const logoUrl = theme?.logoUrl || "/logo-granito-management.png"
+  const logoUrl = "/logo-granito-completo.png"
   const primaryColor = theme?.primaryColor || "#c7a04a"
   const primaryColorHover = adjustBrightness(primaryColor, -10) || "#b08a3d"
 
@@ -128,36 +128,46 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-4 text-center">
+        <CardHeader className="space-y-6 text-center">
+          {/* Logo completo de Granito Management App */}
           <div className="flex justify-center">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg bg-white p-1">
+            <div className="w-64 h-auto">
               <Image
                 src={logoUrl || "/placeholder.svg"}
-                alt={shopName}
-                width={56}
-                height={56}
-                className="rounded-xl"
+                alt="Granito Management App"
+                width={256}
+                height={64}
+                className="w-full h-auto object-contain"
+                priority
                 onError={(e) => {
                   // Fallback si la imagen no carga
                   const target = e.target as HTMLImageElement
                   target.style.display = "none"
                   if (target.parentElement) {
-                    target.parentElement.innerHTML = '<span class="text-[#c7a04a] font-bold text-xl">G</span>'
+                    target.parentElement.innerHTML = `
+                      <div class="w-full h-16 bg-gradient-to-r from-amber-400 to-amber-600 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold text-xl">${shopName}</span>
+                      </div>
+                    `
                   }
                 }}
               />
             </div>
           </div>
-          <div>
-            <CardTitle className="text-2xl font-bold text-gray-900">{shopName}</CardTitle>
-            <CardDescription className="text-gray-600">Panel de Administración</CardDescription>
+
+          {/* Información debajo del logo */}
+          <div className="space-y-3">
+            <CardDescription className="text-lg font-medium text-gray-700">Panel de Administración</CardDescription>
+
+            <div className="flex items-center justify-center space-x-2" style={{ color: primaryColor }}>
+              <Shield className="w-5 h-5" />
+              <span className="text-sm font-medium">Acceso Seguro</span>
+            </div>
           </div>
-          <div className="flex items-center justify-center space-x-2" style={{ color: primaryColor }}>
-            <Shield className="w-5 h-5" />
-            <span className="text-sm font-medium">Acceso Seguro</span>
-          </div>
+
           <p className="text-sm text-gray-500">Ingresa tus credenciales para acceder al panel de administración</p>
         </CardHeader>
+
         <CardContent>
           {error && (
             <Alert variant="destructive" className="mb-4">
@@ -268,7 +278,7 @@ export default function LoginPage() {
         </CardContent>
       </Card>
       <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-gray-400">
-        © 2025 {shopName}. Todos los derechos reservados.
+        © 2025 Granito Management App. Todos los derechos reservados.
       </div>
     </div>
   )
