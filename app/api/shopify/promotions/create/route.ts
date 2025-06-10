@@ -12,6 +12,17 @@ export async function POST(request: Request) {
     const data = await request.json()
     console.log(`📝 Creando promoción en Shopify:`, data)
 
+    // Validar datos requeridos
+    if (!data.titulo || !data.valor) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Título y valor son requeridos",
+        },
+        { status: 400 },
+      )
+    }
+
     // Determinar si es un descuento automático o con código
     const isCodeDiscount = data.codigo && data.codigo.trim() !== ""
 
@@ -49,7 +60,7 @@ export async function POST(request: Request) {
         basicCodeDiscount: {
           title: data.titulo,
           code: data.codigo,
-          startsAt: data.fechaInicio,
+          startsAt: data.fechaInicio || new Date().toISOString(),
           endsAt: data.fechaFin,
           customerGets: {
             value:
@@ -68,6 +79,7 @@ export async function POST(request: Request) {
           customerSelection: {
             all: true,
           },
+          usageLimit: data.limiteUsos ? Number.parseInt(data.limiteUsos) : null,
         },
       }
     } else {
@@ -96,7 +108,7 @@ export async function POST(request: Request) {
       variables = {
         automaticBasicDiscount: {
           title: data.titulo,
-          startsAt: data.fechaInicio,
+          startsAt: data.fechaInicio || new Date().toISOString(),
           endsAt: data.fechaFin,
           customerGets: {
             value:
@@ -124,8 +136,13 @@ export async function POST(request: Request) {
       variables,
     })
 
+    // Verificar que tenemos las credenciales de Shopify
+    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
+      throw new Error("Credenciales de Shopify no configuradas")
+    }
+
     const response = await fetch(
-      `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-10/graphql.json`,
+      `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2024-01/graphql.json`,
       {
         method: "POST",
         headers: {
@@ -139,8 +156,11 @@ export async function POST(request: Request) {
       },
     )
 
-    const result = await response.json()
+    if (!response.ok) {
+      throw new Error(`HTTP Error: ${response.status} - ${response.statusText}`)
+    }
 
+    const result = await response.json()
     console.log(`📥 Respuesta de Shopify:`, result)
 
     if (result.errors) {
@@ -155,30 +175,11 @@ export async function POST(request: Request) {
 
     const createdNode = isCodeDiscount ? createResult.codeDiscountNode : createResult.automaticDiscountNode
 
-    console.log(`✅ Promoción creada en Shopify exitosamente:`, createdNode)
-
-    // También guardar en la base de datos local
-    try {
-      const dbData = {
-        ...data,
-        shopify_id: createdNode.id,
-      }
-
-      const dbResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/db/promociones`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(dbData),
-      })
-
-      if (dbResponse.ok) {
-        console.log("✅ Promoción guardada en base de datos local")
-      }
-    } catch (dbError) {
-      console.error("⚠️ Error guardando en base de datos local:", dbError)
-      // Continuamos aunque falle la BD local
+    if (!createdNode) {
+      throw new Error("No se pudo crear el descuento en Shopify")
     }
+
+    console.log(`✅ Promoción creada en Shopify exitosamente:`, createdNode)
 
     return NextResponse.json({
       success: true,
