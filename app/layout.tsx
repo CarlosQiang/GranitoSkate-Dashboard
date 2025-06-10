@@ -8,33 +8,15 @@ import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
 
-// Generar metadatos dinámicos basados en la configuración del tema
-export async function generateMetadata(): Promise<Metadata> {
-  let shopName = "Granito Management app"
-
-  try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/theme/public-config`, {
-      next: { revalidate: 3600 }, // Revalidar cada hora
-      cache: "force-cache",
-    })
-
-    if (res.ok) {
-      const data = await res.json()
-      shopName = data.shopName || shopName
-    }
-  } catch (error) {
-    console.error("Error al obtener el nombre de la tienda:", error)
-  }
-
-  return {
-    title: `${shopName} - Panel de Administración`,
-    description: `Panel de administración personalizado para ${shopName}`,
-    icons: {
-      icon: "/favicon-granito.ico",
-      shortcut: "/favicon-granito.ico",
-      apple: "/favicon-granito.ico",
-    },
-  }
+export const metadata: Metadata = {
+  title: "Granito Management app - Panel de Administración",
+  description: "Panel de administración para la tienda Granito Management app",
+  icons: {
+    icon: "/favicon-granito.ico",
+    shortcut: "/favicon-granito.ico",
+    apple: "/favicon-granito.ico",
+  },
+    generator: 'v0.dev'
 }
 
 export default function RootLayout({
@@ -60,7 +42,3 @@ export default function RootLayout({
     </html>
   )
 }
-
-export const metadata = {
-      generator: 'v0.dev'
-    };
