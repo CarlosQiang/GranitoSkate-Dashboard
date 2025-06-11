@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
     console.log("🔍 Obteniendo promociones de Shopify...")
 
     // Verificar variables de entorno
@@ -74,7 +81,7 @@ export async function GET() {
       }
     `
 
-    const response = await fetch(
+    const shopifyResponse = await fetch(
       `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-10/graphql.json`,
       {
         method: "POST",
@@ -86,33 +93,33 @@ export async function GET() {
       },
     )
 
-    if (!response.ok) {
-      console.error(`❌ Error en respuesta de Shopify: ${response.status}`)
+    if (!shopifyResponse.ok) {
+      console.error(`❌ Error en respuesta de Shopify: ${shopifyResponse.status}`)
       return NextResponse.json(
         {
           success: false,
-          error: `Error en respuesta de Shopify: ${response.status}`,
+          error: `Error en respuesta de Shopify: ${shopifyResponse.status}`,
           promotions: [],
         },
         { status: 500 },
       )
     }
 
-    const data = await response.json()
+    const shopifyData = await shopifyResponse.json()
 
-    if (data.errors) {
-      console.error("❌ Errores en la consulta GraphQL:", data.errors)
+    if (shopifyData.errors) {
+      console.error("❌ Errores en la consulta GraphQL:", shopifyData.errors)
       return NextResponse.json(
         {
           success: false,
-          error: `Errores en la consulta GraphQL: ${data.errors.map((e) => e.message).join(", ")}`,
+          error: `Errores en la consulta GraphQL: ${shopifyData.errors.map((e) => e.message).join(", ")}`,
           promotions: [],
         },
         { status: 500 },
       )
     }
 
-    if (!data.data || !data.data.discountNodes || !data.data.discountNodes.edges) {
+    if (!shopifyData.data || !shopifyData.data.discountNodes || !shopifyData.data.discountNodes.edges) {
       console.warn("⚠️ No se encontraron nodos de descuento")
       return NextResponse.json({
         success: true,
@@ -120,8 +127,8 @@ export async function GET() {
       })
     }
 
-    // Procesar las promociones
-    const promotions = data.data.discountNodes.edges.map((edge) => {
+    // Procesar las promociones de Shopify
+    const shopifyPromotions = shopifyData.data.discountNodes.edges.map((edge) => {
       const node = edge.node
       const discount = node.discount
 
@@ -160,7 +167,24 @@ export async function GET() {
       }
     })
 
-    console.log(`✅ ${promotions.length} promociones obtenidas de Shopify`)
+    console.log(`✅ ${shopifyPromotions.length} promociones obtenidas de Shopify`)
+
+    // Obtener promociones de la base de datos local
+    const localResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/db/promociones`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+
+    if (!localResponse.ok) {
+      throw new Error(`Error obteniendo promociones: ${localResponse.status}`)
+    }
+
+    const localPromotions = await localResponse.json()
+
+    // Combinar promociones de Shopify y locales
+    const promotions = [...shopifyPromotions, ...localPromotions]
 
     return NextResponse.json({
       success: true,
@@ -168,11 +192,11 @@ export async function GET() {
       total: promotions.length,
     })
   } catch (error) {
-    console.error("❌ Error obteniendo promociones de Shopify:", error)
+    console.error("Error obteniendo promociones:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Error al obtener promociones de Shopify",
+        error: "Error al obtener promociones",
         details: error.message,
         promotions: [],
       },

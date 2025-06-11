@@ -1,94 +1,102 @@
 import { NextResponse } from "next/server"
+import { sql } from "@vercel/postgres"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
-// Base de datos en memoria para promociones
-const promocionesDB = new Map<string, any>()
-
-// Inicializar con promociones de ejemplo
-if (promocionesDB.size === 0) {
-  promocionesDB.set("promo_1", {
-    id: "promo_1",
-    titulo: "Descuento de Verano",
-    descripcion: "20% de descuento en todos los productos",
-    tipo: "PERCENTAGE_DISCOUNT",
-    valor: 20,
-    activa: true,
-    fechaCreacion: new Date().toISOString(),
-  })
-
-  promocionesDB.set("promo_2", {
-    id: "promo_2",
-    titulo: "Envío Gratis",
-    descripcion: "Envío gratuito en compras superiores a 50€",
-    tipo: "FREE_SHIPPING",
-    valor: 50,
-    activa: true,
-    fechaCreacion: new Date().toISOString(),
-  })
-}
-
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    console.log("📋 GET promociones - Total:", promocionesDB.size)
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
 
-    const promociones = Array.from(promocionesDB.values())
+    const result = await sql`
+      SELECT * FROM promociones 
+      ORDER BY fecha_creacion DESC
+    `
 
-    return NextResponse.json({
-      success: true,
-      data: promociones,
-      total: promociones.length,
-    })
+    return NextResponse.json(
+      result.rows.map((row) => ({
+        id: row.id,
+        titulo: row.titulo,
+        descripcion: row.descripcion,
+        tipo: row.tipo,
+        valor: Number.parseFloat(row.valor),
+        codigo: row.codigo,
+        fechaInicio: row.fecha_inicio,
+        fechaFin: row.fecha_fin,
+        activa: row.activa,
+        shopify_id: row.shopify_id,
+        fechaCreacion: row.fecha_creacion,
+      })),
+    )
   } catch (error) {
-    console.error("❌ Error GET promociones:", error)
-    return NextResponse.json({ success: false, error: "Error al obtener promociones" }, { status: 500 })
+    console.error("Error obteniendo promociones:", error)
+    return NextResponse.json({ error: "Error al obtener promociones", details: error.message }, { status: 500 })
   }
 }
 
 export async function POST(request: Request) {
   try {
-    console.log("📝 POST promociones - Iniciando...")
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
 
     const data = await request.json()
-    console.log("📋 Datos recibidos:", data)
 
-    // Validaciones básicas y simples
-    if (!data.titulo || data.titulo.trim().length < 2) {
-      return NextResponse.json({ success: false, error: "El título debe tener al menos 2 caracteres" }, { status: 400 })
+    // Validar datos mínimos
+    if (!data.titulo) {
+      return NextResponse.json({ error: "El título es obligatorio" }, { status: 400 })
     }
 
-    if (!data.valor || Number(data.valor) <= 0) {
-      return NextResponse.json({ success: false, error: "El valor debe ser mayor que 0" }, { status: 400 })
+    const result = await sql`
+      INSERT INTO promociones (
+        titulo, 
+        descripcion, 
+        tipo, 
+        valor, 
+        codigo, 
+        fecha_inicio, 
+        fecha_fin, 
+        activa, 
+        shopify_id
+      ) 
+      VALUES (
+        ${data.titulo}, 
+        ${data.descripcion || ""}, 
+        ${data.tipo || "PORCENTAJE_DESCUENTO"}, 
+        ${data.valor || 0}, 
+        ${data.codigo || ""}, 
+        ${data.fechaInicio || new Date().toISOString()}, 
+        ${data.fechaFin || null}, 
+        ${data.activa !== undefined ? data.activa : true}, 
+        ${data.shopify_id || `local_${Date.now()}`}
+      )
+      RETURNING *
+    `
+
+    if (result.rows.length === 0) {
+      throw new Error("No se pudo crear la promoción")
     }
 
-    // Generar ID simple
-    const id = `promo_${Date.now()}`
-
-    // Crear promoción con datos mínimos
-    const nuevaPromocion = {
-      id: id,
-      titulo: data.titulo.trim(),
-      descripcion: data.descripcion?.trim() || data.titulo.trim(),
-      tipo: data.tipo || "PERCENTAGE_DISCOUNT",
-      valor: Number(data.valor),
-      codigo: data.codigo?.trim() || null,
-      activa: true,
-      fechaCreacion: new Date().toISOString(),
-      fechaInicio: data.fechaInicio || new Date().toISOString(),
-      fechaFin: data.fechaFin || null,
-      compraMinima: data.compraMinima ? Number(data.compraMinima) : null,
-    }
-
-    // Guardar
-    promocionesDB.set(id, nuevaPromocion)
-
-    console.log("✅ Promoción creada:", id)
+    const promocion = result.rows[0]
 
     return NextResponse.json({
-      success: true,
-      data: nuevaPromocion,
-      message: "Promoción creada correctamente",
+      id: promocion.id,
+      titulo: promocion.titulo,
+      descripcion: promocion.descripcion,
+      tipo: promocion.tipo,
+      valor: Number.parseFloat(promocion.valor),
+      codigo: promocion.codigo,
+      fechaInicio: promocion.fecha_inicio,
+      fechaFin: promocion.fecha_fin,
+      activa: promocion.activa,
+      shopify_id: promocion.shopify_id,
+      fechaCreacion: promocion.fecha_creacion,
     })
   } catch (error) {
-    console.error("❌ Error POST promociones:", error)
-    return NextResponse.json({ success: false, error: "Error interno del servidor" }, { status: 500 })
+    console.error("Error creando promoción:", error)
+    return NextResponse.json({ error: "Error al crear promoción", details: error.message }, { status: 500 })
   }
 }
