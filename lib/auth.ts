@@ -1,81 +1,102 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
+import { sql } from "@vercel/postgres"
+import { verifyPassword, updateLastLogin } from "./auth-service"
 
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
-      name: "credentials",
+      id: "credentials",
+      name: "Credentials",
       credentials: {
-        username: { label: "Username", type: "text" },
-        password: { label: "Password", type: "password" },
+        email: { label: "Usuario o Email", type: "text" },
+        password: { label: "Contraseña", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.username || !credentials?.password) {
+        if (!credentials?.email || !credentials?.password) {
+          console.log("❌ Credenciales incompletas")
           return null
         }
 
-        // Credenciales por defecto para desarrollo
-        const validCredentials = [
-          { username: "admin", password: "admin123" },
-          { username: "Carlos Qiang", password: "GranitoSkate" },
-          { username: "carlos", password: "granito2024" },
-        ]
+        try {
+          console.log("🔍 Buscando administrador con identificador:", credentials.email)
 
-        const user = validCredentials.find(
-          (cred) =>
-            (cred.username.toLowerCase() === credentials.username.toLowerCase() ||
-              cred.username === credentials.username) &&
-            cred.password === credentials.password,
-        )
+          // Buscar en la tabla de administradores por nombre de usuario o correo electrónico
+          const { rows } = await sql`
+            SELECT id, nombre_usuario, correo_electronico, contrasena, nombre_completo, rol, activo
+            FROM administradores
+            WHERE nombre_usuario = ${credentials.email} OR correo_electronico = ${credentials.email}
+          `
 
-        if (user) {
-          return {
-            id: "1",
-            name: user.username,
-            email: `${user.username.toLowerCase().replace(" ", ".")}@granito.com`,
+          if (rows.length === 0) {
+            console.log("❌ Administrador no encontrado")
+            return null
           }
-        }
 
-        return null
+          const admin = rows[0]
+
+          if (!admin.activo) {
+            console.log("❌ Administrador inactivo")
+            return null
+          }
+
+          const isValid = await verifyPassword(credentials.password, admin.contrasena)
+
+          if (!isValid) {
+            console.log("❌ Contraseña incorrecta")
+            return null
+          }
+
+          // Actualizar último acceso
+          await updateLastLogin(admin.id)
+
+          console.log("✅ Login exitoso para:", admin.correo_electronico)
+
+          return {
+            id: admin.id.toString(),
+            name: admin.nombre_completo || admin.nombre_usuario,
+            email: admin.correo_electronico,
+            role: admin.rol,
+          }
+        } catch (error) {
+          console.error("❌ Error en authorize:", error)
+          return null
+        }
       },
     }),
   ],
-  session: {
-    strategy: "jwt",
-    maxAge: 24 * 60 * 60, // 24 horas
-  },
-  jwt: {
-    maxAge: 24 * 60 * 60, // 24 horas
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.role = user.role
+        token.id = user.id
+      }
+      return token
+    },
+    async session({ session, token }) {
+      if (token && session.user) {
+        session.user.role = token.role as string
+        session.user.id = token.id as string
+      }
+      return session
+    },
+    async redirect({ url, baseUrl }) {
+      // Si la URL es relativa, usar baseUrl
+      if (url.startsWith("/")) return `${baseUrl}${url}`
+      // Si la URL pertenece al mismo dominio, permitirla
+      else if (new URL(url).origin === baseUrl) return url
+      // Caso contrario, redirigir al dashboard
+      return `${baseUrl}/dashboard`
+    },
   },
   pages: {
     signIn: "/login",
     error: "/login",
   },
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id
-        token.name = user.name
-        token.email = user.email
-      }
-      return token
-    },
-    async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id as string
-        session.user.name = token.name
-        session.user.email = token.email as string
-      }
-      return session
-    },
-    async redirect({ url, baseUrl }) {
-      // Permite redirecciones relativas o al mismo origen
-      if (url.startsWith("/")) return `${baseUrl}${url}`
-      // Permite redirecciones al mismo origen
-      else if (new URL(url).origin === baseUrl) return url
-      return baseUrl
-    },
+  session: {
+    strategy: "jwt",
+    maxAge: 24 * 60 * 60, // 24 horas
   },
-  secret: process.env.NEXTAUTH_SECRET || "granito-secret-key-2024",
+  secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development",
 }

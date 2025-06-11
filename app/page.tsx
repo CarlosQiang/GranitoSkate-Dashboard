@@ -3,8 +3,7 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { LogIn } from "lucide-react"
 import { redirect } from "next/navigation"
-import Image from "next/image"
-import { Button } from "@/components/ui/button"
+import { ThemedButton } from "@/components/themed-button"
 
 export default async function Home() {
   const session = await getServerSession(authOptions)
@@ -18,23 +17,19 @@ export default async function Home() {
     <div className="min-h-screen flex flex-col">
       {/* Header */}
       <header className="bg-white shadow-sm relative z-10">
-        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center">
-            <Image
-              src="/logo-granito-completo.png"
-              alt="Granito Management app"
-              width={200}
-              height={60}
-              className="h-12 w-auto"
-              priority
-            />
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <div className="flex items-center space-x-2">
+            <div className="rounded-full bg-[var(--color-primary)] p-2">
+              <img src="/favicon.ico" alt="GranitoSkate Logo" className="h-6 w-6" />
+            </div>
+            <span className="text-xl font-bold">GranitoSkate</span>
           </div>
           <div>
             <Link href="/login">
-              <Button className="bg-[#c7a04a] hover:bg-[#b08a3d] text-white flex items-center gap-2">
+              <ThemedButton variant="outline" className="flex items-center gap-2">
                 <LogIn className="h-4 w-4" />
                 Iniciar sesión
-              </Button>
+              </ThemedButton>
             </Link>
           </div>
         </div>
@@ -57,31 +52,18 @@ export default async function Home() {
 
         {/* Content */}
         <div className="relative z-10 container mx-auto px-4 text-center">
-          <div className="flex justify-center mb-8">
-            <Image
-              src="/logo-granito-completo.png"
-              alt="Granito Management app"
-              width={400}
-              height={120}
-              className="h-20 sm:h-24 md:h-28 w-auto drop-shadow-2xl"
-              priority
-            />
-          </div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6 text-white drop-shadow-lg">
-            Panel de Administración
+            Panel de Administración GranitoSkate
           </h1>
           <p className="text-lg sm:text-xl text-white/90 mb-8 sm:mb-10 max-w-3xl mx-auto drop-shadow-md">
             Gestiona tu tienda Shopify de manera eficiente con nuestro panel de administración personalizado.
           </p>
           <div className="flex justify-center">
             <Link href="/login">
-              <Button
-                size="lg"
-                className="bg-[#c7a04a] hover:bg-[#b08a3d] text-white flex items-center gap-2 shadow-lg text-lg px-8 py-3"
-              >
+              <ThemedButton size="lg" className="flex items-center gap-2 shadow-lg">
                 <LogIn className="h-5 w-5" />
                 Iniciar sesión
-              </Button>
+              </ThemedButton>
             </Link>
           </div>
         </div>
@@ -92,20 +74,22 @@ export default async function Home() {
         <div className="container mx-auto px-4">
           <h2 className="text-2xl sm:text-3xl font-bold text-center mb-8 sm:mb-12">Características principales</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-            <div className="p-4 sm:p-6 border rounded-lg shadow-sm hover:shadow-md transition-shadow">
-              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[#c7a04a]">Gestión de productos</h3>
+            <div className="p-4 sm:p-6 border rounded-lg shadow-sm">
+              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[var(--color-primary)]">
+                Gestión de productos
+              </h3>
               <p className="text-sm sm:text-base text-gray-600">
                 Administra tu catálogo de productos de forma sencilla y eficiente.
               </p>
             </div>
-            <div className="p-4 sm:p-6 border rounded-lg shadow-sm hover:shadow-md transition-shadow">
-              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[#c7a04a]">Análisis de ventas</h3>
+            <div className="p-4 sm:p-6 border rounded-lg shadow-sm">
+              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[var(--color-primary)]">Análisis de ventas</h3>
               <p className="text-sm sm:text-base text-gray-600">
                 Visualiza estadísticas y métricas clave para tomar mejores decisiones.
               </p>
             </div>
-            <div className="p-4 sm:p-6 border rounded-lg shadow-sm hover:shadow-md transition-shadow">
-              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[#c7a04a]">Optimización SEO</h3>
+            <div className="p-4 sm:p-6 border rounded-lg shadow-sm">
+              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[var(--color-primary)]">Optimización SEO</h3>
               <p className="text-sm sm:text-base text-gray-600">
                 Mejora la visibilidad de tu tienda con herramientas de SEO integradas.
               </p>
@@ -117,17 +101,8 @@ export default async function Home() {
       {/* Footer */}
       <footer className="bg-gray-100 py-6 sm:py-8 mt-auto relative z-10">
         <div className="container mx-auto px-4 text-center">
-          <div className="flex justify-center mb-4">
-            <Image
-              src="/logo-granito-completo.png"
-              alt="Granito Management app"
-              width={150}
-              height={45}
-              className="h-8 w-auto opacity-70"
-            />
-          </div>
           <p className="text-sm sm:text-base text-gray-600">
-            &copy; {new Date().getFullYear()} Granito Management app. Todos los derechos reservados.
+            &copy; {new Date().getFullYear()} GranitoSkate. Todos los derechos reservados.
           </p>
         </div>
       </footer>

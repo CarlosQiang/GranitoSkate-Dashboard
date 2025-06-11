@@ -10,45 +10,16 @@ export async function POST(request: Request) {
     }
 
     const data = await request.json()
-    console.log(`📝 [SHOPIFY CREATE] Datos recibidos:`, data)
-
-    // Validar datos requeridos
-    if (!data.titulo || !data.valor) {
-      console.error("❌ [SHOPIFY CREATE] Datos faltantes:", { titulo: data.titulo, valor: data.valor })
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Título y valor son requeridos",
-        },
-        { status: 400 },
-      )
-    }
-
-    // Verificar credenciales
-    if (!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
-      console.error("❌ [SHOPIFY CREATE] Credenciales faltantes")
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Credenciales de Shopify no configuradas",
-          details: {
-            shop_domain: !!process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN,
-            access_token: !!process.env.SHOPIFY_ACCESS_TOKEN,
-          },
-        },
-        { status: 500 },
-      )
-    }
+    console.log(`📝 Creando promoción en Shopify:`, data)
 
     // Determinar si es un descuento automático o con código
     const isCodeDiscount = data.codigo && data.codigo.trim() !== ""
-    console.log(`🔍 [SHOPIFY CREATE] Tipo de descuento:`, isCodeDiscount ? "Con código" : "Automático")
 
     let mutation: string
     let variables: any
 
     if (isCodeDiscount) {
-      // Crear descuento con código - ESTRUCTURA CORREGIDA
+      // Crear descuento con código
       mutation = `
         mutation discountCodeBasicCreate($basicCodeDiscount: DiscountCodeBasicInput!) {
           discountCodeBasicCreate(basicCodeDiscount: $basicCodeDiscount) {
@@ -78,12 +49,18 @@ export async function POST(request: Request) {
         basicCodeDiscount: {
           title: data.titulo,
           code: data.codigo,
-          startsAt: data.fechaInicio || new Date().toISOString(),
-          endsAt: data.fechaFin || null,
+          startsAt: data.fechaInicio,
+          endsAt: data.fechaFin,
           customerGets: {
-            value: {
-              percentage: Number.parseFloat(data.valor) / 100,
-            },
+            value:
+              data.tipo === "PERCENTAGE_DISCOUNT" || data.tipo === "PORCENTAJE_DESCUENTO"
+                ? { percentage: Number.parseFloat(data.valor) / 100 }
+                : {
+                    discountAmount: {
+                      amount: Number.parseFloat(data.valor).toString(),
+                      appliesOnEachItem: false,
+                    },
+                  },
             items: {
               all: true,
             },
@@ -91,11 +68,10 @@ export async function POST(request: Request) {
           customerSelection: {
             all: true,
           },
-          usageLimit: data.limiteUsos ? Number.parseInt(data.limiteUsos) : null,
         },
       }
     } else {
-      // Crear descuento automático - ESTRUCTURA CORREGIDA
+      // Crear descuento automático
       mutation = `
         mutation discountAutomaticBasicCreate($automaticBasicDiscount: DiscountAutomaticBasicInput!) {
           discountAutomaticBasicCreate(automaticBasicDiscount: $automaticBasicDiscount) {
@@ -120,12 +96,18 @@ export async function POST(request: Request) {
       variables = {
         automaticBasicDiscount: {
           title: data.titulo,
-          startsAt: data.fechaInicio || new Date().toISOString(),
-          endsAt: data.fechaFin || null,
+          startsAt: data.fechaInicio,
+          endsAt: data.fechaFin,
           customerGets: {
-            value: {
-              percentage: Number.parseFloat(data.valor) / 100,
-            },
+            value:
+              data.tipo === "PERCENTAGE_DISCOUNT" || data.tipo === "PORCENTAJE_DESCUENTO"
+                ? { percentage: Number.parseFloat(data.valor) / 100 }
+                : {
+                    discountAmount: {
+                      amount: Number.parseFloat(data.valor).toString(),
+                      appliesOnEachItem: false,
+                    },
+                  },
             items: {
               all: true,
             },
@@ -137,97 +119,43 @@ export async function POST(request: Request) {
       }
     }
 
-    console.log(`🔄 [SHOPIFY CREATE] Variables preparadas:`, JSON.stringify(variables, null, 2))
-
-    // Usar la versión más reciente de la API
-    const shopifyUrl = `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2024-01/graphql.json`
-    console.log(`🔗 [SHOPIFY CREATE] URL:`, shopifyUrl)
-
-    const response = await fetch(shopifyUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN!,
-      },
-      body: JSON.stringify({
-        query: mutation,
-        variables,
-      }),
+    console.log(`🔄 Enviando mutación a Shopify:`, {
+      mutation: mutation.substring(0, 100) + "...",
+      variables,
     })
 
-    console.log(`📥 [SHOPIFY CREATE] Respuesta HTTP:`, response.status, response.statusText)
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error("❌ [SHOPIFY CREATE] Error HTTP:", errorText)
-      return NextResponse.json(
-        {
-          success: false,
-          error: `HTTP Error: ${response.status} - ${response.statusText}`,
-          details: errorText,
+    const response = await fetch(
+      `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-10/graphql.json`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN!,
         },
-        { status: response.status },
-      )
-    }
+        body: JSON.stringify({
+          query: mutation,
+          variables,
+        }),
+      },
+    )
 
     const result = await response.json()
-    console.log(`📊 [SHOPIFY CREATE] Resultado completo:`, JSON.stringify(result, null, 2))
+
+    console.log(`📥 Respuesta de Shopify:`, result)
 
     if (result.errors) {
-      console.error("❌ [SHOPIFY CREATE] Errores GraphQL:", result.errors)
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Errores GraphQL",
-          details: result.errors,
-        },
-        { status: 400 },
-      )
+      throw new Error(`Shopify GraphQL errors: ${JSON.stringify(result.errors)}`)
     }
 
-    const createResult = isCodeDiscount
-      ? result.data?.discountCodeBasicCreate
-      : result.data?.discountAutomaticBasicCreate
-
-    if (!createResult) {
-      console.error("❌ [SHOPIFY CREATE] No se recibió resultado de creación")
-      return NextResponse.json(
-        {
-          success: false,
-          error: "No se recibió resultado de la creación",
-          details: result,
-        },
-        { status: 500 },
-      )
-    }
+    const createResult = isCodeDiscount ? result.data.discountCodeBasicCreate : result.data.discountAutomaticBasicCreate
 
     if (createResult.userErrors && createResult.userErrors.length > 0) {
-      console.error("❌ [SHOPIFY CREATE] Errores de usuario:", createResult.userErrors)
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Errores de validación",
-          details: createResult.userErrors,
-        },
-        { status: 400 },
-      )
+      throw new Error(`Shopify user errors: ${JSON.stringify(createResult.userErrors)}`)
     }
 
     const createdNode = isCodeDiscount ? createResult.codeDiscountNode : createResult.automaticDiscountNode
 
-    if (!createdNode) {
-      console.error("❌ [SHOPIFY CREATE] No se creó el nodo de descuento")
-      return NextResponse.json(
-        {
-          success: false,
-          error: "No se pudo crear el descuento",
-          details: createResult,
-        },
-        { status: 500 },
-      )
-    }
-
-    console.log(`✅ [SHOPIFY CREATE] Promoción creada exitosamente:`, createdNode.id)
+    console.log(`✅ Promoción creada en Shopify exitosamente:`, createdNode)
 
     // También guardar en la base de datos local
     try {
@@ -266,20 +194,14 @@ export async function POST(request: Request) {
         codigo: data.codigo,
         activa: true,
       },
-      debug: {
-        isCodeDiscount,
-        variables,
-        createResult,
-      },
     })
   } catch (error) {
-    console.error("❌ [SHOPIFY CREATE] Error completo:", error)
+    console.error("❌ Error creando promoción en Shopify:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Error interno del servidor",
-        details: error.message,
-        stack: error.stack,
+        error: "Error al crear promoción en Shopify",
+        details: (error as Error).message,
       },
       { status: 500 },
     )
