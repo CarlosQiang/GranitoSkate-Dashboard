@@ -129,17 +129,57 @@ export async function getThemeConfig(shopId: string, configName = "default"): Pr
         enableDarkMode: dbConfig.enable_dark_mode,
         preferDarkMode: dbConfig.prefer_dark_mode,
         shopName: dbConfig.shop_name || defaultThemeConfig.shopName,
-        logoUrl: logoAsset ? logoAsset.filePath : null,
-        favicon: faviconAsset ? faviconAsset.filePath : null,
+        logoUrl: logoAsset ? logoAsset.filePath : defaultThemeConfig.logoUrl,
+        favicon: faviconAsset ? faviconAsset.filePath : defaultThemeConfig.favicon,
       }
     }
 
-    // Si no hay configuración, crear una con los valores predeterminados
+    // Si no hay configuración, crear una con los valores predeterminados e inicializar los assets
     await saveThemeConfig(shopId, defaultThemeConfig, configName)
+    await initializeDefaultAssets(shopId)
     return defaultThemeConfig
   } catch (error) {
     console.error("Error al obtener la configuración del tema:", error)
     return defaultThemeConfig
+  }
+}
+
+// Nueva función para inicializar los assets predeterminados
+export async function initializeDefaultAssets(shopId: string): Promise<void> {
+  try {
+    // Verificar si ya existen los assets
+    const existingLogo = await getThemeAsset(shopId, "logo")
+    const existingFavicon = await getThemeAsset(shopId, "favicon")
+
+    // Si no existe el logo, crear el registro con la ruta predeterminada
+    if (!existingLogo && defaultThemeConfig.logoUrl) {
+      await saveThemeAsset(
+        shopId,
+        "logo",
+        "logo-granito-management.png",
+        defaultThemeConfig.logoUrl,
+        "image/png",
+        0, // Tamaño desconocido para archivos predeterminados
+        256,
+        256,
+      )
+    }
+
+    // Si no existe el favicon, crear el registro con la ruta predeterminada
+    if (!existingFavicon && defaultThemeConfig.favicon) {
+      await saveThemeAsset(
+        shopId,
+        "favicon",
+        "favicon-granito.ico",
+        defaultThemeConfig.favicon,
+        "image/x-icon",
+        0, // Tamaño desconocido para archivos predeterminados
+        32,
+        32,
+      )
+    }
+  } catch (error) {
+    console.error("Error al inicializar los assets predeterminados:", error)
   }
 }
 

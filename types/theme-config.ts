@@ -31,7 +31,7 @@ export const defaultThemeConfig: ThemeConfig = {
   sidebarStyle: "default",
   enableAnimations: true,
   animationSpeed: "normal",
-  shopName: "GranitoSkate",
-  logoUrl: null,
-  favicon: null,
+  shopName: "Granito Management app",
+  logoUrl: "/logo-granito-management.png",
+  favicon: "/favicon-granito.ico",
 }

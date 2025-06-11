@@ -3,225 +3,282 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { signIn, getSession, useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
+import { signIn, getSession } from "next-auth/react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, Eye, EyeOff, Shield, User, ArrowLeft } from "lucide-react"
+import { Eye, EyeOff, Shield, AlertCircle } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import Link from "next/link"
+import Image from "next/image"
 import { useTheme } from "@/contexts/theme-context"
-import { ThemedButton } from "@/components/themed-button"
-import {
-  ThemedCard,
-  ThemedCardHeader,
-  ThemedCardTitle,
-  ThemedCardDescription,
-  ThemedCardContent,
-} from "@/components/themed-card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function LoginPage() {
-  const [identifier, setIdentifier] = useState("")
+  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
   const router = useRouter()
-  const { data: session, status } = useSession()
+  const searchParams = useSearchParams()
+  const { toast } = useToast()
   const { theme } = useTheme()
 
-  // Si ya está autenticado, redirigir al dashboard
+  // Valores por defecto seguros
+  const shopName = theme?.shopName || "Granito Management app"
+  const logoUrl = "/logo-granito-completo.png"
+  const primaryColor = theme?.primaryColor || "#c7a04a"
+  const primaryColorHover = adjustBrightness(primaryColor, -10) || "#b08a3d"
+
+  // Función para ajustar el brillo de un color
+  function adjustBrightness(hex: string, percent: number): string {
+    if (!hex) return "#c7a04a"
+
+    // Convertir hex a RGB
+    let r = Number.parseInt(hex.substring(1, 3), 16)
+    let g = Number.parseInt(hex.substring(3, 5), 16)
+    let b = Number.parseInt(hex.substring(5, 7), 16)
+
+    // Ajustar brillo
+    r = Math.max(0, Math.min(255, r + Math.round((r * percent) / 100)))
+    g = Math.max(0, Math.min(255, g + Math.round((g * percent) / 100)))
+    b = Math.max(0, Math.min(255, b + Math.round((b * percent) / 100)))
+
+    // Convertir de nuevo a hex
+    return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`
+  }
+
+  // Verificar si ya está autenticado
   useEffect(() => {
-    if (status === "authenticated" && session) {
-      console.log("✅ Usuario ya autenticado, redirigiendo...")
-      router.push("/dashboard")
+    const checkAuth = async () => {
+      const session = await getSession()
+      if (session) {
+        router.push("/dashboard")
+      }
     }
-  }, [session, status, router])
+    checkAuth()
+  }, [router])
+
+  // Manejar errores de URL
+  useEffect(() => {
+    const errorParam = searchParams.get("error")
+    if (errorParam) {
+      setError("Error de autenticación. Por favor, inténtalo de nuevo.")
+    }
+  }, [searchParams])
+
+  // Actualizar el título de la página solo en el cliente
+  useEffect(() => {
+    if (typeof window !== "undefined" && shopName) {
+      document.title = `${shopName} - Iniciar Sesión`
+    }
+  }, [shopName])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")
 
-    try {
-      console.log("🔐 Intentando iniciar sesión con:", identifier)
+    if (!username.trim() || !password.trim()) {
+      setError("Por favor, completa todos los campos")
+      setIsLoading(false)
+      return
+    }
 
+    try {
       const result = await signIn("credentials", {
-        email: identifier,
-        password,
+        username: username.trim(),
+        password: password,
         redirect: false,
       })
 
-      console.log("🔍 Resultado del login:", result)
-
       if (result?.error) {
-        console.error("❌ Error de login:", result.error)
-        setError("Credenciales incorrectas. Verifica tu usuario/email y contraseña.")
+        setError("Credenciales incorrectas. Por favor, verifica tu usuario y contraseña.")
+        toast({
+          title: "Error de autenticación",
+          description: "Credenciales incorrectas. Por favor, inténtalo de nuevo.",
+          variant: "destructive",
+        })
       } else if (result?.ok) {
-        console.log("✅ Login exitoso, verificando sesión...")
-
-        setTimeout(async () => {
-          const session = await getSession()
-          if (session) {
-            console.log("✅ Sesión verificada, redirigiendo al dashboard...")
-            router.push("/dashboard")
-            router.refresh()
-          } else {
-            setError("Error al establecer la sesión")
-          }
-        }, 1000)
+        toast({
+          title: "¡Bienvenido!",
+          description: "Has iniciado sesión correctamente.",
+        })
+        // Pequeña pausa para mostrar el toast
+        setTimeout(() => {
+          router.push("/dashboard")
+        }, 500)
       }
     } catch (error) {
-      console.error("❌ Error durante el login:", error)
-      setError("Error de conexión. Inténtalo de nuevo.")
+      console.error("Error de login:", error)
+      setError("Ha ocurrido un error inesperado. Por favor, inténtalo de nuevo.")
+      toast({
+        title: "Error",
+        description: "Ha ocurrido un error inesperado. Por favor, inténtalo de nuevo.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Mostrar loading si está verificando la sesión
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-[var(--color-primary)]" />
-          <p className="text-gray-600">Verificando sesión...</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-white">
-      <div className="w-full max-w-md mx-auto">
-        {/* Logo y título */}
-        <div className="text-center mb-8">
-          <div
-            className="mx-auto h-16 w-16 rounded-xl flex items-center justify-center mb-4 shadow-lg"
-            style={{
-              backgroundColor: theme.primaryColor,
-            }}
-          >
-            <span className="text-2xl font-bold text-white">G</span>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-6 text-center">
+          {/* Logo completo de Granito Management App */}
+          <div className="flex justify-center">
+            <div className="w-64 h-auto">
+              <Image
+                src={logoUrl || "/placeholder.svg"}
+                alt="Granito Management App"
+                width={256}
+                height={64}
+                className="w-full h-auto object-contain"
+                priority
+                onError={(e) => {
+                  // Fallback si la imagen no carga
+                  const target = e.target as HTMLImageElement
+                  target.style.display = "none"
+                  if (target.parentElement) {
+                    target.parentElement.innerHTML = `
+                      <div class="w-full h-16 bg-gradient-to-r from-amber-400 to-amber-600 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold text-xl">${shopName}</span>
+                      </div>
+                    `
+                  }
+                }}
+              />
+            </div>
           </div>
-          <h1 className="text-3xl font-bold mb-2 text-gray-900">GranitoSkate</h1>
-          <p className="text-gray-600">Panel de Administración</p>
-        </div>
 
-        <ThemedCard className="shadow-xl border-0 backdrop-blur-sm">
-          <ThemedCardHeader className="space-y-1 pb-6">
-            <div className="flex items-center justify-center mb-4">
-              <Shield style={{ color: theme.primaryColor }} className="h-8 w-8" />
+          {/* Información debajo del logo */}
+          <div className="space-y-3">
+            <CardDescription className="text-lg font-medium text-gray-700">Panel de Administración</CardDescription>
+
+            <div className="flex items-center justify-center space-x-2" style={{ color: primaryColor }}>
+              <Shield className="w-5 h-5" />
+              <span className="text-sm font-medium">Acceso Seguro</span>
             </div>
-            <ThemedCardTitle className="text-2xl font-bold text-center">Acceso Seguro</ThemedCardTitle>
-            <ThemedCardDescription className="text-center">
-              Ingresa tus credenciales para acceder al panel de administración
-            </ThemedCardDescription>
-          </ThemedCardHeader>
-          <ThemedCardContent className="space-y-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="identifier" className="font-medium text-gray-700">
-                  Usuario o Correo Electrónico
-                </Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="identifier"
-                    type="text"
-                    placeholder="usuario o email"
-                    value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
-                    required
-                    disabled={isLoading}
-                    className="pl-10 h-12 border-gray-200 focus:border-[var(--color-primary)] focus:ring-[var(--color-primary)]"
-                    autoComplete="username"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password" className="font-medium text-gray-700">
-                  Contraseña
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    disabled={isLoading}
-                    className="pr-10 h-12 border-gray-200 focus:border-[var(--color-primary)] focus:ring-[var(--color-primary)]"
-                    autoComplete="current-password"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-12 px-3 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                    disabled={isLoading}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-              {error && (
-                <Alert variant="destructive" className="border-red-200 bg-red-50">
-                  <AlertDescription className="text-red-700">{error}</AlertDescription>
-                </Alert>
-              )}
-              <ThemedButton
-                type="submit"
-                className="w-full h-12 text-white font-medium shadow-lg transition-all duration-200"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Iniciando sesión...
-                  </>
-                ) : (
-                  "Iniciar Sesión"
-                )}
-              </ThemedButton>
+          </div>
 
-              {/* Botón de volver - nueva posición */}
-              <div className="text-center">
-                <Link href="/">
-                  <Button
-                    variant="ghost"
-                    className="flex items-center gap-2 text-gray-600 hover:text-[var(--color-primary)] mx-auto"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Volver al inicio
-                  </Button>
-                </Link>
-              </div>
-            </form>
+          <p className="text-sm text-gray-500">Ingresa tus credenciales para acceder al panel de administración</p>
+        </CardHeader>
 
-            {/* Información de seguridad */}
-            <div className="pt-4 border-t border-gray-100">
-              <div className="flex items-center justify-center text-sm text-gray-500">
-                <Shield className="h-4 w-4 mr-2" />
-                Conexión segura y cifrada
+        <CardContent>
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Usuario o Correo Electrónico</Label>
+              <Input
+                id="username"
+                type="text"
+                placeholder="Carlos Qiang"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                className="bg-gray-50 border-gray-200"
+                style={{
+                  borderColor: `${primaryColor}40`,
+                  boxShadow: `0 0 0 0 ${primaryColor}00`,
+                  transition: "box-shadow 0.2s, border-color 0.2s",
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = primaryColor
+                  e.target.style.boxShadow = `0 0 0 2px ${primaryColor}40`
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = `${primaryColor}40`
+                  e.target.style.boxShadow = `0 0 0 0 ${primaryColor}00`
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Contraseña</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="bg-gray-50 border-gray-200 pr-10"
+                  style={{
+                    borderColor: `${primaryColor}40`,
+                    boxShadow: `0 0 0 0 ${primaryColor}00`,
+                    transition: "box-shadow 0.2s, border-color 0.2s",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = primaryColor
+                    e.target.style.boxShadow = `0 0 0 2px ${primaryColor}40`
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = `${primaryColor}40`
+                    e.target.style.boxShadow = `0 0 0 0 ${primaryColor}00`
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
-          </ThemedCardContent>
-        </ThemedCard>
+            <Button
+              type="submit"
+              className="w-full text-white font-medium py-2.5"
+              style={{
+                backgroundColor: primaryColor,
+                transition: "background-color 0.2s",
+              }}
+              onMouseOver={(e) => {
+                ;(e.target as HTMLButtonElement).style.backgroundColor = primaryColorHover
+              }}
+              onMouseOut={(e) => {
+                ;(e.target as HTMLButtonElement).style.backgroundColor = primaryColor
+              }}
+              disabled={isLoading}
+            >
+              {isLoading ? "Iniciando Sesión..." : "Iniciar Sesión"}
+            </Button>
+          </form>
 
-        {/* Footer */}
-        <div className="text-center mt-8">
-          <p className="text-sm text-gray-500">
-            © {new Date().getFullYear()} GranitoSkate. Todos los derechos reservados.
-          </p>
-        </div>
+          <div className="mt-6 text-center">
+            <Link
+              href="/"
+              className="text-sm font-medium inline-flex items-center"
+              style={{ color: primaryColor }}
+              onMouseOver={(e) => {
+                ;(e.target as HTMLAnchorElement).style.color = primaryColorHover
+              }}
+              onMouseOut={(e) => {
+                ;(e.target as HTMLAnchorElement).style.color = primaryColor
+              }}
+            >
+              ← Volver al inicio
+            </Link>
+          </div>
+
+          <div className="mt-4 flex items-center justify-center text-xs text-gray-500">
+            <Shield className="w-3 h-3 mr-1" />
+            Conexión segura y cifrada
+          </div>
+        </CardContent>
+      </Card>
+      <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-gray-400">
+        © 2025 Granito Management App. Todos los derechos reservados.
       </div>
     </div>
   )
