@@ -1,43 +1,53 @@
 import { NextResponse } from "next/server"
-import { sql } from "@vercel/postgres"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
+// Simulación de base de datos en memoria para promociones
+const promocionesDB = new Map<string, any>()
+
 export async function GET(request: Request) {
   try {
+    // Verificar autenticación
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    const result = await sql`
-      SELECT * FROM promociones 
-      ORDER BY fecha_creacion DESC
-    `
+    const { searchParams } = new URL(request.url)
+    const filter = searchParams.get("filter") || "todas"
 
-    return NextResponse.json(
-      result.rows.map((row) => ({
-        id: row.id,
-        titulo: row.titulo,
-        descripcion: row.descripcion,
-        tipo: row.tipo,
-        valor: Number.parseFloat(row.valor),
-        codigo: row.codigo,
-        fechaInicio: row.fecha_inicio,
-        fechaFin: row.fecha_fin,
-        activa: row.activa,
-        shopify_id: row.shopify_id,
-        fechaCreacion: row.fecha_creacion,
-      })),
-    )
+    console.log(`🔍 Obteniendo promociones con filtro: ${filter}`)
+
+    // Obtener todas las promociones de la "base de datos" en memoria
+    const todasLasPromociones = Array.from(promocionesDB.values())
+
+    // Filtrar según el parámetro
+    let promocionesFiltradas = todasLasPromociones
+    if (filter === "activas") {
+      promocionesFiltradas = todasLasPromociones.filter((p) => p.activa === true)
+    } else if (filter === "programadas") {
+      promocionesFiltradas = todasLasPromociones.filter((p) => {
+        const fechaInicio = new Date(p.fechaInicio)
+        return fechaInicio > new Date()
+      })
+    } else if (filter === "expiradas") {
+      promocionesFiltradas = todasLasPromociones.filter((p) => {
+        const fechaFin = p.fechaFin ? new Date(p.fechaFin) : null
+        return fechaFin && fechaFin < new Date()
+      })
+    }
+
+    console.log(`✅ Promociones filtradas (${filter}): ${promocionesFiltradas.length}`)
+    return NextResponse.json(promocionesFiltradas)
   } catch (error) {
-    console.error("Error obteniendo promociones:", error)
-    return NextResponse.json({ error: "Error al obtener promociones", details: error.message }, { status: 500 })
+    console.error("❌ Error al obtener promociones:", error)
+    return NextResponse.json({ error: "Error al obtener promociones" }, { status: 500 })
   }
 }
 
 export async function POST(request: Request) {
   try {
+    // Verificar autenticación
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
@@ -45,58 +55,48 @@ export async function POST(request: Request) {
 
     const data = await request.json()
 
-    // Validar datos mínimos
+    console.log(`📝 Creando nueva promoción con datos:`, data)
+
+    // Validar datos requeridos
     if (!data.titulo) {
       return NextResponse.json({ error: "El título es obligatorio" }, { status: 400 })
     }
 
-    const result = await sql`
-      INSERT INTO promociones (
-        titulo, 
-        descripcion, 
-        tipo, 
-        valor, 
-        codigo, 
-        fecha_inicio, 
-        fecha_fin, 
-        activa, 
-        shopify_id
-      ) 
-      VALUES (
-        ${data.titulo}, 
-        ${data.descripcion || ""}, 
-        ${data.tipo || "PORCENTAJE_DESCUENTO"}, 
-        ${data.valor || 0}, 
-        ${data.codigo || ""}, 
-        ${data.fechaInicio || new Date().toISOString()}, 
-        ${data.fechaFin || null}, 
-        ${data.activa !== undefined ? data.activa : true}, 
-        ${data.shopify_id || `local_${Date.now()}`}
-      )
-      RETURNING *
-    `
+    // Generar ID único
+    const id = Date.now().toString()
 
-    if (result.rows.length === 0) {
-      throw new Error("No se pudo crear la promoción")
+    // Preparar datos para creación
+    const nuevaPromocion = {
+      id: id,
+      titulo: data.titulo,
+      descripcion: data.descripcion || data.titulo,
+      tipo: data.tipo || "PORCENTAJE_DESCUENTO",
+      objetivo: data.objetivo || "TODOS_LOS_PRODUCTOS",
+      valor: data.valor ? Number.parseFloat(data.valor) : 0,
+      fechaInicio: data.fechaInicio || new Date().toISOString(),
+      fechaFin: data.fechaFin || null,
+      codigo: data.codigo || null,
+      activa: data.activa !== undefined ? data.activa : true,
+      limitarUsos: data.limitarUsos || false,
+      limiteUsos: data.limiteUsos ? Number.parseInt(data.limiteUsos) : null,
+      compraMinima: data.compraMinima ? Number.parseFloat(data.compraMinima) : null,
+      fechaCreacion: new Date().toISOString(),
     }
 
-    const promocion = result.rows[0]
+    // Guardar en la "base de datos" en memoria
+    promocionesDB.set(id, nuevaPromocion)
 
-    return NextResponse.json({
-      id: promocion.id,
-      titulo: promocion.titulo,
-      descripcion: promocion.descripcion,
-      tipo: promocion.tipo,
-      valor: Number.parseFloat(promocion.valor),
-      codigo: promocion.codigo,
-      fechaInicio: promocion.fecha_inicio,
-      fechaFin: promocion.fecha_fin,
-      activa: promocion.activa,
-      shopify_id: promocion.shopify_id,
-      fechaCreacion: promocion.fecha_creacion,
-    })
+    console.log(`✅ Promoción creada exitosamente:`, nuevaPromocion)
+    return NextResponse.json(nuevaPromocion)
   } catch (error) {
-    console.error("Error creando promoción:", error)
-    return NextResponse.json({ error: "Error al crear promoción", details: error.message }, { status: 500 })
+    console.error("❌ Error al crear promoción:", error)
+
+    return NextResponse.json(
+      {
+        error: "Error al crear promoción",
+        details: (error as Error).message,
+      },
+      { status: 500 },
+    )
   }
 }

@@ -12,7 +12,6 @@ import {
   ShoppingCart,
   Tag,
   BarChart,
-  BookOpen,
 } from "lucide-react"
 
 // Exportamos navigationItems para mantener compatibilidad con el código existente
@@ -71,11 +70,6 @@ export const navigationItems = [
     name: "Administradores",
     href: "/dashboard/administradores",
     icon: UserCog,
-  },
-  {
-    name: "Documentación",
-    href: "/dashboard/documentacion",
-    icon: BookOpen,
   },
 ]
 
@@ -162,12 +156,6 @@ export const settingsNav = [
     icon: UserCog,
     color: "text-granito",
   },
-  {
-    title: "Documentación",
-    href: "/dashboard/documentacion",
-    icon: BookOpen,
-    color: "text-blue-600",
-  },
 ]
 
 // Añadir la sección de sincronización al menú de navegación
@@ -237,11 +225,6 @@ export const dashboardConfig = {
       title: "Administradores",
       href: "/dashboard/administradores",
       icon: "shield",
-    },
-    {
-      title: "Documentación",
-      href: "/dashboard/documentacion",
-      icon: "book-open",
     },
     {
       title: "Configuración",

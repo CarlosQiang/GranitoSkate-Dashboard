@@ -12,7 +12,6 @@ interface ThemeContextType {
   toggleDarkMode: () => void
   saveTheme: () => Promise<boolean>
   isSaving: boolean
-  isLoading: boolean
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
@@ -30,15 +29,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(true)
 
         // Primero intentamos cargar desde localStorage para una experiencia más rápida
-        if (typeof window !== "undefined") {
-          const savedTheme = localStorage.getItem("app-theme")
-          if (savedTheme) {
-            try {
-              const parsedTheme = JSON.parse(savedTheme)
-              setTheme({ ...defaultThemeConfig, ...parsedTheme })
-            } catch (error) {
-              console.error("Error al cargar el tema guardado:", error)
-            }
+        const savedTheme = localStorage.getItem("app-theme")
+        if (savedTheme) {
+          try {
+            const parsedTheme = JSON.parse(savedTheme)
+            setTheme(parsedTheme)
+          } catch (error) {
+            console.error("Error al cargar el tema guardado:", error)
           }
         }
 
@@ -48,10 +45,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           if (response.ok) {
             const data = await response.json()
             if (data.themeConfig) {
-              setTheme({ ...defaultThemeConfig, ...data.themeConfig })
-              if (typeof window !== "undefined") {
-                localStorage.setItem("app-theme", JSON.stringify(data.themeConfig))
-              }
+              setTheme(data.themeConfig)
+              localStorage.setItem("app-theme", JSON.stringify(data.themeConfig))
             }
           }
         } catch (error) {
@@ -70,28 +65,24 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   // Detectar preferencia de modo oscuro
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
-      const savedDarkMode = localStorage.getItem("dark-mode")
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
+    const savedDarkMode = localStorage.getItem("dark-mode")
 
-      if (savedDarkMode) {
-        setIsDarkMode(savedDarkMode === "true")
-      } else if (theme.preferDarkMode || (theme.enableDarkMode && prefersDark)) {
-        setIsDarkMode(true)
-      }
+    if (savedDarkMode) {
+      setIsDarkMode(savedDarkMode === "true")
+    } else if (theme.preferDarkMode || (theme.enableDarkMode && prefersDark)) {
+      setIsDarkMode(true)
     }
   }, [theme.enableDarkMode, theme.preferDarkMode])
 
   // Aplicar modo oscuro
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      if (isDarkMode) {
-        document.documentElement.classList.add("dark")
-      } else {
-        document.documentElement.classList.remove("dark")
-      }
-      localStorage.setItem("dark-mode", isDarkMode.toString())
+    if (isDarkMode) {
+      document.documentElement.classList.add("dark")
+    } else {
+      document.documentElement.classList.remove("dark")
     }
+    localStorage.setItem("dark-mode", isDarkMode.toString())
   }, [isDarkMode])
 
   // Función para convertir hex a HSL
@@ -150,7 +141,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   // Aplicar variables CSS personalizadas
   useEffect(() => {
-    if (isLoading || typeof window === "undefined") return
+    if (isLoading) return
 
     const root = document.documentElement
 
@@ -229,14 +220,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   // Aplicar estilos de botón
   const applyButtonStyle = (style: string) => {
-    if (typeof window === "undefined") return
     const root = document.documentElement
     root.setAttribute("data-button-style", style)
   }
 
   // Aplicar estilos de tarjeta
   const applyCardStyle = (style: string) => {
-    if (typeof window === "undefined") return
     const root = document.documentElement
     root.setAttribute("data-card-style", style)
   }
@@ -250,9 +239,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const resetTheme = () => {
     setTheme(defaultThemeConfig)
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("app-theme")
-    }
+    localStorage.removeItem("app-theme")
   }
 
   const toggleDarkMode = () => {
@@ -283,9 +270,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Siempre guardamos en localStorage
-      if (typeof window !== "undefined") {
-        localStorage.setItem("app-theme", JSON.stringify(theme))
-      }
+      localStorage.setItem("app-theme", JSON.stringify(theme))
       return true
     } catch (error) {
       console.error("Error al guardar el tema:", error)
@@ -305,7 +290,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         toggleDarkMode,
         saveTheme,
         isSaving,
-        isLoading,
       }}
     >
       {children}

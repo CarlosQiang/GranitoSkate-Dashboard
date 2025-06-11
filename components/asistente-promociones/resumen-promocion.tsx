@@ -1,181 +1,133 @@
 "use client"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import {
+  CalendarIcon,
+  PercentIcon,
+  CreditCardIcon,
+  ShoppingBagIcon,
+  PackageIcon,
+  TagIcon,
+  ShoppingCartIcon,
+} from "lucide-react"
+import type { TipoPromocion } from "./tipo-promocion"
+import type { ObjetivoPromocion } from "./objetivo-promocion"
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
-import { useState } from "react"
-import { useToast } from "@/components/ui/use-toast"
-import { useRouter } from "next/navigation"
-
-interface ResumenPromocionProps {
-  datosPromocion: any
-  setDatosPromocion: (datos: any) => void
+interface FormularioResumenPromocionProps {
+  datos: {
+    titulo: string
+    descripcion: string
+    tipo: TipoPromocion
+    objetivo: ObjetivoPromocion
+    valor: string
+    codigo: string
+    fechaInicio: Date
+    fechaFin?: Date
+    limiteUsos?: number
+  }
 }
 
-const ResumenPromocion = ({ datosPromocion, setDatosPromocion }: ResumenPromocionProps) => {
-  const { toast } = useToast()
-  const router = useRouter()
-  const [creandoPromocion, setCreandoPromocion] = useState(false)
-  const [error, setError] = useState("")
-
-  const crearPromocion = async () => {
-    if (creandoPromocion) return
-
-    setCreandoPromocion(true)
-    setError("")
-
-    try {
-      console.log("📝 Creando promoción:", datosPromocion)
-
-      // Preparar los datos para Shopify
-      const shopifyData = {
-        titulo: datosPromocion.titulo,
-        descripcion: datosPromocion.descripcion || datosPromocion.titulo,
-        tipo: datosPromocion.tipo,
-        valor: datosPromocion.valor,
-        codigo: datosPromocion.codigo || "",
-        fechaInicio: datosPromocion.fechaInicio
-          ? new Date(datosPromocion.fechaInicio).toISOString()
-          : new Date().toISOString(),
-        fechaFin: datosPromocion.fechaFin ? new Date(datosPromocion.fechaFin).toISOString() : null,
-        compraMinima: datosPromocion.compraMinima || null,
-        limitarUsos: datosPromocion.limitarUsos || false,
-        limiteUsos: datosPromocion.limiteUsos || null,
-        objetivo: datosPromocion.objetivo || "TODOS_LOS_PRODUCTOS",
-      }
-
-      console.log("📝 Datos preparados para Shopify:", shopifyData)
-
-      // Crear en Shopify primero
-      const shopifyResponse = await fetch("/api/shopify/promotions/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(shopifyData),
-      })
-
-      if (!shopifyResponse.ok) {
-        const errorData = await shopifyResponse.json()
-        throw new Error(errorData.error || `Error HTTP: ${shopifyResponse.status}`)
-      }
-
-      const shopifyResult = await shopifyResponse.json()
-
-      if (!shopifyResult.success) {
-        throw new Error(shopifyResult.error || "Error al crear promoción en Shopify")
-      }
-
-      console.log("✅ Promoción creada en Shopify:", shopifyResult)
-
-      // Mostrar mensaje de éxito
-      toast({
-        title: "¡Promoción creada!",
-        description: `La promoción "${datosPromocion.titulo}" se ha creado correctamente en Shopify.`,
-      })
-
-      // Redirigir a la lista de promociones
-      router.push("/dashboard/promociones")
-    } catch (error) {
-      console.error("❌ Error creando promoción:", error)
-      setError(error.message || "Error al crear la promoción")
-
-      toast({
-        title: "Error",
-        description: error.message || "No se pudo crear la promoción",
-        variant: "destructive",
-      })
-    } finally {
-      setCreandoPromocion(false)
-    }
+export function FormularioResumenPromocion({ datos }: FormularioResumenPromocionProps) {
+  const formatDate = (date: Date) => {
+    if (!date) return ""
+    return date.toLocaleDateString("es-ES", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    })
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Resumen de la Promoción</CardTitle>
-        <CardDescription>Revisa los detalles antes de crear la promoción.</CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-4">
-        <div className="grid gap-2">
-          <Label htmlFor="titulo">Título</Label>
-          <Input id="titulo" value={datosPromocion.titulo} readOnly />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="descripcion">Descripción</Label>
-          <Textarea id="descripcion" value={datosPromocion.descripcion} readOnly />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="tipo">Tipo de Promoción</Label>
-          <Input id="tipo" value={datosPromocion.tipo} readOnly />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="valor">Valor</Label>
-          <Input id="valor" value={datosPromocion.valor} readOnly />
-        </div>
-        {datosPromocion.tipo === "codigo_descuento" && (
-          <div className="grid gap-2">
-            <Label htmlFor="codigo">Código de Descuento</Label>
-            <Input id="codigo" value={datosPromocion.codigo} readOnly />
+    <div className="space-y-4">
+      <h2 className="text-xl font-semibold">Resumen de la promoción</h2>
+      <p className="text-muted-foreground">Revisa los detalles de tu promoción antes de crearla.</p>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle>{datos.titulo}</CardTitle>
+              <CardDescription>{datos.descripcion}</CardDescription>
+            </div>
+            <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800">
+              Borrador
+            </Badge>
           </div>
-        )}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="fechaInicio">Fecha de Inicio</Label>
-            <Input
-              id="fechaInicio"
-              value={
-                datosPromocion.fechaInicio
-                  ? format(new Date(datosPromocion.fechaInicio), "PPP", { locale: es })
-                  : "No definida"
-              }
-              readOnly
-            />
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-muted-foreground">Tipo de promoción</div>
+                <div className="flex items-center gap-2">
+                  {datos.tipo === "PORCENTAJE_DESCUENTO" && <PercentIcon className="h-4 w-4 text-primary" />}
+                  {datos.tipo === "CANTIDAD_FIJA" && <CreditCardIcon className="h-4 w-4 text-primary" />}
+                  {datos.tipo === "COMPRA_X_LLEVA_Y" && <ShoppingBagIcon className="h-4 w-4 text-primary" />}
+                  {datos.tipo === "ENVIO_GRATIS" && <PackageIcon className="h-4 w-4 text-primary" />}
+                  <span>
+                    {datos.tipo === "PORCENTAJE_DESCUENTO" && `${datos.valor}% de descuento`}
+                    {datos.tipo === "CANTIDAD_FIJA" && `${datos.valor}€ de descuento`}
+                    {datos.tipo === "COMPRA_X_LLEVA_Y" && "Compra X y lleva Y"}
+                    {datos.tipo === "ENVIO_GRATIS" && "Envío gratis"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-muted-foreground">Objetivo</div>
+                <div className="flex items-center gap-2">
+                  {datos.objetivo === "CART" && <ShoppingCartIcon className="h-4 w-4 text-primary" />}
+                  {datos.objetivo === "COLLECTION" && <TagIcon className="h-4 w-4 text-primary" />}
+                  {datos.objetivo === "PRODUCT" && <PackageIcon className="h-4 w-4 text-primary" />}
+                  <span>
+                    {datos.objetivo === "CART" && "Todo el carrito"}
+                    {datos.objetivo === "COLLECTION" && "Colección específica"}
+                    {datos.objetivo === "PRODUCT" && "Producto específico"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-muted-foreground">Código de promoción</div>
+                <div className="flex items-center">
+                  {datos.codigo ? (
+                    <Badge variant="secondary" className="font-mono">
+                      {datos.codigo}
+                    </Badge>
+                  ) : (
+                    <span className="text-muted-foreground">Aplicación automática (sin código)</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-muted-foreground">Límite de usos</div>
+                <div>
+                  {datos.limiteUsos ? (
+                    <span>{datos.limiteUsos} usos</span>
+                  ) : (
+                    <span className="text-muted-foreground">Sin límite</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t">
+              <div className="text-sm font-medium text-muted-foreground mb-2">Periodo de validez</div>
+              <div className="flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4 text-primary" />
+                <span>
+                  Desde {formatDate(datos.fechaInicio)}
+                  {datos.fechaFin ? ` hasta ${formatDate(datos.fechaFin)}` : " (sin fecha de finalización)"}
+                </span>
+              </div>
+            </div>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="fechaFin">Fecha de Fin</Label>
-            <Input
-              id="fechaFin"
-              value={
-                datosPromocion.fechaFin
-                  ? format(new Date(datosPromocion.fechaFin), "PPP", { locale: es })
-                  : "No definida"
-              }
-              readOnly
-            />
-          </div>
-        </div>
-        {datosPromocion.compraMinima && (
-          <div className="grid gap-2">
-            <Label htmlFor="compraMinima">Compra Mínima</Label>
-            <Input id="compraMinima" value={datosPromocion.compraMinima} readOnly />
-          </div>
-        )}
-        {datosPromocion.limitarUsos && (
-          <div className="grid gap-2">
-            <Label htmlFor="limiteUsos">Límite de Usos</Label>
-            <Input id="limiteUsos" value={datosPromocion.limiteUsos} readOnly />
-          </div>
-        )}
-        <div className="grid gap-2">
-          <Label htmlFor="objetivo">Objetivo</Label>
-          <Input id="objetivo" value={datosPromocion.objetivo} readOnly />
-        </div>
-      </CardContent>
-      <CardFooter className="flex justify-between">
-        <Button variant="outline" onClick={() => router.back()}>
-          Regresar
-        </Button>
-        <Button onClick={crearPromocion} disabled={creandoPromocion}>
-          {creandoPromocion ? "Creando..." : "Crear Promoción"}
-        </Button>
-      </CardFooter>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   )
 }
 
-export default ResumenPromocion
+// Exportar también como ResumenPromocion para mantener compatibilidad
+export const ResumenPromocion = FormularioResumenPromocion

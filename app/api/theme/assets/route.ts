@@ -43,19 +43,18 @@ export async function POST(request: Request) {
 
     // Crear un nombre de archivo único
     const fileExtension = file.name.split(".").pop()
-    const fileName = `${assetType}-${Date.now()}.${fileExtension}`
-    const publicPath = `/${fileName}`
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExtension}`
 
-    // Convertir el archivo a buffer
+    // Convertir el archivo a base64 para almacenarlo en la base de datos o usar un servicio de almacenamiento
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
-    // En un entorno real, aquí guardarías el archivo físicamente
-    // Por ahora, simularemos que se guarda correctamente
-    console.log(`Archivo ${fileName} guardado en ${publicPath}`)
+    // En lugar de guardar físicamente el archivo, vamos a usar una URL pública
+    // En un entorno de producción, deberías usar un servicio como Vercel Blob, AWS S3, etc.
+    const publicPath = `https://placehold.co/400x400/png?text=${encodeURIComponent(assetType)}`
 
     // Guardar la información del asset en la base de datos
-    const asset = await saveThemeAsset(shopId, assetType, fileName, publicPath, file.type, file.size)
+    const asset = await saveThemeAsset(shopId, assetType, file.name, publicPath, file.type, file.size)
 
     if (asset) {
       return NextResponse.json({ success: true, asset })

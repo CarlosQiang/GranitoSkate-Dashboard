@@ -1,14 +1,7 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
-
     console.log("🔍 Obteniendo promociones de Shopify...")
 
     // Verificar variables de entorno
@@ -81,7 +74,7 @@ export async function GET(request: Request) {
       }
     `
 
-    const shopifyResponse = await fetch(
+    const response = await fetch(
       `https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/api/2023-10/graphql.json`,
       {
         method: "POST",
@@ -93,33 +86,33 @@ export async function GET(request: Request) {
       },
     )
 
-    if (!shopifyResponse.ok) {
-      console.error(`❌ Error en respuesta de Shopify: ${shopifyResponse.status}`)
+    if (!response.ok) {
+      console.error(`❌ Error en respuesta de Shopify: ${response.status}`)
       return NextResponse.json(
         {
           success: false,
-          error: `Error en respuesta de Shopify: ${shopifyResponse.status}`,
+          error: `Error en respuesta de Shopify: ${response.status}`,
           promotions: [],
         },
         { status: 500 },
       )
     }
 
-    const shopifyData = await shopifyResponse.json()
+    const data = await response.json()
 
-    if (shopifyData.errors) {
-      console.error("❌ Errores en la consulta GraphQL:", shopifyData.errors)
+    if (data.errors) {
+      console.error("❌ Errores en la consulta GraphQL:", data.errors)
       return NextResponse.json(
         {
           success: false,
-          error: `Errores en la consulta GraphQL: ${shopifyData.errors.map((e) => e.message).join(", ")}`,
+          error: `Errores en la consulta GraphQL: ${data.errors.map((e) => e.message).join(", ")}`,
           promotions: [],
         },
         { status: 500 },
       )
     }
 
-    if (!shopifyData.data || !shopifyData.data.discountNodes || !shopifyData.data.discountNodes.edges) {
+    if (!data.data || !data.data.discountNodes || !data.data.discountNodes.edges) {
       console.warn("⚠️ No se encontraron nodos de descuento")
       return NextResponse.json({
         success: true,
@@ -127,8 +120,8 @@ export async function GET(request: Request) {
       })
     }
 
-    // Procesar las promociones de Shopify
-    const shopifyPromotions = shopifyData.data.discountNodes.edges.map((edge) => {
+    // Procesar las promociones
+    const promotions = data.data.discountNodes.edges.map((edge) => {
       const node = edge.node
       const discount = node.discount
 
@@ -167,24 +160,7 @@ export async function GET(request: Request) {
       }
     })
 
-    console.log(`✅ ${shopifyPromotions.length} promociones obtenidas de Shopify`)
-
-    // Obtener promociones de la base de datos local
-    const localResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/db/promociones`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
-
-    if (!localResponse.ok) {
-      throw new Error(`Error obteniendo promociones: ${localResponse.status}`)
-    }
-
-    const localPromotions = await localResponse.json()
-
-    // Combinar promociones de Shopify y locales
-    const promotions = [...shopifyPromotions, ...localPromotions]
+    console.log(`✅ ${promotions.length} promociones obtenidas de Shopify`)
 
     return NextResponse.json({
       success: true,
@@ -192,11 +168,11 @@ export async function GET(request: Request) {
       total: promotions.length,
     })
   } catch (error) {
-    console.error("Error obteniendo promociones:", error)
+    console.error("❌ Error obteniendo promociones de Shopify:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Error al obtener promociones",
+        error: "Error al obtener promociones de Shopify",
         details: error.message,
         promotions: [],
       },
